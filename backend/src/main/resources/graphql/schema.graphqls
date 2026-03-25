@@ -1,0 +1,104 @@
+type Query {
+    repository(id: ID!): Repository
+    repositories: [Repository!]!
+    cloudResourcesForRepo(repoId: ID!): [CloudResource!]!
+    dependenciesForRepo(repoId: ID!): [Repository!]!
+    dependentsForRepo(repoId: ID!): [Repository!]!
+    deploymentsForRepo(repoId: ID!): [Deployment!]!
+    teamForRepo(repoId: ID!): Team
+    pipelinesForRepo(repoId: ID!): [Pipeline!]!
+    impactAnalysis(repoId: ID!): ImpactAnalysis!
+    auditEventsForRepo(repoId: ID!): [AuditEvent!]!
+}
+
+type Mutation {
+    registerRepository(input: RepositoryInput!): Repository!
+    deleteRepository(id: ID!): Boolean!
+    linkRepoToTeam(repoId: ID!, teamId: ID!): Boolean!
+    linkRepoToCloudResource(repoId: ID!, resourceId: ID!): Boolean!
+    addRepoDependency(fromRepoId: ID!, toRepoId: ID!): Boolean!
+}
+
+type Repository {
+    id: ID!
+    orgRepo: String!
+    defaultBranch: String!
+    topics: [String!]!
+    codeowners: [String!]!
+    serviceId: String
+    language: String
+    description: String
+}
+
+type Team {
+    id: ID!
+    name: String!
+    email: String
+}
+
+type CloudResource {
+    id: ID!
+    provider: String!
+    resourceType: String!
+    name: String!
+    region: String
+    repoId: String
+}
+
+type Artifact {
+    id: ID!
+    name: String!
+    version: String!
+    commitSha: String
+    repoId: String
+    artifactType: String!
+}
+
+type Deployment {
+    id: ID!
+    artifactId: ID!
+    environmentId: ID!
+    deployedAt: String!
+    deployedBy: String
+    status: String!
+}
+
+type Environment {
+    id: ID!
+    name: String!
+    type: String!
+}
+
+type Pipeline {
+    id: ID!
+    name: String!
+    provider: String!
+    repoId: ID!
+    lastRunStatus: String
+}
+
+type AuditEvent {
+    id: ID!
+    eventType: String!
+    repoId: String
+    artifactId: String
+    actor: String
+    timestamp: String!
+}
+
+type ImpactAnalysis {
+    repoId: ID!
+    dependents: [Repository!]!
+    cloudResources: [CloudResource!]!
+    deployments: [Deployment!]!
+}
+
+input RepositoryInput {
+    orgRepo: String!
+    defaultBranch: String
+    topics: [String!]
+    codeowners: [String!]
+    serviceId: String
+    language: String
+    description: String
+}
