@@ -36,4 +36,5 @@ data class RepositoryResponse(
     }
 }
 
+/** Generic request body for linking a repository to another entity (team, cloud resource, pipeline, CI item). */
 data class LinkRequest(val targetId: String)
