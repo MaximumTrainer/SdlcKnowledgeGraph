@@ -63,9 +63,9 @@ class GraphController(private val graphQueryUseCase: GraphQueryUseCase) {
         val analysis = graphQueryUseCase.getImpactAnalysis(repoId)
         val response = ImpactAnalysisResponse(
             repoId = repoId,
-            dependents = analysis["dependents"] ?: emptyList(),
-            cloudResources = analysis["cloudResources"] ?: emptyList(),
-            deployments = analysis["deployments"] ?: emptyList()
+            dependents = analysis["dependents"]?.filterIsInstance<Repository>() ?: emptyList(),
+            cloudResources = analysis["cloudResources"]?.filterIsInstance<CloudResource>() ?: emptyList(),
+            deployments = analysis["deployments"]?.filterIsInstance<Deployment>() ?: emptyList()
         )
         return ResponseEntity.ok(response)
     }
