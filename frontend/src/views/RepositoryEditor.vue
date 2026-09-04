@@ -2,7 +2,7 @@
   <div class="editor-page">
     <h1>{{ isEdit ? 'Edit Repository' : 'Register Repository' }}</h1>
 
-    <form @submit.prevent="submit" class="editor-form">
+    <form class="editor-form" @submit.prevent="submit">
       <div class="field">
         <label>Repository (org/repo) *</label>
         <input v-model="form.orgRepo" placeholder="e.g. myorg/my-service" required />
@@ -40,7 +40,7 @@
 
       <div class="actions">
         <button type="submit" class="btn-primary" :disabled="saving">
-          {{ saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Register Repository') }}
+          {{ saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Register Repository' }}
         </button>
         <router-link to="/" class="btn-secondary">Cancel</router-link>
       </div>
@@ -53,6 +53,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { isAxiosError } from 'axios'
 import { repositoryApi } from '@/services/api'
 
 const router = useRouter()
@@ -97,13 +98,19 @@ async function submit() {
       language: form.value.language || undefined,
       description: form.value.description || undefined,
       serviceId: form.value.serviceId || undefined,
-      topics: topicsInput.value.split(',').map(s => s.trim()).filter(Boolean),
-      codeowners: codeownersInput.value.split(',').map(s => s.trim()).filter(Boolean)
+      topics: topicsInput.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+      codeowners: codeownersInput.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
     }
     await repositoryApi.create(payload)
     router.push('/')
-  } catch (e: any) {
-    error.value = e.response?.data?.message ?? 'Failed to save repository'
+  } catch (e: unknown) {
+    error.value = (isAxiosError(e) && e.response?.data?.message) || 'Failed to save repository'
   } finally {
     saving.value = false
   }
@@ -111,18 +118,78 @@ async function submit() {
 </script>
 
 <style scoped>
-.editor-page { max-width: 600px; }
-h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #2d3748; }
-.editor-form { background: white; border-radius: 10px; padding: 1.5rem; border: 1px solid #e2e8f0; }
-.field { margin-bottom: 1rem; }
-label { display: block; font-size: 0.85rem; font-weight: 600; color: #4a5568; margin-bottom: 0.3rem; }
-input, textarea { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.9rem; outline: none; }
-input:focus, textarea:focus { border-color: #63b3ed; box-shadow: 0 0 0 2px rgba(99,179,237,0.3); }
-textarea { resize: vertical; font-family: inherit; }
-.actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; align-items: center; }
-.btn-primary { background: #2b6cb0; color: white; border: none; padding: 0.6rem 1.25rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; }
-.btn-primary:hover:not(:disabled) { background: #2c5282; }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-secondary { color: #718096; text-decoration: none; font-size: 0.9rem; }
-.error { color: #e53e3e; margin-top: 1rem; font-size: 0.85rem; }
+.editor-page {
+  max-width: 600px;
+}
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #2d3748;
+}
+.editor-form {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+}
+.field {
+  margin-bottom: 1rem;
+}
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 0.3rem;
+}
+input,
+textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+}
+input:focus,
+textarea:focus {
+  border-color: #63b3ed;
+  box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.3);
+}
+textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  align-items: center;
+}
+.btn-primary {
+  background: #2b6cb0;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #2c5282;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  color: #718096;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.error {
+  color: #e53e3e;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
 </style>
