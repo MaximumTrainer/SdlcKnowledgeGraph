@@ -12,6 +12,8 @@
 
 # Package Files #
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
@@ -34,6 +36,12 @@ build/
 node_modules/
 dist/
 .npm/
+coverage/
+
+# Playwright output
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
 
 # IDE files
 .idea/
@@ -42,3 +50,7 @@ dist/
 
 # OS files
 .DS_Store
+.copilot-specs-cache/
+
+# Claude Code local session files
+.claude/

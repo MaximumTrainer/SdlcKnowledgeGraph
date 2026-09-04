@@ -1,0 +1,47 @@
+# Git hook gates for the SDLC Knowledge Graph (see docs/adr/0001-lefthook-git-hooks.md and docs/TESTING.md).
+#
+# Installed by `npm install` at the repo root (package.json "prepare" -> `lefthook install`).
+# Gradle is always invoked through scripts/gradle.mjs so the same config works on Windows and POSIX.
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: npx --no-install commitlint --edit {1}
+
+pre-commit:
+  parallel: true
+  jobs:
+    # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt or the
+    # compiler are reading them; the group as a whole still runs in parallel with the frontend jobs.
+    - name: backend
+      group:
+        piped: true
+        jobs:
+          - name: ktlint-format
+            glob: "backend/**/*.{kt,kts}"
+            run: node scripts/gradle.mjs ktlintFormat --quiet
+            stage_fixed: true
+          - name: detekt
+            glob: "backend/**/*.{kt,kts}"
+            run: node scripts/gradle.mjs detekt --quiet
+          - name: unit-test
+            glob: "backend/**/*.{kt,kts}"
+            run: node scripts/gradle.mjs test --quiet
+    - name: frontend-lint
+      root: frontend/
+      glob: "*.{js,cjs,mjs,ts,vue}"
+      run: npx --no-install eslint --fix {staged_files} && npx --no-install prettier --write {staged_files}
+      stage_fixed: true
+    - name: frontend-unit-related
+      root: frontend/
+      glob: "src/**/*.{ts,vue}"
+      run: npx --no-install vitest related --run --passWithNoTests {staged_files}
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: backend-check
+      run: node scripts/gradle.mjs check --quiet
+    - name: frontend-verify
+      root: frontend/
+      run: npm run verify
