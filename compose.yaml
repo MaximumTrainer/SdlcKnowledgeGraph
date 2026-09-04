@@ -59,7 +59,9 @@ services:
       backend:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/healthz || exit 1"]
+      # 127.0.0.1, not localhost: busybox wget resolves localhost to [::1] first and nginx listens
+      # on IPv4 only, so the IPv6 attempt is refused and the container never reports healthy.
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/healthz || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 12
