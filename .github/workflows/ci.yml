@@ -16,6 +16,11 @@ jobs:
   commitlint:
     name: Commit messages
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The action lists the pull request's commits through the API, which needs this scope.
+      # Without it the request is rejected and the job fails without linting anything.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
