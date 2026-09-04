@@ -1,0 +1,73 @@
+name: Bug
+description: Something behaves differently from what the ontology, API or UI promises.
+title: "<what is wrong, in one line>"
+labels: ["type:bug", "tdd:acceptance-first"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / Why
+      description: Where you hit it, why it matters, and which users or connectors are affected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce, expected and actual behaviour
+      placeholder: |
+        1. docker compose up -d --build --wait
+        2. POST /api/v1/repositories/{id}/teams/{missingTeamId}
+        Expected: 404
+        Actual: 200 and no edge is written
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope - In / Out
+      description: What the fix covers and what is deliberately left for another issue.
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Functional requirements
+      description: The corrected behaviour, including error responses.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A Given/When/Then regression scenario that fails today and passes when fixed.
+      render: gherkin
+      placeholder: |
+        Scenario: Linking to a missing team is rejected
+          Given a Repository node exists with id "r1"
+          And no Team node exists with id "t-missing"
+          When I POST /api/v1/repositories/r1/teams/t-missing
+          Then the response status is 404
+    validations:
+      required: true
+  - type: textarea
+    id: tdd-plan
+    attributes:
+      label: Outside-in TDD plan
+      placeholder: |
+        1. Acceptance test (red): backend/src/acceptanceTest/resources/features/<name>.feature
+        2. API test (red): backend/src/test/.../<Controller>Test.kt
+        3. Unit tests: ...
+        4. Files to change: ...
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
