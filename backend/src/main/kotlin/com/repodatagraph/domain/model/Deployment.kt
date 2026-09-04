@@ -8,5 +8,5 @@ data class Deployment(
     val environmentId: String,
     val deployedAt: Instant = Instant.now(),
     val deployedBy: String? = null,
-    val status: String = "SUCCESS"
+    val status: String = "SUCCESS",
 )

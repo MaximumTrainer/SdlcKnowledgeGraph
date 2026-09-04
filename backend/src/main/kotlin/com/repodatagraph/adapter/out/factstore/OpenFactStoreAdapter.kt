@@ -15,20 +15,22 @@ data class FactStoreTrailRequest(
     val gitBranch: String?,
     val gitAuthor: String?,
     val orgSlug: String,
-    val buildUrl: String?
+    val buildUrl: String?,
 )
 
-data class FactStoreTrailResponse(val id: String)
+data class FactStoreTrailResponse(
+    val id: String,
+)
 
 @Component
 class OpenFactStoreAdapter(
     @Value("\${factstore.base-url:http://localhost:8090}") private val baseUrl: String,
     @Value("\${factstore.org-slug:repodatagraph}") private val orgSlug: String,
-    @Value("\${factstore.api-key:}") private val apiKey: String
+    @Value("\${factstore.api-key:}") private val apiKey: String,
 ) : FactStorePort {
-
     private val restClient: RestClient by lazy {
-        RestClient.builder()
+        RestClient
+            .builder()
             .baseUrl(baseUrl)
             .defaultHeader("X-Api-Key", apiKey)
             .build()
@@ -36,15 +38,17 @@ class OpenFactStoreAdapter(
 
     override fun recordEvent(event: AuditEvent) {
         try {
-            val request = FactStoreTrailRequest(
-                flowId = event.eventType,
-                gitCommitSha = event.details["commitSha"],
-                gitBranch = event.details["branch"],
-                gitAuthor = event.actor,
-                orgSlug = orgSlug,
-                buildUrl = event.details["buildUrl"]
-            )
-            restClient.post()
+            val request =
+                FactStoreTrailRequest(
+                    flowId = event.eventType,
+                    gitCommitSha = event.details["commitSha"],
+                    gitBranch = event.details["branch"],
+                    gitAuthor = event.actor,
+                    orgSlug = orgSlug,
+                    buildUrl = event.details["buildUrl"],
+                )
+            restClient
+                .post()
                 .uri("/api/v1/trails")
                 .body(request)
                 .retrieve()
@@ -54,32 +58,36 @@ class OpenFactStoreAdapter(
         }
     }
 
-    override fun queryEvents(repoId: String): List<AuditEvent> {
-        return try {
-            val response = restClient.get()
-                .uri("/api/v1/audit?actor=repo:$repoId")
-                .retrieve()
-                .toEntity(AuditEventListResponse::class.java)
-                .body
+    override fun queryEvents(repoId: String): List<AuditEvent> =
+        try {
+            val response =
+                restClient
+                    .get()
+                    .uri("/api/v1/audit?actor=repo:$repoId")
+                    .retrieve()
+                    .toEntity(AuditEventListResponse::class.java)
+                    .body
             response?.events?.map { it.toDomain() } ?: emptyList()
         } catch (e: RestClientException) {
             emptyList()
         }
-    }
 }
 
-data class AuditEventListResponse(val events: List<AuditEventDto> = emptyList())
+data class AuditEventListResponse(
+    val events: List<AuditEventDto> = emptyList(),
+)
 
 data class AuditEventDto(
     val id: String = UUID.randomUUID().toString(),
     val eventType: String = "",
     val actor: String? = null,
-    val timestamp: String? = null
+    val timestamp: String? = null,
 ) {
-    fun toDomain() = AuditEvent(
-        id = id,
-        eventType = eventType,
-        actor = actor,
-        timestamp = timestamp?.let { Instant.parse(it) } ?: Instant.now()
-    )
+    fun toDomain() =
+        AuditEvent(
+            id = id,
+            eventType = eventType,
+            actor = actor,
+            timestamp = timestamp?.let { Instant.parse(it) } ?: Instant.now(),
+        )
 }

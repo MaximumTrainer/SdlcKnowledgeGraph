@@ -1,14 +1,17 @@
 package com.repodatagraph.application
 
-import com.repodatagraph.domain.model.*
+import com.repodatagraph.domain.model.AuditEvent
+import com.repodatagraph.domain.model.CloudResource
+import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.port.out.FactStorePort
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Assertions.*
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 class GraphQueryServiceTest {
-
     private val graphPort = mock<RepositoryGraphPort>()
     private val factStorePort = mock<FactStorePort>()
     private val service = GraphQueryService(graphPort, factStorePort)

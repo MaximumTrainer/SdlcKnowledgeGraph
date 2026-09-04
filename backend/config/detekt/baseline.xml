@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>SpreadOperator:RepoDataGraphApplication.kt$(*args)</ID>
+    <ID>TooManyFunctions:GraphQLResolver.kt$GraphQLResolver</ID>
+    <ID>TooManyFunctions:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter : RepositoryGraphPort</ID>
+    <ID>TooManyFunctions:RepositoryGraphPort.kt$RepositoryGraphPort</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val artifactNodeRepo: ArtifactNodeRepository</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val cloudResourceNodeRepo: CloudResourceNodeRepository</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val deploymentNodeRepo: DeploymentNodeRepository</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val pipelineNodeRepo: PipelineNodeRepository</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val serviceNowCINodeRepo: ServiceNowCINodeRepository</ID>
+    <ID>UnusedPrivateProperty:Neo4jRepositoryAdapter.kt$Neo4jRepositoryAdapter$private val teamNodeRepo: TeamNodeRepository</ID>
+  </CurrentIssues>
+</SmellBaseline>

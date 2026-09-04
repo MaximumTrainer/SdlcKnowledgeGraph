@@ -6,5 +6,5 @@ data class Artifact(
     val version: String,
     val commitSha: String? = null,
     val repoId: String? = null,
-    val artifactType: String = "docker"
+    val artifactType: String = "docker",
 )

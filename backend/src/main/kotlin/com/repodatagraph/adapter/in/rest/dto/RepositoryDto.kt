@@ -9,7 +9,7 @@ data class CreateRepositoryRequest(
     val codeowners: List<String> = emptyList(),
     val serviceId: String? = null,
     val language: String? = null,
-    val description: String? = null
+    val description: String? = null,
 )
 
 data class RepositoryResponse(
@@ -20,21 +20,24 @@ data class RepositoryResponse(
     val codeowners: List<String>,
     val serviceId: String?,
     val language: String?,
-    val description: String?
+    val description: String?,
 ) {
     companion object {
-        fun from(repo: Repository) = RepositoryResponse(
-            id = repo.id,
-            orgRepo = repo.orgRepo,
-            defaultBranch = repo.defaultBranch,
-            topics = repo.topics,
-            codeowners = repo.codeowners,
-            serviceId = repo.serviceId,
-            language = repo.language,
-            description = repo.description
-        )
+        fun from(repo: Repository) =
+            RepositoryResponse(
+                id = repo.id,
+                orgRepo = repo.orgRepo,
+                defaultBranch = repo.defaultBranch,
+                topics = repo.topics,
+                codeowners = repo.codeowners,
+                serviceId = repo.serviceId,
+                language = repo.language,
+                description = repo.description,
+            )
     }
 }
 
 /** Generic request body for linking a repository to another entity (team, cloud resource, pipeline, CI item). */
-data class LinkRequest(val targetId: String)
+data class LinkRequest(
+    val targetId: String,
+)

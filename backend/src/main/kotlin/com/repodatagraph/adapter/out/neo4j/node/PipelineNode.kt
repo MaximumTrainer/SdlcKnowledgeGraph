@@ -9,5 +9,5 @@ data class PipelineNode(
     val name: String,
     val provider: String,
     val repoId: String,
-    val lastRunStatus: String? = null
+    val lastRunStatus: String? = null,
 )

@@ -14,5 +14,5 @@ data class DeploymentNode(
     val deployedBy: String? = null,
     val status: String = "SUCCESS",
     @Relationship(type = "TO_ENVIRONMENT", direction = Relationship.Direction.OUTGOING)
-    val environment: EnvironmentNode? = null
+    val environment: EnvironmentNode? = null,
 )

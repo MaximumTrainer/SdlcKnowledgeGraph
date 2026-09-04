@@ -1,0 +1,6 @@
+# Active in acceptance tests (@ActiveProfiles("test")). Neo4j connection details come from Testcontainers.
+management:
+  endpoint:
+    health:
+      show-components: always
+      show-details: always

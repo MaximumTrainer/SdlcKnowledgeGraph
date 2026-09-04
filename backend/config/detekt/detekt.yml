@@ -1,0 +1,44 @@
+# detekt configuration. Applied on top of detekt's defaults (buildUponDefaultConfig = true), so only
+# deviations from the defaults are listed here. Findings that pre-date this file are listed in
+# baseline.xml; new code must not add to the baseline.
+
+build:
+  maxIssues: 0
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+    excludeCommentStatements: true
+  MagicNumber:
+    excludes:
+      - '**/test/**'
+      - '**/integrationTest/**'
+      - '**/acceptanceTest/**'
+      - '**/contractTest/**'
+  UnusedPrivateMember:
+    active: true
+  WildcardImport:
+    active: true
+    excludeImports: []
+
+naming:
+  FunctionNaming:
+    # Backtick-quoted test names such as `GET repositories returns list` are idiomatic Kotlin test style.
+    ignoreAnnotated: ['Test', 'ParameterizedTest', 'Given', 'When', 'Then', 'Before', 'After']
+
+complexity:
+  LongParameterList:
+    # Data classes / Spring components with many constructor-injected collaborators are expected here.
+    constructorThreshold: 9
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    excludes:
+      - '**/test/**'
+      - '**/integrationTest/**'
+      - '**/acceptanceTest/**'
+      - '**/contractTest/**'
+
+exceptions:
+  SwallowedException:
+    ignoredExceptionTypes:
+      - 'RestClientException'

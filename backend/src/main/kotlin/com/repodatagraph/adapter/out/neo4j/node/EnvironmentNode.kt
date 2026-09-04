@@ -7,5 +7,5 @@ import org.springframework.data.neo4j.core.schema.Node
 data class EnvironmentNode(
     @Id val id: String,
     val name: String,
-    val type: String = "production"
+    val type: String = "production",
 )

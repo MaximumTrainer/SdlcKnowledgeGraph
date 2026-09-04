@@ -23,5 +23,5 @@ data class RepositoryNode(
     @Relationship(type = "HAS_PIPELINE", direction = Relationship.Direction.OUTGOING)
     val pipelines: List<PipelineNode> = emptyList(),
     @Relationship(type = "RELATES_TO_CI", direction = Relationship.Direction.OUTGOING)
-    val serviceNowCI: ServiceNowCINode? = null
+    val serviceNowCI: ServiceNowCINode? = null,
 )

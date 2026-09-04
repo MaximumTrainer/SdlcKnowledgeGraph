@@ -13,5 +13,5 @@ data class ArtifactNode(
     val repoId: String? = null,
     val artifactType: String = "docker",
     @Relationship(type = "DEPLOYED_TO", direction = Relationship.Direction.OUTGOING)
-    val deployments: List<DeploymentNode> = emptyList()
+    val deployments: List<DeploymentNode> = emptyList(),
 )

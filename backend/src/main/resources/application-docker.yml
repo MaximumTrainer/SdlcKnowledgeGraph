@@ -1,0 +1,12 @@
+# Active inside the compose stack (SPRING_PROFILES_ACTIVE=docker). Connection details come from the
+# environment (see compose.yaml); this file only holds container-specific defaults.
+spring:
+  neo4j:
+    uri: ${NEO4J_URI:bolt://neo4j:7687}
+
+management:
+  endpoint:
+    health:
+      show-components: always
+      probes:
+        enabled: true

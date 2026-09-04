@@ -4,12 +4,15 @@ import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.port.out.FactStorePort
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Assertions.*
-import org.mockito.kotlin.*
+import org.mockito.kotlin.argThat
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 class RepositoryServiceTest {
-
     private val graphPort = mock<RepositoryGraphPort>()
     private val factStorePort = mock<FactStorePort>()
     private val service = RepositoryService(graphPort, factStorePort)
@@ -26,7 +29,7 @@ class RepositoryServiceTest {
         verify(factStorePort).recordEvent(
             argThat { event: AuditEvent ->
                 event.eventType == "REPOSITORY_REGISTERED" && event.repoId == "1"
-            }
+            },
         )
     }
 
@@ -51,10 +54,11 @@ class RepositoryServiceTest {
 
     @Test
     fun `listRepositories returns all from graph port`() {
-        val repos = listOf(
-            Repository(id = "1", orgRepo = "org/repo1"),
-            Repository(id = "2", orgRepo = "org/repo2")
-        )
+        val repos =
+            listOf(
+                Repository(id = "1", orgRepo = "org/repo1"),
+                Repository(id = "2", orgRepo = "org/repo2"),
+            )
         whenever(graphPort.findAll()).thenReturn(repos)
 
         val result = service.listRepositories()
@@ -70,7 +74,7 @@ class RepositoryServiceTest {
         verify(factStorePort).recordEvent(
             argThat { event: AuditEvent ->
                 event.eventType == "REPOSITORY_DELETED" && event.repoId == "1"
-            }
+            },
         )
     }
 

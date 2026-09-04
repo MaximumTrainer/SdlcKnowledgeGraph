@@ -6,5 +6,5 @@ data class CloudResource(
     val resourceType: String,
     val name: String,
     val region: String? = null,
-    val repoId: String? = null
+    val repoId: String? = null,
 )
