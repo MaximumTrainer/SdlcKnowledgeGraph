@@ -35,6 +35,9 @@ pre-commit:
       glob: "*.{js,cjs,mjs,ts,vue}"
       run: npx --no-install eslint --fix {staged_files} && npx --no-install prettier --write {staged_files}
       stage_fixed: true
+    - name: ontology-drift
+      glob: "backend/src/main/resources/ontology/**"
+      run: node scripts/gradle.mjs ontologyDriftCheck --quiet
     - name: actionlint
       glob: ".github/workflows/*.{yml,yaml}"
       run: npx --yes actionlint@latest {staged_files}

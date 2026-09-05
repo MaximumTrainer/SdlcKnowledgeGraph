@@ -1,0 +1,230 @@
+{
+  "version": "1.0.0",
+  "nodeTypes": [
+    {
+      "name": "Repository",
+      "description": "A git repository, the anchor for most of the graph.",
+      "identity": ["host", "org", "name"],
+      "properties": [
+        { "name": "host", "type": "string", "required": false, "description": "Host of the remote, e.g. github.com" },
+        { "name": "org", "type": "string", "required": false, "description": "Owning organisation or user" },
+        { "name": "name", "type": "string", "required": false, "description": "Repository name" },
+        { "name": "url", "type": "string", "required": false, "description": "Canonical https remote URL" },
+        { "name": "orgRepo", "type": "string", "required": true, "description": "Legacy org/repo identifier, replaced by host+org+name in #19" },
+        { "name": "defaultBranch", "type": "string", "required": true, "description": null },
+        { "name": "topics", "type": "string[]", "required": true, "description": null },
+        { "name": "codeowners", "type": "string[]", "required": true, "description": null },
+        { "name": "serviceId", "type": "string", "required": false, "description": null },
+        { "name": "language", "type": "string", "required": false, "description": null },
+        { "name": "description", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "Team",
+      "description": "A group that owns repositories, services or infrastructure.",
+      "identity": ["name"],
+      "properties": [
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "email", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "Service",
+      "description": "A running logical component, which may span more than one repository.",
+      "identity": ["name"],
+      "properties": [
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "description", "type": "string", "required": false, "description": null },
+        { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, e.g. gold" }
+      ]
+    },
+    {
+      "name": "Pipeline",
+      "description": "A CI/CD workflow definition.",
+      "identity": ["provider", "repoKey", "workflowPath"],
+      "properties": [
+        { "name": "provider", "type": "string", "required": true, "description": "e.g. github-actions" },
+        { "name": "repoKey", "type": "string", "required": false, "description": "Key of the repository holding the workflow" },
+        { "name": "workflowPath", "type": "string", "required": false, "description": "Path of the workflow file" },
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "repoId", "type": "string", "required": true, "description": null },
+        { "name": "lastRunStatus", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "Artifact",
+      "description": "A built, addressable output such as a container image.",
+      "identity": ["registry", "name", "digest"],
+      "properties": [
+        { "name": "registry", "type": "string", "required": false, "description": "e.g. ghcr.io" },
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "digest", "type": "string", "required": false, "description": "Immutable content digest, preferred for identity" },
+        { "name": "version", "type": "string", "required": true, "description": null },
+        { "name": "commitSha", "type": "string", "required": false, "description": null },
+        { "name": "repoId", "type": "string", "required": false, "description": null },
+        { "name": "artifactType", "type": "string", "required": true, "description": null }
+      ]
+    },
+    {
+      "name": "Deployment",
+      "description": "One event of putting an artifact into an environment.",
+      "identity": ["artifactKey", "environmentKey", "deployedAt"],
+      "properties": [
+        { "name": "artifactKey", "type": "string", "required": false, "description": null },
+        { "name": "environmentKey", "type": "string", "required": false, "description": null },
+        { "name": "deployedAt", "type": "instant", "required": true, "description": null },
+        { "name": "artifactId", "type": "string", "required": true, "description": null },
+        { "name": "environmentId", "type": "string", "required": true, "description": null },
+        { "name": "deployedBy", "type": "string", "required": false, "description": null },
+        { "name": "status", "type": "string", "required": true, "description": null }
+      ]
+    },
+    {
+      "name": "Environment",
+      "description": "A deployment target such as staging or production.",
+      "identity": ["name"],
+      "properties": [
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "type", "type": "string", "required": true, "description": null }
+      ]
+    },
+    {
+      "name": "CloudResource",
+      "description": "An infrastructure object in AWS, Azure or GCP.",
+      "identity": ["provider", "resourceId"],
+      "properties": [
+        { "name": "provider", "type": "string", "required": true, "description": "aws, azure or gcp" },
+        { "name": "resourceId", "type": "string", "required": false, "description": "ARN, Azure resource id or GCP asset name" },
+        { "name": "resourceType", "type": "string", "required": true, "description": null },
+        { "name": "name", "type": "string", "required": true, "description": null },
+        { "name": "region", "type": "string", "required": false, "description": null },
+        { "name": "accountId", "type": "string", "required": false, "description": null },
+        { "name": "repoId", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "ConfigurationItem",
+      "description": "A configuration item from a service management system such as ServiceNow.",
+      "identity": ["sourceSystem", "instance", "sysId"],
+      "properties": [
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
+        { "name": "instance", "type": "string", "required": true, "description": "Instance the CI belongs to" },
+        { "name": "sysId", "type": "string", "required": true, "description": "Identifier in the source system" },
+        { "name": "ciName", "type": "string", "required": true, "description": null },
+        { "name": "ciClass", "type": "string", "required": false, "description": "e.g. cmdb_ci_service" },
+        { "name": "serviceId", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "Ontology",
+      "description": "Records which ontology version the graph was built with.",
+      "identity": ["version"],
+      "properties": [
+        { "name": "version", "type": "string", "required": true, "description": null },
+        { "name": "loadedAt", "type": "instant", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "SyncRun",
+      "description": "One execution of a connector, for auditing what a sync changed.",
+      "identity": ["id"],
+      "properties": [
+        { "name": "id", "type": "string", "required": true, "description": null },
+        { "name": "connector", "type": "string", "required": true, "description": null },
+        { "name": "startedAt", "type": "instant", "required": false, "description": null },
+        { "name": "finishedAt", "type": "instant", "required": false, "description": null },
+        { "name": "status", "type": "string", "required": false, "description": null },
+        { "name": "nodesUpserted", "type": "int", "required": false, "description": null },
+        { "name": "edgesUpserted", "type": "int", "required": false, "description": null },
+        { "name": "error", "type": "string", "required": false, "description": null }
+      ]
+    }
+  ],
+  "edgeTypes": [
+    {
+      "name": "OWNED_BY",
+      "description": "Ownership of a repository, service or cloud resource by a team.",
+      "from": ["Repository", "Service", "CloudResource"],
+      "to": ["Team"],
+      "inverse": "OWNS",
+      "properties": [
+      ]
+    },
+    {
+      "name": "OWNS_RESOURCE",
+      "description": "A repository or service is responsible for a piece of infrastructure.",
+      "from": ["Repository", "Service"],
+      "to": ["CloudResource"],
+      "inverse": "OWNED_BY_REPO",
+      "properties": [
+        { "name": "rule", "type": "string", "required": false, "description": "Which link rule proposed this, e.g. tag or iac" }
+      ]
+    },
+    {
+      "name": "DEPENDS_ON",
+      "description": "A dependency between repositories or services.",
+      "from": ["Repository", "Service"],
+      "to": ["Repository", "Service"],
+      "inverse": "DEPENDED_ON_BY",
+      "properties": [
+        { "name": "kind", "type": "string", "required": false, "description": "library, api, event or data" },
+        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from" }
+      ]
+    },
+    {
+      "name": "HAS_PIPELINE",
+      "description": "A repository defines a CI/CD pipeline.",
+      "from": ["Repository"],
+      "to": ["Pipeline"],
+      "inverse": "PIPELINE_OF",
+      "properties": [
+      ]
+    },
+    {
+      "name": "RELATES_TO_CI",
+      "description": "A repository or service corresponds to a configuration item in service management.",
+      "from": ["Repository", "Service"],
+      "to": ["ConfigurationItem"],
+      "inverse": "CI_OF",
+      "properties": [
+      ]
+    },
+    {
+      "name": "BUILT_FROM",
+      "description": "An artifact was built from a repository at a particular commit.",
+      "from": ["Artifact"],
+      "to": ["Repository"],
+      "inverse": "BUILDS",
+      "properties": [
+        { "name": "commitSha", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "DEPLOYED_TO",
+      "description": "An artifact was the subject of a deployment.",
+      "from": ["Artifact"],
+      "to": ["Deployment"],
+      "inverse": "DEPLOYMENT_OF",
+      "properties": [
+      ]
+    },
+    {
+      "name": "TO_ENVIRONMENT",
+      "description": "A deployment targeted an environment.",
+      "from": ["Deployment"],
+      "to": ["Environment"],
+      "inverse": "HOSTS",
+      "properties": [
+      ]
+    },
+    {
+      "name": "PROVIDES",
+      "description": "A repository provides a running service.",
+      "from": ["Repository"],
+      "to": ["Service"],
+      "inverse": "PROVIDED_BY",
+      "properties": [
+      ]
+    }
+  ]
+}

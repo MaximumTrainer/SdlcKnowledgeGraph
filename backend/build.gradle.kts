@@ -88,6 +88,37 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     }
 }
 
+/**
+ * The ontology registry is the single declaration of the model; these tasks render it into the
+ * forms other layers would otherwise hand-write. Generated files are committed so an ontology change
+ * shows its full effect in the diff, and `ontologyDriftCheck` makes it impossible to commit the
+ * registry change without them.
+ */
+val ontologyDir = layout.projectDirectory.dir("src/main/resources/ontology/v1")
+val generatedSdl = layout.projectDirectory.file("src/main/resources/graphql/schema.generated.graphqls")
+val generatedTs = layout.projectDirectory.file("../frontend/src/generated/ontology.ts")
+val generatedJson = layout.projectDirectory.file("src/main/resources/ontology/v1/ontology.json")
+
+val generateOntology by tasks.registering(OntologyCodegenTask::class) {
+    group = "ontology"
+    description = "Generates GraphQL SDL, TypeScript types and the ontology JSON fixture from the registry"
+    ontologyDirectory.set(ontologyDir)
+    graphqlOutput.set(generatedSdl)
+    typescriptOutput.set(generatedTs)
+    jsonOutput.set(generatedJson)
+}
+
+val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
+    group = "verification"
+    description = "Fails when the committed generated ontology files no longer match the registry"
+    ontologyDirectory.set(ontologyDir)
+    graphqlOutput.set(generatedSdl)
+    typescriptOutput.set(generatedTs)
+    jsonOutput.set(generatedJson)
+}
+
+tasks.named("check") { dependsOn(ontologyDriftCheck) }
+
 // `src/testSupport/kotlin` holds helpers shared by more than one suite (currently the Testcontainers
 // Neo4j configuration used by both integrationTest and acceptanceTest). The Kotlin plugin compiles
 // `.kt` files found in a source set's java source directories, so adding the directory is enough.

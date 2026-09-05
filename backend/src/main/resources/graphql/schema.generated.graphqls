@@ -1,0 +1,179 @@
+# GENERATED FROM ontology/v1 - DO NOT EDIT
+# Types are generated from the ontology registry. Queries and mutations live in schema.graphqls.
+
+"""Where a fact came from, attached to every node and edge."""
+type Provenance {
+  sourceSystem: String!
+  sourceId: String
+  ingestedAt: String!
+  observedAt: String
+  confidence: Float!
+  inferred: Boolean!
+  validFrom: String!
+  validTo: String
+  syncRunId: String
+}
+
+"""Anything addressable in the graph."""
+interface GraphNode {
+  id: ID!
+  key: String!
+  provenance: Provenance!
+}
+
+"""A git repository, the anchor for most of the graph."""
+type RepositoryNode implements GraphNode {
+  id: ID!
+  key: String!
+  host: String
+  org: String
+  name: String
+  url: String
+  orgRepo: String!
+  defaultBranch: String!
+  topics: [String!]!
+  codeowners: [String!]!
+  serviceId: String
+  language: String
+  description: String
+  provenance: Provenance!
+}
+
+"""A group that owns repositories, services or infrastructure."""
+type TeamNode implements GraphNode {
+  id: ID!
+  key: String!
+  name: String!
+  email: String
+  provenance: Provenance!
+}
+
+"""A running logical component, which may span more than one repository."""
+type ServiceNode implements GraphNode {
+  id: ID!
+  key: String!
+  name: String!
+  description: String
+  tier: String
+  provenance: Provenance!
+}
+
+"""A CI/CD workflow definition."""
+type PipelineNode implements GraphNode {
+  id: ID!
+  key: String!
+  provider: String!
+  repoKey: String
+  workflowPath: String
+  name: String!
+  repoId: String!
+  lastRunStatus: String
+  provenance: Provenance!
+}
+
+"""A built, addressable output such as a container image."""
+type ArtifactNode implements GraphNode {
+  id: ID!
+  key: String!
+  registry: String
+  name: String!
+  digest: String
+  version: String!
+  commitSha: String
+  repoId: String
+  artifactType: String!
+  provenance: Provenance!
+}
+
+"""One event of putting an artifact into an environment."""
+type DeploymentNode implements GraphNode {
+  id: ID!
+  key: String!
+  artifactKey: String
+  environmentKey: String
+  deployedAt: String!
+  artifactId: String!
+  environmentId: String!
+  deployedBy: String
+  status: String!
+  provenance: Provenance!
+}
+
+"""A deployment target such as staging or production."""
+type EnvironmentNode implements GraphNode {
+  id: ID!
+  key: String!
+  name: String!
+  type: String!
+  provenance: Provenance!
+}
+
+"""An infrastructure object in AWS, Azure or GCP."""
+type CloudResourceNode implements GraphNode {
+  id: ID!
+  key: String!
+  provider: String!
+  resourceId: String
+  resourceType: String!
+  name: String!
+  region: String
+  accountId: String
+  repoId: String
+  provenance: Provenance!
+}
+
+"""A configuration item from a service management system such as ServiceNow."""
+type ConfigurationItemNode implements GraphNode {
+  id: ID!
+  key: String!
+  sourceSystem: String!
+  instance: String!
+  sysId: String!
+  ciName: String!
+  ciClass: String
+  serviceId: String
+  provenance: Provenance!
+}
+
+"""Records which ontology version the graph was built with."""
+type OntologyNode implements GraphNode {
+  id: ID!
+  key: String!
+  version: String!
+  loadedAt: String
+  provenance: Provenance!
+}
+
+"""One execution of a connector, for auditing what a sync changed."""
+type SyncRunNode implements GraphNode {
+  id: ID!
+  key: String!
+  connector: String!
+  startedAt: String
+  finishedAt: String
+  status: String
+  nodesUpserted: Int
+  edgesUpserted: Int
+  error: String
+  provenance: Provenance!
+}
+
+enum EdgeType {
+  OWNED_BY
+  OWNS_RESOURCE
+  DEPENDS_ON
+  HAS_PIPELINE
+  RELATES_TO_CI
+  BUILT_FROM
+  DEPLOYED_TO
+  TO_ENVIRONMENT
+  PROVIDES
+}
+
+type Edge {
+  type: EdgeType!
+  inverse: String!
+  from: GraphNode!
+  to: GraphNode!
+  provenance: Provenance!
+}

@@ -17,8 +17,8 @@ nodes:
       - { name: url, type: string, required: false, description: "Canonical https remote URL" }
       - { name: orgRepo, type: string, required: true, description: "Legacy org/repo identifier, replaced by host+org+name in #19" }
       - { name: defaultBranch, type: string, required: true }
-      - { name: topics, type: "string[]", required: false }
-      - { name: codeowners, type: "string[]", required: false }
+      - { name: topics, type: "string[]", required: true }
+      - { name: codeowners, type: "string[]", required: true }
       - { name: serviceId, type: string, required: false }
       - { name: language, type: string, required: false }
       - { name: description, type: string, required: false }

@@ -150,3 +150,38 @@ The registry declares a `version`, and an `Ontology` node records which version 
 with. Adding a type or an optional property is free. Renaming or removing anything needs a migration
 script under `ontology/migrations/` and a version bump. `GET /api/v1/ontology` returns the current
 registry as JSON, which is what drives the generic editing screen in the frontend.
+
+## Regenerating types
+
+The registry is the only place a node type is declared. Everything else that needs to know the shape
+of a node is generated from it:
+
+| Generated file | Consumer |
+| --- | --- |
+| `backend/src/main/resources/graphql/schema.generated.graphqls` | GraphQL types, one `<Type>Node` per registry type, all implementing `GraphNode` |
+| `frontend/src/generated/ontology.ts` | Frontend interfaces, `NODE_TYPES`, `EDGE_TYPES`, `ONTOLOGY_VERSION` |
+| `backend/src/main/resources/ontology/v1/ontology.json` | The exact payload `GET /api/v1/ontology` returns, usable as a test fixture |
+
+After changing anything under `ontology/v1/`:
+
+```bash
+cd backend && ./gradlew generateOntology
+```
+
+Then commit the regenerated files with the registry change. They are committed rather than built
+into `build/` on purpose: a reviewer should see the whole effect of an ontology change in one diff.
+
+That only holds if the two cannot be committed apart, so `./gradlew ontologyDriftCheck` regenerates
+in memory and fails with `Ontology outputs are stale: <paths>` when a committed file disagrees. It
+runs in two places:
+
+- the lefthook `pre-commit` hook, whenever a file under `ontology/` is staged;
+- `./gradlew check`, which depends on it, so the `pre-push` hook and the CI backend job both run it.
+
+Queries and mutations stay hand-written in `schema.graphqls`. Generated GraphQL types carry a `Node`
+suffix so they can be introduced alongside the hand-written query types without a name collision.
+
+`frontend/src/services/api.ts` re-exports the generated shapes rather than declaring its own, and an
+ESLint `no-restricted-syntax` rule refuses a hand-written `interface Repository` (or any other
+registry type) outside `src/generated/`. That rule is what stops the model quietly acquiring a
+second definition again.
