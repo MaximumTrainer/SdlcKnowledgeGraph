@@ -4,6 +4,7 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.core.annotation.Order
 import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -17,6 +18,7 @@ import java.time.Instant
  * turns that into an explicit failure.
  */
 @Component
+@Order(SCHEMA_INITIALIZER_ORDER + 1)
 class OntologyVersionWriter(
     private val neo4jClient: Neo4jClient,
     private val registry: OntologyRegistry,

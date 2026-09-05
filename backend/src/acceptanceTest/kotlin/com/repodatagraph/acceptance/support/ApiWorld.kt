@@ -21,6 +21,11 @@ class ApiWorld(
 
     fun get(path: String): ResponseEntity<String> = restTemplate.getForEntity(path, String::class.java).also { response = it }
 
+    fun post(
+        path: String,
+        body: Any?,
+    ): ResponseEntity<String> = restTemplate.postForEntity(path, body, String::class.java).also { response = it }
+
     fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 
     fun lastStatus(): Int = lastResponse().statusCode.value()
