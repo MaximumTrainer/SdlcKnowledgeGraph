@@ -1,0 +1,9 @@
+# Fixture: demands a property the Kotlin Team class does not have, so drift validation must fail.
+nodes:
+  Team:
+    description: Team that has drifted from the Kotlin model.
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }
+      - { name: slug, type: string, required: true }
+      - { name: email, type: string, required: false }

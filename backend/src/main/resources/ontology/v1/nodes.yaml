@@ -1,0 +1,125 @@
+# Node types in the SDLC knowledge graph. See docs/ONTOLOGY.md.
+#
+# `identity` names the properties whose values form the node's key, so the same real-world thing
+# reported by two connectors lands on one node. `required` is enforced on write and is also checked
+# against the typed Kotlin classes at startup: a required property here must exist on the class of
+# the same name. Properties marked optional may exist only in the registry, which is how the target
+# identity model is declared before #19 migrates the Kotlin classes onto it.
+
+nodes:
+  Repository:
+    description: A git repository, the anchor for most of the graph.
+    identity: [host, org, name]
+    properties:
+      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com" }
+      - { name: org, type: string, required: false, description: "Owning organisation or user" }
+      - { name: name, type: string, required: false, description: "Repository name" }
+      - { name: url, type: string, required: false, description: "Canonical https remote URL" }
+      - { name: orgRepo, type: string, required: true, description: "Legacy org/repo identifier, replaced by host+org+name in #19" }
+      - { name: defaultBranch, type: string, required: true }
+      - { name: topics, type: "string[]", required: false }
+      - { name: codeowners, type: "string[]", required: false }
+      - { name: serviceId, type: string, required: false }
+      - { name: language, type: string, required: false }
+      - { name: description, type: string, required: false }
+
+  Team:
+    description: A group that owns repositories, services or infrastructure.
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }
+      - { name: email, type: string, required: false }
+
+  Service:
+    description: A running logical component, which may span more than one repository.
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }
+      - { name: description, type: string, required: false }
+      - { name: tier, type: string, required: false, description: "Criticality tier, e.g. gold" }
+
+  Pipeline:
+    description: A CI/CD workflow definition.
+    identity: [provider, repoKey, workflowPath]
+    properties:
+      - { name: provider, type: string, required: true, description: "e.g. github-actions" }
+      - { name: repoKey, type: string, required: false, description: "Key of the repository holding the workflow" }
+      - { name: workflowPath, type: string, required: false, description: "Path of the workflow file" }
+      - { name: name, type: string, required: true }
+      - { name: repoId, type: string, required: true }
+      - { name: lastRunStatus, type: string, required: false }
+
+  Artifact:
+    description: A built, addressable output such as a container image.
+    identity: [registry, name, digest]
+    properties:
+      - { name: registry, type: string, required: false, description: "e.g. ghcr.io" }
+      - { name: name, type: string, required: true }
+      - { name: digest, type: string, required: false, description: "Immutable content digest, preferred for identity" }
+      - { name: version, type: string, required: true }
+      - { name: commitSha, type: string, required: false }
+      - { name: repoId, type: string, required: false }
+      - { name: artifactType, type: string, required: true }
+
+  Deployment:
+    description: One event of putting an artifact into an environment.
+    identity: [artifactKey, environmentKey, deployedAt]
+    properties:
+      - { name: artifactKey, type: string, required: false }
+      - { name: environmentKey, type: string, required: false }
+      - { name: deployedAt, type: instant, required: true }
+      - { name: artifactId, type: string, required: true }
+      - { name: environmentId, type: string, required: true }
+      - { name: deployedBy, type: string, required: false }
+      - { name: status, type: string, required: true }
+
+  Environment:
+    description: A deployment target such as staging or production.
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }
+      - { name: type, type: string, required: true }
+
+  CloudResource:
+    description: An infrastructure object in AWS, Azure or GCP.
+    identity: [provider, resourceId]
+    properties:
+      - { name: provider, type: string, required: true, description: "aws, azure or gcp" }
+      - { name: resourceId, type: string, required: false, description: "ARN, Azure resource id or GCP asset name" }
+      - { name: resourceType, type: string, required: true }
+      - { name: name, type: string, required: true }
+      - { name: region, type: string, required: false }
+      - { name: accountId, type: string, required: false }
+      - { name: repoId, type: string, required: false }
+
+  ConfigurationItem:
+    description: A configuration item from a service management system such as ServiceNow.
+    identity: [sourceSystem, instance, sysId]
+    properties:
+      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
+      - { name: instance, type: string, required: true, description: "Instance the CI belongs to" }
+      - { name: sysId, type: string, required: true, description: "Identifier in the source system" }
+      - { name: ciName, type: string, required: true }
+      - { name: ciClass, type: string, required: false, description: "e.g. cmdb_ci_service" }
+      - { name: serviceId, type: string, required: false }
+
+  # Meta types: these describe the graph itself rather than the software it models.
+  Ontology:
+    description: Records which ontology version the graph was built with.
+    identity: [version]
+    properties:
+      - { name: version, type: string, required: true }
+      - { name: loadedAt, type: instant, required: false }
+
+  SyncRun:
+    description: One execution of a connector, for auditing what a sync changed.
+    identity: [id]
+    properties:
+      - { name: id, type: string, required: true }
+      - { name: connector, type: string, required: true }
+      - { name: startedAt, type: instant, required: false }
+      - { name: finishedAt, type: instant, required: false }
+      - { name: status, type: string, required: false }
+      - { name: nodesUpserted, type: int, required: false }
+      - { name: edgesUpserted, type: int, required: false }
+      - { name: error, type: string, required: false }

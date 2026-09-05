@@ -1,0 +1,5 @@
+# Fixture: an edge with no inverse must be rejected when the registry is built.
+edges:
+  OWNED_BY:
+    from: [Repository]
+    to: [Team]
