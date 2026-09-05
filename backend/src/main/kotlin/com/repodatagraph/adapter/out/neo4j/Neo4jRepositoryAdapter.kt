@@ -1,337 +1,252 @@
 package com.repodatagraph.adapter.out.neo4j
 
-import com.repodatagraph.adapter.out.neo4j.node.ArtifactNode
-import com.repodatagraph.adapter.out.neo4j.node.CloudResourceNode
-import com.repodatagraph.adapter.out.neo4j.node.DeploymentNode
-import com.repodatagraph.adapter.out.neo4j.node.PipelineNode
-import com.repodatagraph.adapter.out.neo4j.node.RepositoryNode
-import com.repodatagraph.adapter.out.neo4j.node.ServiceNowCINode
-import com.repodatagraph.adapter.out.neo4j.node.TeamNode
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.GraphEdge
+import com.repodatagraph.domain.model.GraphNode
+import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Pipeline
+import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
+import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
 import org.springframework.data.neo4j.core.Neo4jClient
-import org.springframework.data.neo4j.repository.Neo4jRepository
 import org.springframework.stereotype.Component
-import org.springframework.stereotype.Repository
+import java.time.Instant
 import com.repodatagraph.domain.model.Repository as DomainRepository
 
-@Repository
-interface RepositoryNodeRepository : Neo4jRepository<RepositoryNode, String>
-
-@Repository
-interface TeamNodeRepository : Neo4jRepository<TeamNode, String>
-
-@Repository
-interface CloudResourceNodeRepository : Neo4jRepository<CloudResourceNode, String>
-
-@Repository
-interface PipelineNodeRepository : Neo4jRepository<PipelineNode, String>
-
-@Repository
-interface ServiceNowCINodeRepository : Neo4jRepository<ServiceNowCINode, String>
-
-@Repository
-interface ArtifactNodeRepository : Neo4jRepository<ArtifactNode, String>
-
-@Repository
-interface DeploymentNodeRepository : Neo4jRepository<DeploymentNode, String>
-
+/**
+ * The repository-shaped view of the graph, kept so existing callers do not change, implemented
+ * entirely on top of [GraphStore].
+ *
+ * Everything that used to be a Spring Data node class and a per-type repository is gone: nodes are
+ * addressed by derived key, writes carry provenance, and relationship writes fail loudly when an
+ * endpoint is missing instead of quietly doing nothing.
+ */
 @Component
 class Neo4jRepositoryAdapter(
-    private val repoNodeRepo: RepositoryNodeRepository,
-    private val teamNodeRepo: TeamNodeRepository,
-    private val cloudResourceNodeRepo: CloudResourceNodeRepository,
-    private val pipelineNodeRepo: PipelineNodeRepository,
-    private val serviceNowCINodeRepo: ServiceNowCINodeRepository,
-    private val artifactNodeRepo: ArtifactNodeRepository,
-    private val deploymentNodeRepo: DeploymentNodeRepository,
+    private val graphStore: GraphStore,
+    private val identityResolver: IdentityResolver,
     private val neo4jClient: Neo4jClient,
 ) : RepositoryGraphPort {
     override fun save(repository: DomainRepository): DomainRepository {
-        val node =
-            RepositoryNode(
-                id = repository.id,
-                orgRepo = repository.orgRepo,
-                defaultBranch = repository.defaultBranch,
-                topics = repository.topics,
-                codeowners = repository.codeowners,
-                serviceId = repository.serviceId,
-                language = repository.language,
-                description = repository.description,
-            )
-        repoNodeRepo.save(node)
-        return repository
+        val key = identityResolver.keyFor("Repository", mapOf("url" to repository.orgRepo))
+        graphStore.upsertNode(
+            GraphNode(
+                key = key,
+                props =
+                    mapOf(
+                        "orgRepo" to repository.orgRepo,
+                        "defaultBranch" to repository.defaultBranch,
+                        "topics" to repository.topics,
+                        "codeowners" to repository.codeowners,
+                        "serviceId" to repository.serviceId,
+                        "language" to repository.language,
+                        "description" to repository.description,
+                    ),
+                provenance = Provenance.manual(),
+            ),
+        )
+        // The stored id is the derived one, so a second registration of the same remote updates the
+        // node rather than creating a twin under a fresh random id.
+        return repository.copy(id = key.id)
     }
 
-    override fun findById(id: String): DomainRepository? = repoNodeRepo.findById(id).map { it.toDomain() }.orElse(null)
+    override fun findById(id: String): DomainRepository? = graphStore.findNode(keyOf(id, "Repository"))?.toRepository()
 
-    override fun findAll(): List<DomainRepository> = repoNodeRepo.findAll().map { it.toDomain() }
+    override fun findAll(): List<DomainRepository> = graphStore.findNodes("Repository").map { it.toRepository() }
 
-    override fun delete(id: String) = repoNodeRepo.deleteById(id)
+    override fun delete(id: String) {
+        graphStore.deleteNode(keyOf(id, "Repository"), cascade = true)
+    }
 
     override fun linkToTeam(
         repoId: String,
         teamId: String,
-    ) {
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId}), (t:Team {id: \$teamId}) MERGE (r)-[:OWNED_BY]->(t)",
-            ).bind(repoId)
-            .to("repoId")
-            .bind(teamId)
-            .to("teamId")
-            .run()
-    }
+    ) = link("OWNED_BY", repoId, "Repository", teamId, "Team")
 
     override fun linkToCloudResource(
         repoId: String,
         cloudResourceId: String,
-    ) {
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId}), (c:CloudResource {id: \$cloudResourceId}) MERGE (r)-[:OWNS_RESOURCE]->(c)",
-            ).bind(repoId)
-            .to("repoId")
-            .bind(cloudResourceId)
-            .to("cloudResourceId")
-            .run()
-    }
+    ) = link("OWNS_RESOURCE", repoId, "Repository", cloudResourceId, "CloudResource")
 
     override fun linkToPipeline(
         repoId: String,
         pipelineId: String,
-    ) {
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId}), (p:Pipeline {id: \$pipelineId}) MERGE (r)-[:HAS_PIPELINE]->(p)",
-            ).bind(repoId)
-            .to("repoId")
-            .bind(pipelineId)
-            .to("pipelineId")
-            .run()
-    }
+    ) = link("HAS_PIPELINE", repoId, "Repository", pipelineId, "Pipeline")
 
     override fun linkToServiceNowCI(
         repoId: String,
         ciId: String,
-    ) {
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId}), (s:ServiceNowCI {id: \$ciId}) MERGE (r)-[:RELATES_TO_CI]->(s)",
-            ).bind(repoId)
-            .to("repoId")
-            .bind(ciId)
-            .to("ciId")
-            .run()
-    }
+    ) = link("RELATES_TO_CI", repoId, "Repository", ciId, "ConfigurationItem")
 
     override fun addDependency(
         fromRepoId: String,
         toRepoId: String,
-    ) {
-        neo4jClient
-            .query(
-                "MATCH (r1:Repository {id: \$fromId}), (r2:Repository {id: \$toId}) MERGE (r1)-[:DEPENDS_ON]->(r2)",
-            ).bind(fromRepoId)
-            .to("fromId")
-            .bind(toRepoId)
-            .to("toId")
-            .run()
-    }
+    ) = link("DEPENDS_ON", fromRepoId, "Repository", toRepoId, "Repository")
 
     override fun findCloudResourcesForRepo(repoId: String): List<CloudResource> =
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})-[:OWNS_RESOURCE]->(c:CloudResource) RETURN c",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(CloudResourceNode::class.java)
-            .mappedBy { _, record ->
-                val c = record["c"].asMap()
-                CloudResourceNode(
-                    id = c["id"].toString(),
-                    provider = c["provider"].toString(),
-                    resourceType = c["resourceType"].toString(),
-                    name = c["name"].toString(),
-                    region = c["region"]?.toString(),
-                    repoId = c["repoId"]?.toString(),
-                )
-            }.all()
-            .map { it.toDomain() }
+        query(
+            """
+            MATCH (r:Repository { key: ${'$'}key })-[:OWNS_RESOURCE]->(c:CloudResource)
+            RETURN c { .* } AS c
+            """.trimIndent(),
+            repoId,
+        ).map { row ->
+            val props = row.nodeProps("c")
+            CloudResource(
+                id = props.str("id"),
+                provider = props.str("provider"),
+                resourceType = props.str("resourceType"),
+                name = props.str("name"),
+                region = props.strOrNull("region"),
+                repoId = props.strOrNull("repoId"),
+            )
+        }
 
     override fun findDependencies(repoId: String): List<DomainRepository> =
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})-[:DEPENDS_ON]->(dep:Repository) RETURN dep",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(RepositoryNode::class.java)
-            .mappedBy { _, record ->
-                val n = record["dep"].asMap()
-                @Suppress("UNCHECKED_CAST")
-                RepositoryNode(
-                    id = n["id"].toString(),
-                    orgRepo = n["orgRepo"].toString(),
-                    defaultBranch = n["defaultBranch"]?.toString() ?: "main",
-                    topics = (n["topics"] as? List<String>) ?: emptyList(),
-                    codeowners = (n["codeowners"] as? List<String>) ?: emptyList(),
-                    serviceId = n["serviceId"]?.toString(),
-                    language = n["language"]?.toString(),
-                    description = n["description"]?.toString(),
-                )
-            }.all()
-            .map { it.toDomain() }
+        query(
+            "MATCH (r:Repository { key: ${'$'}key })-[:DEPENDS_ON]->(d:Repository) RETURN d { .* } AS d",
+            repoId,
+        ).map { it.nodeProps("d").toRepository() }
 
     override fun findDependents(repoId: String): List<DomainRepository> =
-        neo4jClient
-            .query(
-                "MATCH (dep:Repository)-[:DEPENDS_ON]->(r:Repository {id: \$repoId}) RETURN dep",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(RepositoryNode::class.java)
-            .mappedBy { _, record ->
-                val n = record["dep"].asMap()
-                @Suppress("UNCHECKED_CAST")
-                RepositoryNode(
-                    id = n["id"].toString(),
-                    orgRepo = n["orgRepo"].toString(),
-                    defaultBranch = n["defaultBranch"]?.toString() ?: "main",
-                    topics = (n["topics"] as? List<String>) ?: emptyList(),
-                    codeowners = (n["codeowners"] as? List<String>) ?: emptyList(),
-                    serviceId = n["serviceId"]?.toString(),
-                    language = n["language"]?.toString(),
-                    description = n["description"]?.toString(),
-                )
-            }.all()
-            .map { it.toDomain() }
+        query(
+            "MATCH (r:Repository { key: ${'$'}key })<-[:DEPENDS_ON]-(d:Repository) RETURN d { .* } AS d",
+            repoId,
+        ).map { it.nodeProps("d").toRepository() }
 
+    /**
+     * Deployments reached through the artifact that was built from this repository. This returned
+     * nothing at all until BUILT_FROM was actually written by [upsertEdge] callers.
+     */
     override fun findDeploymentsForRepo(repoId: String): List<Deployment> =
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})<-[:BUILT_FROM]-(a:Artifact)-[:DEPLOYED_TO]->(d:Deployment) RETURN d",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(DeploymentNode::class.java)
-            .mappedBy { _, record ->
-                val n = record["d"].asMap()
-                DeploymentNode(
-                    id = n["id"].toString(),
-                    artifactId = n["artifactId"].toString(),
-                    environmentId = n["environmentId"].toString(),
-                    deployedBy = n["deployedBy"]?.toString(),
-                    status = n["status"]?.toString() ?: "SUCCESS",
-                )
-            }.all()
-            .map { it.toDomain() }
+        query(
+            """
+            MATCH (r:Repository { key: ${'$'}key })<-[:BUILT_FROM]-(a:Artifact)-[:DEPLOYED_TO]->(d:Deployment)
+            OPTIONAL MATCH (d)-[:TO_ENVIRONMENT]->(e:Environment)
+            RETURN d { .* } AS d, a { .* } AS a, e { .* } AS e
+            """.trimIndent(),
+            repoId,
+        ).map { row ->
+            val props = row.nodeProps("d")
+            Deployment(
+                id = props.str("id"),
+                artifactId = props.strOrNull("artifactId") ?: row.nodeProps("a").str("id"),
+                environmentId = props.strOrNull("environmentId") ?: row.nodeProps("e").strOrNull("id").orEmpty(),
+                deployedAt = props.instant("deployedAt"),
+                deployedBy = props.strOrNull("deployedBy"),
+                status = props.strOrNull("status") ?: "SUCCESS",
+            )
+        }
 
     override fun findTeamForRepo(repoId: String): Team? =
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})-[:OWNED_BY]->(t:Team) RETURN t",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(TeamNode::class.java)
-            .mappedBy { _, record ->
-                val n = record["t"].asMap()
-                TeamNode(
-                    id = n["id"].toString(),
-                    name = n["name"].toString(),
-                    email = n["email"]?.toString(),
-                )
-            }.one()
-            .map { it.toDomain() }
-            .orElse(null)
+        query(
+            "MATCH (r:Repository { key: ${'$'}key })-[:OWNED_BY]->(t:Team) RETURN t { .* } AS t",
+            repoId,
+        ).firstOrNull()?.let { row ->
+            val props = row.nodeProps("t")
+            Team(id = props.str("id"), name = props.str("name"), email = props.strOrNull("email"))
+        }
 
     override fun findServiceNowCIForRepo(repoId: String): ServiceNowCI? =
-        neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})-[:RELATES_TO_CI]->(s:ServiceNowCI) RETURN s",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(ServiceNowCINode::class.java)
-            .mappedBy { _, record ->
-                val n = record["s"].asMap()
-                ServiceNowCINode(
-                    id = n["id"].toString(),
-                    ciName = n["ciName"].toString(),
-                    serviceId = n["serviceId"].toString(),
-                    repoId = n["repoId"]?.toString(),
-                )
-            }.one()
-            .map { it.toDomain() }
-            .orElse(null)
+        query(
+            "MATCH (r:Repository { key: ${'$'}key })-[:RELATES_TO_CI]->(c:ConfigurationItem) RETURN c { .* } AS c",
+            repoId,
+        ).firstOrNull()?.let { row ->
+            val props = row.nodeProps("c")
+            ServiceNowCI(
+                id = props.str("id"),
+                ciName = props.str("ciName"),
+                serviceId = props.strOrNull("serviceId").orEmpty(),
+                repoId = props.strOrNull("repoId"),
+            )
+        }
 
     override fun findPipelinesForRepo(repoId: String): List<Pipeline> =
+        query(
+            "MATCH (r:Repository { key: ${'$'}key })-[:HAS_PIPELINE]->(p:Pipeline) RETURN p { .* } AS p",
+            repoId,
+        ).map { row ->
+            val props = row.nodeProps("p")
+            Pipeline(
+                id = props.str("id"),
+                name = props.str("name"),
+                provider = props.str("provider"),
+                repoId = props.strOrNull("repoId").orEmpty(),
+                lastRunStatus = props.strOrNull("lastRunStatus"),
+            )
+        }
+
+    private fun link(
+        edgeType: String,
+        fromId: String,
+        fromType: String,
+        toId: String,
+        toType: String,
+    ) {
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = edgeType,
+                from = keyOf(fromId, fromType),
+                to = keyOf(toId, toType),
+                provenance = Provenance.manual(),
+            ),
+        )
+    }
+
+    /** Accepts either a full `Type:key` id or a bare key, so older callers keep working. */
+    private fun keyOf(
+        id: String,
+        expectedType: String,
+    ): NodeKey =
+        runCatching { NodeKey.parse(id) }
+            .getOrNull()
+            ?.takeIf { it.type == expectedType }
+            ?: NodeKey(expectedType, id)
+
+    private fun query(
+        cypher: String,
+        repoId: String,
+    ): List<Map<String, Any?>> =
         neo4jClient
-            .query(
-                "MATCH (r:Repository {id: \$repoId})-[:HAS_PIPELINE]->(p:Pipeline) RETURN p",
-            ).bind(repoId)
-            .to("repoId")
-            .fetchAs(PipelineNode::class.java)
-            .mappedBy { _, record ->
-                val n = record["p"].asMap()
-                PipelineNode(
-                    id = n["id"].toString(),
-                    name = n["name"].toString(),
-                    provider = n["provider"].toString(),
-                    repoId = n["repoId"].toString(),
-                    lastRunStatus = n["lastRunStatus"]?.toString(),
-                )
-            }.all()
-            .map { it.toDomain() }
+            .query(cypher)
+            .bindAll(mapOf("key" to keyOf(repoId, "Repository").key))
+            .fetch()
+            .all()
+            .toList()
 
-    private fun RepositoryNode.toDomain() =
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any?>.nodeProps(alias: String): Map<String, Any?> = (this[alias] as? Map<String, Any?>).orEmpty()
+
+    private fun Map<String, Any?>.str(name: String): String = this[name]?.toString().orEmpty()
+
+    private fun Map<String, Any?>.strOrNull(name: String): String? = this[name]?.toString()
+
+    private fun Map<String, Any?>.instant(name: String): Instant =
+        when (val value = this[name]) {
+            is Instant -> value
+            is java.time.ZonedDateTime -> value.toInstant()
+            is java.time.OffsetDateTime -> value.toInstant()
+            else -> runCatching { Instant.parse(value.toString()) }.getOrDefault(Instant.EPOCH)
+        }
+
+    private fun Map<String, Any?>.toRepository(): DomainRepository =
         DomainRepository(
-            id = id,
-            orgRepo = orgRepo,
-            defaultBranch = defaultBranch,
-            topics = topics,
-            codeowners = codeowners,
-            serviceId = serviceId,
-            language = language,
-            description = description,
+            id = str("id").ifEmpty { "Repository:${str("key")}" },
+            orgRepo = str("orgRepo").ifEmpty { str("key") },
+            defaultBranch = strOrNull("defaultBranch") ?: "main",
+            topics = stringList("topics"),
+            codeowners = stringList("codeowners"),
+            serviceId = strOrNull("serviceId"),
+            language = strOrNull("language"),
+            description = strOrNull("description"),
         )
 
-    private fun TeamNode.toDomain() = Team(id = id, name = name, email = email)
+    private fun Map<String, Any?>.stringList(name: String): List<String> =
+        (this[name] as? Collection<*>)?.map { it.toString() } ?: emptyList()
 
-    private fun CloudResourceNode.toDomain() =
-        CloudResource(
-            id = id,
-            provider = provider,
-            resourceType = resourceType,
-            name = name,
-            region = region,
-            repoId = repoId,
-        )
-
-    private fun DeploymentNode.toDomain() =
-        Deployment(
-            id = id,
-            artifactId = artifactId,
-            environmentId = environmentId,
-            deployedAt = deployedAt,
-            deployedBy = deployedBy,
-            status = status,
-        )
-
-    private fun ServiceNowCINode.toDomain() =
-        ServiceNowCI(
-            id = id,
-            ciName = ciName,
-            serviceId = serviceId,
-            repoId = repoId,
-        )
-
-    private fun PipelineNode.toDomain() =
-        Pipeline(
-            id = id,
-            name = name,
-            provider = provider,
-            repoId = repoId,
-            lastRunStatus = lastRunStatus,
-        )
+    private fun GraphNode.toRepository(): DomainRepository = (props + mapOf("id" to id, "key" to key.key)).toRepository()
 }
