@@ -2,6 +2,12 @@
 #
 # Installed by `npm install` at the repo root (package.json "prepare" -> `lefthook install`).
 # Gradle is always invoked through scripts/gradle.mjs so the same config works on Windows and POSIX.
+#
+# Division of labour: pre-commit is formatting and static analysis only, pre-push runs the tests.
+# That is deliberate. Outside-in TDD requires committing a failing acceptance test before the code
+# that satisfies it, so a hook that runs tests on commit would make the required workflow impossible
+# without bypassing it. pre-push checks the state being shared, where intermediate red commits in the
+# branch are fine as long as the tip is green.
 
 commit-msg:
   jobs:
@@ -11,8 +17,8 @@ commit-msg:
 pre-commit:
   parallel: true
   jobs:
-    # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt or the
-    # compiler are reading them; the group as a whole still runs in parallel with the frontend jobs.
+    # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt
+    # is reading them; the group as a whole still runs in parallel with the frontend jobs.
     - name: backend
       group:
         piped: true
@@ -24,18 +30,14 @@ pre-commit:
           - name: detekt
             glob: "backend/**/*.{kt,kts}"
             run: node scripts/gradle.mjs detekt --quiet
-          - name: unit-test
-            glob: "backend/**/*.{kt,kts}"
-            run: node scripts/gradle.mjs test --quiet
     - name: frontend-lint
       root: frontend/
       glob: "*.{js,cjs,mjs,ts,vue}"
       run: npx --no-install eslint --fix {staged_files} && npx --no-install prettier --write {staged_files}
       stage_fixed: true
-    - name: frontend-unit-related
-      root: frontend/
-      glob: "src/**/*.{ts,vue}"
-      run: npx --no-install vitest related --run --passWithNoTests {staged_files}
+    - name: actionlint
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: npx --yes actionlint@latest {staged_files}
 
 pre-push:
   parallel: true

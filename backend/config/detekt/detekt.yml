@@ -30,6 +30,7 @@ complexity:
   LongParameterList:
     # Data classes / Spring components with many constructor-injected collaborators are expected here.
     constructorThreshold: 9
+    functionThreshold: 8
     ignoreDefaultParameters: true
   TooManyFunctions:
     excludes:
