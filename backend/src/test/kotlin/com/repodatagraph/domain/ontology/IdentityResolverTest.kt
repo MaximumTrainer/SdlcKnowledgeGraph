@@ -149,7 +149,7 @@ class IdentityResolverTest {
                 ),
             )
 
-        assertEquals("ghcr.io/acme/payments@sha256:abc#production#1767322445", key.key)
+        assertEquals("ghcr.io/acme/payments@sha256:abc#production#1767323045", key.key)
     }
 
     @Test

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.time.ZonedDateTime
 
 /**
  * Neo4j cannot store a nested map on a node, so provenance is flattened to prefixed properties.
@@ -35,12 +36,20 @@ class ProvenanceMapperTest {
 
         assertEquals("github", properties["prov_sourceSystem"])
         assertEquals("acme/payments", properties["prov_sourceId"])
-        assertEquals(ingested, properties["prov_ingestedAt"])
-        assertEquals(observed, properties["prov_observedAt"])
+        assertEquals(ingested, (properties["prov_ingestedAt"] as ZonedDateTime).toInstant())
+        assertEquals(observed, (properties["prov_observedAt"] as ZonedDateTime).toInstant())
         assertEquals(0.95, properties["prov_confidence"])
         assertEquals(true, properties["prov_inferred"])
-        assertEquals(ingested, properties["prov_validFrom"])
+        assertEquals(ingested, (properties["prov_validFrom"] as ZonedDateTime).toInstant())
         assertEquals("run-1", properties["prov_syncRunId"])
+    }
+
+    @Test
+    fun `timestamps are stored as zoned date times, which the Neo4j driver understands`() {
+        val properties = ProvenanceMapper.toProperties(full)
+
+        assertTrue(properties["prov_ingestedAt"] is ZonedDateTime, "the driver cannot convert an Instant")
+        assertTrue(properties["prov_validFrom"] is ZonedDateTime, "the driver cannot convert an Instant")
     }
 
     @Test

@@ -72,3 +72,43 @@ export const graphApi = {
   getImpact: (repoId: string): Promise<ImpactAnalysis> =>
     client.get(`/graph/repositories/${repoId}/impact`).then(r => r.data)
 }
+
+/**
+ * The ontology is the declared contract for what may exist in the graph. The editing screens render
+ * their fields from this rather than from hand-written forms, so a node type added to the registry
+ * appears in the user interface without a frontend release.
+ */
+export interface OntologyProperty {
+  name: string
+  type: 'string' | 'int' | 'boolean' | 'instant' | 'string[]'
+  required: boolean
+  description: string | null
+}
+
+export interface OntologyNodeType {
+  name: string
+  description: string | null
+  identity: string[]
+  properties: OntologyProperty[]
+}
+
+export interface OntologyEdgeType {
+  name: string
+  description: string | null
+  from: string[]
+  to: string[]
+  inverse: string
+  properties: OntologyProperty[]
+}
+
+export interface Ontology {
+  version: string
+  nodeTypes: OntologyNodeType[]
+  edgeTypes: OntologyEdgeType[]
+}
+
+export const ontologyApi = {
+  get: (): Promise<Ontology> => client.get('/ontology').then(r => r.data),
+  getNodeType: (type: string): Promise<OntologyNodeType> =>
+    client.get(`/ontology/nodes/${type}`).then(r => r.data)
+}

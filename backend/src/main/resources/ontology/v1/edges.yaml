@@ -1,0 +1,67 @@
+# Relationship types. See docs/ONTOLOGY.md.
+#
+# Every edge declares an `inverse`: the name used when traversing it backwards. The inverse is a
+# traversal concept, not a second stored edge, so "what does this depend on" and "what depends on
+# this" are one relationship read in two directions. An edge without an inverse fails startup.
+
+edges:
+  OWNED_BY:
+    description: Ownership of a repository, service or cloud resource by a team.
+    from: [Repository, Service, CloudResource]
+    to: [Team]
+    inverse: OWNS
+
+  OWNS_RESOURCE:
+    description: A repository or service is responsible for a piece of infrastructure.
+    from: [Repository, Service]
+    to: [CloudResource]
+    inverse: OWNED_BY_REPO
+    properties:
+      - { name: rule, type: string, required: false, description: "Which link rule proposed this, e.g. tag or iac" }
+
+  DEPENDS_ON:
+    description: A dependency between repositories or services.
+    from: [Repository, Service]
+    to: [Repository, Service]
+    inverse: DEPENDED_ON_BY
+    properties:
+      - { name: kind, type: string, required: false, description: "library, api, event or data" }
+      - { name: manifest, type: string, required: false, description: "File the dependency was read from" }
+
+  HAS_PIPELINE:
+    description: A repository defines a CI/CD pipeline.
+    from: [Repository]
+    to: [Pipeline]
+    inverse: PIPELINE_OF
+
+  RELATES_TO_CI:
+    description: A repository or service corresponds to a configuration item in service management.
+    from: [Repository, Service]
+    to: [ConfigurationItem]
+    inverse: CI_OF
+
+  BUILT_FROM:
+    description: An artifact was built from a repository at a particular commit.
+    from: [Artifact]
+    to: [Repository]
+    inverse: BUILDS
+    properties:
+      - { name: commitSha, type: string, required: false }
+
+  DEPLOYED_TO:
+    description: An artifact was the subject of a deployment.
+    from: [Artifact]
+    to: [Deployment]
+    inverse: DEPLOYMENT_OF
+
+  TO_ENVIRONMENT:
+    description: A deployment targeted an environment.
+    from: [Deployment]
+    to: [Environment]
+    inverse: HOSTS
+
+  PROVIDES:
+    description: A repository provides a running service.
+    from: [Repository]
+    to: [Service]
+    inverse: PROVIDED_BY

@@ -1,0 +1,7 @@
+# Ontology version, semver.
+#
+# Adding a type or an optional property is a patch or minor change and needs nothing else. Renaming
+# or removing anything requires a migration script and a major bump, because data already in the
+# graph refers to the old names. The version in force is recorded on an (:Ontology) node so a graph
+# can be checked against the code that is reading it.
+version: 1.0.0

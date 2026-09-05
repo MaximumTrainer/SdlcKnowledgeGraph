@@ -1,0 +1,10 @@
+# Fixture: valid node types, used with an edge that declares no inverse.
+nodes:
+  Repository:
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }
+  Team:
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true }

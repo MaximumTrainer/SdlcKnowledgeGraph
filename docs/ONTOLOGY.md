@@ -4,10 +4,13 @@ The ontology is the contract for what may exist in the graph. It names the entit
 relationship types, which types a relationship may connect, and what must be recorded about where
 each fact came from.
 
-This document describes the target design. It is implemented by [#18](../../issues/18) (registry,
-provenance, identity keys), [#19](../../issues/19) (the store that enforces it) and
-[#20](../../issues/20) (code generation). Until those land, the graph still uses hand-written Kotlin
-classes and hand-written Cypher.
+The registry, provenance envelope and identity rules are implemented ([#18](../../issues/18)) and
+served from `GET /api/v1/ontology`. The store that enforces them ([#19](../../issues/19)) and the
+code generation that removes the remaining duplication ([#20](../../issues/20)) are still to come, so
+persistence currently still uses the per-type Neo4j classes and hand-written Cypher.
+
+The registry lives in `backend/src/main/resources/ontology/v1/`: `nodes.yaml`, `edges.yaml` and
+`version.yaml`. It is loaded once at startup, validated on construction, and immutable thereafter.
 
 ## Why a registry rather than more classes
 
@@ -42,6 +45,13 @@ fails fast if they drift. Everything a connector introduces later is a `GenericN
 props, provenance)`, so a new source system does not require a new Kotlin class. The GraphQL schema
 and the frontend TypeScript types are generated from the registry, which removes three of the five
 copies.
+
+The drift check is directional, which is what lets the registry describe the target model before the
+Kotlin classes have caught up. Every **required** registry property must exist on the class, and
+every class property must be declared in the registry; an optional registry property may be absent
+from the class. So `Repository` already declares `host`, `org` and `name` as its identity while the
+class still carries the older `orgRepo`, and #19 finishes that migration without the registry having
+to misdescribe the model in the meantime.
 
 ## Core entity types
 
