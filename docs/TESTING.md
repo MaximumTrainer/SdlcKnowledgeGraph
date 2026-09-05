@@ -62,13 +62,40 @@ cd e2e
 npx playwright test         # browser tests against the compose stack
 ```
 
+## Lint
+
+```bash
+cd backend
+./gradlew ktlintCheck     # reports in build/reports/ktlint/, plain and checkstyle
+./gradlew ktlintFormat    # fixes what it can
+./gradlew detekt          # reports in build/reports/detekt/, html and sarif
+
+cd frontend
+npm run lint              # eslint .
+npm run lint:fix          # eslint . --fix
+npm run format:check      # prettier --check .
+
+cd e2e
+npm run lint              # reuses the frontend flat config
+
+npx --yes actionlint@latest .github/workflows/*.yml   # GitHub workflow files
+```
+
 ## Gates
 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required |
-| `pre-commit` | ktlint format and restage, detekt, backend unit tests, ESLint and Prettier on staged files, Vitest for related files |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows |
 | `pre-push` | `./gradlew check` and the frontend verify chain |
+
+Note what `pre-commit` does not do: run tests. That is deliberate. This workflow requires committing
+a failing acceptance test before the code that satisfies it, so a hook that ran tests on commit
+would make the required process impossible without bypassing it, and a bypass that becomes routine
+is not a gate.
+
+Tests run on push instead, against the state actually being shared. Intermediate red commits inside
+a branch are expected and fine, as long as the tip of the branch is green.
 
 CI re-runs all of it and adds the browser end-to-end job, because a hook can be skipped and a CI
 check cannot.

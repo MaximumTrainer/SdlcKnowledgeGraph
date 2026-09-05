@@ -49,6 +49,12 @@ dependencies {
 
 ktlint {
     version.set("1.3.1")
+    android.set(false)
+    reporters {
+        // PLAIN for a readable console failure, CHECKSTYLE for CI to render as annotations.
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
+    }
 }
 
 // detekt 1.23.7 embeds Kotlin 2.0.10 and refuses to run against a different compiler version.
@@ -68,6 +74,16 @@ detekt {
     config.setFrom(files("config/detekt/detekt.yml"))
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(files("src"))
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        // SARIF so CI can surface findings inline on the pull request.
+        sarif.required.set(true)
+        xml.required.set(false)
+        txt.required.set(false)
+    }
 }
 
 // `src/testSupport/kotlin` holds helpers shared by more than one suite (currently the Testcontainers

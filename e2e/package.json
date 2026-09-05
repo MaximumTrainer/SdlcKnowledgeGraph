@@ -7,10 +7,12 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "lint": "eslint ."
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",
-    "@types/node": "^20.19.0"
+    "@types/node": "^20.19.0",
+    "eslint": "^9.36.0"
   }
 }
