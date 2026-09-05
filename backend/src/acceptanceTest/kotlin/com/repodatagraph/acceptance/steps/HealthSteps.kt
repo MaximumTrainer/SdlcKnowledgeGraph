@@ -1,44 +1,40 @@
 package com.repodatagraph.acceptance.steps
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.repodatagraph.acceptance.support.ApiWorld
 import io.cucumber.java.Before
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.data.neo4j.core.Neo4jClient
-import org.springframework.http.ResponseEntity
 
+/**
+ * Shared HTTP steps. Scenario state lives in [ApiWorld] so other step classes can assert on the
+ * same response without redefining these steps.
+ */
 class HealthSteps(
-    private val restTemplate: TestRestTemplate,
+    private val world: ApiWorld,
     private val neo4jClient: Neo4jClient,
-    private val objectMapper: ObjectMapper,
 ) {
-    private var response: ResponseEntity<String>? = null
-
-    /** Every scenario starts from an empty graph. */
+    /** Every scenario starts from an empty graph, except for nodes the application writes at startup. */
     @Before
     fun cleanGraph() {
-        neo4jClient.query("MATCH (n) DETACH DELETE n").run()
+        neo4jClient.query("MATCH (n) WHERE NOT n:Ontology DETACH DELETE n").run()
     }
 
     @Given("the application is running")
     fun theApplicationIsRunning() {
-        // The Spring context (and its Neo4j container) is started by CucumberSpringConfig.
-        assertNotNull(restTemplate.rootUri, "application base URL should be known")
+        // The Spring context and its Neo4j container are started by CucumberSpringConfig.
     }
 
     @When("I GET {string}")
     fun iGet(path: String) {
-        response = restTemplate.getForEntity(path, String::class.java)
+        world.get(path)
     }
 
     @Then("the response status is {int}")
     fun theResponseStatusIs(expectedStatus: Int) {
-        assertEquals(expectedStatus, lastResponse().statusCode.value())
+        assertEquals(expectedStatus, world.lastStatus())
     }
 
     @Then("the health component {string} is {string}")
@@ -46,15 +42,13 @@ class HealthSteps(
         component: String,
         expectedStatus: String,
     ) {
-        val body: JsonNode = objectMapper.readTree(lastResponse().body)
         val actual =
-            body
+            world
+                .lastBody()
                 .path("components")
                 .path(component)
                 .path("status")
                 .asText(null)
-        assertEquals(expectedStatus, actual, "health component '$component' in ${lastResponse().body}")
+        assertEquals(expectedStatus, actual, "health component '$component'")
     }
-
-    private fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 }
