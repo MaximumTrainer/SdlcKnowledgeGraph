@@ -9,5 +9,5 @@ data class AuditEvent(
     val artifactId: String? = null,
     val actor: String? = null,
     val timestamp: Instant = Instant.now(),
-    val details: Map<String, String> = emptyMap()
+    val details: Map<String, String> = emptyMap(),
 )

@@ -12,9 +12,8 @@ import java.util.UUID
 @Service
 class RepositoryService(
     private val graphPort: RepositoryGraphPort,
-    private val factStorePort: FactStorePort
+    private val factStorePort: FactStorePort,
 ) : RepositoryUseCase {
-
     override fun registerRepository(repository: Repository): Repository {
         val saved = graphPort.save(repository)
         factStorePort.recordEvent(
@@ -24,8 +23,8 @@ class RepositoryService(
                 repoId = saved.id,
                 actor = "system",
                 timestamp = Instant.now(),
-                details = mapOf("orgRepo" to saved.orgRepo)
-            )
+                details = mapOf("orgRepo" to saved.orgRepo),
+            ),
         )
         return saved
     }
@@ -42,23 +41,33 @@ class RepositoryService(
                 eventType = "REPOSITORY_DELETED",
                 repoId = id,
                 actor = "system",
-                timestamp = Instant.now()
-            )
+                timestamp = Instant.now(),
+            ),
         )
     }
 
-    override fun linkToTeam(repoId: String, teamId: String) =
-        graphPort.linkToTeam(repoId, teamId)
+    override fun linkToTeam(
+        repoId: String,
+        teamId: String,
+    ) = graphPort.linkToTeam(repoId, teamId)
 
-    override fun linkToCloudResource(repoId: String, cloudResourceId: String) =
-        graphPort.linkToCloudResource(repoId, cloudResourceId)
+    override fun linkToCloudResource(
+        repoId: String,
+        cloudResourceId: String,
+    ) = graphPort.linkToCloudResource(repoId, cloudResourceId)
 
-    override fun linkToPipeline(repoId: String, pipelineId: String) =
-        graphPort.linkToPipeline(repoId, pipelineId)
+    override fun linkToPipeline(
+        repoId: String,
+        pipelineId: String,
+    ) = graphPort.linkToPipeline(repoId, pipelineId)
 
-    override fun linkToServiceNowCI(repoId: String, ciId: String) =
-        graphPort.linkToServiceNowCI(repoId, ciId)
+    override fun linkToServiceNowCI(
+        repoId: String,
+        ciId: String,
+    ) = graphPort.linkToServiceNowCI(repoId, ciId)
 
-    override fun addDependency(fromRepoId: String, toRepoId: String) =
-        graphPort.addDependency(fromRepoId, toRepoId)
+    override fun addDependency(
+        fromRepoId: String,
+        toRepoId: String,
+    ) = graphPort.addDependency(fromRepoId, toRepoId)
 }

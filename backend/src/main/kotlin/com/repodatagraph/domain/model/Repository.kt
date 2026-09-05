@@ -8,5 +8,5 @@ data class Repository(
     val codeowners: List<String> = emptyList(),
     val serviceId: String? = null,
     val language: String? = null,
-    val description: String? = null
+    val description: String? = null,
 )

@@ -8,5 +8,5 @@ data class ImpactAnalysisResponse(
     val repoId: String,
     val dependents: List<Repository>,
     val cloudResources: List<CloudResource>,
-    val deployments: List<Deployment>
+    val deployments: List<Deployment>,
 )

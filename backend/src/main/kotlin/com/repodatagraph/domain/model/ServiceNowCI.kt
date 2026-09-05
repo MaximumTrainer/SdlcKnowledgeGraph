@@ -4,5 +4,5 @@ data class ServiceNowCI(
     val id: String,
     val ciName: String,
     val serviceId: String,
-    val repoId: String? = null
+    val repoId: String? = null,
 )

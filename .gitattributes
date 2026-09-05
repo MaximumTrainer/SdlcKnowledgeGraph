@@ -1,0 +1,20 @@
+# Normalise line endings so hooks, Docker builds and CI behave identically on Windows and Linux.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Shell scripts and the Gradle wrapper must stay LF or they will not run in containers / CI
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

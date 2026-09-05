@@ -10,5 +10,5 @@ data class CloudResourceNode(
     val resourceType: String,
     val name: String,
     val region: String? = null,
-    val repoId: String? = null
+    val repoId: String? = null,
 )

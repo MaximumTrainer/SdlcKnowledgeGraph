@@ -7,5 +7,5 @@ import org.springframework.data.neo4j.core.schema.Node
 data class TeamNode(
     @Id val id: String,
     val name: String,
-    val email: String? = null
+    val email: String? = null,
 )

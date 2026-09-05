@@ -1,0 +1,16 @@
+{
+  "name": "sdlc-knowledge-graph-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Playwright end-to-end tests that run against the docker compose stack.",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0",
+    "@types/node": "^20.19.0"
+  }
+}

@@ -3,14 +3,20 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("jvm") version "2.0.20"
     kotlin("plugin.spring") version "2.0.20"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
+    id("io.gitlab.arturbosch.detekt") version "1.23.7"
+    `jvm-test-suite`
 }
 
 group = "com.repodatagraph"
 version = "0.0.1-SNAPSHOT"
 
+val cucumberVersion = "7.20.1"
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
 }
 
 kotlin {
@@ -33,27 +39,117 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
+    // Unit-test suite only. Pact lives in the contractTest suite; Testcontainers and Cucumber in
+    // the integrationTest and acceptanceTest suites (see the `testing { }` block below).
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
-    testImplementation("au.com.dius.pact.provider:junit5spring:4.6.9")
     testImplementation("org.springframework.graphql:spring-graphql-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+ktlint {
+    version.set("1.3.1")
 }
 
-tasks.named<Test>("test") {
-    exclude("**/pact/**")
+// detekt 1.23.7 embeds Kotlin 2.0.10 and refuses to run against a different compiler version.
+// Pin the Kotlin artifacts on detekt's own classpath; this does not affect how the project compiles.
+// See https://detekt.dev/docs/gettingstarted/gradle#dependencies
+configurations.matching { it.name == "detekt" }.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin") {
+            useVersion("2.0.10")
+        }
+    }
 }
 
-tasks.register<Test>("contractTest") {
-    description = "Runs provider Pact contract verification tests"
-    group = "verification"
-    testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
-    useJUnitPlatform()
-    include("**/pact/**")
-    filter { isFailOnNoMatchingTests = false }
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    config.setFrom(files("config/detekt/detekt.yml"))
+    baseline = file("config/detekt/baseline.xml")
+    source.setFrom(files("src"))
+}
+
+// `src/testSupport/kotlin` holds helpers shared by more than one suite (currently the Testcontainers
+// Neo4j configuration used by both integrationTest and acceptanceTest). The Kotlin plugin compiles
+// `.kt` files found in a source set's java source directories, so adding the directory is enough.
+val sharedTestSupport = "src/testSupport/kotlin"
+
+/**
+ * Four suites, so that git hooks can run a fast gate on commit and the full gate on push
+ * (see lefthook.yml and docs/TESTING.md):
+ *   test           unit tests only, no Spring context and no Docker
+ *   integrationTest Spring slices and adapters against a real Neo4j (Testcontainers)
+ *   acceptanceTest  Gherkin features driving the running application, outside-in
+ *   contractTest    Pact provider verification against the pacts in contracts/pacts
+ */
+testing {
+    suites {
+        val test by getting(JvmTestSuite::class) {
+            useJUnitJupiter()
+        }
+
+        val integrationTest by registering(JvmTestSuite::class) {
+            useJUnitJupiter()
+            sources { java.srcDir(sharedTestSupport) }
+            dependencies {
+                // `project()` contributes the project's classes but not its implementation
+                // dependencies, so the suites restate the parts of the runtime they compile against.
+                implementation(project())
+                implementation("org.springframework.boot:spring-boot-starter-web")
+                implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
+                implementation("org.springframework.boot:spring-boot-starter-test")
+                implementation("org.springframework.boot:spring-boot-testcontainers")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+                implementation("org.testcontainers:junit-jupiter")
+                implementation("org.testcontainers:neo4j")
+            }
+            targets.all { testTask.configure { shouldRunAfter(test) } }
+        }
+
+        val acceptanceTest by registering(JvmTestSuite::class) {
+            useJUnitJupiter()
+            sources { java.srcDir(sharedTestSupport) }
+            dependencies {
+                implementation(project())
+                implementation("org.springframework.boot:spring-boot-starter-web")
+                implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
+                implementation("org.springframework.boot:spring-boot-starter-test")
+                implementation("org.springframework.boot:spring-boot-testcontainers")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+                implementation("org.testcontainers:junit-jupiter")
+                implementation("org.testcontainers:neo4j")
+                implementation("io.cucumber:cucumber-java:$cucumberVersion")
+                implementation("io.cucumber:cucumber-spring:$cucumberVersion")
+                implementation("io.cucumber:cucumber-junit-platform-engine:$cucumberVersion")
+                implementation("org.junit.platform:junit-platform-suite")
+            }
+            targets.all { testTask.configure { shouldRunAfter(test, integrationTest) } }
+        }
+
+        val contractTest by registering(JvmTestSuite::class) {
+            useJUnitJupiter()
+            dependencies {
+                implementation(project())
+                implementation("org.springframework.boot:spring-boot-starter-test")
+                implementation("au.com.dius.pact.provider:junit5spring:4.6.9")
+            }
+            targets.all {
+                testTask.configure {
+                    shouldRunAfter(test)
+                    // Relaxed until #17 replaces the placeholder with real provider verification.
+                    filter { isFailOnNoMatchingTests = false }
+                }
+            }
+        }
+    }
+}
+
+// `./gradlew check` (and therefore the pre-push hook and CI) runs every suite.
+tasks.named("check") {
+    dependsOn(
+        testing.suites.named("integrationTest"),
+        testing.suites.named("acceptanceTest"),
+        testing.suites.named("contractTest"),
+    )
 }

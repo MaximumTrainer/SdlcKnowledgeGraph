@@ -1,0 +1,34 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 140
+ktlint_code_style = ktlint_official
+# The hexagonal layout puts inbound adapters and ports in `adapter.in` and `domain.port.in`.
+# `in` is a Kotlin keyword, so those package declarations must be backticked, which ktlint's
+# package-name rule reports as a disallowed character. The layout is deliberate; the rule is not
+# useful here and the violation cannot be auto-corrected.
+ktlint_standard_package-name = disabled
+
+[*.{java,gradle}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.bat]
+end_of_line = crlf
+
+[Makefile]
+indent_style = tab

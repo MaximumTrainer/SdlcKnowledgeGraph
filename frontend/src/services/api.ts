@@ -44,14 +44,11 @@ export interface ImpactAnalysis {
 }
 
 export const repositoryApi = {
-  list: (): Promise<Repository[]> =>
-    client.get('/repositories').then(r => r.data),
-  get: (id: string): Promise<Repository> =>
-    client.get(`/repositories/${id}`).then(r => r.data),
+  list: (): Promise<Repository[]> => client.get('/repositories').then(r => r.data),
+  get: (id: string): Promise<Repository> => client.get(`/repositories/${id}`).then(r => r.data),
   create: (repo: Omit<Repository, 'id'>): Promise<Repository> =>
     client.post('/repositories', repo).then(r => r.data),
-  delete: (id: string): Promise<void> =>
-    client.delete(`/repositories/${id}`).then(() => undefined),
+  delete: (id: string): Promise<void> => client.delete(`/repositories/${id}`).then(() => undefined),
   linkToTeam: (repoId: string, teamId: string): Promise<void> =>
     client.post(`/repositories/${repoId}/teams/${teamId}`).then(() => undefined),
   addDependency: (repoId: string, depRepoId: string): Promise<void> =>
@@ -68,7 +65,10 @@ export const graphApi = {
   getDeployments: (repoId: string): Promise<Deployment[]> =>
     client.get(`/graph/repositories/${repoId}/deployments`).then(r => r.data),
   getTeam: (repoId: string): Promise<Team | null> =>
-    client.get(`/graph/repositories/${repoId}/team`).then(r => r.data).catch(() => null),
+    client
+      .get(`/graph/repositories/${repoId}/team`)
+      .then(r => r.data)
+      .catch(() => null),
   getImpact: (repoId: string): Promise<ImpactAnalysis> =>
     client.get(`/graph/repositories/${repoId}/impact`).then(r => r.data)
 }

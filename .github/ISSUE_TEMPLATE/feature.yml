@@ -1,0 +1,87 @@
+name: Feature
+description: A capability or foundation work item, delivered outside-in (acceptance test first).
+title: "<short imperative title>"
+labels: ["type:feature", "tdd:acceptance-first"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every issue is implemented **outside-in**: red acceptance test -> red contract/API test -> unit tests -> code.
+        See [docs/TESTING.md](../blob/main/docs/TESTING.md) and [docs/ROADMAP.md](../blob/main/docs/ROADMAP.md).
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / Why
+      description: What problem this solves and which knowledge-graph concept it serves (minimum viable graph, provenance, freshness, RBAC-for-agents, ...).
+    validations:
+      required: true
+  - type: textarea
+    id: scope-in
+    attributes:
+      label: Scope - In
+      description: What is delivered by this issue.
+    validations:
+      required: true
+  - type: textarea
+    id: scope-out
+    attributes:
+      label: Scope - Out
+      description: What is explicitly deferred, and to which issue.
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Functional requirements
+      description: Endpoints, screens, ontology types/edges, connector behaviour, error cases.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Executable Given/When/Then scenarios. They become the first (red) test - a Cucumber feature file and/or a Playwright spec.
+      render: gherkin
+      placeholder: |
+        Scenario: Editing a repository updates it in place
+          Given a Repository node exists with key "github.com/acme/payments"
+          When I PUT /api/v1/nodes/Repository/{id} with description "new"
+          Then the response status is 200
+          And exactly one Repository node with key "github.com/acme/payments" exists
+    validations:
+      required: true
+  - type: textarea
+    id: tdd-plan
+    attributes:
+      label: Outside-in TDD plan
+      description: The tests you will write, in order, and the files you expect to change.
+      placeholder: |
+        1. Acceptance test (red): backend/src/acceptanceTest/resources/features/<name>.feature, e2e/tests/<name>.spec.ts
+        2. Contract / API test (red): frontend/src/**/<name>.pact.spec.ts, backend @WebMvcTest ...
+        3. Unit tests: ...
+        4. Files to change: ...
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Issues that must land first, e.g. "#18, #19".
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S
+        - M
+        - L
+        - XL
+    validations:
+      required: true
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: lefthook pre-commit and pre-push pass; CI green
+        - label: PR "TDD evidence" checklist has commit SHAs for red acceptance -> red API/contract -> unit -> green
+        - label: docs updated (ONTOLOGY / ADAPTERS / TESTING) and an ADR added if a decision was made
+        - label: no new hand-written duplication of an ontology type (generated SDL/TS committed)
