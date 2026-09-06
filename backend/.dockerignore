@@ -1,6 +1,10 @@
 build/
 .gradle/
 .kotlin/
+# Docker anchors these patterns at the context root, so buildSrc needs its own.
+buildSrc/build/
+buildSrc/.gradle/
+buildSrc/.kotlin/
 .idea/
 *.iml
 *.log

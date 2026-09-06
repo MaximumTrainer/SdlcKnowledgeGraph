@@ -7,6 +7,9 @@ WORKDIR /workspace
 # Dependency-affecting files first so the Gradle cache layer survives source-only changes.
 COPY build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
+# buildSrc holds the ontology generator the build script registers its tasks from, so the build
+# script does not compile without it.
+COPY buildSrc ./buildSrc
 COPY config ./config
 COPY src ./src
 

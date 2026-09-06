@@ -15,8 +15,13 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// buildSrc is built before the project it builds, so these tests run on every Gradle invocation,
-// including CI's `./gradlew check`. A broken generator fails the build before anything uses it.
+// Run these with `./gradlew -p buildSrc test`.
+//
+// They are not reachable from the main build's `check`. Gradle 8 asks buildSrc only for its jar, and
+// a `GradleBuild` task cannot run them either, because a nested build rooted at a directory called
+// `buildSrc` is rejected as a reserved name. What guards the generator in CI is behavioural rather
+// than these unit tests: `ontologyDriftCheck` regenerates and compares against the committed files,
+// and the ontology-codegen acceptance scenarios compare the served ontology against them.
 tasks.test {
     useJUnitPlatform()
 }
