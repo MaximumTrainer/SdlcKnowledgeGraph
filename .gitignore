@@ -52,5 +52,7 @@ e2e/blob-report/
 .DS_Store
 .copilot-specs-cache/
 
-# Claude Code local session files
-.claude/
+# Claude Code local session files. The skills under .claude/skills/ describe how work is done
+# in this repository, so they are shared; settings and session state stay local.
+.claude/*
+!.claude/skills/
