@@ -26,6 +26,23 @@ export default defineConfig([
       parserOptions: { parser: tseslint.parser }
     }
   },
+  {
+    // Node shapes are generated from the ontology registry. Re-declaring one by hand is how the
+    // model drifted between backend and frontend before #20.
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    ignores: ['src/generated/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name=/^(Repository|Team|Service|Pipeline|Artifact|Deployment|Environment|CloudResource|ConfigurationItem|Provenance)$/]',
+          message:
+            'This shape is generated from the ontology registry. Import it from @/generated/ontology instead.'
+        }
+      ]
+    }
+  },
   // Must be last: turns off formatting rules that would conflict with Prettier.
   prettier
 ])
