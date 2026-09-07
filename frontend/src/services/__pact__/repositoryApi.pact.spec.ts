@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { PactV3, MatchersV3 } from '@pact-foundation/pact'
-import { apiClient, repositoryApi, graphApi } from './api'
+import { apiClient, repositoryApi, graphApi } from '../api'
 
 const { like, eachLike } = MatchersV3
 

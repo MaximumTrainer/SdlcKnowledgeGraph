@@ -74,6 +74,12 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test:unit -- --run --coverage
+      - run: npm run test:contract
+      # The pact is generated from the consumer specs and committed, so the provider verifies the
+      # same document the frontend actually needs. A regenerated pact that differs means the specs
+      # moved without it (ADR-0004).
+      - name: Fail when the committed pact is stale
+        run: git diff --exit-code -- ../contracts/pacts
       - run: npm run build
       - name: Upload coverage
         if: always()

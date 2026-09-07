@@ -13,15 +13,18 @@
     "format:check": "prettier --check .",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json --composite false",
     "test:unit": "vitest",
-    "verify": "npm run lint && npm run typecheck && npm run test:unit -- --run && npm run build"
+    "pretest:contract": "node scripts/clean-pacts.mjs",
+    "test:contract": "vitest run --config vitest.contract.config.ts",
+    "verify": "npm run lint && npm run typecheck && npm run test:unit -- --run && npm run test:contract && npm run build"
   },
   "dependencies": {
+    "axios": "^1.6.8",
     "vue": "^3.4.21",
-    "vue-router": "^4.3.0",
-    "axios": "^1.6.8"
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
+    "@pact-foundation/pact": "^13.2.0",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/test-utils": "^2.4.6",

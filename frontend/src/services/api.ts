@@ -21,7 +21,13 @@ export { NODE_TYPES, EDGE_TYPES, ONTOLOGY_VERSION } from '@/generated/ontology'
 
 import type { Repository, Team, Deployment, CloudResource } from '@/generated/ontology'
 
-const client = axios.create({ baseURL: '/api/v1' })
+/**
+ * The one HTTP client every call goes through. Exported so the consumer contract tests can point it
+ * at a Pact mock server and exercise the real API functions rather than a copy of them.
+ */
+export const apiClient = axios.create({ baseURL: '/api/v1' })
+
+const client = apiClient
 
 export interface ImpactAnalysis {
   repoId: string
