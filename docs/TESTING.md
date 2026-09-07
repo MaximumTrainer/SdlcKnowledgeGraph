@@ -33,10 +33,11 @@ slow ones only on push.
 | `test` | `backend/src/test` | no | pre-commit, pre-push, CI |
 | `integrationTest` | `backend/src/integrationTest` | yes | pre-push, CI |
 | `acceptanceTest` | `backend/src/acceptanceTest` | yes | pre-push, CI |
-| `contractTest` | `backend/src/contractTest` | no | pre-push, CI |
+| `contractTest` | `backend/src/contractTest` | yes | pre-push, CI |
 
 `backend/src/testSupport/kotlin` holds helpers shared by more than one suite, currently the
-Testcontainers Neo4j configuration. It is compiled into both `integrationTest` and `acceptanceTest`.
+Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
+`contractTest`.
 
 Unit tests must not start a Spring context. If a test needs one, it belongs in `integrationTest`.
 
@@ -56,7 +57,8 @@ Frontend:
 ```bash
 cd frontend
 npm run test:unit           # Vitest, with MSW for HTTP
-npm run verify              # lint, typecheck, unit tests, build
+npm run test:contract       # Pact consumer tests, regenerating contracts/pacts/
+npm run verify              # lint, typecheck, unit tests, contract tests, build
 
 cd e2e
 npx playwright test         # browser tests against the compose stack
@@ -129,13 +131,40 @@ Every acceptance scenario starts from an empty graph: a Cucumber `@Before` hook 
 The frontend and backend are tested against each other without running both at once. Consumer tests
 in `frontend/src/services/__pact__/` produce pact files into `contracts/pacts/`, which are committed.
 The backend's `contractTest` suite verifies itself against those files using `@PactFolder`, so no
-Pact broker is needed.
+Pact broker is needed (see [ADR-0004](adr/0004-pact-folder-no-broker.md)).
 
 If the frontend changes what it expects, the pact file changes, and the backend suite fails until it
 complies. That is the point.
 
-The suite currently tolerates having no matching tests, because it still contains a placeholder.
-[#17](../../issues/17) replaces the placeholder with real verification and removes that tolerance.
+### The consumer side
+
+`npm run test:contract` runs only `src/**/*.pact.spec.ts`, in the node environment and one file at a
+time, because Pact starts an HTTP mock server per file. It deletes `contracts/pacts/` first: Pact
+merges into an existing document, so without that an interaction you renamed would linger and the
+committed contract would stop being a faithful render of the specs.
+
+A consumer test drives the real functions in `src/services/api.ts` — pointing `apiClient` at the mock
+server — rather than a copy of the request they make. A pact written against a hand-rolled `fetch`
+documents the test, not the application.
+
+### The provider side
+
+`./gradlew contractTest` boots the application on a random port against a Testcontainers Neo4j and
+replays every interaction. Each one names a **provider state**: the graph the backend must be in for
+the interaction to make sense. The handlers live in
+`backend/src/contractTest/.../ProviderStates.kt`, every one of them starting from an empty graph, and
+`ProviderStatesTest` asserts that the set of handlers and the set of states named by the committed
+pacts are the same. Adding an interaction with a new state therefore fails fast and locally, rather
+than as a verification error later.
+
+An empty `contracts/pacts/` fails the suite with `NoPactsFoundException`. Deleting the contract tests
+turns the build red, not green.
+
+### Keeping the two in step
+
+`pre-push` and CI run `git diff --exit-code -- contracts/pacts` after the consumer tests, so a change
+to what the frontend expects cannot be pushed without the regenerated pact that the provider will be
+verified against.
 
 ## Writing a good acceptance test
 

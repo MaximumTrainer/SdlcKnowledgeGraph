@@ -178,16 +178,23 @@ testing {
 
         val contractTest by registering(JvmTestSuite::class) {
             useJUnitJupiter()
+            sources { java.srcDir(sharedTestSupport) }
             dependencies {
                 implementation(project())
+                implementation("org.springframework.boot:spring-boot-starter-web")
+                implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
                 implementation("org.springframework.boot:spring-boot-starter-test")
+                implementation("org.springframework.boot:spring-boot-testcontainers")
+                implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+                implementation("org.testcontainers:junit-jupiter")
+                implementation("org.testcontainers:neo4j")
                 implementation("au.com.dius.pact.provider:junit5spring:4.6.9")
             }
             targets.all {
                 testTask.configure {
                     shouldRunAfter(test)
-                    // Relaxed until #17 replaces the placeholder with real provider verification.
-                    filter { isFailOnNoMatchingTests = false }
+                    // No broker (ADR-0004), so nothing is published back; verification is local only.
+                    systemProperty("pact.verifier.publishResults", "false")
                 }
             }
         }

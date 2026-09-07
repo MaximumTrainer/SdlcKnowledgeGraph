@@ -1,0 +1,209 @@
+{
+  "consumer": {
+    "name": "sdlc-graph-frontend"
+  },
+  "interactions": [
+    {
+      "description": "a request for all repositories",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repositories"
+      },
+      "response": {
+        "body": [],
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for repository R1",
+      "providerStates": [
+        {
+          "name": "a repository with id R1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repositories/R1"
+      },
+      "response": {
+        "body": {
+          "codeowners": [
+            "@acme/platform"
+          ],
+          "defaultBranch": "main",
+          "id": "R1",
+          "orgRepo": "acme/payments",
+          "topics": [
+            "payments"
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.codeowners": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.defaultBranch": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.orgRepo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.topics": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the impact of repository R1",
+      "providerStates": [
+        {
+          "name": "a repository with id R1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/graph/repositories/R1/impact"
+      },
+      "response": {
+        "body": {
+          "cloudResources": [],
+          "dependents": [],
+          "deployments": [],
+          "repoId": "R1"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.repoId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to register acme/payments",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "codeowners": [],
+          "defaultBranch": "main",
+          "orgRepo": "acme/payments",
+          "topics": []
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/repositories"
+      },
+      "response": {
+        "body": {
+          "id": "Repository:github.com/acme/payments",
+          "orgRepo": "acme/payments"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.orgRepo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 201
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "13.2.0"
+    },
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "sdlc-graph-backend"
+  }
+}

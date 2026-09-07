@@ -40,13 +40,21 @@ pre-commit:
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
     - name: actionlint
       glob: ".github/workflows/*.{yml,yaml}"
-      run: npx --yes actionlint@latest {staged_files}
+      run: node scripts/actionlint.mjs {staged_files}
 
 pre-push:
   parallel: true
   jobs:
     - name: backend-check
       run: node scripts/gradle.mjs check --quiet
-    - name: frontend-verify
-      root: frontend/
-      run: npm run verify
+    # Piped so the pact check reads what `verify` has just regenerated; the group still runs in
+    # parallel with the backend check.
+    - name: frontend
+      group:
+        piped: true
+        jobs:
+          - name: frontend-verify
+            root: frontend/
+            run: npm run verify
+          - name: pact-current
+            run: git diff --exit-code -- contracts/pacts

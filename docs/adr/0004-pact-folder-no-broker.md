@@ -36,6 +36,10 @@ turns the build red instead of green.
 
 Consumer and provider names are `sdlc-graph-frontend` and `sdlc-graph-backend`.
 
+Each interaction names a provider state, and the provider seeds it from an empty graph through
+`GraphStore`, so verification never passes on data an earlier interaction left behind. A unit test
+holds the handler set and the states named by the pacts to the same shape.
+
 CI checks that the committed pacts match what the consumer tests generate, so a change to frontend
 expectations cannot be committed without the corresponding pact file.
 
@@ -45,7 +49,11 @@ A change to what the frontend expects produces a changed pact file in the diff, 
 and it fails the provider suite until the backend complies. The contract becomes visible in code
 review rather than living in a separate system.
 
-CI has no external dependency for contract verification, and the tests run offline.
+CI has no external dependency for contract verification, and the tests run offline. The provider
+side does need Docker, because it verifies the real application against a real Neo4j rather than a
+mocked store; that is the same dependency the integration and acceptance suites already have.
+
+See [TESTING.md](../TESTING.md#contract-tests) for how to run both sides.
 
 Committed generated files can drift if someone edits them by hand or forgets to regenerate. The CI
 drift check exists for that.

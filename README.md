@@ -32,7 +32,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what is built and what is planned.
 
 - JDK 17 or later. The Gradle build provisions a 17 toolchain if one is missing.
 - Node.js 20 or later.
-- Docker, for the local database and for the integration and acceptance tests.
+- Docker, for the local database and for the integration, acceptance and contract tests.
 
 ## Getting started
 
@@ -79,7 +79,8 @@ cd backend
 
 cd frontend
 npm run test:unit           # Vitest
-npm run verify              # lint, typecheck, unit tests, build
+npm run test:contract       # Pact consumer tests, regenerating contracts/pacts/
+npm run verify              # lint, typecheck, unit tests, contract tests, build
 
 cd e2e
 npx playwright test         # browser tests against the compose stack

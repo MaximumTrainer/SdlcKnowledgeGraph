@@ -6,11 +6,13 @@
   "scripts": {
     "prepare": "lefthook install",
     "gradle": "node scripts/gradle.mjs",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "actionlint": "node scripts/actionlint.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "actionlint": "^2.0.6",
     "lefthook": "^1.12.3"
   }
 }
