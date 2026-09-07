@@ -212,10 +212,18 @@ class NodeCrudSteps(
         lastPath = "/api/v1/nodes/" + type + "/" + world.lastBody().path("key").asText()
     }
 
+    /** Every property the registry marks required for a Repository, plus the two under test. */
     private fun repositoryProps(
         url: String,
         description: String,
-    ) = mapOf("url" to url, "description" to description, "orgRepo" to "acme/payments")
+    ) = mapOf(
+        "url" to url,
+        "description" to description,
+        "orgRepo" to "acme/payments",
+        "defaultBranch" to "main",
+        "topics" to emptyList<String>(),
+        "codeowners" to emptyList<String>(),
+    )
 
     private fun cloudResourceProps(
         provider: String,
