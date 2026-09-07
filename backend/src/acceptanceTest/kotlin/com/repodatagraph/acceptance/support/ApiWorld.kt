@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.cucumber.spring.ScenarioScope
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 
@@ -25,6 +27,26 @@ class ApiWorld(
         path: String,
         body: Any?,
     ): ResponseEntity<String> = restTemplate.postForEntity(path, body, String::class.java).also { response = it }
+
+    fun put(
+        path: String,
+        body: Any?,
+    ): ResponseEntity<String> = exchange(HttpMethod.PUT, path, body)
+
+    fun delete(path: String): ResponseEntity<String> = exchange(HttpMethod.DELETE, path, null)
+
+    /**
+     * `TestRestTemplate` has no PUT or DELETE that returns a body, and both are needed here: an
+     * update returns the node, and a refused delete returns why it was refused.
+     */
+    private fun exchange(
+        method: HttpMethod,
+        path: String,
+        body: Any?,
+    ): ResponseEntity<String> =
+        restTemplate
+            .exchange(path, method, body?.let { HttpEntity(it) }, String::class.java)
+            .also { response = it }
 
     fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 
