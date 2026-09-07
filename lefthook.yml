@@ -40,7 +40,7 @@ pre-commit:
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
     - name: actionlint
       glob: ".github/workflows/*.{yml,yaml}"
-      run: npx --yes actionlint@latest {staged_files}
+      run: node scripts/actionlint.mjs {staged_files}
 
 pre-push:
   parallel: true
