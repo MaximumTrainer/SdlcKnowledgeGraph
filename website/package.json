@@ -1,0 +1,21 @@
+{
+  "name": "sdlc-knowledge-graph-website",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The project website. Every page under src/ is generated from a source in this repository; see scripts/generate.mjs.",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview --port 4173",
+    "generate": "node scripts/generate.mjs",
+    "drift": "node scripts/generate.mjs --check",
+    "test:unit": "node scripts/run-tests.mjs",
+    "test:site": "playwright test",
+    "verify": "npm run drift && npm run test:unit && npm run build && npm run test:site"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "vitepress": "^1.6.0"
+  }
+}

@@ -1,0 +1,48 @@
+name: Website
+
+# Publishes only what a green CI run on main produced.
+#
+# Triggering on the CI run rather than on the push is the point: a site published from a commit that
+# did not build would describe software that does not work. The artefact is downloaded from that run
+# rather than rebuilt here, so the bytes a reader gets are the bytes CI tested.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to GitHub Pages
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Download the site that CI built
+        uses: actions/download-artifact@v4
+        with:
+          name: website-dist
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Say which commit was published
+        run: echo "Published ${{ github.event.workflow_run.head_sha }} to ${{ steps.deploy.outputs.page_url }}"

@@ -153,7 +153,15 @@ testing {
                 implementation("org.testcontainers:junit-jupiter")
                 implementation("org.testcontainers:neo4j")
             }
-            targets.all { testTask.configure { shouldRunAfter(test) } }
+            targets.all {
+                testTask.configure {
+                    shouldRunAfter(test)
+                    // Gradle's -D lands on the daemon, not on the forked test JVM, so
+                    // `./gradlew integrationTest -DupdateOpenApi=true` needs this passthrough to
+                    // reach OpenApiExportTest.
+                    systemProperty("updateOpenApi", providers.systemProperty("updateOpenApi").getOrElse("false"))
+                }
+            }
         }
 
         val acceptanceTest by registering(JvmTestSuite::class) {

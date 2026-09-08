@@ -1,3 +1,5 @@
+<!-- GENERATED FROM docs/TESTING.md - DO NOT EDIT. Run `npm --prefix website run generate`. -->
+
 # Testing and the TDD workflow
 
 Work on this project is done outside-in: the test that describes the behaviour a user asked for is
@@ -131,7 +133,7 @@ Every acceptance scenario starts from an empty graph: a Cucumber `@Before` hook 
 The frontend and backend are tested against each other without running both at once. Consumer tests
 in `frontend/src/services/__pact__/` produce pact files into `contracts/pacts/`, which are committed.
 The backend's `contractTest` suite verifies itself against those files using `@PactFolder`, so no
-Pact broker is needed (see [ADR-0004](adr/0004-pact-folder-no-broker.md)).
+Pact broker is needed (see [ADR-0004](/adr/0004-pact-folder-no-broker)).
 
 If the frontend changes what it expects, the pact file changes, and the backend suite fails until it
 complies. That is the point.
