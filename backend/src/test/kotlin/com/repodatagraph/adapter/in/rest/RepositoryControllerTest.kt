@@ -2,11 +2,14 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
+import com.repodatagraph.domain.model.EdgeWrite
+import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.`in`.EdgeUseCase
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import org.assertj.core.api.Assertions.assertThat
@@ -45,6 +48,9 @@ class RepositoryControllerTest {
 
     @MockitoBean
     private lateinit var nodeUseCase: NodeUseCase
+
+    @MockitoBean
+    private lateinit var edgeUseCase: EdgeUseCase
 
     /**
      * The endpoint is superseded by POST /api/v1/nodes/Repository (#4) and now delegates to it, so
@@ -96,6 +102,60 @@ class RepositoryControllerTest {
         val props = argumentCaptor<Map<String, Any?>>()
         verify(nodeUseCase).create(eq("Repository"), props.capture())
         assertThat(props.firstValue["url"]).isEqualTo("https://github.com/acme/payments")
+    }
+
+    /**
+     * The five bespoke link endpoints are superseded by POST /api/v1/edges (#5). They now delegate to
+     * the same use case, so registry validation and provenance apply to them too, and they say so in
+     * their headers.
+     *
+     * Note the ids here have no slashes. Under the derived identity scheme a Repository id is
+     * `Repository:host/org/name`, which cannot sit in a mid-path segment, so these endpoints are in
+     * practice unreachable for repositories; see the deprecation note in the controller.
+     */
+    @Test
+    fun `linking to a team goes through the edge use case and says it is deprecated`() {
+        whenever(edgeUseCase.create(any())).thenReturn(
+            EdgeWrite(
+                GraphEdge("OWNED_BY", NodeKey("Repository", "r1"), NodeKey("Team", "platform"), emptyMap(), Provenance.manual()),
+                inverse = "OWNS",
+                created = true,
+            ),
+        )
+
+        mockMvc
+            .perform(post("/api/v1/repositories/r1/teams/platform"))
+            .andExpect(status().isOk)
+            .andExpect(header().string("Deprecation", "true"))
+            .andExpect(header().string("Link", """</api/v1/edges>; rel="successor-version""""))
+
+        verify(repositoryUseCase, never()).linkToTeam(any(), any())
+    }
+
+    @Test
+    fun `adding a dependency states the kind the edge type requires`() {
+        whenever(edgeUseCase.create(any())).thenReturn(
+            EdgeWrite(
+                GraphEdge(
+                    "DEPENDS_ON",
+                    NodeKey("Repository", "r1"),
+                    NodeKey("Repository", "r2"),
+                    mapOf("kind" to "api"),
+                    Provenance.manual(),
+                ),
+                inverse = "DEPENDED_ON_BY",
+                created = true,
+            ),
+        )
+
+        mockMvc
+            .perform(post("/api/v1/repositories/r1/dependencies/r2").param("kind", "api"))
+            .andExpect(status().isOk)
+            .andExpect(header().string("Deprecation", "true"))
+
+        val request = argumentCaptor<com.repodatagraph.domain.model.EdgeRequest>()
+        verify(edgeUseCase).create(request.capture())
+        assertThat(request.firstValue.props["kind"]).isEqualTo("api")
     }
 
     @Test
