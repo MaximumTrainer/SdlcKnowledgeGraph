@@ -39,7 +39,7 @@ import java.time.Instant
  * assert on the body, not just the status.
  */
 @WebMvcTest(NodeController::class)
-@Import(RestExceptionHandler::class)
+@Import(NodeRestExceptionHandler::class)
 class NodeControllerTest {
     @Autowired
     private lateinit var mockMvc: MockMvc

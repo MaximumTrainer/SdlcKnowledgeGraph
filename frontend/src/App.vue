@@ -4,8 +4,9 @@
       <nav>
         <router-link to="/" class="brand">🕸 RepoDataGraph</router-link>
         <div class="nav-links">
-          <router-link to="/">Repositories</router-link>
-          <router-link to="/repositories/new">+ Register Repo</router-link>
+          <router-link to="/nodes/Repository">Repositories</router-link>
+          <router-link to="/nodes/Team">Teams</router-link>
+          <router-link to="/nodes/Service">Services</router-link>
         </div>
       </nav>
     </header>

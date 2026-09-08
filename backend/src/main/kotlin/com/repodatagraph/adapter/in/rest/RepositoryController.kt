@@ -2,7 +2,8 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
 import com.repodatagraph.adapter.`in`.rest.dto.RepositoryResponse
-import com.repodatagraph.domain.model.Repository
+import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -15,33 +16,51 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1/repositories")
 @Tag(name = "Repositories", description = "Git repository management")
 class RepositoryController(
     private val repositoryUseCase: RepositoryUseCase,
+    private val nodeUseCase: NodeUseCase,
+    private val identityResolver: IdentityResolver,
 ) {
+    /**
+     * Superseded by `POST /api/v1/nodes/Repository`, and kept only so existing callers keep working.
+     *
+     * It delegates to the same use case rather than keeping a second write path, so registry
+     * validation, derived identity and provenance apply here too. The `Deprecation` header and the
+     * `Link` to the successor are how a caller finds out without reading the release notes.
+     */
     @PostMapping
-    @Operation(summary = "Register a repository in the graph")
+    @Operation(summary = "Register a repository in the graph", deprecated = true)
     fun registerRepository(
         @RequestBody request: CreateRepositoryRequest,
     ): ResponseEntity<RepositoryResponse> {
-        val repository =
-            Repository(
-                id = UUID.randomUUID().toString(),
-                orgRepo = request.orgRepo,
-                defaultBranch = request.defaultBranch,
-                topics = request.topics,
-                codeowners = request.codeowners,
-                serviceId = request.serviceId,
-                language = request.language,
-                description = request.description,
-            )
-        val saved = repositoryUseCase.registerRepository(repository)
-        return ResponseEntity.status(HttpStatus.CREATED).body(RepositoryResponse.from(saved))
+        val created = nodeUseCase.create("Repository", propsOf(request))
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .header(DEPRECATION_HEADER, "true")
+            .header(LINK_HEADER, SUCCESSOR_LINK)
+            .body(RepositoryResponse.from(created))
     }
+
+    /**
+     * The old endpoint accepts `org/repo`, which is a shorthand rather than a remote. It is expanded
+     * to the canonical URL here so the node is stored with a real one, instead of the graph keeping a
+     * fragment that no connector could later match. #8 replaces this with a full parser.
+     */
+    private fun propsOf(request: CreateRepositoryRequest): Map<String, Any?> =
+        mapOf(
+            "url" to "https://" + identityResolver.repositoryKey(mapOf("url" to request.orgRepo)),
+            "orgRepo" to request.orgRepo,
+            "defaultBranch" to request.defaultBranch,
+            "topics" to request.topics,
+            "codeowners" to request.codeowners,
+            "serviceId" to request.serviceId,
+            "language" to request.language,
+            "description" to request.description,
+        ).filterValues { it != null }
 
     @GetMapping
     @Operation(summary = "List all registered repositories")
@@ -116,5 +135,11 @@ class RepositoryController(
     ): ResponseEntity<Void> {
         repositoryUseCase.addDependency(repoId, depRepoId)
         return ResponseEntity.ok().build()
+    }
+
+    private companion object {
+        const val DEPRECATION_HEADER = "Deprecation"
+        const val LINK_HEADER = "Link"
+        const val SUCCESSOR_LINK = "</api/v1/nodes/Repository>; rel=\"successor-version\""
     }
 }

@@ -1,5 +1,6 @@
 package com.repodatagraph.pact
 
+import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
@@ -45,6 +46,49 @@ class ProviderStates(
         emptyGraph()
     }
 
+    fun noTeamsExist() {
+        emptyGraph()
+    }
+
+    /**
+     * One Team, owned by one Repository.
+     *
+     * The edge is part of the state rather than an extra: the interaction that refuses a delete has
+     * to have something to refuse over, and the one that cascades has to have something to cascade.
+     */
+    fun teamPlatformExists() {
+        emptyGraph()
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("Team", TEAM_KEY),
+                props = mapOf("name" to TEAM_KEY),
+                provenance = Provenance.manual(),
+            ),
+        )
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                props =
+                    mapOf(
+                        "orgRepo" to "acme/payments",
+                        "url" to "https://github.com/acme/payments",
+                        "defaultBranch" to "main",
+                        "topics" to listOf("payments"),
+                        "codeowners" to listOf("@acme/platform"),
+                    ),
+                provenance = Provenance.manual(),
+            ),
+        )
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "OWNED_BY",
+                from = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                to = NodeKey("Team", TEAM_KEY),
+                provenance = Provenance.manual(),
+            ),
+        )
+    }
+
     private fun emptyGraph() {
         neo4jClient.query("MATCH (n) DETACH DELETE n").run()
     }
@@ -52,10 +96,20 @@ class ProviderStates(
     companion object {
         const val REPOSITORY_R1_EXISTS = "a repository with id R1 exists"
         const val NO_REPOSITORIES_EXIST = "no repositories exist"
+        const val NO_TEAMS_EXIST = "no Team nodes exist"
+        const val TEAM_PLATFORM_EXISTS = "a Team named platform exists"
 
         private const val REPOSITORY_KEY = "R1"
+        private const val TEAM_KEY = "platform"
+        private const val REPOSITORY_KEY_OWNED = "github.com/acme/payments"
 
         /** Every state this provider can seed. */
-        val ALL = setOf(REPOSITORY_R1_EXISTS, NO_REPOSITORIES_EXIST)
+        val ALL =
+            setOf(
+                REPOSITORY_R1_EXISTS,
+                NO_REPOSITORIES_EXIST,
+                NO_TEAMS_EXIST,
+                TEAM_PLATFORM_EXISTS,
+            )
     }
 }

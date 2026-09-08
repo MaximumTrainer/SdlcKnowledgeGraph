@@ -19,7 +19,14 @@ export type {
 } from '@/generated/ontology'
 export { NODE_TYPES, EDGE_TYPES, ONTOLOGY_VERSION } from '@/generated/ontology'
 
-import type { Repository, Team, Deployment, CloudResource } from '@/generated/ontology'
+import type {
+  Repository,
+  Team,
+  Deployment,
+  CloudResource,
+  NodeType,
+  Provenance
+} from '@/generated/ontology'
 
 /**
  * The one HTTP client every call goes through. Exported so the consumer contract tests can point it
@@ -64,6 +71,68 @@ export const graphApi = {
       .catch(() => null),
   getImpact: (repoId: string): Promise<ImpactAnalysis> =>
     client.get(`/graph/repositories/${repoId}/impact`).then(r => r.data)
+}
+
+/**
+ * A node as the generic API renders it: the identity the server derived, the properties the
+ * ontology declares, and the provenance of the statement that it exists.
+ *
+ * `props` is deliberately loose. The editing screens render themselves from `GET /api/v1/ontology`,
+ * so tying this to a union of the generated interfaces would defeat the point: a node type added to
+ * the registry has to reach the user interface without a frontend release.
+ */
+export interface GraphNode {
+  id: string
+  type: string
+  key: string
+  props: Record<string, unknown>
+  provenance: Provenance
+}
+
+export interface NodePage {
+  items: GraphNode[]
+  nextCursor?: string | null
+}
+
+/** One property the server refused, with the message meant for that field's input. */
+export interface PropertyError {
+  field: string
+  message: string
+}
+
+export interface ListOptions {
+  limit?: number
+  cursor?: string
+}
+
+/**
+ * CRUD for any node type the registry declares.
+ *
+ * A node's key can contain slashes (`github.com/acme/payments`), and the server reads the segment
+ * after the type as a path rather than as one encoded component, so keys are interpolated as-is.
+ * That is safe here because a key only ever comes back from the server; nothing user-typed reaches
+ * it without a round trip that would have failed first.
+ */
+export const nodeApi = {
+  list: (type: NodeType | string, options: ListOptions = {}): Promise<NodePage> =>
+    client.get(`/nodes/${type}`, { params: options }).then(r => r.data),
+  get: (type: NodeType | string, key: string): Promise<GraphNode> =>
+    client.get(`/nodes/${type}/${key}`).then(r => r.data),
+  create: (type: NodeType | string, props: Record<string, unknown>): Promise<GraphNode> =>
+    client.post(`/nodes/${type}`, { props }).then(r => r.data),
+  update: (
+    type: NodeType | string,
+    key: string,
+    props: Record<string, unknown>
+  ): Promise<GraphNode> => client.put(`/nodes/${type}/${key}`, { props }).then(r => r.data),
+  remove: (
+    type: NodeType | string,
+    key: string,
+    options: { cascade?: boolean } = {}
+  ): Promise<void> =>
+    client
+      .delete(`/nodes/${type}/${key}`, { params: options.cascade ? { cascade: true } : undefined })
+      .then(() => undefined)
 }
 
 /**

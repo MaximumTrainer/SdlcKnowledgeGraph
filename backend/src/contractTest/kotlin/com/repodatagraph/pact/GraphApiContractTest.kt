@@ -59,4 +59,10 @@ class GraphApiContractTest {
 
     @State(ProviderStates.NO_REPOSITORIES_EXIST)
     fun noRepositoriesExist() = states.noRepositoriesExist()
+
+    @State(ProviderStates.NO_TEAMS_EXIST)
+    fun noTeamsExist() = states.noTeamsExist()
+
+    @State(ProviderStates.TEAM_PLATFORM_EXISTS)
+    fun teamPlatformExists() = states.teamPlatformExists()
 }
