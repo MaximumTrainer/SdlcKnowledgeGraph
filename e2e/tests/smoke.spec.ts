@@ -6,7 +6,8 @@ test.describe('walking skeleton', () => {
 
     await expect(page).toHaveTitle(/RepoDataGraph/)
     await expect(page.getByRole('link', { name: /RepoDataGraph/ })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Git Repositories' })).toBeVisible()
+    // The landing route redirects to the Repository list, whose heading is the registry type (#4).
+    await expect(page.getByRole('heading', { name: 'Repository', level: 1 })).toBeVisible()
   })
 
   test('API is reachable through the nginx /api proxy', async ({ request }) => {

@@ -35,10 +35,26 @@ interface GraphStore {
 
     fun findNode(key: NodeKey): GraphNode?
 
+    /**
+     * Nodes of a type, always in key order.
+     *
+     * [afterKey] and [limit] page by key rather than by offset, so a page stays stable while other
+     * nodes are being written: an offset would silently skip or repeat rows as the set shifts.
+     */
     fun findNodes(
         type: String,
         filter: Map<String, Any?> = emptyMap(),
+        afterKey: String? = null,
+        limit: Int? = null,
     ): List<GraphNode>
+
+    /**
+     * How many relationships are attached to a node, in either direction.
+     *
+     * Deleting is refused while this is non-zero unless the caller asks to cascade, and the count is
+     * reported so the refusal says how much would have been destroyed.
+     */
+    fun countEdges(key: NodeKey): Long
 
     /**
      * Removes a node. Without [cascade] a node that still has relationships is left alone and this

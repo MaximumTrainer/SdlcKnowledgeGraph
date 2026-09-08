@@ -2,24 +2,37 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
+import com.repodatagraph.domain.model.GraphNode
+import com.repodatagraph.domain.model.NodeKey
+import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.Repository
+import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
 
 @WebMvcTest(RepositoryController::class)
+@Import(IdentityResolver::class)
 class RepositoryControllerTest {
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -30,11 +43,24 @@ class RepositoryControllerTest {
     @MockitoBean
     private lateinit var repositoryUseCase: RepositoryUseCase
 
+    @MockitoBean
+    private lateinit var nodeUseCase: NodeUseCase
+
+    /**
+     * The endpoint is superseded by POST /api/v1/nodes/Repository (#4) and now delegates to it, so
+     * that registry validation, derived identity and provenance apply to it as well. These assert
+     * both halves of that: one write path, and a response that says the endpoint is on its way out.
+     */
     @Test
-    fun `POST repositories registers and returns 201`() {
-        val request = CreateRepositoryRequest(orgRepo = "org/repo")
-        val saved = Repository(id = "1", orgRepo = "org/repo")
-        whenever(repositoryUseCase.registerRepository(any())).thenReturn(saved)
+    fun `POST repositories registers through the node use case and returns 201`() {
+        val request = CreateRepositoryRequest(orgRepo = "acme/payments")
+        whenever(nodeUseCase.create(eq("Repository"), any())).thenReturn(
+            GraphNode(
+                key = NodeKey("Repository", "github.com/acme/payments"),
+                props = mapOf("orgRepo" to "acme/payments", "url" to "https://github.com/acme/payments"),
+                provenance = Provenance.manual(Instant.parse("2026-01-01T00:00:00Z")),
+            ),
+        )
 
         mockMvc
             .perform(
@@ -42,7 +68,34 @@ class RepositoryControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)),
             ).andExpect(status().isCreated)
-            .andExpect(jsonPath("$.orgRepo").value("org/repo"))
+            .andExpect(header().string("Deprecation", "true"))
+            .andExpect(header().string("Link", """</api/v1/nodes/Repository>; rel="successor-version""""))
+            .andExpect(jsonPath("$.id").value("Repository:github.com/acme/payments"))
+            .andExpect(jsonPath("$.orgRepo").value("acme/payments"))
+
+        verify(repositoryUseCase, never()).registerRepository(any())
+    }
+
+    @Test
+    fun `POST repositories expands the org-repo shorthand to a canonical remote`() {
+        whenever(nodeUseCase.create(eq("Repository"), any())).thenReturn(
+            GraphNode(
+                key = NodeKey("Repository", "github.com/acme/payments"),
+                props = emptyMap(),
+                provenance = Provenance.manual(Instant.parse("2026-01-01T00:00:00Z")),
+            ),
+        )
+
+        mockMvc
+            .perform(
+                post("/api/v1/repositories")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(CreateRepositoryRequest(orgRepo = "Acme/Payments"))),
+            ).andExpect(status().isCreated)
+
+        val props = argumentCaptor<Map<String, Any?>>()
+        verify(nodeUseCase).create(eq("Repository"), props.capture())
+        assertThat(props.firstValue["url"]).isEqualTo("https://github.com/acme/payments")
     }
 
     @Test

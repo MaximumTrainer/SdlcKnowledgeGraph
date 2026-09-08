@@ -144,6 +144,57 @@ So `https://github.com/Acme/Payments.git`, `git@github.com:acme/payments.git` an
 all resolve to `github.com/acme/payments`. A uniqueness constraint on `(label, key)` is created for
 every registry type at startup, and nodes carry an `aliases` list when identities are merged.
 
+## Maintaining nodes by hand
+
+`/api/v1/nodes/{type}` is one CRUD surface for every type the registry declares, so a type added to
+`nodes.yaml` becomes maintainable without a new endpoint or a new screen. The type in the path is
+looked up in the registry and refused if absent; it is never interpolated into a query, so the only
+labels that reach Cypher are declared ones.
+
+| Request | Result |
+| --- | --- |
+| `POST /api/v1/nodes/{type}` with `{props}` | `201` with the derived identity, and a `Location` |
+| `GET /api/v1/nodes/{type}?limit=&cursor=` | `200 {items, nextCursor}`, in key order |
+| `GET /api/v1/nodes/{type}/{key}` | `200` or `404` |
+| `PUT /api/v1/nodes/{type}/{key}` with `{props}` | `200`, same id and same key |
+| `DELETE /api/v1/nodes/{type}/{key}?cascade=` | `204`, or `409` while edges remain |
+
+The segment after the type is the derived key, which contains slashes for most types
+(`/api/v1/nodes/Repository/github.com/acme/payments`). A full `Type:key` id is accepted there too.
+
+### What is validated, and what it says
+
+Validation is read from the registry rather than written per type. Every problem is reported at
+once, each against its own field, so a form can show a user all of them rather than one per round
+trip.
+
+| Problem | Response |
+| --- | --- |
+| Type not in the registry | `404 {error: "unknown node type", type}` |
+| Required property missing or blank | `400 {errors: [{field, message: "<name> is required"}]}` |
+| Value of the wrong type | `400` with `message: "expected int"` (or the declared wire name) |
+| Property not declared | `400` with `message: "not in ontology"` |
+| Derived key already held | `409 {error: "node exists", existingId}` |
+| Update derives a different key | `409 {error: "identity properties are immutable", fields}` |
+| Delete while edges remain | `409 {error: "node has edges", edgeCount}` |
+
+A property the registry does not declare is refused rather than stored and ignored. Storing it would
+turn a typo into a silent data-quality problem and would let a caller choose its own keys.
+
+`id` and `key` are refused for the same reason: identity is derived from the properties, so a client
+cannot claim one. That is what makes re-stating the same fact idempotent instead of duplicating it.
+
+### Why identity cannot be edited
+
+Because the key is derived, changing an identity property does not rename a node — it describes a
+different thing. An update whose properties derive to a different key is therefore refused with the
+properties responsible, and the editing form disables them rather than letting a user discover this
+on save. Creating that other thing is a create.
+
+The refusal names the properties by putting each changed one back on its own and asking whether the
+key returns, rather than from a table of which properties feed which type's identity. A resolver that
+starts consulting a different property stays correctly reported.
+
 ## Versioning
 
 The registry declares a `version`, and an `Ontology` node records which version the graph was built

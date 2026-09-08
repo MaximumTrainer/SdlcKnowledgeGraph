@@ -4,6 +4,51 @@
   },
   "interactions": [
     {
+      "description": "a request for all Team nodes",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/nodes/Team"
+      },
+      "response": {
+        "body": {
+          "items": [
+            {
+              "id": "Team:platform",
+              "key": "platform",
+              "props": {
+                "name": "platform"
+              },
+              "type": "Team"
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for all repositories",
       "providerStates": [
         {
@@ -138,6 +183,240 @@
       }
     },
     {
+      "description": "a request to create a Team",
+      "providerStates": [
+        {
+          "name": "no Team nodes exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "name": "platform"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/nodes/Team"
+      },
+      "response": {
+        "body": {
+          "id": "Team:platform",
+          "key": "platform",
+          "props": {
+            "name": "platform"
+          },
+          "provenance": {
+            "confidence": 1,
+            "inferred": false,
+            "sourceSystem": "manual"
+          },
+          "type": "Team"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "a request to create a Team that already exists",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "name": "platform"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/nodes/Team"
+      },
+      "response": {
+        "body": {
+          "error": "node exists",
+          "existingId": "Team:platform"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.existingId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 409
+      }
+    },
+    {
+      "description": "a request to create a Team with no name",
+      "providerStates": [
+        {
+          "name": "no Team nodes exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "email": "platform@acme.example"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/nodes/Team"
+      },
+      "response": {
+        "body": {
+          "errors": [
+            {
+              "field": "name",
+              "message": "name is required"
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.errors": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 400
+      }
+    },
+    {
+      "description": "a request to delete a Team that still has edges",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/nodes/Team/platform"
+      },
+      "response": {
+        "body": {
+          "edgeCount": 1,
+          "error": "node has edges"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.edgeCount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 409
+      }
+    },
+    {
+      "description": "a request to delete a Team with cascade",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/nodes/Team/platform",
+        "query": {
+          "cascade": [
+            "true"
+          ]
+        }
+      },
+      "response": {
+        "status": 204
+      }
+    },
+    {
       "description": "a request to register acme/payments",
       "providerStates": [
         {
@@ -188,6 +467,93 @@
           "status": {}
         },
         "status": 201
+      }
+    },
+    {
+      "description": "a request to update the platform Team",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "email": "platform@acme.example",
+            "name": "platform"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "PUT",
+        "path": "/api/v1/nodes/Team/platform"
+      },
+      "response": {
+        "body": {
+          "id": "Team:platform",
+          "key": "platform",
+          "props": {
+            "email": "platform@acme.example",
+            "name": "platform"
+          },
+          "provenance": {
+            "confidence": 1,
+            "inferred": false,
+            "sourceSystem": "manual"
+          },
+          "type": "Team"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
       }
     }
   ],

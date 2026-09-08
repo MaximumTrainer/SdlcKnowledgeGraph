@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.Repository
 
 data class CreateRepositoryRequest(
@@ -34,6 +35,26 @@ data class RepositoryResponse(
                 language = repo.language,
                 description = repo.description,
             )
+
+        /**
+         * The same response, rendered from a stored node.
+         *
+         * The deprecated create endpoint writes through the generic node use case, so what comes
+         * back is a [GraphNode]; rendering it here keeps one write path rather than two.
+         */
+        fun from(node: GraphNode) =
+            RepositoryResponse(
+                id = node.id,
+                orgRepo = node.props["orgRepo"]?.toString() ?: node.key.key,
+                defaultBranch = node.props["defaultBranch"]?.toString() ?: "main",
+                topics = strings(node.props["topics"]),
+                codeowners = strings(node.props["codeowners"]),
+                serviceId = node.props["serviceId"]?.toString(),
+                language = node.props["language"]?.toString(),
+                description = node.props["description"]?.toString(),
+            )
+
+        private fun strings(value: Any?): List<String> = (value as? Collection<*>)?.map { it.toString() } ?: emptyList()
     }
 }
 

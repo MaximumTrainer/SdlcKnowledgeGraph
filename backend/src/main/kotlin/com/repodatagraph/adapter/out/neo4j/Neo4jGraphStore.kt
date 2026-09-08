@@ -85,23 +85,41 @@ class Neo4jGraphStore(
     override fun findNodes(
         type: String,
         filter: Map<String, Any?>,
+        afterKey: String?,
+        limit: Int?,
     ): List<GraphNode> {
         val label = cypher.nodeLabel(type)
         val declaredFilter = cypher.declaredProperties(type, filter)
-        val where =
-            if (declaredFilter.isEmpty()) {
-                ""
-            } else {
-                "WHERE " + declaredFilter.keys.joinToString(" AND ") { "n.$it = ${'$'}filter_$it" }
-            }
-        val parameters = declaredFilter.mapKeys { "filter_${it.key}" }
+        val conditions =
+            declaredFilter.keys.map { "n.$it = ${'$'}filter_$it" } +
+                listOfNotNull("n.key > ${'$'}afterKey".takeIf { afterKey != null })
+        val where = if (conditions.isEmpty()) "" else "WHERE " + conditions.joinToString(" AND ")
+        // The key is the only ordering the caller can reason about, and paging by it rather than by
+        // offset is what keeps a page stable while other nodes are being written.
+        val paging = "ORDER BY n.key" + if (limit != null) " LIMIT ${'$'}limit" else ""
+        val parameters =
+            declaredFilter.mapKeys { "filter_${it.key}" } +
+                listOfNotNull(
+                    afterKey?.let { "afterKey" to it },
+                    limit?.let { "limit" to it.toLong() },
+                )
 
         return neo4jClient
-            .query("MATCH (n:$label) $where RETURN n { .* } AS n")
+            .query("MATCH (n:$label) $where RETURN n { .* } AS n $paging")
             .bindAll(parameters)
             .fetch()
             .all()
             .map { GraphRowMapper.toNode(type, it["n"]) }
+    }
+
+    override fun countEdges(key: NodeKey): Long {
+        val label = cypher.nodeLabel(key.type)
+        return neo4jClient
+            .query("MATCH (n:$label { key: ${'$'}key })-[r]-() RETURN count(r) AS c")
+            .bindAll(mapOf("key" to key.key))
+            .fetchAs(Long::class.javaObjectType)
+            .one()
+            .orElse(0L)
     }
 
     override fun deleteNode(
