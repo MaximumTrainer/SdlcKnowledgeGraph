@@ -105,8 +105,8 @@ describe('edge API contract', () => {
       .uponReceiving('a request for the edges of shared-lib')
       .withRequest({
         method: 'GET',
-        path: '/api/v1/nodes/Repository/github.com/acme/shared-lib/edges',
-        query: { direction: 'both' }
+        path: '/api/v1/edges',
+        query: { nodeId: SHARED, direction: 'both' }
       })
       .willRespondWith({
         status: 200,

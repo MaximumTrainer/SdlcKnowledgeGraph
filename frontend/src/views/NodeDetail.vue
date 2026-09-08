@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import RelationshipPanel from '@/components/RelationshipPanel.vue'
 import { nodeApi, type GraphNode } from '@/services/api'
 
 /**
@@ -82,6 +83,8 @@ const remove = async (cascade: boolean) => {
           <dd>{{ display(value) }}</dd>
         </template>
       </dl>
+
+      <RelationshipPanel :type="type" :node-key="node.key" />
 
       <h2>Provenance</h2>
       <dl data-test="provenance">

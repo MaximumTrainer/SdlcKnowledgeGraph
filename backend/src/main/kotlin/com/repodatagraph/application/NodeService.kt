@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service
 class NodeService(
     private val registry: OntologyRegistry,
     private val identityResolver: IdentityResolver,
-    private val validator: NodeValidator,
+    private val validator: PropertyValidator,
     private val graphStore: GraphStore,
 ) : NodeUseCase {
     override fun create(

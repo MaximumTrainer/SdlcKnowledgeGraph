@@ -83,7 +83,7 @@ class EdgeSteps(
         key: String,
         direction: String,
     ) {
-        world.get("/api/v1/nodes/$type/$key/edges?direction=$direction")
+        world.get("$EDGES?nodeId=$type:$key&direction=$direction")
     }
 
     @Then("one edge is listed with displayName {string} and other key {string}")

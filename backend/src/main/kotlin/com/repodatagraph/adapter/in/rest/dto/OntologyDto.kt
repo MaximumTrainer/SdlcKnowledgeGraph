@@ -67,6 +67,9 @@ data class PropertyResponse(
     val type: String,
     val required: Boolean,
     val description: String?,
+    /** Omitted when the property is unconstrained, so a form only offers a choice where there is one. */
+    @field:com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    val enum: List<String>? = null,
 ) {
     companion object {
         fun from(property: PropertyDef): PropertyResponse =
@@ -75,6 +78,7 @@ data class PropertyResponse(
                 type = property.type.wireName,
                 required = property.required,
                 description = property.description,
+                enum = property.enum,
             )
     }
 }

@@ -4,6 +4,7 @@ import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
+import com.repodatagraph.domain.model.IncidentEdge
 import com.repodatagraph.domain.model.NeighbourhoodSpec
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Subgraph
@@ -16,8 +17,16 @@ import org.springframework.stereotype.Repository
  *
  * Every query is built from registry-validated labels and parameterised values, so the shape of the
  * data and the safety of the query come from the same place.
+ *
+ * It carries more functions than detekt's threshold likes, and deliberately: it implements
+ * [GraphStore], which is one port on purpose (see ADR-0003 and #19) so that identity, provenance and
+ * endpoint checking are properties of the system rather than of whichever query remembered them.
+ * Delegating to collaborators would not change the count, since the overrides would remain. If the
+ * port keeps growing, the answer is to split the port into node and edge halves, not to hide the
+ * signal here.
  */
 @Repository
+@Suppress("TooManyFunctions")
 class Neo4jGraphStore(
     private val neo4jClient: Neo4jClient,
     private val cypher: CypherBuilder,
@@ -182,6 +191,78 @@ class Neo4jGraphStore(
         return deleted > 0L
     }
 
+    override fun findEdge(
+        type: String,
+        from: NodeKey,
+        to: NodeKey,
+    ): GraphEdge? {
+        val relationship = cypher.edgeType(type)
+        val fromLabel = cypher.nodeLabel(from.type)
+        val toLabel = cypher.nodeLabel(to.type)
+
+        return neo4jClient
+            .query(
+                """
+                MATCH (a:$fromLabel { key: ${'$'}fromKey })-[r:$relationship]->(b:$toLabel { key: ${'$'}toKey })
+                RETURN r { .* } AS r
+                """.trimIndent(),
+            ).bindAll(mapOf("fromKey" to from.key, "toKey" to to.key))
+            .fetch()
+            .one()
+            .map { GraphRowMapper.toEdge(type, from, to, it["r"]) }
+            .orElse(null)
+    }
+
+    /**
+     * Run as two queries rather than one, because the direction a row was found in is the thing the
+     * caller needs and recovering it from a single undirected match costs more than asking twice.
+     */
+    override fun findEdges(
+        key: NodeKey,
+        direction: Direction,
+        edgeType: String?,
+    ): List<IncidentEdge> {
+        val label = cypher.nodeLabel(key.type)
+        val filter = edgeType?.let { ":" + cypher.edgeType(it) }.orEmpty()
+
+        val outgoing =
+            if (direction == Direction.INCOMING) {
+                emptyList()
+            } else {
+                incident(key, "MATCH (n:$label { key: ${'$'}key })-[r$filter]->(o)", Direction.OUTGOING)
+            }
+        val incoming =
+            if (direction == Direction.OUTGOING) {
+                emptyList()
+            } else {
+                incident(key, "MATCH (n:$label { key: ${'$'}key })<-[r$filter]-(o)", Direction.INCOMING)
+            }
+
+        return outgoing + incoming
+    }
+
+    private fun incident(
+        key: NodeKey,
+        match: String,
+        direction: Direction,
+    ): List<IncidentEdge> =
+        neo4jClient
+            .query(
+                """
+                $match
+                RETURN type(r) AS type, r { .* } AS edge, labels(o)[0] AS otherType, o { .* } AS other
+                """.trimIndent(),
+            ).bindAll(mapOf("key" to key.key))
+            .fetch()
+            .all()
+            .mapNotNull { row ->
+                val type = row["type"]?.toString() ?: return@mapNotNull null
+                val otherType = row["otherType"]?.toString() ?: return@mapNotNull null
+                val other = GraphRowMapper.toNode(otherType, row["other"])
+                val (from, to) = if (direction == Direction.OUTGOING) key to other.key else other.key to key
+                IncidentEdge(GraphRowMapper.toEdge(type, from, to, row["edge"]), direction, other)
+            }
+
     override fun neighbourhood(
         key: NodeKey,
         spec: NeighbourhoodSpec,
@@ -253,6 +334,22 @@ internal object GraphRowMapper {
         val properties = propertiesOf(value)
         return GraphNode(
             key = NodeKey(type, properties["key"]?.toString().orEmpty()),
+            props = domainProperties(properties),
+            provenance = ProvenanceMapper.fromProperties(properties),
+        )
+    }
+
+    fun toEdge(
+        type: String,
+        from: NodeKey,
+        to: NodeKey,
+        value: Any?,
+    ): GraphEdge {
+        val properties = propertiesOf(value)
+        return GraphEdge(
+            type = type,
+            from = from,
+            to = to,
             props = domainProperties(properties),
             provenance = ProvenanceMapper.fromProperties(properties),
         )

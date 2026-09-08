@@ -28,13 +28,23 @@ const addRelationship = async (page: Page, type: string, targetKey: string, kind
   await page.getByRole('option', { name: targetKey }).click()
   if (kind) await page.getByLabel('kind').selectOption(kind)
   await page.getByRole('button', { name: 'Add', exact: true }).click()
+  // The form closes only once the server has accepted it. Without this the test races its own
+  // write, and the open form's type dropdown would satisfy an assertion the new edge should.
+  await expect(page.getByRole('button', { name: 'Add relationship' })).toBeVisible()
 }
+
+/** The listed relationships, excluding the add form. */
+const relationships = (page: Page) => page.getByTestId('relationship-list')
 
 test.describe('typed relationships', () => {
   test('only edge types the ontology allows for this node are offered', async ({ page, request }) => {
     const ontology = await (await request.get('/api/v1/ontology')).json()
+    // A node may sit at either end, so BUILT_FROM (Artifact -> Repository) belongs here too.
     const allowedForRepository = ontology.edgeTypes
-      .filter((edge: { from: string[]; to: string[] }) => edge.from.includes('Repository'))
+      .filter(
+        (edge: { from: string[]; to: string[] }) =>
+          edge.from.includes('Repository') || edge.to.includes('Repository')
+      )
       .map((edge: { name: string }) => edge.name)
 
     const key = await createRepository(page, unique('offers'))
@@ -44,7 +54,8 @@ test.describe('typed relationships', () => {
     const offered = await page.getByLabel('Relationship').locator('option').allTextContents()
 
     for (const type of allowedForRepository) expect(offered).toContain(type)
-    expect(offered).not.toContain('BUILT_FROM')
+    // Deployment -> Environment has a Repository at neither end.
+    expect(offered).not.toContain('TO_ENVIRONMENT')
   })
 
   test('one edge is seen under its own name from one end and its inverse from the other', async ({
@@ -56,13 +67,12 @@ test.describe('typed relationships', () => {
     await page.goto(`/nodes/Repository/${dependent}`)
     await addRelationship(page, 'DEPENDS_ON', dependency, 'library')
 
-    const panel = page.getByTestId('relationship-panel')
-    await expect(panel).toContainText('DEPENDS_ON')
-    await expect(panel).toContainText(dependency)
+    await expect(relationships(page)).toContainText('DEPENDS_ON')
+    await expect(relationships(page)).toContainText(dependency)
 
     await page.goto(`/nodes/Repository/${dependency}`)
-    await expect(panel).toContainText('DEPENDED_ON_BY')
-    await expect(panel).toContainText(dependent)
+    await expect(relationships(page)).toContainText('DEPENDED_ON_BY')
+    await expect(relationships(page)).toContainText(dependent)
   })
 
   test('removing a relationship clears it from both ends', async ({ page }) => {
@@ -73,9 +83,9 @@ test.describe('typed relationships', () => {
     await addRelationship(page, 'DEPENDS_ON', dependency, 'library')
     await page.getByRole('button', { name: `Remove DEPENDS_ON to ${dependency}` }).click()
 
-    await expect(page.getByTestId('relationship-panel')).not.toContainText(dependency)
+    await expect(relationships(page)).not.toContainText(dependency)
 
     await page.goto(`/nodes/Repository/${dependency}`)
-    await expect(page.getByTestId('relationship-panel')).not.toContainText(dependent)
+    await expect(relationships(page)).not.toContainText(dependent)
   })
 })

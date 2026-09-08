@@ -101,7 +101,8 @@ Feature: Typed relationships
   Scenario: An edge carries the provenance of the person who stated it
     Given the edge "DEPENDS_ON" exists from "Repository:github.com/acme/payments" to "Repository:github.com/acme/shared-lib" with kind "library"
     When I GET the edges of "Repository" "github.com/acme/payments" with direction "out"
-    Then that listed edge has provenance source "manual"
+    Then one edge is listed with displayName "DEPENDS_ON" and other key "github.com/acme/shared-lib"
+    And that listed edge has provenance source "manual"
 
   Scenario: Removing an edge leaves both nodes alone
     Given the edge "DEPENDS_ON" exists from "Repository:github.com/acme/payments" to "Repository:github.com/acme/shared-lib" with kind "library"

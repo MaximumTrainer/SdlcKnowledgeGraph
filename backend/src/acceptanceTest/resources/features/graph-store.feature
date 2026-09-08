@@ -22,7 +22,7 @@ Feature: Registry-driven graph store
     Given a Repository "github.com/acme/payments" exists
     And a Team "platform" exists
     When I link Repository "github.com/acme/payments" to Team "platform"
-    Then the response status is 200
+    Then the response status is 201
     And one OWNED_BY edge exists in the graph
 
   Scenario: A node's identity is unique, so re-registering updates rather than duplicates

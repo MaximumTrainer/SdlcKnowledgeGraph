@@ -167,8 +167,8 @@
       "to": ["Repository", "Service"],
       "inverse": "DEPENDED_ON_BY",
       "properties": [
-        { "name": "kind", "type": "string", "required": false, "description": "library, api, event or data" },
-        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from" }
+        { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data"] },
+        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" }
       ]
     },
     {

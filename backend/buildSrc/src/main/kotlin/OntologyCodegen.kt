@@ -147,9 +147,13 @@ object OntologyCodegen {
     ) {
         properties.forEachIndexed { index, property ->
             val comma = if (index == properties.lastIndex) "" else ","
+            // The enum is omitted rather than emitted as null, so a property without one produces
+            // the same JSON it did before this existed.
+            val enum =
+                property.enum?.joinToString(prefix = """, "enum": [""", postfix = "]") { jsonString(it) }.orEmpty()
             appendLine(
                 """$indent{ "name": "${property.name}", "type": "${property.type}", """ +
-                    """"required": ${property.required}, "description": ${jsonString(property.description)} }$comma""",
+                    """"required": ${property.required}, "description": ${jsonString(property.description)}$enum }$comma""",
             )
         }
     }

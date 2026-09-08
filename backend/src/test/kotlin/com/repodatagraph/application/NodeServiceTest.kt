@@ -54,7 +54,7 @@ class NodeServiceTest {
             edgeTypes =
                 listOf(EdgeTypeDef("OWNED_BY", null, listOf("Team"), listOf("Team"), "OWNS")),
         )
-    private val service = NodeService(registry, IdentityResolver(), NodeValidator(), graphStore)
+    private val service = NodeService(registry, IdentityResolver(), PropertyValidator(), graphStore)
 
     private val platformKey = NodeKey("Team", "platform")
     private val platform = GraphNode(platformKey, mapOf("name" to "platform"), Provenance.manual())

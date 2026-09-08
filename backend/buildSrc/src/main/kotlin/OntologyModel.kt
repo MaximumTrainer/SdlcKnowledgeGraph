@@ -15,6 +15,8 @@ data class GenProperty(
     val type: String,
     val required: Boolean,
     val description: String?,
+    /** Declared allowed values, published so a form can offer them rather than guess. */
+    val enum: List<String>? = null,
 )
 
 data class GenNodeType(
@@ -92,6 +94,7 @@ object OntologyReader {
                 type = property.path("type").asText("string"),
                 required = property.path("required").asBoolean(false),
                 description = property.text("description"),
+                enum = property.path("enum").takeIf { it.isArray }?.map { it.asText() },
             )
         }
 

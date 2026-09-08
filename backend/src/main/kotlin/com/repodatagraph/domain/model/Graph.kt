@@ -69,3 +69,45 @@ data class Subgraph(
     val edges: List<GraphEdge>,
     val truncated: Boolean = false,
 )
+
+/** What a caller asks for when stating a relationship. Ids may be a full `Type:key` or a bare key. */
+data class EdgeRequest(
+    val type: String,
+    val fromId: String,
+    val toId: String,
+    val props: Map<String, Any?> = emptyMap(),
+)
+
+/**
+ * The result of stating a relationship. [created] is false when the edge was already there, which is
+ * what lets the API answer 201 the first time and 200 afterwards without the caller having to ask.
+ */
+data class EdgeWrite(
+    val edge: GraphEdge,
+    val inverse: String,
+    val created: Boolean,
+)
+
+/** An edge as one node sees it: which way it points from here, and what is at the other end. */
+data class IncidentEdge(
+    val edge: GraphEdge,
+    val direction: Direction,
+    val other: GraphNode,
+)
+
+/**
+ * An edge rendered for one end of it.
+ *
+ * [displayName] is the edge's own name when it points away from the node being viewed and the
+ * declared inverse when it points at it, so a Team sees `OWNS` where a Repository sees `OWNED_BY`.
+ * One stored relationship, two readings; nothing is stored twice, so the two can never disagree.
+ */
+data class EdgeView(
+    val type: String,
+    val inverse: String,
+    val direction: Direction,
+    val displayName: String,
+    val other: GraphNode,
+    val props: Map<String, Any?>,
+    val provenance: Provenance,
+)

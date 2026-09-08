@@ -184,7 +184,56 @@ turn a typo into a silent data-quality problem and would let a caller choose its
 `id` and `key` are refused for the same reason: identity is derived from the properties, so a client
 cannot claim one. That is what makes re-stating the same fact idempotent instead of duplicating it.
 
-### Why identity cannot be edited
+### Relating nodes
+
+`/api/v1/edges` is one surface for every relationship the registry declares, validated against it at
+both ends.
+
+| Request | Result |
+| --- | --- |
+| `POST /api/v1/edges` with `{type, fromId, toId, props}` | `201` with the inverse and both ends; `200` when the relationship was already there |
+| `DELETE /api/v1/edges?type=&fromId=&toId=` | `204`, or `404` when there is no such edge |
+| `GET /api/v1/edges?nodeId=&direction=&edgeType=` | `200 {items}`, each rendered under the name that end sees |
+
+Node ids travel in the body or as query parameters, never as path segments. A derived key contains
+slashes, and an encoded slash in a path is refused by the servlet container; enabling it would open a
+path-traversal surface for the sake of prettier URLs. That is also why the listing is
+`GET /api/v1/edges?nodeId=` rather than `/nodes/{type}/{id}/edges`: the node segment has to be a
+greedy capture, and a greedy capture swallows any suffix after it, so the sub-resource path cannot be
+expressed at all.
+
+### What is refused, and what it says
+
+| Problem | Response |
+| --- | --- |
+| Type not in `edges.yaml` | `400 {error: "unknown edge type", type}` |
+| Ends the ontology does not permit | `400 {error: "edge not allowed", allowed: [{from, to}]}` |
+| Either end does not exist | `404 {error: "node not found", missing: [...]}` |
+| Both ends the same node | `400 {error: "self edge", nodeId}` |
+| Property missing, wrong type, undeclared, or outside its enum | `400 {errors: [{field, message}]}` |
+
+Every refusal carries what makes the next attempt possible. "Not allowed" without the pairs that are
+allowed would leave a client guessing, and a form cannot offer a choice it has not been told about.
+
+### One edge, two readings
+
+A relationship is stored once. What differs between its two ends is only the name it is read under:
+its own name looking outward, the declared inverse looking back, so a Team sees `OWNS` where the
+Repository at the other end sees `OWNED_BY`. Storing it twice would let the two disagree, which is
+the reason the ontology declares an inverse rather than expecting both to be written.
+
+`GET /api/v1/edges?nodeId=` returns `displayName` already resolved for the end that asked, so a
+caller renders what it is given rather than working out which way round it is.
+
+### Constrained values
+
+A property may declare an `enum`, and `DEPENDS_ON.kind` is the first to use it — `library`, `api`,
+`event` or `data`, required. A free-text kind is barely worth storing: nobody can ask for "the
+event-driven dependencies" if half of them say `events` and the rest say `async`. Declaring the set
+is what makes the property answerable, and it is published through `GET /api/v1/ontology` so a form
+offers the values rather than guessing them.
+
+## Why identity cannot be edited
 
 Because the key is derived, changing an identity property does not rename a node — it describes a
 different thing. An update whose properties derive to a different key is therefore refused with the

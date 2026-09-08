@@ -206,7 +206,7 @@ class EdgeControllerTest {
             )
 
         mockMvc
-            .perform(get("/api/v1/nodes/Repository/github.com/acme/shared-lib/edges").param("direction", "in"))
+            .perform(get("/api/v1/edges").param("nodeId", sharedLib.id).param("direction", "in"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.items[0].type").value("DEPENDS_ON"))
             .andExpect(jsonPath("$.items[0].displayName").value("DEPENDED_ON_BY"))
@@ -219,7 +219,7 @@ class EdgeControllerTest {
     fun `listing defaults to both directions and no type filter`() {
         whenever(edgeUseCase.forNode(any(), any(), any(), eq(null))).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/v1/nodes/Team/platform/edges")).andExpect(status().isOk)
+        mockMvc.perform(get("/api/v1/edges").param("nodeId", "Team:platform")).andExpect(status().isOk)
 
         verify(edgeUseCase).forNode("Team", "platform", Direction.BOTH, null)
     }
@@ -229,7 +229,7 @@ class EdgeControllerTest {
         whenever(edgeUseCase.forNode(any(), any(), any(), eq("OWNED_BY"))).thenReturn(emptyList())
 
         mockMvc
-            .perform(get("/api/v1/nodes/Team/platform/edges").param("edgeType", "OWNED_BY"))
+            .perform(get("/api/v1/edges").param("nodeId", "Team:platform").param("edgeType", "OWNED_BY"))
             .andExpect(status().isOk)
 
         verify(edgeUseCase).forNode("Team", "platform", Direction.BOTH, "OWNED_BY")

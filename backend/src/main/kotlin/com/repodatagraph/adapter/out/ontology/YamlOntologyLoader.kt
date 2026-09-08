@@ -78,6 +78,7 @@ class YamlOntologyLoader(
                 type = PropertyType.fromWireName(property.path("type").asTextOrNull() ?: "string"),
                 required = property.path("required").asBoolean(false),
                 description = property.path("description").asTextOrNull(),
+                enum = property.path("enum").takeIf { it.isArray }?.map { it.asText() },
             )
         }
 
