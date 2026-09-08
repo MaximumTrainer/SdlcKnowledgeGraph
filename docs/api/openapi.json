@@ -1,0 +1,1415 @@
+{
+  "components" : {
+    "schemas" : {
+      "AuditEvent" : {
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "artifactId" : {
+            "type" : "string"
+          },
+          "details" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "repoId" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "details", "eventType", "id", "timestamp" ],
+        "type" : "object"
+      },
+      "CloudResource" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "repoId" : {
+            "type" : "string"
+          },
+          "resourceType" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name", "provider", "resourceType" ],
+        "type" : "object"
+      },
+      "CreateRepositoryRequest" : {
+        "properties" : {
+          "codeowners" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "orgRepo" : {
+            "type" : "string"
+          },
+          "serviceId" : {
+            "type" : "string"
+          },
+          "topics" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "codeowners", "defaultBranch", "orgRepo", "topics" ],
+        "type" : "object"
+      },
+      "Deployment" : {
+        "properties" : {
+          "artifactId" : {
+            "type" : "string"
+          },
+          "deployedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "deployedBy" : {
+            "type" : "string"
+          },
+          "environmentId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "artifactId", "deployedAt", "environmentId", "id", "status" ],
+        "type" : "object"
+      },
+      "EdgeRequest" : {
+        "properties" : {
+          "fromId" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "toId" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "fromId", "props", "toId", "type" ],
+        "type" : "object"
+      },
+      "EdgeTypeResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "from" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "inverse" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "properties" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PropertyResponse"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "from", "inverse", "name", "properties", "to" ],
+        "type" : "object"
+      },
+      "ImpactAnalysisResponse" : {
+        "properties" : {
+          "cloudResources" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CloudResource"
+            },
+            "type" : "array"
+          },
+          "dependents" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Repository"
+            },
+            "type" : "array"
+          },
+          "deployments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Deployment"
+            },
+            "type" : "array"
+          },
+          "repoId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "cloudResources", "dependents", "deployments", "repoId" ],
+        "type" : "object"
+      },
+      "NodePageResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NodeResponse"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "NodeRequest" : {
+        "properties" : {
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [ "props" ],
+        "type" : "object"
+      },
+      "NodeResponse" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/Provenance"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "props", "provenance", "type" ],
+        "type" : "object"
+      },
+      "NodeTypeResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "identity" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "properties" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PropertyResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "identity", "name", "properties" ],
+        "type" : "object"
+      },
+      "OntologyResponse" : {
+        "properties" : {
+          "edgeTypes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EdgeTypeResponse"
+            },
+            "type" : "array"
+          },
+          "nodeTypes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NodeTypeResponse"
+            },
+            "type" : "array"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "edgeTypes", "nodeTypes", "version" ],
+        "type" : "object"
+      },
+      "Pipeline" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "lastRunStatus" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "repoId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name", "provider", "repoId" ],
+        "type" : "object"
+      },
+      "PropertyResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "required", "type" ],
+        "type" : "object"
+      },
+      "Provenance" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "current" : {
+            "type" : "boolean"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "ingestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "observedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "sourceId" : {
+            "type" : "string"
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          },
+          "syncRunId" : {
+            "type" : "string"
+          },
+          "validFrom" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "current", "inferred", "ingestedAt", "sourceSystem", "validFrom" ],
+        "type" : "object"
+      },
+      "Repository" : {
+        "properties" : {
+          "codeowners" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "orgRepo" : {
+            "type" : "string"
+          },
+          "serviceId" : {
+            "type" : "string"
+          },
+          "topics" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "codeowners", "defaultBranch", "id", "orgRepo", "topics" ],
+        "type" : "object"
+      },
+      "RepositoryResponse" : {
+        "properties" : {
+          "codeowners" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "orgRepo" : {
+            "type" : "string"
+          },
+          "serviceId" : {
+            "type" : "string"
+          },
+          "topics" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "codeowners", "defaultBranch", "id", "orgRepo", "topics" ],
+        "type" : "object"
+      },
+      "ServiceNowCI" : {
+        "properties" : {
+          "ciName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "repoId" : {
+            "type" : "string"
+          },
+          "serviceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "ciName", "id", "serviceId" ],
+        "type" : "object"
+      },
+      "Team" : {
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ],
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/edges" : {
+      "delete" : {
+        "operationId" : "deleteEdge",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fromId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "toId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a relationship",
+        "tags" : [ "Edges" ]
+      },
+      "post" : {
+        "operationId" : "createEdge",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EdgeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "type" : "object"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Create or update a relationship between two existing nodes",
+        "tags" : [ "Edges" ]
+      }
+    },
+    "/api/v1/graph/cloud-resources" : {
+      "get" : {
+        "operationId" : "cloudResources",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CloudResource"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Cloud resources owned by a repository",
+        "tags" : [ "Graph traversal" ]
+      }
+    },
+    "/api/v1/graph/dependencies" : {
+      "get" : {
+        "operationId" : "dependencies",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Repository"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Repositories this repository depends on",
+        "tags" : [ "Graph traversal" ]
+      }
+    },
+    "/api/v1/graph/dependents" : {
+      "get" : {
+        "operationId" : "dependents",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Repository"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Repositories that depend on this repository",
+        "tags" : [ "Graph traversal" ]
+      }
+    },
+    "/api/v1/graph/deployments" : {
+      "get" : {
+        "operationId" : "deployments",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Deployment"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Deployments of artifacts built from a repository",
+        "tags" : [ "Graph traversal" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/audit" : {
+      "get" : {
+        "operationId" : "getAuditEvents",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/AuditEvent"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get audit trail for a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/cloud-resources" : {
+      "get" : {
+        "operationId" : "getCloudResources",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CloudResource"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get cloud resources deployed by a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/dependencies" : {
+      "get" : {
+        "operationId" : "getDependencies",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Repository"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get upstream dependencies of a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/dependents" : {
+      "get" : {
+        "operationId" : "getDependents",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Repository"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get downstream dependents of a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/deployments" : {
+      "get" : {
+        "operationId" : "getDeployments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Deployment"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get all deployments from a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/impact" : {
+      "get" : {
+        "operationId" : "getImpactAnalysis",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImpactAnalysisResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Impact analysis: what is affected if this repo breaks",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/pipelines" : {
+      "get" : {
+        "operationId" : "getPipelines",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Pipeline"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get pipelines for a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/servicenow" : {
+      "get" : {
+        "operationId" : "getServiceNowCI",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceNowCI"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get the ServiceNow CI item linked to a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/repositories/{repoId}/team" : {
+      "get" : {
+        "operationId" : "getTeam",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Team"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get the owning team for a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/nodes/{type}" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodePageResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List nodes of a type, in key order",
+        "tags" : [ "Nodes" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Create a node of a declared type, with a server-derived identity",
+        "tags" : [ "Nodes" ]
+      }
+    },
+    "/api/v1/nodes/{type}/{key}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cascade",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a node, refusing while it still has relationships",
+        "tags" : [ "Nodes" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get one node by its derived key or its full id",
+        "tags" : [ "Nodes" ]
+      },
+      "put" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace a node's properties, keeping its identity",
+        "tags" : [ "Nodes" ]
+      }
+    },
+    "/api/v1/ontology" : {
+      "get" : {
+        "operationId" : "ontology",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OntologyResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The whole ontology: node types, edge types and their inverses",
+        "tags" : [ "Ontology" ]
+      }
+    },
+    "/api/v1/ontology/nodes/{type}" : {
+      "get" : {
+        "operationId" : "nodeType",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "A single node type",
+        "tags" : [ "Ontology" ]
+      }
+    },
+    "/api/v1/repositories" : {
+      "get" : {
+        "operationId" : "listRepositories",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/RepositoryResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List all registered repositories",
+        "tags" : [ "Repositories" ]
+      },
+      "post" : {
+        "deprecated" : true,
+        "operationId" : "registerRepository",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRepositoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RepositoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Register a repository in the graph",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{id}" : {
+      "delete" : {
+        "operationId" : "deleteRepository",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a repository from the graph",
+        "tags" : [ "Repositories" ]
+      },
+      "get" : {
+        "operationId" : "getRepository",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RepositoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get a repository by ID",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{repoId}/cloud-resources/{resourceId}" : {
+      "post" : {
+        "operationId" : "linkToCloudResource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "resourceId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Link repository to a cloud resource",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{repoId}/dependencies/{depRepoId}" : {
+      "post" : {
+        "operationId" : "addDependency",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "depRepoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Add a dependency between repositories",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{repoId}/pipelines/{pipelineId}" : {
+      "post" : {
+        "operationId" : "linkToPipeline",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "pipelineId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Link repository to a pipeline",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{repoId}/servicenow/{ciId}" : {
+      "post" : {
+        "operationId" : "linkToServiceNowCI",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ciId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Link repository to a ServiceNow CI item",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/{repoId}/teams/{teamId}" : {
+      "post" : {
+        "operationId" : "linkToTeam",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "repoId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "teamId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Link repository to a team",
+        "tags" : [ "Repositories" ]
+      }
+    }
+  },
+  "tags" : [ {
+    "description" : "Relationships between nodes",
+    "name" : "Edges"
+  }, {
+    "description" : "Traversals for nodes addressed by id",
+    "name" : "Graph traversal"
+  }, {
+    "description" : "Git repository management",
+    "name" : "Repositories"
+  }, {
+    "description" : "The declared contract for what may exist in the graph",
+    "name" : "Ontology"
+  }, {
+    "description" : "Ontology-driven CRUD for every declared node type",
+    "name" : "Nodes"
+  }, {
+    "description" : "Engineering knowledge graph queries",
+    "name" : "Graph Queries"
+  } ]
+}

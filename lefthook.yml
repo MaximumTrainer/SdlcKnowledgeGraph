@@ -38,6 +38,9 @@ pre-commit:
     - name: ontology-drift
       glob: "backend/src/main/resources/ontology/**"
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
+    - name: website-drift
+      glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"
+      run: npm --prefix website run drift
     - name: actionlint
       glob: ".github/workflows/*.{yml,yaml}"
       run: node scripts/actionlint.mjs {staged_files}

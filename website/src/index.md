@@ -1,3 +1,5 @@
+<!-- GENERATED FROM README.md - DO NOT EDIT. Run `npm --prefix website run generate`. -->
+
 # SDLC Knowledge Graph
 
 A knowledge graph over code repositories. It models how a commit becomes a running service and what
@@ -15,7 +17,7 @@ with the systems of record, and every fact carries its provenance.
 The graph is designed to be read by people through the web interface and by AI agents through a
 query API, under the same access rules.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for what is built and what is planned.
+See [docs/ROADMAP.md](/reference/roadmap) for what is built and what is planned.
 
 ## Stack
 
@@ -105,21 +107,21 @@ Gates enforce the parts a machine can check:
 | On push | Full backend `check`, and the frontend verify chain |
 | On pull request | All of the above, plus browser end-to-end tests |
 
-[docs/TESTING.md](docs/TESTING.md) explains the loop and the suites in more detail.
+[docs/TESTING.md](/guide/testing) explains the loop and the suites in more detail.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Milestones and the issues in each |
-| [docs/ONTOLOGY.md](docs/ONTOLOGY.md) | Entity types, relationships, provenance, identity |
-| [docs/ADAPTERS.md](docs/ADAPTERS.md) | The connector contract and how code is linked to infrastructure |
-| [docs/TESTING.md](docs/TESTING.md) | The TDD loop, the test suites, and the gates |
-| [docs/adr/](docs/adr/) | Architecture decisions and why they were made |
+| [docs/ROADMAP.md](/reference/roadmap) | Milestones and the issues in each |
+| [docs/ONTOLOGY.md](/guide/ontology) | Entity types, relationships, provenance, identity |
+| [docs/ADAPTERS.md](/guide/adapters) | The connector contract and how code is linked to infrastructure |
+| [docs/TESTING.md](/guide/testing) | The TDD loop, the test suites, and the gates |
+| [docs/adr/](/adr/) | Architecture decisions and why they were made |
 
 All of it is also published as a website, generated from these same files plus the ontology registry
 and the OpenAPI document, so the published model is the real one. Nothing under `website/src/` is
-written by hand; see [ADR-0006](docs/adr/0006-website-generated-from-sources.md).
+written by hand; see [ADR-0006](/adr/0006-website-generated-from-sources).
 
 ```bash
 cd website

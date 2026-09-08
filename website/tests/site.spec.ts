@@ -27,7 +27,10 @@ test.describe('the published website', () => {
     await page.goto('/reference/ontology')
 
     for (const nodeType of ontology.nodeTypes) {
-      await expect(page.getByRole('heading', { name: nodeType.name, exact: true })).toBeVisible()
+      // VitePress appends a permalink anchor to every heading, so the accessible name is the text
+      // plus that anchor; anchoring the pattern at the start is what makes this stable.
+      const heading = page.getByRole('heading', { level: 3, name: new RegExp(`^${nodeType.name}`) })
+      await expect(heading).toBeVisible()
     }
   })
 
@@ -78,7 +81,8 @@ test.describe('the published website', () => {
   test('the footer says which commit and ontology version the site describes', async ({ page }) => {
     await page.goto('/')
 
-    const footer = page.locator('footer')
+    // The page also has a per-document footer; this is the site-wide one.
+    const footer = page.locator('footer.VPFooter')
     await expect(footer).toContainText(`ontology v${ontology.version}`)
     await expect(footer).toContainText('build ')
   })
