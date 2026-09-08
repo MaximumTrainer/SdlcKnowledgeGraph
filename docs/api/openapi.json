@@ -114,7 +114,19 @@
         "required" : [ "artifactId", "deployedAt", "environmentId", "id", "status" ],
         "type" : "object"
       },
-      "EdgeRequest" : {
+      "EdgeListResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EdgeViewResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "EdgeRequestBody" : {
         "properties" : {
           "fromId" : {
             "type" : "string"
@@ -133,6 +145,33 @@
           }
         },
         "required" : [ "fromId", "props", "toId", "type" ],
+        "type" : "object"
+      },
+      "EdgeResponse" : {
+        "properties" : {
+          "from" : {
+            "$ref" : "#/components/schemas/NodeRefResponse"
+          },
+          "inverse" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/Provenance"
+          },
+          "to" : {
+            "$ref" : "#/components/schemas/NodeRefResponse"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "from", "inverse", "props", "provenance", "to", "type" ],
         "type" : "object"
       },
       "EdgeTypeResponse" : {
@@ -166,6 +205,36 @@
           }
         },
         "required" : [ "from", "inverse", "name", "properties", "to" ],
+        "type" : "object"
+      },
+      "EdgeViewResponse" : {
+        "properties" : {
+          "direction" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "inverse" : {
+            "type" : "string"
+          },
+          "other" : {
+            "$ref" : "#/components/schemas/NodeRefResponse"
+          },
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/Provenance"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "direction", "displayName", "inverse", "other", "props", "provenance", "type" ],
         "type" : "object"
       },
       "ImpactAnalysisResponse" : {
@@ -208,6 +277,27 @@
           }
         },
         "required" : [ "items" ],
+        "type" : "object"
+      },
+      "NodeRefResponse" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : {
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "type" ],
         "type" : "object"
       },
       "NodeRequest" : {
@@ -316,6 +406,12 @@
         "properties" : {
           "description" : {
             "type" : "string"
+          },
+          "enum" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "name" : {
             "type" : "string"
@@ -486,7 +582,7 @@
   "paths" : {
     "/api/v1/edges" : {
       "delete" : {
-        "operationId" : "deleteEdge",
+        "operationId" : "delete_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "type",
@@ -514,16 +610,56 @@
             "description" : "OK"
           }
         },
-        "summary" : "Remove a relationship",
+        "summary" : "Remove a relationship, addressed by its exact triple",
+        "tags" : [ "Edges" ]
+      },
+      "get" : {
+        "operationId" : "forNode",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "nodeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "direction",
+          "required" : false,
+          "schema" : {
+            "default" : "both",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "edgeType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EdgeListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Every relationship touching a node, under the name this end sees",
         "tags" : [ "Edges" ]
       },
       "post" : {
-        "operationId" : "createEdge",
+        "operationId" : "create_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EdgeRequest"
+                "$ref" : "#/components/schemas/EdgeRequestBody"
               }
             }
           },
@@ -534,17 +670,14 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "additionalProperties" : {
-                    "type" : "object"
-                  },
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/EdgeResponse"
                 }
               }
             },
             "description" : "OK"
           }
         },
-        "summary" : "Create or update a relationship between two existing nodes",
+        "summary" : "State a relationship between two existing nodes",
         "tags" : [ "Edges" ]
       }
     },
@@ -1259,6 +1392,7 @@
     },
     "/api/v1/repositories/{repoId}/cloud-resources/{resourceId}" : {
       "post" : {
+        "deprecated" : true,
         "operationId" : "linkToCloudResource",
         "parameters" : [ {
           "in" : "path",
@@ -1281,11 +1415,12 @@
           }
         },
         "summary" : "Link repository to a cloud resource",
-        "tags" : [ "Repositories" ]
+        "tags" : [ "Repositories (deprecated links)" ]
       }
     },
     "/api/v1/repositories/{repoId}/dependencies/{depRepoId}" : {
       "post" : {
+        "deprecated" : true,
         "operationId" : "addDependency",
         "parameters" : [ {
           "in" : "path",
@@ -1301,6 +1436,14 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "in" : "query",
+          "name" : "kind",
+          "required" : false,
+          "schema" : {
+            "default" : "library",
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1308,11 +1451,12 @@
           }
         },
         "summary" : "Add a dependency between repositories",
-        "tags" : [ "Repositories" ]
+        "tags" : [ "Repositories (deprecated links)" ]
       }
     },
     "/api/v1/repositories/{repoId}/pipelines/{pipelineId}" : {
       "post" : {
+        "deprecated" : true,
         "operationId" : "linkToPipeline",
         "parameters" : [ {
           "in" : "path",
@@ -1335,11 +1479,12 @@
           }
         },
         "summary" : "Link repository to a pipeline",
-        "tags" : [ "Repositories" ]
+        "tags" : [ "Repositories (deprecated links)" ]
       }
     },
     "/api/v1/repositories/{repoId}/servicenow/{ciId}" : {
       "post" : {
+        "deprecated" : true,
         "operationId" : "linkToServiceNowCI",
         "parameters" : [ {
           "in" : "path",
@@ -1362,11 +1507,12 @@
           }
         },
         "summary" : "Link repository to a ServiceNow CI item",
-        "tags" : [ "Repositories" ]
+        "tags" : [ "Repositories (deprecated links)" ]
       }
     },
     "/api/v1/repositories/{repoId}/teams/{teamId}" : {
       "post" : {
+        "deprecated" : true,
         "operationId" : "linkToTeam",
         "parameters" : [ {
           "in" : "path",
@@ -1389,14 +1535,11 @@
           }
         },
         "summary" : "Link repository to a team",
-        "tags" : [ "Repositories" ]
+        "tags" : [ "Repositories (deprecated links)" ]
       }
     }
   },
   "tags" : [ {
-    "description" : "Relationships between nodes",
-    "name" : "Edges"
-  }, {
     "description" : "Traversals for nodes addressed by id",
     "name" : "Graph traversal"
   }, {
@@ -1405,6 +1548,12 @@
   }, {
     "description" : "The declared contract for what may exist in the graph",
     "name" : "Ontology"
+  }, {
+    "description" : "Superseded by /api/v1/edges",
+    "name" : "Repositories (deprecated links)"
+  }, {
+    "description" : "Typed relationships between nodes",
+    "name" : "Edges"
   }, {
     "description" : "Ontology-driven CRUD for every declared node type",
     "name" : "Nodes"

@@ -1,7 +1,9 @@
 package com.repodatagraph.domain.port.out
 
+import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
+import com.repodatagraph.domain.model.IncidentEdge
 import com.repodatagraph.domain.model.NeighbourhoodSpec
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Subgraph
@@ -70,6 +72,25 @@ interface GraphStore {
         from: NodeKey,
         to: NodeKey,
     ): Boolean
+
+    /** The edge with this exact triple, or null. Edges have no id, so the triple is the address. */
+    fun findEdge(
+        type: String,
+        from: NodeKey,
+        to: NodeKey,
+    ): GraphEdge?
+
+    /**
+     * Every edge touching a node, with the node at the other end.
+     *
+     * The other end comes back with the edge because a caller listing relationships always needs
+     * something to show for the far side, and fetching them one at a time would be a query per row.
+     */
+    fun findEdges(
+        key: NodeKey,
+        direction: Direction = Direction.BOTH,
+        edgeType: String? = null,
+    ): List<IncidentEdge>
 
     /** Explores outward from a node, bounded by depth and result size. */
     fun neighbourhood(

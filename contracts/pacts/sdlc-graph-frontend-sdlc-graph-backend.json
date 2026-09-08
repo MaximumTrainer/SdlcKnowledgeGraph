@@ -145,6 +145,71 @@
       }
     },
     {
+      "description": "a request for the edges of shared-lib",
+      "providerStates": [
+        {
+          "name": "payments DEPENDS_ON shared-lib"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/edges",
+        "query": {
+          "direction": [
+            "both"
+          ],
+          "nodeId": [
+            "Repository:github.com/acme/shared-lib"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "items": [
+            {
+              "direction": "in",
+              "displayName": "DEPENDED_ON_BY",
+              "inverse": "DEPENDED_ON_BY",
+              "other": {
+                "id": "Repository:github.com/acme/payments",
+                "key": "github.com/acme/payments",
+                "props": {},
+                "type": "Repository"
+              },
+              "props": {
+                "kind": "library"
+              },
+              "provenance": {
+                "confidence": 1,
+                "inferred": false,
+                "sourceSystem": "manual"
+              },
+              "type": "DEPENDS_ON"
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the impact of repository R1",
       "providerStates": [
         {
@@ -180,6 +245,111 @@
           "status": {}
         },
         "status": 200
+      }
+    },
+    {
+      "description": "a request to create a DEPENDS_ON edge",
+      "providerStates": [
+        {
+          "name": "two repositories exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "fromId": "Repository:github.com/acme/payments",
+          "props": {
+            "kind": "library"
+          },
+          "toId": "Repository:github.com/acme/shared-lib",
+          "type": "DEPENDS_ON"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/edges"
+      },
+      "response": {
+        "body": {
+          "from": {
+            "id": "Repository:github.com/acme/payments",
+            "key": "github.com/acme/payments",
+            "type": "Repository"
+          },
+          "inverse": "DEPENDED_ON_BY",
+          "props": {
+            "kind": "library"
+          },
+          "provenance": {
+            "confidence": 1,
+            "inferred": false,
+            "sourceSystem": "manual"
+          },
+          "to": {
+            "id": "Repository:github.com/acme/shared-lib",
+            "key": "github.com/acme/shared-lib",
+            "type": "Repository"
+          },
+          "type": "DEPENDS_ON"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.from": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.inverse": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.to": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 201
       }
     },
     {
@@ -361,6 +531,56 @@
       }
     },
     {
+      "description": "a request to create an edge between disallowed types",
+      "providerStates": [
+        {
+          "name": "two repositories exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "fromId": "Environment:production",
+          "toId": "Team:platform",
+          "type": "OWNED_BY"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/edges"
+      },
+      "response": {
+        "body": {
+          "allowed": [
+            {
+              "from": "Repository",
+              "to": "Team"
+            }
+          ],
+          "error": "edge not allowed"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.allowed": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 400
+      }
+    },
+    {
       "description": "a request to delete a Team that still has edges",
       "providerStates": [
         {
@@ -467,6 +687,32 @@
           "status": {}
         },
         "status": 201
+      }
+    },
+    {
+      "description": "a request to remove the DEPENDS_ON edge",
+      "providerStates": [
+        {
+          "name": "payments DEPENDS_ON shared-lib"
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/edges",
+        "query": {
+          "fromId": [
+            "Repository:github.com/acme/payments"
+          ],
+          "toId": [
+            "Repository:github.com/acme/shared-lib"
+          ],
+          "type": [
+            "DEPENDS_ON"
+          ]
+        }
+      },
+      "response": {
+        "status": 204
       }
     },
     {

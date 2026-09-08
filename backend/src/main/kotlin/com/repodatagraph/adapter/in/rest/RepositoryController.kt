@@ -87,56 +87,6 @@ class RepositoryController(
         return ResponseEntity.noContent().build()
     }
 
-    @PostMapping("/{repoId}/teams/{teamId}")
-    @Operation(summary = "Link repository to a team")
-    fun linkToTeam(
-        @PathVariable repoId: String,
-        @PathVariable teamId: String,
-    ): ResponseEntity<Void> {
-        repositoryUseCase.linkToTeam(repoId, teamId)
-        return ResponseEntity.ok().build()
-    }
-
-    @PostMapping("/{repoId}/cloud-resources/{resourceId}")
-    @Operation(summary = "Link repository to a cloud resource")
-    fun linkToCloudResource(
-        @PathVariable repoId: String,
-        @PathVariable resourceId: String,
-    ): ResponseEntity<Void> {
-        repositoryUseCase.linkToCloudResource(repoId, resourceId)
-        return ResponseEntity.ok().build()
-    }
-
-    @PostMapping("/{repoId}/pipelines/{pipelineId}")
-    @Operation(summary = "Link repository to a pipeline")
-    fun linkToPipeline(
-        @PathVariable repoId: String,
-        @PathVariable pipelineId: String,
-    ): ResponseEntity<Void> {
-        repositoryUseCase.linkToPipeline(repoId, pipelineId)
-        return ResponseEntity.ok().build()
-    }
-
-    @PostMapping("/{repoId}/servicenow/{ciId}")
-    @Operation(summary = "Link repository to a ServiceNow CI item")
-    fun linkToServiceNowCI(
-        @PathVariable repoId: String,
-        @PathVariable ciId: String,
-    ): ResponseEntity<Void> {
-        repositoryUseCase.linkToServiceNowCI(repoId, ciId)
-        return ResponseEntity.ok().build()
-    }
-
-    @PostMapping("/{repoId}/dependencies/{depRepoId}")
-    @Operation(summary = "Add a dependency between repositories")
-    fun addDependency(
-        @PathVariable repoId: String,
-        @PathVariable depRepoId: String,
-    ): ResponseEntity<Void> {
-        repositoryUseCase.addDependency(repoId, depRepoId)
-        return ResponseEntity.ok().build()
-    }
-
     private companion object {
         const val DEPRECATION_HEADER = "Deprecation"
         const val LINK_HEADER = "Link"

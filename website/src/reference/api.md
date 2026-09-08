@@ -8,8 +8,9 @@ thing interactively at `/swagger-ui.html`.
 
 | Method | Path | Summary | Responses |
 | --- | --- | --- | --- |
-| `DELETE` | `/api/v1/edges` | Remove a relationship | 200 |
-| `POST` | `/api/v1/edges` | Create or update a relationship between two existing nodes | 200 |
+| `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
+| `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees | 200 |
+| `POST` | `/api/v1/edges` | State a relationship between two existing nodes | 200 |
 | `GET` | `/api/v1/graph/cloud-resources` | Cloud resources owned by a repository | 200 |
 | `GET` | `/api/v1/graph/dependencies` | Repositories this repository depends on | 200 |
 | `GET` | `/api/v1/graph/dependents` | Repositories that depend on this repository | 200 |

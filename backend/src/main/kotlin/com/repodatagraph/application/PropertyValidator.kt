@@ -2,6 +2,7 @@ package com.repodatagraph.application
 
 import com.repodatagraph.domain.exception.PropertyError
 import com.repodatagraph.domain.ontology.NodeTypeDef
+import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -9,8 +10,11 @@ import java.time.Instant
 /**
  * Checks submitted properties against the type the registry declares.
  *
- * There is one validator rather than one per node type because the rules live in the ontology: a
- * type added there is validated by the same code. Everything external is untrusted, so a property
+ * One validator serves both nodes and edges. The registry declares their properties with the same
+ * shape, so a second implementation would only be a second place for the rules to drift.
+ *
+ * There is one validator rather than one per type because the rules live in the ontology: a type
+ * added there is validated by the same code. Everything external is untrusted, so a property
  * the registry does not declare is refused rather than stored and ignored — otherwise a typo becomes
  * a silent data-quality problem, and an attacker-chosen key reaches the store.
  *
@@ -18,32 +22,54 @@ import java.time.Instant
  * round trip.
  */
 @Component
-class NodeValidator {
+class PropertyValidator {
     fun validate(
         nodeType: NodeTypeDef,
         props: Map<String, Any?>,
+    ): List<PropertyError> = validate(nodeType.properties, props)
+
+    fun validate(
+        declared: List<PropertyDef>,
+        props: Map<String, Any?>,
     ): List<PropertyError> {
+        val byName = declared.associateBy { it.name }
+
         val undeclared =
             props.keys
-                .filter { nodeType.property(it) == null }
+                .filter { it !in byName }
                 .map { PropertyError(it, NOT_IN_ONTOLOGY) }
 
         val missing =
-            nodeType
-                .requiredProperties()
+            declared
+                .filter { it.required }
                 .filter { isAbsent(props, it.name) }
                 .map { PropertyError(it.name, "${it.name} is required") }
 
+        val supplied = declared.filter { props.containsKey(it.name) && props[it.name] != null }
+
         val wrongType =
-            nodeType.properties
-                .filter { props.containsKey(it.name) && props[it.name] != null }
+            supplied
                 .filterNot { matches(it.type, props[it.name]) }
                 .map { PropertyError(it.name, "expected ${it.type.wireName}") }
 
+        // A value outside a declared set is reported with the set: "invalid" tells a user nothing
+        // they can act on, and the allowed values are right there in the registry.
+        val outsideEnum =
+            supplied
+                .filter { matches(it.type, props[it.name]) }
+                .mapNotNull { property ->
+                    val allowed = property.enum ?: return@mapNotNull null
+                    if (props[property.name].toString() in allowed) {
+                        null
+                    } else {
+                        PropertyError(property.name, "${property.name} must be one of ${allowed.joinToString()}")
+                    }
+                }
+
         // Reported in declaration order rather than submission order, so two clients sending the
         // same bad request get the same response.
-        return (missing + wrongType).sortedBy { error -> nodeType.properties.indexOfFirst { it.name == error.field } } +
-            undeclared
+        return (missing + wrongType + outsideEnum)
+            .sortedBy { error -> declared.indexOfFirst { it.name == error.field } } + undeclared
     }
 
     private fun isAbsent(

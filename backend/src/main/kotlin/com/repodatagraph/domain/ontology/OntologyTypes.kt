@@ -23,6 +23,14 @@ data class PropertyDef(
     val type: PropertyType,
     val required: Boolean = false,
     val description: String? = null,
+    /**
+     * The values this property may take, when the ontology constrains them.
+     *
+     * A free-text `kind` on a dependency is barely worth storing: nobody can query for "all the
+     * event-driven dependencies" if half of them say "events" and the rest say "async". Declaring
+     * the set is what makes the property answerable.
+     */
+    val enum: List<String>? = null,
 )
 
 data class NodeTypeDef(

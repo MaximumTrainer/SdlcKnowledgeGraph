@@ -89,6 +89,46 @@ class ProviderStates(
         )
     }
 
+    fun twoRepositoriesExist() {
+        emptyGraph()
+        repository(REPOSITORY_KEY_OWNED, "acme/payments")
+        repository(SHARED_LIB_KEY, "acme/shared-lib")
+    }
+
+    /** The edge as well as its ends: an interaction that lists or removes one needs it to be there. */
+    fun paymentsDependsOnSharedLib() {
+        twoRepositoriesExist()
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "DEPENDS_ON",
+                from = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                to = NodeKey("Repository", SHARED_LIB_KEY),
+                props = mapOf("kind" to "library"),
+                provenance = Provenance.manual(),
+            ),
+        )
+    }
+
+    private fun repository(
+        key: String,
+        orgRepo: String,
+    ) {
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("Repository", key),
+                props =
+                    mapOf(
+                        "orgRepo" to orgRepo,
+                        "url" to "https://$key",
+                        "defaultBranch" to "main",
+                        "topics" to listOf("payments"),
+                        "codeowners" to listOf("@acme/platform"),
+                    ),
+                provenance = Provenance.manual(),
+            ),
+        )
+    }
+
     private fun emptyGraph() {
         neo4jClient.query("MATCH (n) DETACH DELETE n").run()
     }
@@ -98,10 +138,13 @@ class ProviderStates(
         const val NO_REPOSITORIES_EXIST = "no repositories exist"
         const val NO_TEAMS_EXIST = "no Team nodes exist"
         const val TEAM_PLATFORM_EXISTS = "a Team named platform exists"
+        const val TWO_REPOSITORIES_EXIST = "two repositories exist"
+        const val PAYMENTS_DEPENDS_ON_SHARED_LIB = "payments DEPENDS_ON shared-lib"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
         private const val REPOSITORY_KEY_OWNED = "github.com/acme/payments"
+        private const val SHARED_LIB_KEY = "github.com/acme/shared-lib"
 
         /** Every state this provider can seed. */
         val ALL =
@@ -110,6 +153,8 @@ class ProviderStates(
                 NO_REPOSITORIES_EXIST,
                 NO_TEAMS_EXIST,
                 TEAM_PLATFORM_EXISTS,
+                TWO_REPOSITORIES_EXIST,
+                PAYMENTS_DEPENDS_ON_SHARED_LIB,
             )
     }
 }

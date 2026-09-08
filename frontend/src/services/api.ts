@@ -25,6 +25,7 @@ import type {
   Deployment,
   CloudResource,
   NodeType,
+  EdgeTypeName,
   Provenance
 } from '@/generated/ontology'
 
@@ -135,6 +136,59 @@ export const nodeApi = {
       .then(() => undefined)
 }
 
+/** A relationship as one end of it sees it. `displayName` is what to label it with on that page. */
+export interface EdgeView {
+  type: string
+  inverse: string
+  direction: 'in' | 'out'
+  displayName: string
+  other: { id: string; type: string; key: string; props?: Record<string, unknown> }
+  props: Record<string, unknown>
+  provenance: Provenance
+}
+
+export interface EdgeWritten {
+  type: string
+  inverse: string
+  from: { id: string; type: string; key: string }
+  to: { id: string; type: string; key: string }
+  props: Record<string, unknown>
+  provenance: Provenance
+}
+
+export interface EdgeInput {
+  type: EdgeTypeName | string
+  fromId: string
+  toId: string
+  props?: Record<string, unknown>
+}
+
+/**
+ * Relationships of any type the registry declares.
+ *
+ * Node ids contain slashes, so every one of these passes them in the body or as a query parameter
+ * rather than as a path segment — the server cannot receive an encoded slash in a path.
+ */
+export const edgeApi = {
+  create: (edge: EdgeInput): Promise<EdgeWritten> => client.post('/edges', edge).then(r => r.data),
+  remove: (type: string, fromId: string, toId: string): Promise<void> =>
+    client.delete('/edges', { params: { type, fromId, toId } }).then(() => undefined),
+  forNode: (
+    type: string,
+    key: string,
+    options: { direction?: 'in' | 'out' | 'both'; edgeType?: string } = {}
+  ): Promise<EdgeView[]> =>
+    client
+      .get('/edges', {
+        params: {
+          nodeId: `${type}:${key}`,
+          direction: options.direction ?? 'both',
+          edgeType: options.edgeType
+        }
+      })
+      .then(r => r.data.items)
+}
+
 /**
  * The ontology is the declared contract for what may exist in the graph. The editing screens render
  * their fields from this rather than from hand-written forms, so a node type added to the registry
@@ -145,6 +199,8 @@ export interface OntologyProperty {
   type: 'string' | 'int' | 'boolean' | 'instant' | 'string[]'
   required: boolean
   description: string | null
+  /** Present when the registry constrains the value, so a form can offer a choice rather than a box. */
+  enum?: string[]
 }
 
 export interface OntologyNodeType {

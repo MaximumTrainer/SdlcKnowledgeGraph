@@ -31,6 +31,9 @@ replay_pid*
 # Gradle build output
 build/
 .gradle/
+# Eclipse/IDE output. Not build/, so the rule above misses it, and `git add -A` will otherwise
+# sweep a copy of the whole source tree into a commit.
+bin/
 
 # Node.js dependencies and build output
 node_modules/

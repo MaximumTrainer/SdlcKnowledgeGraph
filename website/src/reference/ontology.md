@@ -191,6 +191,6 @@ second relationship.
 | Type | Property | Value | Required |
 | --- | --- | --- | --- |
 | `OWNS_RESOURCE` | `rule` | `string` | no |
-| `DEPENDS_ON` | `kind` | `string` | no |
+| `DEPENDS_ON` | `kind` | `string` | yes |
 | `DEPENDS_ON` | `manifest` | `string` | no |
 | `BUILT_FROM` | `commitSha` | `string` | no |

@@ -65,4 +65,10 @@ class GraphApiContractTest {
 
     @State(ProviderStates.TEAM_PLATFORM_EXISTS)
     fun teamPlatformExists() = states.teamPlatformExists()
+
+    @State(ProviderStates.TWO_REPOSITORIES_EXIST)
+    fun twoRepositoriesExist() = states.twoRepositoriesExist()
+
+    @State(ProviderStates.PAYMENTS_DEPENDS_ON_SHARED_LIB)
+    fun paymentsDependsOnSharedLib() = states.paymentsDependsOnSharedLib()
 }
