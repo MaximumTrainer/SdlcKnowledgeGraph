@@ -113,7 +113,7 @@ dependency can be traced back to its evidence. `OWNS_RESOURCE` accepts `rule`, w
 proposed it, and `BUILT_FROM` accepts `commitSha`.
 
 A `CANDIDATE_LINK` relationship, for connections the planned link resolution engine is not confident
-enough to assert, is described in [ADAPTERS.md](/guide/adapters) and will be added to the registry with
+enough to assert, is described in [Adapters](/guide/adapters) and will be added to the registry with
 that engine ([#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28)).
 
 ## Provenance
