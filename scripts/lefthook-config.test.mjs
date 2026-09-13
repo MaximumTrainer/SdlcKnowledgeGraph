@@ -42,4 +42,28 @@ describe('lefthook.yml', () => {
   test('runs the branch guard on commit as well, where stdin is not involved', () => {
     assert.match(hookBlock('pre-commit'), /- name: protected-branch/)
   })
+
+  /**
+   * Git runs `pre-merge-commit`, not `pre-commit`, for a merge that commits automatically. Without
+   * this block a merge introduces content no guard has ever seen, and everything ADR-0007 calls
+   * unrecoverable - a credential, an oversized file, a conflict marker - can enter the history that
+   * way (#61).
+   */
+  describe('pre-merge-commit', () => {
+    const block = () => hookBlock('pre-merge-commit')
+
+    for (const guard of ['protected-branch', 'hygiene', 'secrets']) {
+      test(`runs the ${guard} guard, as pre-commit does`, () => {
+        assert.match(block(), new RegExp(`- name: ${guard}`))
+      })
+    }
+
+    test('gives the file guards the files the merge is about to commit', () => {
+      assert.match(block(), /\{staged_files\}/)
+    })
+
+    test('judges the merged content from the index, as the commit path does', () => {
+      assert.match(block(), /secretlint\.mjs --staged/)
+    })
+  })
 })
