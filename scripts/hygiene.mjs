@@ -19,7 +19,7 @@
  * to be committed - partially staged files included.
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const MAX_BYTES = Number(process.env.HYGIENE_MAX_BYTES ?? 512 * 1024)
@@ -36,6 +36,59 @@ const CREDENTIAL_PATTERNS = [
 // `.env.example` and friends are templates with placeholder values, which is how a real `.env` is
 // documented. They are the exception the rule above would otherwise swallow.
 const CREDENTIAL_ALLOW = [/\.(example|sample|template|dist)$/i]
+
+// Paths the credential rule must not refuse, listed in `.hygieneignore` beside `.secretlintignore`.
+//
+// The rule matches on the path, and plenty of credential-shaped paths hold no credential: an
+// `.npmrc` setting `engine-strict`, a public certificate, a test fixture keystore. Without a way
+// out, the first false positive is met with LEFTHOOK=0 - which turns off the secret scanner, the
+// conflict-marker check and the branch guard as well (ADR-0007, #64).
+//
+// This forgives the *name* only. The listed file is still checked for size and conflict markers,
+// and `secrets` still scans its content - otherwise the allowlist would be the way to smuggle a
+// credential past the gate.
+const HYGIENE_IGNORE = '.hygieneignore'
+
+/**
+ * A line of `.hygieneignore` as an anchored matcher.
+ *
+ * Anchored at both ends deliberately: an entry has to match the whole repository-relative path. A
+ * matcher that accepted a bare filename anywhere in the tree would forgive `deploy/.npmrc` because
+ * somebody listed the harmless one at the root, which is exactly the file this guard exists for.
+ *
+ * Written by hand rather than with a glob library: the hook runs on every commit, and this is the
+ * only globbing it needs. `*` stops at a separator, `**` does not, `?` is one character.
+ */
+const globToRegExp = (pattern) => {
+  let source = '^'
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i]
+    if (char === '*' && pattern[i + 1] === '*') {
+      // `**/` spans any number of directories, including none; a trailing `**` spans the rest.
+      const slashed = pattern[i + 2] === '/'
+      source += slashed ? '(?:[^/]+/)*' : '.*'
+      i += slashed ? 2 : 1
+    } else if (char === '*') {
+      source += '[^/]*'
+    } else if (char === '?') {
+      source += '[^/]'
+    } else {
+      source += char.replace(/[.+^${}()|[\]\\]/, '\\$&')
+    }
+  }
+  return new RegExp(source + '$')
+}
+
+const allowlist = () => {
+  if (!existsSync(HYGIENE_IGNORE)) return []
+  return readFileSync(HYGIENE_IGNORE, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, '').trim())
+    .filter(Boolean)
+    .map(globToRegExp)
+}
+
+const ALLOWED_CREDENTIAL_PATHS = allowlist()
 
 const args = process.argv.slice(2)
 // cmd.exe caps a command line at 8191 characters, which a whole-repository run exceeds. Reading the
@@ -94,8 +147,15 @@ const indexEntries = (files) => {
 }
 
 for (const file of paths) {
-  if (CREDENTIAL_PATTERNS.some((p) => p.test(file)) && !CREDENTIAL_ALLOW.some((p) => p.test(file))) {
-    report(file, 'looks like a credential file and must not be tracked.')
+  const looksLikeCredential =
+    CREDENTIAL_PATTERNS.some((p) => p.test(file)) && !CREDENTIAL_ALLOW.some((p) => p.test(file))
+  if (looksLikeCredential && !ALLOWED_CREDENTIAL_PATHS.some((p) => p.test(file))) {
+    report(
+      file,
+      'looks like a credential file and must not be tracked. ' +
+        `Add it to ${HYGIENE_IGNORE} if it holds no credential - that forgives the name only, ` +
+        'and leaves the secret scanner reading the content.',
+    )
   }
 }
 

@@ -82,6 +82,117 @@ describe('hygiene', () => {
 
       assert.equal(hygiene(['.env.example']).status, 0)
     })
+
+    test('names the way out, so it is discoverable at the moment it is needed', () => {
+      repo.stage('.npmrc', 'engine-strict=true')
+
+      assert.match(
+        hygiene(['.npmrc']).stderr,
+        /add it to \.hygieneignore if it holds no credential/i
+      )
+    })
+  })
+
+  /**
+   * The credential rule matches on the path, and plenty of credential-shaped paths hold no
+   * credential: an .npmrc setting engine-strict, a public certificate, a test fixture keystore.
+   * Without a way out, the first false positive is met with LEFTHOOK=0 - which also turns off the
+   * secret scanner, the conflict-marker check and the branch guard (#64).
+   */
+  describe('.hygieneignore', () => {
+    let allowed
+
+    before(() => {
+      allowed = createRepo()
+      allowed.write(
+        '.hygieneignore',
+        [
+          '# A comment, and the blank line below, are both ignored.',
+          '',
+          '.npmrc',
+          'certs/*.pem',
+          'backend/src/test/resources/**/*.jks',
+        ].join('\n')
+      )
+    })
+    after(() => allowed.cleanup())
+
+    const check = paths => allowed.run('hygiene.mjs', paths)
+
+    test('allows a listed credential-shaped path', () => {
+      allowed.stage('.npmrc', 'engine-strict=true')
+
+      assert.equal(check(['.npmrc']).status, 0)
+    })
+
+    test('allows a path matched by a glob', () => {
+      allowed.stage('certs/public.pem', 'a public certificate')
+
+      assert.equal(check(['certs/public.pem']).status, 0)
+    })
+
+    test('allows a path matched by a ** glob at any depth', () => {
+      allowed.stage('backend/src/test/resources/fixtures/test.jks', 'fixture keystore')
+
+      assert.equal(check(['backend/src/test/resources/fixtures/test.jks']).status, 0)
+    })
+
+    test('still refuses a credential path that is not listed', () => {
+      allowed.stage('.env', 'TOKEN=value')
+
+      assert.equal(check(['.env']).status, 1)
+    })
+
+    /**
+     * The trap this rule exists to avoid: listing `.npmrc` must forgive the one at the root, not
+     * every .npmrc in the tree. An allowlist that matches on the bare filename is how the real
+     * credential file gets through.
+     */
+    test('does not forgive a deeper file because its bare name was listed', () => {
+      allowed.stage('deploy/.npmrc', 'a token would live here')
+
+      assert.equal(check(['deploy/.npmrc']).status, 1)
+    })
+
+    test('does not forgive a glob at the wrong depth', () => {
+      allowed.stage('certs/nested/public.pem', 'a public certificate')
+
+      assert.equal(check(['certs/nested/public.pem']).status, 1)
+    })
+
+    test('does not disable the size check for a listed path', () => {
+      allowed.stage('.npmrc', 'x'.repeat(4096))
+
+      const { status, stderr } = allowed.run('hygiene.mjs', ['.npmrc'], {
+        env: { HYGIENE_MAX_BYTES: '1024' },
+      })
+
+      assert.equal(status, 1)
+      assert.match(stderr, /exceeds the 1 KiB limit/)
+    })
+
+    test('does not disable the conflict-marker check for a listed path', () => {
+      allowed.stage(
+        'certs/public.pem',
+        [CONFLICT.open, 'ours', CONFLICT.divider, 'theirs', CONFLICT.close].join('\n')
+      )
+
+      const { status, stderr } = check(['certs/public.pem'])
+
+      assert.equal(status, 1)
+      assert.match(stderr, /unresolved merge conflict markers/)
+    })
+
+    test('works when the repository has no .hygieneignore at all', () => {
+      const bare = createRepo()
+      try {
+        bare.stage('.npmrc', 'engine-strict=true')
+
+        assert.equal(bare.run('hygiene.mjs', ['.npmrc']).status, 1)
+      } finally {
+        bare.cleanup()
+      }
+    })
   })
 
   describe('reading the index', () => {
