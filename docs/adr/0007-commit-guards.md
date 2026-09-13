@@ -36,7 +36,7 @@ Add four guard jobs to the hooks. They are not linters and they run no test; the
 
 | Guard | Hook | What it refuses |
 | --- | --- | --- |
-| `protected-branch` | `pre-commit`, `pre-push` | A commit or push made while `main` is checked out |
+| `protected-branch` | `pre-commit`, `pre-push` | A commit made while `main` is checked out, and any push that would write `main` |
 | `hygiene` | `pre-commit` | Conflict markers, files over 512 KiB, credential files (`.env`, private keys, keystores) |
 | `secrets` | `pre-commit` | Content matching the secretlint recommended ruleset |
 | `lefthook-config` | `pre-commit` | A `lefthook.yml` that no longer parses, which would silently disable every gate |
@@ -82,6 +82,14 @@ already been cleaned up would pass. That is the same limitation the ESLint and P
 and the CI run over the committed tree closes it.
 
 The guards cannot replace branch protection. A bypassed `protected-branch` guard still permits a push
-to `main`; it only stops the accident, which is what nearly every direct push actually is. If the
+to `main`; it only stops the accident, which is what nearly every direct push actually is.
+
+#63 widened what counts as an accident. The guard originally asked only which branch was checked
+out, which misses `git push origin HEAD:main` from a feature branch - the command that most directly
+moves the default branch without review. On `pre-push` it now reads the refs git names on stdin and
+refuses when any of them writes a protected branch, deletions included, whatever the refspec looked
+like. lefthook does not hand a job that stdin unless the job sets `use_stdin: true`, which is itself
+covered by a test: a guard wired up wrongly refuses nothing, and refusing nothing is how a guard
+fails silently. If the
 repository moves to a plan with branch protection, the server-side rule should be turned on and this
 guard kept, because it fails at the commit rather than after a rejected push.
