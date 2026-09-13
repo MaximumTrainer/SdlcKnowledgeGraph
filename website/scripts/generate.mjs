@@ -21,6 +21,8 @@ export const GENERATED_HEADER = 'DO NOT EDIT'
 
 /** The one place that says which source becomes which published path. */
 const GUIDE_PAGES = {
+  'GETTING-STARTED.md': 'guide/getting-started',
+  'USER-GUIDE.md': 'guide/user-guide',
   'ONTOLOGY.md': 'guide/ontology',
   'ADAPTERS.md': 'guide/adapters',
   'TESTING.md': 'guide/testing',
@@ -53,7 +55,6 @@ export const generatedFrom = source =>
  * command that mentions a path is not a link.
  */
 export const rewriteLinks = (markdown, sourcePath) => {
-  const fromDocs = sourcePath.startsWith('docs/')
   const fromAdr = sourcePath.startsWith('docs/adr/')
 
   const rewriteTarget = target => {
@@ -69,13 +70,20 @@ export const rewriteLinks = (markdown, sourcePath) => {
 
     if (/^docs\/adr\/?$/.test(normalised) || /^adr\/?$/.test(normalised)) return `/adr/${anchor}`
 
+    // The OpenAPI document is published as the rendered API reference, not as a file.
+    if (/^(?:docs\/)?api\/openapi\.json$/.test(normalised)) return `/reference/api${anchor}`
+
     const adr = normalised.match(/^(?:docs\/)?adr\/([^/]+)\.md$/)
     if (adr) return `/adr/${adr[1]}${anchor}`
 
-    const doc = normalised.match(/^(?:docs\/)?([A-Z]+\.md)$/)
+    // A record refers to a sibling by bare file name, which is only resolvable from inside docs/adr.
+    const sibling = fromAdr && normalised.match(/^(\d{4}-[^/]+)\.md$/)
+    if (sibling) return `/adr/${sibling[1]}${anchor}`
+
+    const doc = normalised.match(/^(?:docs\/)?([A-Z][A-Z-]*\.md)$/)
     if (doc && GUIDE_PAGES[doc[1]]) return `/${GUIDE_PAGES[doc[1]]}${anchor}`
 
-    if (fromAdr || fromDocs) return target
+    // Anything else (a path into the source tree, say) is left for the build's dead-link check.
     return target
   }
 
@@ -229,12 +237,54 @@ const titleOf = markdown => markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? 'Untit
 
 const readRepoFile = file => readFile(path.join(repoRoot, file), 'utf8')
 
+/**
+ * The landing page is the README rendered under a hero. The hero is layout, not content: its copy is
+ * the README's own first paragraph and the two documents a new reader is most likely to want, so it
+ * is still a function of the sources and the drift check still holds.
+ */
+export const homePage = readme => {
+  const body = readme.replace(/^#\s+SDLC Knowledge Graph\s*\n/, '')
+  const frontmatter = [
+    '---',
+    'layout: home',
+    'hero:',
+    '  name: SDLC Knowledge Graph',
+    '  text: How a commit becomes a running service',
+    '  tagline: A queryable graph of repositories, teams, pipelines, artifacts, deployments, environments and cloud resources, with the provenance of every fact.',
+    '  image:',
+    '    src: /logo.svg',
+    '    alt: SDLC Knowledge Graph',
+    '  actions:',
+    '    - theme: brand',
+    '      text: Get started',
+    '      link: /guide/getting-started',
+    '    - theme: alt',
+    '      text: User guide',
+    '      link: /guide/user-guide',
+    '    - theme: alt',
+    '      text: Ontology reference',
+    '      link: /reference/ontology',
+    'features:',
+    '  - title: One model, declared once',
+    '    details: Node and relationship types live in a YAML registry. The API, the GraphQL types, the frontend types and this site are generated from it.',
+    '    link: /guide/ontology',
+    '  - title: Every fact has a source',
+    '    details: Each node and edge carries provenance - which system reported it, when, and how confident it was - so a wrong answer can be traced and corrected.',
+    '    link: /guide/ontology#provenance',
+    '  - title: Built outside-in',
+    '    details: Acceptance tests are committed red before the code that makes them pass, and git hooks refuse what cannot be undone.',
+    '    link: /guide/testing',
+    '---',
+    ''
+  ].join('\n')
+  return frontmatter + generatedFrom('README.md') + rewriteLinks(body, 'README.md')
+}
+
 /** Builds the whole site as a map of published path to content, so `--check` needs no temp directory. */
 const buildPages = async () => {
   const pages = new Map()
 
-  const readme = await readRepoFile('README.md')
-  pages.set('index.md', generatedFrom('README.md') + rewriteLinks(readme, 'README.md'))
+  pages.set('index.md', homePage(await readRepoFile('README.md')))
 
   for (const [file, published] of Object.entries(GUIDE_PAGES)) {
     const source = `docs/${file}`
@@ -269,12 +319,16 @@ const buildPages = async () => {
   return pages
 }
 
-/** Every file currently under src/, so a hand-added page can be spotted. */
+/**
+ * Every page currently under src/, so a hand-added one can be spotted. `src/public/` holds the
+ * logo and favicon, which are assets rather than pages, and is the one directory left alone.
+ */
 const publishedFiles = async (dir = outputRoot, prefix = '') => {
   if (!existsSync(dir)) return []
   const found = []
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (relative === 'public') continue
     if (entry.isDirectory()) found.push(...(await publishedFiles(path.join(dir, entry.name), relative)))
     else found.push(relative)
   }

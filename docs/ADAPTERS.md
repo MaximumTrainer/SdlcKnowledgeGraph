@@ -3,9 +3,15 @@
 An adapter, or connector, reads a source system and produces graph changes. Connectors are how the
 graph stops being a hand-maintained diagram and starts reflecting reality.
 
-This document describes the target contract. It is implemented by [#22](../../issues/22), with
-reference implementations in [#23](../../issues/23) (GitHub), [#24](../../issues/24) (ServiceNow)
-and [#25](../../issues/25) (AWS).
+> **Status: design, not yet implemented.** Nothing on this page exists in the codebase today. There
+> is no `SourceConnector` interface, no `AdapterRegistry`, no `connectors.*` configuration, no
+> `/api/v1/connectors` endpoints and no link resolution engine; `SyncRun` is declared in the
+> ontology registry but nothing writes one, and every node and edge is currently entered by hand
+> (see the [user guide](USER-GUIDE.md)). This document is the target contract that the M2
+> milestone builds: the SPI in [#22](../../issues/22), with reference implementations in
+> [#23](../../issues/23) (GitHub), [#24](../../issues/24) (ServiceNow) and [#25](../../issues/25)
+> (AWS), and link resolution in [#28](../../issues/28). Read every present-tense sentence below as
+> a requirement on that work.
 
 ## The contract
 
@@ -98,7 +104,8 @@ Operational endpoints:
 | `GET /api/v1/connectors/{name}/runs` | Recent `SyncRun` history |
 | `POST /api/v1/connectors/{name}/webhook` | Receive an event, signature verified, 202 Accepted |
 
-Webhook endpoints are exempt from bearer authentication but must verify their own signature. A
+Webhook endpoints will be exempt from the bearer authentication that
+[ADR-0005](adr/0005-auth-oidc-github-first.md) introduces, but must verify their own signature. A
 connector that cannot verify a signature must reject the request.
 
 ## Testing rule
@@ -124,9 +131,10 @@ A cloud resource rarely says which repository produced it, so the link resolutio
 | Naming convention | The resource name matches a configured service pattern | 0.4 | yes |
 
 The highest-confidence rule wins. At 0.5 and above the engine writes `OWNS_RESOURCE` marked
-inferred. Below that it writes `CANDIDATE_LINK`, which surfaces in the review screen where a person
-accepts it, promoting it to a manual link, or rejects it, recording a tombstone with a reason so the
-rule does not keep re-proposing it.
+inferred, with the rule's name in the edge's `rule` property (the registry already declares it).
+Below that it writes `CANDIDATE_LINK`, a relationship to be added to the registry with the engine,
+which surfaces in a review screen where a person accepts it, promoting it to a manual link, or
+rejects it, recording a tombstone with a reason so the rule does not keep re-proposing it.
 
 Re-running the engine is idempotent.
 
