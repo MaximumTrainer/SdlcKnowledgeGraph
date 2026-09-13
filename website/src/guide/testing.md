@@ -90,8 +90,35 @@ npx --yes actionlint@latest .github/workflows/*.yml   # GitHub workflow files
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows |
-| `pre-push` | `./gradlew check` and the frontend verify chain |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, and the guards below |
+| `pre-push` | the branch guard, `./gradlew check` and the frontend verify chain |
+
+### Guards
+
+Four `pre-commit` jobs are not linters: they refuse a commit rather than report on it, because what
+they catch cannot be fixed by a later commit ([ADR-0007](/adr/0007-commit-guards)).
+
+| Guard | Refuses | Way out |
+| --- | --- | --- |
+| `protected-branch` | committing or pushing while `main` is checked out | `ALLOW_MAIN=1` |
+| `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES` |
+| `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
+| `lefthook-config` | a `lefthook.yml` that no longer parses | — |
+
+A leaked credential has to be rotated, a large file cannot be removed without rewriting history, and
+a direct push to `main` skips review and trips the push-triggered CI run on the default branch. Each
+way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every gate at once.
+
+Run them over the whole repository without committing:
+
+```bash
+npm run guards            # hygiene + secretlint + lefthook validate, every tracked file
+```
+
+That is also a CI job, because a guard that lived only in a hook would be the one check `LEFTHOOK=0`
+disables permanently.
+
+### Why tests do not run on commit
 
 Note what `pre-commit` does not do: run tests. That is deliberate. This workflow requires committing
 a failing acceptance test before the code that satisfies it, so a hook that ran tests on commit

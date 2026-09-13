@@ -18,7 +18,7 @@ Each step is a commit on this branch. Paste the short SHA so reviewers can repla
 ## Checklist
 
 - [ ] `lefthook run pre-push` passed locally (all backend suites, frontend lint/typecheck/unit/build)
-- [ ] CI is green (commitlint, backend, frontend, e2e)
+- [ ] CI is green (commitlint, guards, backend, frontend, website, e2e)
 - [ ] Docs updated where behaviour changed: `docs/ONTOLOGY.md`, `docs/ADAPTERS.md`, `docs/TESTING.md`, README
 - [ ] An ADR was added under `docs/adr/` if this PR makes an architectural decision
 - [ ] Generated artefacts (GraphQL SDL, `frontend/src/generated/`) are committed and no ontology type was duplicated by hand

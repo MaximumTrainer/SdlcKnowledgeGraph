@@ -5,7 +5,7 @@ description: Run the same checks CI runs, in the same order, before pushing or o
 
 # Run the gate locally
 
-`.github/workflows/ci.yml` has four jobs. Reproduce them locally in this order; each is cheap
+`.github/workflows/ci.yml` has five jobs. Reproduce them locally in this order; each is cheap
 relative to the one after it, so stop at the first failure and fix it.
 
 ## 1. Commit messages
@@ -17,7 +17,17 @@ npx --no-install commitlint --from origin/main --to HEAD
 Every message needs a conventional type and an issue reference (`(#20)`). This is the cheapest job
 to fail on in CI and the most annoying, because it needs a rebase to fix.
 
-## 2. Backend
+## 2. Guards
+
+```bash
+npm run guards
+```
+
+Hygiene (conflict markers, oversized files, credential files), secretlint and `lefthook validate`,
+over every tracked file rather than the staged ones. Seconds, and it is the job most likely to fail
+on a branch where the hooks were bypassed with `LEFTHOOK=0`.
+
+## 3. Backend
 
 ```bash
 cd backend && ./gradlew check --console=plain
@@ -36,7 +46,7 @@ DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine ./gradlew check --console=
 Check `docker context ls` for the endpoint if that pipe name does not exist. A Docker failure looks
 like a wall of failing tests but is not a code failure - read the `Caused by` before believing it.
 
-## 3. Frontend
+## 4. Frontend
 
 ```bash
 cd frontend && npm run verify
@@ -49,7 +59,7 @@ That is lint, typecheck, unit tests and build. CI additionally runs `npm run for
 cd frontend && npm run format:check
 ```
 
-## 4. End to end
+## 5. End to end
 
 Only worth running when the change touches the API surface, the UI or the compose stack:
 

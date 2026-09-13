@@ -8,6 +8,10 @@
 # that satisfies it, so a hook that runs tests on commit would make the required workflow impossible
 # without bypassing it. pre-push checks the state being shared, where intermediate red commits in the
 # branch are fine as long as the tip is green.
+#
+# The guard jobs (protected-branch, hygiene, secrets) are neither formatting nor analysis and run no
+# test: they refuse what cannot be undone once committed - a credential in the history, a
+# multi-megabyte artefact, a change on `main` that skipped review. See docs/adr/0007-commit-guards.md.
 
 commit-msg:
   jobs:
@@ -17,6 +21,16 @@ commit-msg:
 pre-commit:
   parallel: true
   jobs:
+    # No glob on the three guards: they apply to every commit, whatever it touches.
+    - name: protected-branch
+      run: node scripts/protected-branch.mjs commit
+    # Reads staged content from the index, so a partially staged file is judged as it will be committed.
+    - name: hygiene
+      run: node scripts/hygiene.mjs {staged_files}
+    # A leaked credential must be rotated even after the commit is removed, so the only gate that
+    # really helps is the one before it enters the history.
+    - name: secrets
+      run: node scripts/secretlint.mjs {staged_files}
     # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt
     # is reading them; the group as a whole still runs in parallel with the frontend jobs.
     - name: backend
@@ -44,10 +58,16 @@ pre-commit:
     - name: actionlint
       glob: ".github/workflows/*.{yml,yaml}"
       run: node scripts/actionlint.mjs {staged_files}
+    # A hook config that does not parse disables every gate above, silently.
+    - name: lefthook-config
+      glob: "lefthook.yml"
+      run: node scripts/guards.mjs config
 
 pre-push:
   parallel: true
   jobs:
+    - name: protected-branch
+      run: node scripts/protected-branch.mjs push
     - name: backend-check
       run: node scripts/gradle.mjs check --quiet
     # Piped so the pact check reads what `verify` has just regenerated; the group still runs in
