@@ -1,5 +1,7 @@
 package com.repodatagraph
 
+import com.fasterxml.jackson.core.util.DefaultIndenter
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -33,7 +35,7 @@ class OpenApiExportTest {
     @Test
     fun `the committed OpenAPI document is the one the application serves`() {
         val served = normalised(mapper.readTree(restTemplate.getForObject("/api-docs", String::class.java)))
-        val rendered = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(served) + "\n"
+        val rendered = mapper.writer(printer).writeValueAsString(served) + "\n"
 
         if (System.getProperty(UPDATE_PROPERTY) == "true") {
             committedFile.parentFile.mkdirs()
@@ -75,6 +77,18 @@ class OpenApiExportTest {
 
     private companion object {
         const val UPDATE_PROPERTY = "updateOpenApi"
+
+        /**
+         * The default pretty printer breaks lines with `System.lineSeparator()`, so on Windows it
+         * renders CRLF while the committed file is LF - `.gitattributes` normalises it deliberately -
+         * and the comparison then fails on every line over a difference nobody asked for. Pinning the
+         * line break makes the rendered document the same on Windows as in CI.
+         *
+         * Only the object indenter is replaced. Arrays keep `FixedSpaceIndenter`, which writes no line
+         * break, so the committed file's inline arrays stay inline and its bytes do not change.
+         */
+        val printer: DefaultPrettyPrinter =
+            DefaultPrettyPrinter().apply { indentObjectsWith(DefaultIndenter("  ", "\n")) }
 
         /** Gradle runs from `backend/`, so the repository root is one level up. */
         val committedFile = File("../docs/api/openapi.json")

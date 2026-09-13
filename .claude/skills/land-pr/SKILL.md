@@ -38,8 +38,8 @@ gh pr create --fill --title "<what now works>" --body-file <path>
 gh pr checks --watch
 ```
 
-Four jobs: commit messages, backend, frontend, and end-to-end (which needs the first two). Roughly
-seven minutes. If a job fails, read the log with `gh run view <id> --log-failed` and fix it on the
+Five jobs: commit messages, guards, backend, frontend, and end-to-end (which needs the backend and
+frontend jobs). Roughly seven minutes. If a job fails, read the log with `gh run view <id> --log-failed` and fix it on the
 branch rather than merging around it.
 
 ## 5. Merge

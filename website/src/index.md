@@ -28,7 +28,7 @@ See [docs/ROADMAP.md](/reference/roadmap) for what is built and what is planned.
 | API | REST and GraphQL, documented with OpenAPI |
 | Frontend | Vue 3, TypeScript, Vite |
 | Tests | JUnit 5, Cucumber, Testcontainers, Pact, Vitest, Playwright |
-| Gates | lefthook, commitlint, ktlint, detekt, ESLint, Prettier, GitHub Actions |
+| Gates | lefthook, commitlint, ktlint, detekt, ESLint, Prettier, secretlint, GitHub Actions |
 
 ## Prerequisites
 
@@ -103,9 +103,13 @@ Gates enforce the parts a machine can check:
 | When | What runs |
 | --- | --- |
 | On commit message | Conventional format, known scope, and an issue reference |
-| On commit | Format and lint staged files, run fast unit tests |
+| On commit | Format and lint staged files; refuse secrets, oversized files, conflict markers, and commits on `main` |
 | On push | Full backend `check`, and the frontend verify chain |
 | On pull request | All of the above, plus browser end-to-end tests |
+
+Commits deliberately run no tests: this workflow commits a failing test before the code that passes
+it. The refusals are separate from the linting, because a leaked credential or a large binary cannot
+be undone by a later commit ([ADR-0007](/adr/0007-commit-guards)).
 
 [docs/TESTING.md](/guide/testing) explains the loop and the suites in more detail.
 

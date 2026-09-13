@@ -2,17 +2,24 @@
   "name": "sdlc-knowledge-graph",
   "version": "0.0.1",
   "private": true,
-  "description": "Root workspace tooling for the SDLC Knowledge Graph: git hooks (lefthook) and commit message linting (commitlint).",
+  "description": "Root workspace tooling for the SDLC Knowledge Graph: git hooks (lefthook), commit message linting (commitlint) and the commit-time guards (hygiene, secretlint).",
   "scripts": {
     "prepare": "lefthook install",
     "gradle": "node scripts/gradle.mjs",
     "commitlint": "commitlint",
-    "actionlint": "node scripts/actionlint.mjs"
+    "actionlint": "node scripts/actionlint.mjs",
+    "hooks:install": "lefthook install --force",
+    "hooks:validate": "lefthook validate",
+    "secretlint": "node scripts/secretlint.mjs",
+    "hygiene": "node scripts/hygiene.mjs",
+    "guards": "node scripts/guards.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "actionlint": "^2.0.6",
-    "lefthook": "^1.12.3"
+    "lefthook": "^1.12.3",
+    "secretlint": "^13.0.5"
   }
 }
