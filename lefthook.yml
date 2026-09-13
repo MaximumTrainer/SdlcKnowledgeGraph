@@ -65,6 +65,26 @@ pre-commit:
       glob: "lefthook.yml"
       run: node scripts/guards.mjs config
 
+# Git runs this instead of `pre-commit` for a merge that commits automatically, so without it a
+# merge introduces content no guard has ever seen - and a credential, an oversized file or a conflict
+# marker arriving through `git merge` is exactly as unrecoverable as one arriving through `git
+# commit` (#61).
+#
+# Only the three guards. The formatters and linters are deliberately absent: a merge is not the
+# moment to rewrite files under the user's feet, and their findings are recoverable anyway.
+#
+# A conflicted merge does not come through here. Git stops without creating a commit, and the
+# separate `git commit` that records the resolution runs `pre-commit`, which already covers it.
+pre-merge-commit:
+  parallel: true
+  jobs:
+    - name: protected-branch
+      run: node scripts/protected-branch.mjs merge
+    - name: hygiene
+      run: node scripts/hygiene.mjs {staged_files}
+    - name: secrets
+      run: node scripts/secretlint.mjs --staged {staged_files}
+
 pre-push:
   parallel: true
   jobs:
