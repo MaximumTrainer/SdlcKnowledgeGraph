@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Implemented by [#52](../../../issues/52).
 
 ## Context
 

@@ -4,7 +4,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Implemented by [#52](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/52).
 
 ## Context
 
