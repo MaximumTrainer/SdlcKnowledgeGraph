@@ -18,6 +18,18 @@ The two high-impact questions we target first:
 1. What depends on this change, and what infrastructure would it touch?
 2. Why did this deployment fail, and who owns the thing that broke?
 
+## Where things stand
+
+M0 is complete. In M1, the ontology registry, the registry-driven store, code generation, node CRUD
+and typed relationships have landed: every type in the registry can be created, edited, related and
+deleted through the API and the web interface, and the [user guide](/guide/user-guide) describes what
+that looks like. Nothing in M2 or M3 has started; in particular there are no connectors and no
+authentication, whatever the present tense in [ADAPTERS.md](/guide/adapters) and
+[ADR-0005](/adr/0005-auth-oidc-github-first) might suggest — both describe designs.
+
+Each table below marks an issue **Done** when its pull request is merged on `main`, **Partial** when
+some of its scope has shipped, and leaves the column blank when it has not started.
+
 ## Milestones
 
 ### M0 Foundation
@@ -25,63 +37,65 @@ The two high-impact questions we target first:
 Nothing ships before the gates exist. Outside-in TDD is only a discipline if a failing acceptance
 test can actually be written and a hook refuses the commit when it is not.
 
-| Issue | Title |
-| --- | --- |
-| [#10](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/10) | Backend test harness: jvm-test-suite, Testcontainers Neo4j, Cucumber runner |
-| [#11](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/11) | Frontend test harness: Vitest, Vue Test Utils, MSW, Playwright |
-| [#12](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/12) | Lint and format toolchain: ktlint, detekt, ESLint, Prettier, actionlint |
-| [#13](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/13) | Git-hook gates: lefthook and commitlint with mandatory issue references |
-| [#14](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/14) | GitHub Actions CI mirroring the hooks |
-| [#15](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/15) | Local stack: compose.yaml and Dockerfiles |
-| [#16](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/16) | Issue and PR templates, CODEOWNERS, docs skeleton, ADRs |
-| [#17](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/17) | Make Pact contract tests real |
+| Issue | Title | Status |
+| --- | --- | --- |
+| [#10](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/10) | Backend test harness: jvm-test-suite, Testcontainers Neo4j, Cucumber runner | Done |
+| [#11](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/11) | Frontend test harness: Vitest, Vue Test Utils, MSW, Playwright | Done |
+| [#12](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/12) | Lint and format toolchain: ktlint, detekt, ESLint, Prettier, actionlint | Done |
+| [#13](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/13) | Git-hook gates: lefthook and commitlint with mandatory issue references | Done |
+| [#14](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/14) | GitHub Actions CI mirroring the hooks | Done |
+| [#15](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/15) | Local stack: compose.yaml and Dockerfiles | Done |
+| [#16](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/16) | Issue and PR templates, CODEOWNERS, docs skeleton, ADRs | Done |
+| [#17](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/17) | Make Pact contract tests real | Done |
+| [#43](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/43) | Project website generated from the repository sources | Done |
+| [#52](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/52) | Commit guards: refuse what cannot be undone | Done |
 
 ### M1 Minimum viable graph
 
 Nine entity types, no connectors yet. Data is entered by hand or by our own deploy pipeline, which
 is enough to answer both target questions end to end.
 
-| Issue | Title |
-| --- | --- |
-| [#18](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/18) | Ontology registry with provenance, identity keys, inverse edges |
-| [#19](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/19) | Registry-driven GraphStore; write BUILT_FROM; 404 on missing link targets |
-| [#20](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/20) | Generate GraphQL SDL and TypeScript types from the registry |
-| [#4](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/4) | Ontology-driven CRUD for all core node types |
-| [#8](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/8) | Link Repository nodes to a real git remote |
-| [#5](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/5) | Registry-validated typed relationships via `/api/v1/edges` |
-| [#21](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/21) | Impact analysis and blast-radius queries |
-| [#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9) | Interactive graph visualiser |
-| [#6](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/6) | Package the site as containers |
-| [#7](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/7) | Release and deploy pipelines, with self-ingestion of deployments |
+| Issue | Title | Status |
+| --- | --- | --- |
+| [#18](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/18) | Ontology registry with provenance, identity keys, inverse edges | Done |
+| [#19](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/19) | Registry-driven GraphStore; write BUILT_FROM; 404 on missing link targets | Done |
+| [#20](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/20) | Generate GraphQL SDL and TypeScript types from the registry | Done |
+| [#4](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/4) | Ontology-driven CRUD for all core node types | Done |
+| [#8](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/8) | Link Repository nodes to a real git remote | Partial: any remote form derives the key; the legacy `orgRepo` is still required |
+| [#5](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/5) | Registry-validated typed relationships via `/api/v1/edges` | Done |
+| [#21](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/21) | Impact analysis and blast-radius queries | Partial: `impact` returns one hop of dependents, resources and deployments; no depth or scoring |
+| [#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9) | Interactive graph visualiser | |
+| [#6](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/6) | Package the site as containers | Partial: the compose stack builds and runs both images; no published images or release |
+| [#7](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/7) | Release and deploy pipelines, with self-ingestion of deployments | |
 
 ### M2 Integrations
 
 Connectors replace hand-entered data, and code gets linked to infrastructure.
 
-| Issue | Title |
-| --- | --- |
-| [#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22) | Connector SPI, AdapterRegistry, SyncScheduler, SyncRun nodes |
-| [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3) | Secure the API: OIDC resource server, principal kinds, API keys |
-| [#2](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/2) | User login via oauth2Login, GitHub first |
-| [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) | GitHub connector: repos, CODEOWNERS, manifests, IaC index, webhooks |
-| [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) | ItsmConnector abstraction and ServiceNow CMDB connector |
-| [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25) | AWS connector, the reference cloud implementation |
-| [#26](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/26) | Azure connector |
-| [#27](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/27) | GCP connector |
-| [#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28) | Cloud-to-repo link resolution engine |
-| [#29](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/29) | Sync observability |
+| Issue | Title | Status |
+| --- | --- | --- |
+| [#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22) | Connector SPI, AdapterRegistry, SyncScheduler, SyncRun nodes | |
+| [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3) | Secure the API: OIDC resource server, principal kinds, API keys | |
+| [#2](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/2) | User login via oauth2Login, GitHub first | |
+| [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) | GitHub connector: repos, CODEOWNERS, manifests, IaC index, webhooks | |
+| [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) | ItsmConnector abstraction and ServiceNow CMDB connector | |
+| [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25) | AWS connector, the reference cloud implementation | |
+| [#26](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/26) | Azure connector | |
+| [#27](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/27) | GCP connector | |
+| [#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28) | Cloud-to-repo link resolution engine | |
+| [#29](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/29) | Sync observability | |
 
 ### M3 Governance and AI
 
-| Issue | Title |
-| --- | --- |
-| [#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30) | RBAC and policy-as-code with OPA |
-| [#31](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/31) | AI-agent query API and MCP server |
-| [#32](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/32) | Answer-quality evaluation harness |
-| [#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33) | Data lifecycle: history, tombstones, archival, migrations |
-| [#34](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/34) | Observability and incident connector |
-| [#35](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/35) | Jira Service Management connector |
-| [#36](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/36) | Requirements connector |
+| Issue | Title | Status |
+| --- | --- | --- |
+| [#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30) | RBAC and policy-as-code with OPA | |
+| [#31](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/31) | AI-agent query API and MCP server | |
+| [#32](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/32) | Answer-quality evaluation harness | |
+| [#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33) | Data lifecycle: history, tombstones, archival, migrations | |
+| [#34](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/34) | Observability and incident connector | |
+| [#35](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/35) | Jira Service Management connector | |
+| [#36](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/36) | Requirements connector | |
 
 ## How work is done
 
@@ -99,9 +113,12 @@ a red-then-green sequence should send the PR back.
 Gates that enforce this mechanically:
 
 - `commit-msg` requires a conventional commit message carrying an issue reference.
-- `pre-commit` formats and lints staged files and runs fast unit tests.
+- `pre-commit` formats and lints staged files, checks generated files for drift, and refuses what
+  cannot be undone (secrets, oversized files, commits on `main`). It deliberately runs no tests, so
+  that a failing test can be committed.
 - `pre-push` runs the full backend `check` and the frontend verify chain.
-- CI re-runs all of it, plus browser end-to-end tests against the compose stack.
+- CI re-runs all of it, plus the website build and browser end-to-end tests against the compose
+  stack.
 
 See [TESTING.md](/guide/testing) for the mechanics, [ONTOLOGY.md](/guide/ontology) for the graph model, and
 [ADAPTERS.md](/guide/adapters) for the connector contract.

@@ -8,7 +8,8 @@ This document defines implementation expectations for all agents working in this
 - Keep domain logic isolated from infrastructure concerns.
 - Depend on abstractions (ports) in the application/domain layers.
 - Implement adapters for external systems (DB, queues, files, LLM providers, telemetry, etc.).
-- Wire dependencies through **.NET DI** (`Microsoft.Extensions.DependencyInjection`) in the composition root.
+- Wire dependencies through **Spring's dependency injection** (constructor injection into `@Component`,
+  `@Service` and `@Configuration` classes) in the composition root.
 - Avoid service location and static/global mutable state.
 
 ### Recommended layering
@@ -16,13 +17,22 @@ This document defines implementation expectations for all agents working in this
 - **Domain**: entities, value objects, invariants, domain services.
 - **Application**: use cases, orchestration, port interfaces, DTOs.
 - **Infrastructure**: adapter implementations for ports.
-- **Presentation/API/UI**: HTTP/endpoints, Blazor/UI contracts.
+- **Presentation/API/UI**: REST controllers, GraphQL resolvers, and the Vue 3 single-page application in `frontend/`.
+
+In this repository: the backend is Kotlin on Spring Boot under `backend/src/main/kotlin/com/repodatagraph/`
+(`domain/`, `application/`, `adapter/in/`, `adapter/out/`), the graph store is Neo4j, and the node and
+relationship types are declared once in `backend/src/main/resources/ontology/v1/` and generated from
+there (see [docs/ONTOLOGY.md](docs/ONTOLOGY.md)).
 
 Only inward dependencies are allowed (outer layers depend on inner abstractions, never the reverse).
 
 ## 2) Test-Driven Development (TDD) by Default
 
-- Follow **Red → Green → Refactor** for new behavior and bug fixes.
+- Follow **Red → Green → Refactor** for new behavior and bug fixes, outside-in: the acceptance test
+  (a Cucumber feature under `backend/src/acceptanceTest/`, and a Playwright spec under `e2e/` when
+  the change is visible in the browser) is committed red before the code, then the contract or API
+  test, then unit tests. [docs/TESTING.md](docs/TESTING.md) is the authority on which suite a test
+  belongs in and which gates run when.
 - Start with failing tests that express required behavior.
 - Prefer fast unit tests for domain and application logic.
 - Add focused integration tests for adapters and cross-boundary behavior.
@@ -54,7 +64,9 @@ Only inward dependencies are allowed (outer layers depend on inner abstractions,
 - Dependencies are registered via DI in the composition root.
 - Tests are added/updated first (or alongside) and pass.
 - Security checks are considered and relevant tests are present.
-- markdown and website documentation is updated when architecture or behaviour changes.
+- markdown and website documentation is updated when architecture or behaviour changes: the
+  documents under `docs/` are the sources, and `npm --prefix website run generate` re-renders the
+  website from them. Never edit `website/src/` by hand.
 
 ## Shared agent skills
 
