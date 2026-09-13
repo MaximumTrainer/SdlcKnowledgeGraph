@@ -62,9 +62,18 @@ guard that existed only in a hook would be the one gate that bypass disables for
 the Gradle jobs already in that hook.
 
 The escape hatches are deliberate and named, because a guard with no way out gets disabled wholesale.
-`ALLOW_MAIN=1` permits a commit on `main`, `HYGIENE_MAX_BYTES` raises the size limit, and
-`.secretlintignore` excludes a path. Each is an explicit decision that shows up in a command line or
-a diff, unlike `LEFTHOOK=0`, which turns off everything at once and leaves no trace.
+`ALLOW_MAIN=1` permits a commit on `main`, `HYGIENE_MAX_BYTES` raises the size limit,
+`.hygieneignore` exempts a path from the credential *name* rule, and `.secretlintignore` excludes a
+path from the content scan. Each is an explicit decision that shows up in a command line or a diff,
+unlike `LEFTHOOK=0`, which turns off everything at once and leaves no trace.
+
+`.hygieneignore` was added by #64. The credential rule matches on the path, and credential-shaped
+paths that hold no credential are ordinary - an `.npmrc` setting `engine-strict`, a public
+certificate, a keystore used as a test fixture. Until it existed, the only way past that rule was
+`LEFTHOOK=0`, which is the blunt instrument this whole section argues against. It forgives the name
+only: the listed file is still size-checked, still scanned for conflict markers, and still read by
+`secrets`, because an allowlist that exempted content would be the documented way to smuggle a
+credential past the gate.
 
 The size limit will eventually refuse something legitimate. That is the intended failure mode: the
 limit exists to make a large file a decision rather than an accident, and raising it is one

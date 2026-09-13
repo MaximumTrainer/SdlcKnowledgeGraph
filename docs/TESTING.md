@@ -39,6 +39,24 @@ while the slow ones are left to push and CI.
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
 `contractTest`.
 
+Outside the backend there are three more suites, each on `node:test` with no extra framework:
+
+| Suite | Location | Covers | Runs at |
+| --- | --- | --- | --- |
+| root | `scripts/*.test.mjs` | the commit guards themselves | CI, on Linux and Windows |
+| website | `website/scripts/*.test.mjs` | the page generator | pre-commit drift check, CI |
+| frontend | `frontend/src/**` | components and stores, with MSW | pre-push, CI |
+
+The root suite exists because the guards are the one part of this repository whose failure is
+silent: a guard that has stopped refusing looks exactly like a guard with nothing to refuse, since
+commits keep succeeding either way. Each test drives the real script against a throwaway repository
+under the OS temp directory - never the working repository, and never `origin`. It runs on both
+platforms because path separators and line endings are where these scripts break.
+
+```bash
+npm run test:unit         # at the repository root
+```
+
 Unit tests must not start a Spring context. If a test needs one, it belongs in `integrationTest`.
 
 Commands:
@@ -105,7 +123,7 @@ they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.
 | Guard | Refuses | Way out |
 | --- | --- | --- |
 | `protected-branch` | committing or pushing while `main` or `master` is checked out (it runs on `pre-push` too) | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
-| `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES` |
+| `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
 
@@ -118,6 +136,7 @@ Run them over the whole repository without committing:
 ```bash
 npm run guards            # hygiene over every tracked file, secretlint over the working tree, lefthook validate
 node scripts/guards.mjs hygiene   # or secrets, or config, on its own
+npm run test:unit         # the guards' own tests
 ```
 
 That is also a CI job, because a guard that lived only in a hook would be the one check `LEFTHOOK=0`

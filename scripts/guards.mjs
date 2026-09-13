@@ -16,6 +16,7 @@
  * Windows run the same thing - the same reason Gradle goes through scripts/gradle.mjs.
  */
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath, URL } from 'node:url'
 import { resolveBin } from './npm-bin.mjs'
 
 const tracked = spawnSync('git', ['ls-files'], { encoding: 'utf8' })
@@ -27,14 +28,18 @@ const files = tracked.stdout.split(/\r?\n/).filter(Boolean)
 
 const node = process.execPath
 
+// Siblings are located from this file rather than from the working directory, so the guards can
+// be run against whatever repository they are pointed at, which is what makes them testable.
+const sibling = name => fileURLToPath(new URL(`./${name}`, import.meta.url))
+
 const CHECKS = {
   // The path list goes over stdin: a few hundred tracked paths overflow the 8191-character cmd.exe
   // limit, and this has to work the same on Windows as in CI.
   hygiene: {
-    args: ['scripts/hygiene.mjs', '--stdin-paths'],
+    args: [sibling('hygiene.mjs'), '--stdin-paths'],
     input: files.join('\n'),
   },
-  secrets: { args: ['scripts/secretlint.mjs', '**/*'] },
+  secrets: { args: [sibling('secretlint.mjs'), '**/*'] },
   config: { args: [resolveBin('lefthook'), 'validate'] },
 }
 
