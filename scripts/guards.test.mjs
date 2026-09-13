@@ -13,8 +13,6 @@ describe('guards', () => {
 
   before(() => {
     repo = createRepo()
-    // secretlint.mjs always passes --secretlintignore; give the throwaway repository an empty one.
-    repo.write('.secretlintignore', '')
   })
   after(() => repo.cleanup())
 

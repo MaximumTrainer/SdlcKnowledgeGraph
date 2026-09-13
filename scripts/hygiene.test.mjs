@@ -86,7 +86,10 @@ describe('hygiene', () => {
     test('names the way out, so it is discoverable at the moment it is needed', () => {
       repo.stage('.npmrc', 'engine-strict=true')
 
-      assert.match(hygiene(['.npmrc']).stderr, /add it to \.hygieneignore if it holds no credential/)
+      assert.match(
+        hygiene(['.npmrc']).stderr,
+        /add it to \.hygieneignore if it holds no credential/i
+      )
     })
   })
 

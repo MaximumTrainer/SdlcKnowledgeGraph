@@ -12,7 +12,7 @@
  * repository created by `git init` has no remotes, so `origin` cannot be reached even by mistake.
  */
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
@@ -55,6 +55,13 @@ export const createRepo = () => {
   // anybody's hooks, so point it at a directory that holds none.
   mkdirSync(path.join(dir, '.no-hooks'))
   git('config', 'core.hooksPath', '.no-hooks')
+
+  // secretlint refuses to run without a config, exiting 2. That is indistinguishable from a finding
+  // to a caller checking only for a non-zero status, so a test repository without one would let
+  // every "the secret is refused" assertion pass for the wrong reason. The real config is copied in
+  // rather than invented, so the tests exercise the ruleset this repository actually commits to.
+  copyFileSync(scriptPath('../.secretlintrc.json'), path.join(dir, '.secretlintrc.json'))
+  writeFileSync(path.join(dir, '.secretlintignore'), '')
 
   const write = (file, contents) => {
     const full = path.join(dir, file)
