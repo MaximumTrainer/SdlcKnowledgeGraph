@@ -13,12 +13,21 @@
  */
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
 /** The real scripts directory. Guards are always spawned from here, never from a copy. */
 export const scriptPath = name => fileURLToPath(new URL(`./${name}`, import.meta.url))
+
+/**
+ * The platform lefthook binary, for tests that install real git hooks.
+ *
+ * Asked of the package rather than hardcoded, because the name carries the platform and the
+ * architecture - lefthook-windows-x64, lefthook-linux-arm64 - and these tests run on more than one.
+ */
+const lefthookExe = () => createRequire(import.meta.url)('lefthook/get-exe').getExePath()
 
 /**
  * Environment for a spawned guard, with the escape hatches cleared.
@@ -39,8 +48,13 @@ export const createRepo = () => {
   // makes git report a directory different from the one the test wrote to.
   const dir = mkdtempSync(path.join(realpathSync(tmpdir()), 'skg-guards-'))
 
+  // Git subcommands that create a commit will invoke the installed hooks, and the hook script
+  // looks for lefthook under the repository's own node_modules, which a throwaway repository has
+  // none of. LEFTHOOK_BIN is the documented way to point it at one.
+  const gitEnv = { ...process.env, LEFTHOOK_BIN: lefthookExe() }
+
   const git = (...args) => {
-    const result = spawnSync('git', args, { cwd: dir, encoding: 'utf8' })
+    const result = spawnSync('git', args, { cwd: dir, encoding: 'utf8', env: gitEnv })
     if (result.status !== 0) {
       throw new Error(`git ${args.join(' ')} failed in the test repository:\n${result.stderr}`)
     }
@@ -89,12 +103,35 @@ export const createRepo = () => {
 
   const commit = message => git('commit', '--quiet', '--allow-empty', '-m', message)
 
+  /**
+   * Installs real git hooks from the given lefthook configuration.
+   *
+   * Jobs should invoke the guards by absolute path, since the throwaway repository has no scripts/
+   * directory of its own. What this proves is the half a unit test cannot: that git actually calls
+   * the hook for the operation in question, and that the guard's refusal stops it.
+   */
+  const installHooks = config => {
+    writeFileSync(path.join(dir, 'lefthook.yml'), config)
+    git('config', '--unset', 'core.hooksPath')
+    const installed = spawnSync(lefthookExe(), ['install', '--force'], { cwd: dir, encoding: 'utf8' })
+    if (installed.status !== 0) {
+      throw new Error(`lefthook install failed in the test repository:
+${installed.stderr}`)
+    }
+  }
+
+  /** Runs a git command that is expected to fail, returning its status and output. */
+  const tryGit = (...args) => {
+    const result = spawnSync('git', args, { cwd: dir, encoding: 'utf8', env: gitEnv })
+    return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
+  }
+
   const cleanup = () => {
     // Windows keeps a handle on pack files for a moment after git exits; retries beat a flaky test.
     rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
   }
 
-  return { dir, git, write, stage, commit, run, cleanup }
+  return { dir, git, tryGit, write, stage, commit, run, installHooks, cleanup }
 }
 
 /**
