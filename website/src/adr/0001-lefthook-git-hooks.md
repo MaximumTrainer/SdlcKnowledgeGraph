@@ -15,6 +15,12 @@ that is followed when convenient.
 The repository is private on a plan without branch protection, so a server-side rule cannot require
 a passing check before merge. Local git hooks plus a CI status check are the gates available.
 
+> **Note, added later.** That premise no longer holds. The repository went public, branch protection
+> became available, and `main` is now protected on the server - see
+> [ADR-0009](0009-branch-protection.md). The hooks are kept: a server-side rule rejects a push after
+> the work is done, while a hook refuses the commit before it is. The paragraph above is left as it
+> was written, because it was true then and it is why the hooks exist at all.
+
 The repository is polyglot: a Gradle and Kotlin backend, an npm and Vue frontend, and a Playwright
 end-to-end project. Development happens on Windows, and CI runs on Linux. A hook runner has to work
 in both without a second implementation.

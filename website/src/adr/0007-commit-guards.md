@@ -32,6 +32,9 @@ branch protection, so that really is prose. The CI run on `main` is a *push* tri
 gets no review and turns a broken build into a broken default branch, which the next person to clone
 inherits.
 
+> **Note, added later.** It is no longer only prose. `main` is protected on the server, and the rule
+> applies to the owner too - see [ADR-0009](0009-branch-protection.md).
+
 ## Decision
 
 Add four guard jobs to the hooks. They are not linters and they run no test; they refuse a commit.
@@ -78,3 +81,7 @@ The guards cannot replace branch protection. A bypassed `protected-branch` guard
 to `main`; it only stops the accident, which is what nearly every direct push actually is. If the
 repository moves to a plan with branch protection, the server-side rule should be turned on and this
 guard kept, because it fails at the commit rather than after a rejected push.
+
+> **Note, added later.** That condition has been met and acted on. The repository went public,
+> branch protection became available, and the rule is on - enforced for the owner as well. The guard
+> is kept, for the reason given above. See [ADR-0009](0009-branch-protection.md).
