@@ -1,0 +1,38 @@
+/**
+ * Brand colours for the generated site. The accent is the theme-color declared in config.ts, so
+ * the browser chrome, the links and the hero all agree.
+ */
+:root {
+  --vp-c-brand-1: #2b6cb0;
+  --vp-c-brand-2: #2c5282;
+  --vp-c-brand-3: #3182ce;
+  --vp-c-brand-soft: rgba(49, 130, 206, 0.16);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #2b6cb0 30%, #38b2ac);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #2b6cb0 40%, #38b2ac 60%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+  --vp-c-brand-1: #63b3ed;
+  --vp-c-brand-2: #4299e1;
+  --vp-c-brand-3: #3182ce;
+  --vp-c-brand-soft: rgba(99, 179, 237, 0.16);
+}
+
+/* Tables carry most of the reference material and are wider than the default column. */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc th,
+.vp-doc td {
+  vertical-align: top;
+}
+
+/* The README and guide pages use inline code heavily; keep it readable inside tables. */
+.vp-doc td code {
+  white-space: nowrap;
+}
