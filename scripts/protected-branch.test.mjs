@@ -69,7 +69,67 @@ describe('protected-branch', () => {
   test('takes the protected list from PROTECTED_BRANCHES when it is set', () => {
     repo.git('switch', '--quiet', '--create', 'release')
 
-    assert.equal(guard('commit', { PROTECTED_BRANCHES: 'release' }).status, 1)
     assert.equal(guard('commit', { PROTECTED_BRANCHES: 'main' }).status, 0)
+    assert.equal(guard('commit', { PROTECTED_BRANCHES: 'release' }).status, 1)
+  })
+
+  /**
+   * Checking the checked-out branch catches the accident. It does not catch the case that most
+   * directly breaks the default branch, because `git push origin HEAD:main` from a feature branch
+   * never changes which branch is checked out (#63).
+   *
+   * git hands `pre-push` one line per ref on stdin:
+   *
+   *     <local ref> <local sha> <remote ref> <remote sha>
+   *
+   * so the remote ref is the third field, whatever the refspec looked like on the command line.
+   */
+  describe('the refs being pushed', () => {
+    const push = (input, env) => repo.run('protected-branch.mjs', ['push'], { input, env })
+
+    const line = (remoteRef, { deleting = false } = {}) =>
+      deleting
+        ? `(delete) ${'0'.repeat(40)} ${remoteRef} ${'a'.repeat(40)}\n`
+        : `HEAD ${'b'.repeat(40)} ${remoteRef} ${'a'.repeat(40)}\n`
+
+    before(() => repo.git('switch', '--quiet', '--create', 'fix/63-a-feature-branch'))
+
+    test('refuses HEAD:main pushed from a feature branch', () => {
+      const { status, stderr } = push(line('refs/heads/main'))
+
+      assert.equal(status, 1)
+      assert.match(stderr, /main/)
+    })
+
+    test('refuses deleting a protected branch', () => {
+      assert.equal(push(line('refs/heads/main', { deleting: true })).status, 1)
+    })
+
+    test('refuses when a protected ref is one of several being pushed', () => {
+      const input = line('refs/heads/fix/63-a-feature-branch') + line('refs/heads/main')
+
+      assert.equal(push(input).status, 1)
+    })
+
+    test('allows pushing a feature branch', () => {
+      assert.equal(push(line('refs/heads/fix/63-a-feature-branch')).status, 0)
+    })
+
+    test('allows a tag that merely has a protected branch name in its path', () => {
+      assert.equal(push(line('refs/tags/main')).status, 0)
+    })
+
+    test('treats empty stdin as nothing to push, not as an error', () => {
+      assert.equal(push('').status, 0)
+    })
+
+    test('still honours ALLOW_MAIN, and still names it', () => {
+      assert.equal(push(line('refs/heads/main'), { ALLOW_MAIN: '1' }).status, 0)
+      assert.match(push(line('refs/heads/main')).stderr, /ALLOW_MAIN=1/)
+    })
+
+    test('honours PROTECTED_BRANCHES for the refs as well as the branch', () => {
+      assert.equal(push(line('refs/heads/release'), { PROTECTED_BRANCHES: 'release' }).status, 1)
+    })
   })
 })
