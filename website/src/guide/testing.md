@@ -41,6 +41,24 @@ slow ones only on push.
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
 `contractTest`.
 
+Outside the backend there are three more suites, each on `node:test` with no extra framework:
+
+| Suite | Location | Covers | Runs at |
+| --- | --- | --- | --- |
+| root | `scripts/*.test.mjs` | the commit guards themselves | CI, on Linux and Windows |
+| website | `website/scripts/*.test.mjs` | the page generator | pre-commit drift check, CI |
+| frontend | `frontend/src/**` | components and stores, with MSW | pre-push, CI |
+
+The root suite exists because the guards are the one part of this repository whose failure is
+silent: a guard that has stopped refusing looks exactly like a guard with nothing to refuse, since
+commits keep succeeding either way. Each test drives the real script against a throwaway repository
+under the OS temp directory - never the working repository, and never `origin`. It runs on both
+platforms because path separators and line endings are where these scripts break.
+
+```bash
+npm run test:unit         # at the repository root
+```
+
 Unit tests must not start a Spring context. If a test needs one, it belongs in `integrationTest`.
 
 Commands:
@@ -113,6 +131,7 @@ Run them over the whole repository without committing:
 
 ```bash
 npm run guards            # hygiene + secretlint + lefthook validate, every tracked file
+npm run test:unit         # the guards' own tests
 ```
 
 That is also a CI job, because a guard that lived only in a hook would be the one check `LEFTHOOK=0`
