@@ -79,9 +79,16 @@ The size limit will eventually refuse something legitimate. That is the intended
 limit exists to make a large file a decision rather than an accident, and raising it is one
 environment variable.
 
-secretlint scans the working tree rather than the index, so a staged secret whose working copy has
-already been cleaned up would pass. That is the same limitation the ESLint and Prettier jobs have,
-and the CI run over the committed tree closes it.
+secretlint used to scan the working tree rather than the index, so a staged secret whose working
+copy had already been cleaned up would pass, and a secret present only in the working tree would fail
+a commit that never contained it. #62 closed both. On the hook path the staged content is written to
+a scratch directory at the same relative paths and scanned there, so what is judged is what will be
+committed; findings are reported under their repository path, and the scratch copy is removed on
+every exit, findings included, because it holds the credential being refused. The whole-repository
+run keeps reading the working tree, where the index and the tree are the same thing.
+
+The ESLint and Prettier jobs still have that limitation. They report on style rather than refuse
+something unrecoverable, so the CI run over the committed tree is enough for them.
 
 The guards cannot replace branch protection. A bypassed `protected-branch` guard still permits a push
 to `main`; it only stops the accident, which is what nearly every direct push actually is.
