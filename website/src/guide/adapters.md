@@ -42,7 +42,7 @@ data class GraphDelta(
 ```
 
 Every upsert carries its `Provenance`, so the graph always knows which connector asserted a fact,
-when, and how confident it was. See [ONTOLOGY.md](/guide/ontology).
+when, and how confident it was. See [Ontology](/guide/ontology).
 
 ## Two specialisations
 

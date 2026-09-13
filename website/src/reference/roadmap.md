@@ -103,5 +103,5 @@ Gates that enforce this mechanically:
 - `pre-push` runs the full backend `check` and the frontend verify chain.
 - CI re-runs all of it, plus browser end-to-end tests against the compose stack.
 
-See [TESTING.md](/guide/testing) for the mechanics, [ONTOLOGY.md](/guide/ontology) for the graph model, and
-[ADAPTERS.md](/guide/adapters) for the connector contract.
+See [Testing](/guide/testing) for the mechanics, [Ontology](/guide/ontology) for the graph model, and
+[Adapters](/guide/adapters) for the connector contract.

@@ -99,7 +99,7 @@ traversal concept, not a second stored edge.
 dependency was read from, so an inferred dependency can be traced back to its evidence.
 
 `CANDIDATE_LINK` is how the link resolution engine proposes a connection it is not confident enough
-to assert. See [ADAPTERS.md](/guide/adapters).
+to assert. See [Adapters](/guide/adapters).
 
 ## Provenance
 

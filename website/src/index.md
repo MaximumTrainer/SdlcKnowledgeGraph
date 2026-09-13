@@ -17,7 +17,7 @@ with the systems of record, and every fact carries its provenance.
 The graph is designed to be read by people through the web interface and by AI agents through a
 query API, under the same access rules.
 
-See [docs/ROADMAP.md](/reference/roadmap) for what is built and what is planned.
+See [Roadmap](/reference/roadmap) for what is built and what is planned.
 
 ## Stack
 
@@ -111,17 +111,17 @@ Commits deliberately run no tests: this workflow commits a failing test before t
 it. The refusals are separate from the linting, because a leaked credential or a large binary cannot
 be undone by a later commit ([ADR-0007](/adr/0007-commit-guards)).
 
-[docs/TESTING.md](/guide/testing) explains the loop and the suites in more detail.
+[Testing](/guide/testing) explains the loop and the suites in more detail.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [docs/ROADMAP.md](/reference/roadmap) | Milestones and the issues in each |
-| [docs/ONTOLOGY.md](/guide/ontology) | Entity types, relationships, provenance, identity |
-| [docs/ADAPTERS.md](/guide/adapters) | The connector contract and how code is linked to infrastructure |
-| [docs/TESTING.md](/guide/testing) | The TDD loop, the test suites, and the gates |
-| [docs/adr/](/adr/) | Architecture decisions and why they were made |
+| [Roadmap](/reference/roadmap) | Milestones and the issues in each |
+| [Ontology](/guide/ontology) | Entity types, relationships, provenance, identity |
+| [Adapters](/guide/adapters) | The connector contract and how code is linked to infrastructure |
+| [Testing](/guide/testing) | The TDD loop, the test suites, and the gates |
+| [Decisions](/adr/) | Architecture decisions and why they were made |
 
 All of it is also published as a website, generated from these same files plus the ontology registry
 and the OpenAPI document, so the published model is the real one. Nothing under `website/src/` is
