@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitepress'
 
@@ -15,6 +15,14 @@ const repoFile = (path: string) => fileURLToPath(new URL(`../../${path}`, import
 
 const ontology = JSON.parse(readFileSync(repoFile('backend/src/main/resources/ontology/v1/ontology.json'), 'utf8'))
 
+/**
+ * The site is published as a GitHub *project* page, so it lives under `/SdlcKnowledgeGraph/` rather
+ * than at the root of the host. Without this every asset and internal link resolves against the
+ * wrong path and the reader gets unstyled HTML. Override it to serve the same build elsewhere, for
+ * example `VITEPRESS_BASE=/ npm run build`.
+ */
+const base = process.env.VITEPRESS_BASE ?? '/SdlcKnowledgeGraph/'
+
 const commit =
   process.env.GITHUB_SHA ??
   (() => {
@@ -27,31 +35,55 @@ const commit =
 
 const builtAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
 
+/** One sidebar entry per decision record, read from the folder so a new ADR needs no config change. */
+const adrSidebar = readdirSync(repoFile('docs/adr'))
+  .filter(name => name.endsWith('.md'))
+  .sort()
+  .map(name => {
+    const slug = name.replace(/\.md$/, '')
+    const title = readFileSync(repoFile(`docs/adr/${name}`), 'utf8').match(/^#\s+(.+)$/m)?.[1] ?? slug
+    return { text: title.replace(/^ADR-0*(\d+):\s*/, '$1. '), link: `/adr/${slug}` }
+  })
+
 export default defineConfig({
   title: 'SDLC Knowledge Graph',
   description:
     'A knowledge graph over code repositories: how a commit becomes a running service, and what that service depends on.',
+  base,
   srcDir: 'src',
   cleanUrls: true,
+  lastUpdated: false,
   // A link to a page that does not exist is a broken promise to a reader, so it fails the build
   // rather than shipping.
   ignoreDeadLinks: false,
-  head: [['meta', { name: 'theme-color', content: '#2b6cb0' }]],
+  head: [
+    ['meta', { name: 'theme-color', content: '#2b6cb0' }],
+    ['link', { rel: 'icon', href: `${base}favicon.svg`, type: 'image/svg+xml' }]
+  ],
   themeConfig: {
+    logo: '/logo.svg',
     nav: [
-      { text: 'Guide', link: '/guide/ontology' },
-      { text: 'Reference', link: '/reference/ontology' },
-      { text: 'Decisions', link: '/adr/' },
-      { text: 'Roadmap', link: '/reference/roadmap' },
-      { text: 'GitHub', link: 'https://github.com/MaximumTrainer/SdlcKnowledgeGraph' }
+      { text: 'Get started', link: '/guide/getting-started' },
+      { text: 'User guide', link: '/guide/user-guide' },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'Ontology reference', link: '/reference/ontology' },
+          { text: 'REST API', link: '/reference/api' },
+          { text: 'Roadmap', link: '/reference/roadmap' }
+        ]
+      },
+      { text: 'Decisions', link: '/adr/' }
     ],
     sidebar: [
       {
         text: 'Guide',
         items: [
+          { text: 'Getting started', link: '/guide/getting-started' },
+          { text: 'User guide', link: '/guide/user-guide' },
           { text: 'Ontology', link: '/guide/ontology' },
-          { text: 'Adapters', link: '/guide/adapters' },
-          { text: 'Testing', link: '/guide/testing' }
+          { text: 'Adapters (planned)', link: '/guide/adapters' },
+          { text: 'Testing and gates', link: '/guide/testing' }
         ]
       },
       {
@@ -62,8 +94,13 @@ export default defineConfig({
           { text: 'Roadmap', link: '/reference/roadmap' }
         ]
       },
-      { text: 'Decisions', items: [{ text: 'All records', link: '/adr/' }] }
+      {
+        text: 'Decisions',
+        collapsed: false,
+        items: [{ text: 'All records', link: '/adr/' }, ...adrSidebar]
+      }
     ],
+    outline: { level: [2, 3] },
     socialLinks: [{ icon: 'github', link: 'https://github.com/MaximumTrainer/SdlcKnowledgeGraph' }],
     search: { provider: 'local' },
     editLink: {

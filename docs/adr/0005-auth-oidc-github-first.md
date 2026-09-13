@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Implemented by [#3](../../../issues/3) and [#2](../../../issues/2).
+Accepted, not yet implemented. The work is [#3](../../../issues/3) (resource server, principal
+kinds, API keys) and [#2](../../../issues/2) (user login), both in milestone M2. Until they land the
+API and the web interface have no authentication at all.
 
 ## Context
 
