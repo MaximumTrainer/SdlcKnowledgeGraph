@@ -187,6 +187,52 @@ describe('rewriteLinks', () => {
     assert.equal(rewriteLinks(link, 'docs/TESTING.md'), link)
   })
 
+  test('names the page when the link text is the path itself', () => {
+    const out = rewriteLinks('[docs/TESTING.md](docs/TESTING.md) explains the loop.', 'README.md')
+
+    assert.ok(out.includes('[Testing](/guide/testing)'))
+    assert.ok(!out.includes('docs/TESTING.md'))
+  })
+
+  test('names the page for every published doc', () => {
+    const out = rewriteLinks(
+      '[ONTOLOGY.md](ONTOLOGY.md) [ADAPTERS.md](ADAPTERS.md) [docs/ROADMAP.md](docs/ROADMAP.md)',
+      'docs/TESTING.md'
+    )
+
+    assert.ok(out.includes('[Ontology](/guide/ontology)'))
+    assert.ok(out.includes('[Adapters](/guide/adapters)'))
+    assert.ok(out.includes('[Roadmap](/reference/roadmap)'))
+  })
+
+  test('names the decisions index when the link text is the adr folder', () => {
+    const out = rewriteLinks('[docs/adr/](docs/adr/)', 'README.md')
+
+    assert.ok(out.includes('[Decisions](/adr/)'))
+  })
+
+  test('keeps the anchor when it names the page', () => {
+    const out = rewriteLinks('[TESTING.md](../TESTING.md#contract-tests)', 'docs/adr/0004-x.md')
+
+    assert.ok(out.includes('[Testing](/guide/testing#contract-tests)'))
+  })
+
+  test('leaves descriptive link text exactly as written', () => {
+    const out = rewriteLinks(
+      '[the testing guide](docs/TESTING.md) and [ADR-0001](adr/0001-lefthook-git-hooks.md)',
+      'README.md'
+    )
+
+    assert.ok(out.includes('[the testing guide](/guide/testing)'))
+    assert.ok(out.includes('[ADR-0001](/adr/0001-lefthook-git-hooks)'))
+  })
+
+  test('does not rename a path it cannot publish', () => {
+    const link = '[scripts/gradle.mjs](scripts/gradle.mjs)'
+
+    assert.equal(rewriteLinks(link, 'README.md'), link)
+  })
+
   test('does not rewrite inside a fenced code block', () => {
     const source = ['```bash', 'cat docs/ROADMAP.md', '```'].join('\n')
 
