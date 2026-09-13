@@ -12,7 +12,8 @@
     "hooks:validate": "lefthook validate",
     "secretlint": "node scripts/secretlint.mjs",
     "hygiene": "node scripts/hygiene.mjs",
-    "guards": "node scripts/guards.mjs"
+    "guards": "node scripts/guards.mjs",
+    "test:unit": "node scripts/run-tests.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
