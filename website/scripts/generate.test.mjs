@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   GENERATED_HEADER,
   adrIndexPage,
@@ -236,6 +237,30 @@ describe('rewriteLinks', () => {
   test('does not rewrite inside a fenced code block', () => {
     const source = ['```bash', 'cat docs/ROADMAP.md', '```'].join('\n')
 
+    assert.equal(rewriteLinks(source, 'README.md'), source)
+  })
+})
+
+/**
+ * The generator is the single point of control for ADR-0006: every published page comes out of it,
+ * so every change to it has to be reviewable. A raw NUL byte in the source makes git classify the
+ * whole file as binary, and a binary file has no diff to review.
+ */
+describe('the generator source', () => {
+  test('holds no raw NUL bytes, so git reads it as text', () => {
+    const source = readFileSync(new URL('./generate.mjs', import.meta.url))
+
+    assert.equal(
+      source.includes(0),
+      false,
+      'a raw NUL byte makes git treat generate.mjs as binary, so its diffs cannot be reviewed'
+    )
+  })
+
+  test('still holds fenced blocks aside with a sentinel markdown cannot contain', () => {
+    const source = ['```bash', 'cat docs/ROADMAP.md', '```', '', 'FENCE0'].join('\n')
+
+    // Were the sentinel ordinary text, restoring the fence would consume this line instead.
     assert.equal(rewriteLinks(source, 'README.md'), source)
   })
 })

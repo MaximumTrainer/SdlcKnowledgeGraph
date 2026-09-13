@@ -108,7 +108,10 @@ for (const { file, size, content } of indexEntries(paths)) {
     )
   }
 
-  // A NUL byte means binary: there is no line structure to scan for markers.
+  // A NUL byte means binary: there is no line structure to scan for markers. Note the blind
+  // spot this leaves - a *source* file that happens to contain a raw NUL reads as binary to
+  // this guard exactly as it does to git, so it is stepped over rather than checked. Writing
+  // the character as an escape keeps a source file text on both counts (#66).
   if (content.includes(0)) continue
 
   const lines = content.toString('utf8').split(/\r?\n/)
