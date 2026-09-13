@@ -55,7 +55,7 @@ CI has no external dependency for contract verification, and the tests run offli
 side does need Docker, because it verifies the real application against a real Neo4j rather than a
 mocked store; that is the same dependency the integration and acceptance suites already have.
 
-See [TESTING.md](/guide/testing#contract-tests) for how to run both sides.
+See [Testing](/guide/testing#contract-tests) for how to run both sides.
 
 Committed generated files can drift if someone edits them by hand or forgets to regenerate. The CI
 drift check exists for that.

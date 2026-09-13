@@ -24,7 +24,7 @@ M0 is complete. In M1, the ontology registry, the registry-driven store, code ge
 and typed relationships have landed: every type in the registry can be created, edited, related and
 deleted through the API and the web interface, and the [user guide](/guide/user-guide) describes what
 that looks like. Nothing in M2 or M3 has started; in particular there are no connectors and no
-authentication, whatever the present tense in [ADAPTERS.md](/guide/adapters) and
+authentication, whatever the present tense in [Adapters](/guide/adapters) and
 [ADR-0005](/adr/0005-auth-oidc-github-first) might suggest — both describe designs.
 
 Each table below marks an issue **Done** when its pull request is merged on `main`, **Partial** when
@@ -120,5 +120,5 @@ Gates that enforce this mechanically:
 - CI re-runs all of it, plus the website build and browser end-to-end tests against the compose
   stack.
 
-See [TESTING.md](/guide/testing) for the mechanics, [ONTOLOGY.md](/guide/ontology) for the graph model, and
-[ADAPTERS.md](/guide/adapters) for the connector contract.
+See [Testing](/guide/testing) for the mechanics, [Ontology](/guide/ontology) for the graph model, and
+[Adapters](/guide/adapters) for the connector contract.
