@@ -31,7 +31,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what is built and what is planned.
 ## Prerequisites
 
 - JDK 17 or later. The Gradle build provisions a 17 toolchain if one is missing.
-- Node.js 20 or later.
+- Node.js 22 or later. The frontend toolchain (Vite 7) and the Pact consumer library require it.
 - Docker, for the local database and for the integration, acceptance and contract tests.
 
 ## Getting started
