@@ -5,6 +5,7 @@ import {
   adrIndexPage,
   apiPage,
   generatedFrom,
+  homePage,
   ontologyPage,
   rewriteLinks
 } from './generate.mjs'
@@ -161,6 +162,31 @@ describe('rewriteLinks', () => {
     assert.ok(out.includes('(/guide/testing)'))
   })
 
+  test('maps a hyphenated doc name', () => {
+    const out = rewriteLinks('[start](docs/GETTING-STARTED.md) [guide](USER-GUIDE.md#nodes)', 'README.md')
+
+    assert.ok(out.includes('(/guide/getting-started)'))
+    assert.ok(out.includes('(/guide/user-guide#nodes)'))
+  })
+
+  test('maps a bare sibling link between decision records', () => {
+    const out = rewriteLinks('[hooks](0001-lefthook-git-hooks.md)', 'docs/adr/0007-commit-guards.md')
+
+    assert.ok(out.includes('(/adr/0001-lefthook-git-hooks)'))
+  })
+
+  test('does not treat a bare file name outside docs/adr as a record', () => {
+    const link = '[x](0001-something.md)'
+
+    assert.equal(rewriteLinks(link, 'README.md'), link)
+  })
+
+  test('maps the OpenAPI document onto the rendered API reference', () => {
+    const out = rewriteLinks('[api](api/openapi.json)', 'docs/USER-GUIDE.md')
+
+    assert.ok(out.includes('(/reference/api)'))
+  })
+
   test('keeps an anchor when rewriting', () => {
     const out = rewriteLinks('[contracts](../TESTING.md#contract-tests)', 'docs/adr/0004-x.md')
 
@@ -191,5 +217,25 @@ describe('rewriteLinks', () => {
     const source = ['```bash', 'cat docs/ROADMAP.md', '```'].join('\n')
 
     assert.equal(rewriteLinks(source, 'README.md'), source)
+  })
+})
+
+describe('homePage', () => {
+  const page = homePage('# SDLC Knowledge Graph\n\nIntro. See [roadmap](docs/ROADMAP.md).\n')
+
+  test('is a home layout with a hero that leads to the guides', () => {
+    assert.match(page, /^---\nlayout: home\n/)
+    assert.ok(page.includes('link: /guide/getting-started'))
+    assert.ok(page.includes('link: /guide/user-guide'))
+  })
+
+  test('keeps the README body without its title, which the hero already shows', () => {
+    assert.ok(page.includes('Intro.'))
+    assert.ok(!page.includes('# SDLC Knowledge Graph'))
+  })
+
+  test('still declares itself generated from the README, with links rewritten', () => {
+    assert.ok(page.includes('GENERATED FROM README.md'))
+    assert.ok(page.includes('(/reference/roadmap)'))
   })
 })

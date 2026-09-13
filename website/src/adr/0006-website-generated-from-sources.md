@@ -19,8 +19,8 @@ added, and the published model would quietly stop being the real one — the exa
 exists to prevent, on the product's own website.
 
 We already have the mechanism. The ontology's GraphQL SDL and TypeScript types are generated,
-committed and held in place by `ontologyDriftCheck` ([ADR-0003](0003-hybrid-ontology-registry.md)).
-The pacts are generated, committed and diffed in CI ([ADR-0004](0004-pact-folder-no-broker.md)).
+committed and held in place by `ontologyDriftCheck` ([ADR-0003](/adr/0003-hybrid-ontology-registry)).
+The pacts are generated, committed and diffed in CI ([ADR-0004](/adr/0004-pact-folder-no-broker)).
 
 ## Decision
 
@@ -44,7 +44,10 @@ that does not exist fails the build.
 
 Publication is to **GitHub Pages**, triggered by the CI run rather than by the push, and only when
 that run concluded successfully on `main`. The workflow downloads the artefact CI built instead of
-rebuilding, so the published bytes are the tested bytes.
+rebuilding, so the published bytes are the tested bytes. The site is a GitHub *project* page, served
+under `/SdlcKnowledgeGraph/` rather than at the root of the host, so the build sets that as its
+`base`; the site tests run against the same base, since an asset path that only works at the root is
+exactly the kind of failure a green build at the root would hide.
 
 The commit SHA and the build time appear in the footer but are read at build time and never written
 into a generated page. The drift check only works because everything it compares is a pure function
@@ -62,7 +65,13 @@ directory the drift check excludes, declared explicitly — not an exception car
 one.
 
 Adding a document under `docs/` means adding a line to the generator's mapping and a sidebar entry.
-That is a small tax on every new document, paid to keep the sidebar honest.
+That is a small tax on every new document, paid to keep the sidebar honest. Decision records are
+the exception: their pages and sidebar entries are read from `docs/adr/` at build time, so a new
+record needs nothing but the file.
+
+The home page is the README rendered under a hero whose copy is drawn from the README's own opening.
+The logo and favicon under `website/src/public/` are the one thing under `src/` that is not a
+generated page; the drift check leaves that directory alone because assets are not content.
 
 Publication depends on GitHub Pages being enabled for the repository, which is a repository setting
 rather than something the workflow can assume.

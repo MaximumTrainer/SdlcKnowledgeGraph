@@ -16,15 +16,19 @@ If you find yourself editing a file under `website/src/`, stop: edit its source 
 
 | Source | Page |
 | --- | --- |
-| `README.md` | `/` |
-| `docs/ONTOLOGY.md`, `docs/ADAPTERS.md`, `docs/TESTING.md` | `/guide/<name>` |
+| `README.md` | `/` (under a generated hero) |
+| `docs/GETTING-STARTED.md`, `docs/USER-GUIDE.md`, `docs/ONTOLOGY.md`, `docs/ADAPTERS.md`, `docs/TESTING.md` | `/guide/<name>` |
 | `docs/ROADMAP.md` | `/reference/roadmap` |
-| `docs/adr/*.md` | `/adr/<file>`, plus a generated `/adr/` index |
+| `docs/adr/*.md` | `/adr/<file>`, plus a generated `/adr/` index and a sidebar entry each |
 | `backend/src/main/resources/ontology/v1/ontology.json` | `/reference/ontology` |
 | `docs/api/openapi.json` | `/reference/api` |
 
 The mapping lives in `GUIDE_PAGES` in `generate.mjs`. Adding a document under `docs/` means adding a
-line there and a sidebar entry in `website/.vitepress/config.ts`; nothing else.
+line there and a sidebar entry in `website/.vitepress/config.ts`; nothing else. A new ADR needs
+neither: its page and sidebar entry are read from `docs/adr/`.
+
+The site is published under `/SdlcKnowledgeGraph/` (`base` in `config.ts`), so `npm run dev` serves
+it at `http://localhost:5173/SdlcKnowledgeGraph/`, and the site tests run against that base too.
 
 ## The loop
 
