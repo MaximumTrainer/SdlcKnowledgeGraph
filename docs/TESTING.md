@@ -116,7 +116,7 @@ they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.
 
 | Guard | Refuses | Way out |
 | --- | --- | --- |
-| `protected-branch` | committing or pushing while `main` is checked out | `ALLOW_MAIN=1` |
+| `protected-branch` | committing while `main` is checked out, and any push that would write `main` | `ALLOW_MAIN=1` |
 | `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
