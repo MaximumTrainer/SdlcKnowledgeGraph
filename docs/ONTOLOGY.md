@@ -4,54 +4,62 @@ The ontology is the contract for what may exist in the graph. It names the entit
 relationship types, which types a relationship may connect, and what must be recorded about where
 each fact came from.
 
-The registry, provenance envelope and identity rules are implemented ([#18](../../issues/18)) and
-served from `GET /api/v1/ontology`. The store that enforces them ([#19](../../issues/19)) and the
-code generation that removes the remaining duplication ([#20](../../issues/20)) are still to come, so
-persistence currently still uses the per-type Neo4j classes and hand-written Cypher.
+The registry, provenance envelope and identity rules ([#18](../../issues/18)) are served from
+`GET /api/v1/ontology`; the registry-driven store that enforces them ([#19](../../issues/19)) and
+the code generation that removes the remaining duplication ([#20](../../issues/20)) are both in
+place. Persistence goes through one `Neo4jGraphStore` whose Cypher is built from the registry, and
+the GraphQL types, the frontend types and `ontology.json` are generated from it.
 
 The registry lives in `backend/src/main/resources/ontology/v1/`: `nodes.yaml`, `edges.yaml` and
 `version.yaml`. It is loaded once at startup, validated on construction, and immutable thereafter.
 
 ## Why a registry rather than more classes
 
-Today one entity type is spelled out five times: a domain data class, a Neo4j node class, a REST
-DTO, a block of GraphQL schema, and a TypeScript interface. Adding a type means touching all five and
-writing new Cypher, which is why half the declared model cannot currently be created through the API
-at all.
+Before the registry, one entity type was spelled out five times: a domain data class, a Neo4j node
+class, a REST DTO, a block of GraphQL schema, and a TypeScript interface. Adding a type meant
+touching all five and writing new Cypher, which is why half the declared model could not be created
+through the API at all.
 
-The registry inverts that. A YAML file is the source of truth:
+The registry inverts that. A YAML file is the source of truth. This is the real shape of an entry in
+`nodes.yaml` — properties are a list, each with a `name`, a `type` (`string`, `int`, `boolean`,
+`instant` or `string[]`), `required`, an optional `description` and an optional `enum`:
 
 ```yaml
 # backend/src/main/resources/ontology/v1/nodes.yaml
-version: 1
 nodes:
   Repository:
+    description: A git repository, the anchor for most of the graph.
     identity: [host, org, name]
-    sensitivity: internal
     properties:
-      host:          { type: string, required: true }
-      org:           { type: string, required: true }
-      name:          { type: string, required: true }
-      url:           { type: string }
-      defaultBranch: { type: string, default: main }
-      topics:        { type: string[] }
-      codeowners:    { type: string[] }
-      language:      { type: string }
+      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com" }
+      - { name: org, type: string, required: false, description: "Owning organisation or user" }
+      - { name: name, type: string, required: false, description: "Repository name" }
+      - { name: url, type: string, required: false, description: "Canonical https remote URL" }
+      - { name: orgRepo, type: string, required: true, description: "Legacy org/repo identifier" }
+      - { name: defaultBranch, type: string, required: true }
+      - { name: topics, type: "string[]", required: true }
+      - { name: codeowners, type: "string[]", required: true }
+      - { name: language, type: string, required: false }
 ```
 
-The nine core types keep typed Kotlin classes, because the traversal code is hand-written and
-benefits from compile-time safety. A startup check compares each class against the registry and
-fails fast if they drift. Everything a connector introduces later is a `GenericNode(type, key,
-props, provenance)`, so a new source system does not require a new Kotlin class. The GraphQL schema
-and the frontend TypeScript types are generated from the registry, which removes three of the five
-copies.
+The registry's version lives in `version.yaml` (semver, currently `1.0.0`), not in `nodes.yaml`.
+There is no `default` or `sensitivity` key; a property the loader does not recognise fails startup.
 
-The drift check is directional, which is what lets the registry describe the target model before the
-Kotlin classes have caught up. Every **required** registry property must exist on the class, and
+The identity properties are optional on purpose: a Repository may be given as a `url` instead, and
+the resolver derives `host`, `org` and `name` from it. `orgRepo`, `defaultBranch`, `topics` and
+`codeowners` are still required because the typed Kotlin class carries them, and will stay so until
+that class is migrated off them.
+
+Seven of the core types keep typed Kotlin classes (Repository, Team, Pipeline, Artifact, Deployment,
+Environment and CloudResource), because the hand-written traversal code benefits from compile-time
+safety. A startup check compares each class against the registry and fails fast if they drift.
+Service, ConfigurationItem and everything a connector introduces later exist only in the registry
+and are handled as generic nodes, so a new type does not require a new Kotlin class.
+
+The drift check is directional. Every **required** registry property must exist on the class, and
 every class property must be declared in the registry; an optional registry property may be absent
-from the class. So `Repository` already declares `host`, `org` and `name` as its identity while the
-class still carries the older `orgRepo`, and #19 finishes that migration without the registry having
-to misdescribe the model in the meantime.
+from the class. That is what lets the registry describe the target identity model while the
+classes still carry legacy properties.
 
 ## Core entity types
 
@@ -84,20 +92,27 @@ traversal concept, not a second stored edge.
 | Type | From | To | Inverse |
 | --- | --- | --- | --- |
 | OWNED_BY | Repository, Service, CloudResource | Team | OWNS |
-| OWNS_RESOURCE | Repository, Service | CloudResource | RESOURCE_OWNED_BY |
+| OWNS_RESOURCE | Repository, Service | CloudResource | OWNED_BY_REPO |
 | DEPENDS_ON | Repository, Service | Repository, Service | DEPENDED_ON_BY |
 | HAS_PIPELINE | Repository | Pipeline | PIPELINE_OF |
-| BUILT_FROM | Artifact | Repository | PRODUCES |
-| DEPLOYED_TO | Artifact | Deployment | DEPLOYS |
-| TO_ENVIRONMENT | Deployment | Environment | HAS_DEPLOYMENT |
-| RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_FOR |
-| CANDIDATE_LINK | CloudResource | Repository | CANDIDATE_FOR |
+| RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_OF |
+| BUILT_FROM | Artifact | Repository | BUILDS |
+| DEPLOYED_TO | Artifact | Deployment | DEPLOYMENT_OF |
+| TO_ENVIRONMENT | Deployment | Environment | HOSTS |
+| PROVIDES | Repository | Service | PROVIDED_BY |
 
-`DEPENDS_ON` carries `kind` (`library`, `api`, `event` or `data`) and `manifest`, the file the
-dependency was read from, so an inferred dependency can be traced back to its evidence.
+This table is a copy of `edges.yaml`. The website's
+[ontology reference](https://maximumtrainer.github.io/SdlcKnowledgeGraph/reference/ontology) is
+rendered from the registry itself, so it is the one to trust if the two ever differ.
 
-`CANDIDATE_LINK` is how the link resolution engine proposes a connection it is not confident enough
-to assert. See [ADAPTERS.md](ADAPTERS.md).
+Three relationships carry properties of their own. `DEPENDS_ON` requires `kind` (`library`, `api`,
+`event` or `data`) and accepts `manifest`, the file the dependency was read from, so an inferred
+dependency can be traced back to its evidence. `OWNS_RESOURCE` accepts `rule`, which link rule
+proposed it, and `BUILT_FROM` accepts `commitSha`.
+
+A `CANDIDATE_LINK` relationship, for connections the planned link resolution engine is not confident
+enough to assert, is described in [ADAPTERS.md](ADAPTERS.md) and will be added to the registry with
+that engine ([#28](../../issues/28)).
 
 ## Provenance
 
@@ -118,12 +133,16 @@ data class Provenance(
 )
 ```
 
-Neo4j does not store nested maps, so these are flattened to `prov_` prefixed properties. When more
-than one source reports the same node, `sourceSystems` accumulates and `confidence` takes the
-highest value.
+Neo4j does not store nested maps, so these are flattened to `prov_` prefixed properties, and an
+index on `prov_sourceSystem` is created for every type. Re-stating a node replaces its provenance
+with that of the latest write; merging several sources' provenance on one node (accumulating
+`sourceSystems`, keeping the highest `confidence`) is part of the connector work
+([#22](../../issues/22)).
 
-The user interface draws inferred edges differently from asserted ones, because a tag-matched guess
-and a human statement should not look identical.
+Today every write comes from a person, through the interface or the API, so `sourceSystem` is
+always `manual`, `confidence` is `1.0`, `inferred` is `false` and `syncRunId` is null. The user
+interface shows the envelope on every node's page; drawing inferred edges differently from asserted
+ones will matter once a connector writes the first inferred one.
 
 ## Identity
 
@@ -132,17 +151,22 @@ seen by two different connectors has to land on one node.
 
 | Type | Key |
 | --- | --- |
-| Repository | `host/org/name`, lowercased, from any URL form |
-| CloudResource | `aws:<arn>`, `azure:<resource id>`, `gcp:<asset name>` |
-| ConfigurationItem | `servicenow:<instance>:<sys_id>` |
-| Pipeline | `<provider>:<repoKey>:<workflow path>` |
-| Artifact | `<registry>/<name>@<digest>`, falling back to `name:version` |
-| Environment | normalised name, with an alias table so `prod` and `production` agree |
-| Team | `<source>:<slug>` |
+| Repository | `host/org/name`, lowercased, from `url` in any remote form or from `host`, `org` and `name` |
+| CloudResource | `<provider>:<resourceId>`, e.g. `aws:<arn>`, `azure:<resource id>`, `gcp:<asset name>` |
+| ConfigurationItem | `<sourceSystem>:<instance>:<sysId>`, e.g. `servicenow:acme:abc123` |
+| Pipeline | `<provider>:<repoKey>:<workflowPath>` |
+| Artifact | `<registry>/<name>@<digest>`, falling back to `<name>:<version>` |
+| Deployment | `<artifactKey>#<environmentKey>#<deployedAt as epoch seconds>` |
+| Environment | lowercased name, with an alias table so `prod`, `prd` and `live` all mean `production` |
+| Team, Service | lowercased, trimmed `name` |
+| Ontology | `version` |
+| SyncRun | `id` |
 
 So `https://github.com/Acme/Payments.git`, `git@github.com:acme/payments.git` and `acme/payments`
-all resolve to `github.com/acme/payments`. A uniqueness constraint on `(label, key)` is created for
-every registry type at startup, and nodes carry an `aliases` list when identities are merged.
+all resolve to `github.com/acme/payments`. A uniqueness constraint on `key` is created per label for
+every registry type at startup. Merging two existing nodes that turn out to be the same thing, with
+an `aliases` list recording the keys folded in, is not implemented; today the derivation rules are
+what stop the duplicate being created in the first place.
 
 ## Maintaining nodes by hand
 
@@ -246,10 +270,13 @@ starts consulting a different property stays correctly reported.
 
 ## Versioning
 
-The registry declares a `version`, and an `Ontology` node records which version the graph was built
-with. Adding a type or an optional property is free. Renaming or removing anything needs a migration
-script under `ontology/migrations/` and a version bump. `GET /api/v1/ontology` returns the current
-registry as JSON, which is what drives the generic editing screen in the frontend.
+`version.yaml` declares the registry version, and an `Ontology` node records which version the
+graph was built with; the application refuses to start against a graph written by a newer registry
+than its own. Adding a type or an optional property is free. Renaming or removing anything needs a
+version bump and a migration of the data already in the graph; no migration mechanism exists yet
+([#33](../../issues/33)), so today that means not renaming or removing. `GET /api/v1/ontology`
+returns the current registry as JSON, which is what drives the generic editing screen in the
+frontend.
 
 ## Regenerating types
 

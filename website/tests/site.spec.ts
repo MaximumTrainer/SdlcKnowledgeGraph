@@ -11,20 +11,23 @@ import { fileURLToPath, URL } from 'node:url'
  */
 const repoFile = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url))
 
+/** Pages are addressed relative to the base the site is published under, never from the host root. */
+const at = (page: string) => page.replace(/^\//, '')
+
 const ontology = JSON.parse(
   readFileSync(repoFile('backend/src/main/resources/ontology/v1/ontology.json'), 'utf8')
 )
 
 test.describe('the published website', () => {
   test('the home page presents the project', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('')
 
     await expect(page).toHaveTitle(/SDLC Knowledge Graph/)
     await expect(page.getByRole('heading', { name: 'SDLC Knowledge Graph', level: 1 })).toBeVisible()
   })
 
   test('the ontology reference covers every declared node type', async ({ page }) => {
-    await page.goto('/reference/ontology')
+    await page.goto(at('reference/ontology'))
 
     for (const nodeType of ontology.nodeTypes) {
       // VitePress appends a permalink anchor to every heading, so the accessible name is the text
@@ -35,7 +38,7 @@ test.describe('the published website', () => {
   })
 
   test('every property of a node type is documented with its type', async ({ page }) => {
-    await page.goto('/reference/ontology')
+    await page.goto(at('reference/ontology'))
 
     const repository = ontology.nodeTypes.find((type: { name: string }) => type.name === 'Repository')
     const body = await page.locator('.vp-doc').innerText()
@@ -47,7 +50,7 @@ test.describe('the published website', () => {
   })
 
   test('the ontology reference covers every declared edge type and its inverse', async ({ page }) => {
-    await page.goto('/reference/ontology')
+    await page.goto(at('reference/ontology'))
     const body = await page.locator('.vp-doc').innerText()
 
     for (const edgeType of ontology.edgeTypes) {
@@ -57,7 +60,7 @@ test.describe('the published website', () => {
   })
 
   test('the ADR index lists every decision record', async ({ page }) => {
-    await page.goto('/adr/')
+    await page.goto(at('adr/'))
     const body = await page.locator('.vp-doc').innerText()
 
     const records = readdirSync(repoFile('docs/adr')).filter(name => name.endsWith('.md'))
@@ -69,7 +72,7 @@ test.describe('the published website', () => {
   })
 
   test('the API reference lists the endpoints the application serves', async ({ page }) => {
-    await page.goto('/reference/api')
+    await page.goto(at('reference/api'))
     const body = await page.locator('.vp-doc').innerText()
 
     const openapi = JSON.parse(readFileSync(repoFile('docs/api/openapi.json'), 'utf8'))
@@ -79,7 +82,7 @@ test.describe('the published website', () => {
   })
 
   test('the footer says which commit and ontology version the site describes', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('')
 
     // The page also has a per-document footer; this is the site-wide one.
     const footer = page.locator('footer.VPFooter')
@@ -88,10 +91,45 @@ test.describe('the published website', () => {
   })
 
   test('a reader can reach the docs from the home page', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('')
 
     await page.getByRole('link', { name: 'Ontology', exact: true }).first().click()
 
     await expect(page).toHaveURL(/\/(guide|reference)\/ontology/)
+  })
+
+  test('the home page leads to getting started and the user guide', async ({ page }) => {
+    await page.goto('')
+
+    await page.getByRole('link', { name: 'Get started', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/guide\/getting-started/)
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Getting started')
+
+    await page.goto(at('/guide/user-guide'))
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('User guide')
+  })
+
+  test('the site is styled and its assets resolve under the published base', async ({ page }) => {
+    const failed: string[] = []
+    page.on('response', response => {
+      if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`)
+    })
+
+    await page.goto('')
+
+    expect(failed).toEqual([])
+    const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily)
+    expect(family).not.toMatch(/Times/)
+    await expect(page.locator('.VPNavBar')).toBeVisible()
+  })
+
+  test('every decision record has its own sidebar entry', async ({ page }) => {
+    await page.goto(at('/adr/'))
+    const sidebar = await page.locator('.VPSidebar').innerText()
+
+    const records = readdirSync(repoFile('docs/adr')).filter(name => name.endsWith('.md'))
+    for (const record of records) {
+      expect(sidebar).toContain(String(Number(record.split('-')[0])))
+    }
   })
 })
