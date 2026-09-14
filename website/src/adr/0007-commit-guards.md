@@ -8,7 +8,7 @@ Accepted. Implemented by [#52](https://github.com/MaximumTrainer/SdlcKnowledgeGr
 
 ## Context
 
-[ADR-0001](0001-lefthook-git-hooks.md) established lefthook and split the gates by cost: `pre-commit`
+[ADR-0001](/adr/0001-lefthook-git-hooks) established lefthook and split the gates by cost: `pre-commit`
 formats and statically analyses, `pre-push` runs the tests. Both gates judge *how* the code is
 written. Neither looks at *what* is entering the history, and three of those failures are not
 recoverable by a later commit.

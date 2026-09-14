@@ -1,10 +1,12 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   GENERATED_HEADER,
   adrIndexPage,
   apiPage,
   generatedFrom,
+  homePage,
   ontologyPage,
   rewriteLinks
 } from './generate.mjs'
@@ -161,6 +163,31 @@ describe('rewriteLinks', () => {
     assert.ok(out.includes('(/guide/testing)'))
   })
 
+  test('maps a hyphenated doc name', () => {
+    const out = rewriteLinks('[start](docs/GETTING-STARTED.md) [guide](USER-GUIDE.md#nodes)', 'README.md')
+
+    assert.ok(out.includes('(/guide/getting-started)'))
+    assert.ok(out.includes('(/guide/user-guide#nodes)'))
+  })
+
+  test('maps a bare sibling link between decision records', () => {
+    const out = rewriteLinks('[hooks](0001-lefthook-git-hooks.md)', 'docs/adr/0007-commit-guards.md')
+
+    assert.ok(out.includes('(/adr/0001-lefthook-git-hooks)'))
+  })
+
+  test('does not treat a bare file name outside docs/adr as a record', () => {
+    const link = '[x](0001-something.md)'
+
+    assert.equal(rewriteLinks(link, 'README.md'), link)
+  })
+
+  test('maps the OpenAPI document onto the rendered API reference', () => {
+    const out = rewriteLinks('[api](api/openapi.json)', 'docs/USER-GUIDE.md')
+
+    assert.ok(out.includes('(/reference/api)'))
+  })
+
   test('keeps an anchor when rewriting', () => {
     const out = rewriteLinks('[contracts](../TESTING.md#contract-tests)', 'docs/adr/0004-x.md')
 
@@ -187,9 +214,99 @@ describe('rewriteLinks', () => {
     assert.equal(rewriteLinks(link, 'docs/TESTING.md'), link)
   })
 
+  test('names the page when the link text is the path itself', () => {
+    const out = rewriteLinks('[docs/TESTING.md](docs/TESTING.md) explains the loop.', 'README.md')
+
+    assert.ok(out.includes('[Testing](/guide/testing)'))
+    assert.ok(!out.includes('docs/TESTING.md'))
+  })
+
+  test('names the page for every published doc', () => {
+    const out = rewriteLinks(
+      '[ONTOLOGY.md](ONTOLOGY.md) [ADAPTERS.md](ADAPTERS.md) [docs/ROADMAP.md](docs/ROADMAP.md)',
+      'docs/TESTING.md'
+    )
+
+    assert.ok(out.includes('[Ontology](/guide/ontology)'))
+    assert.ok(out.includes('[Adapters](/guide/adapters)'))
+    assert.ok(out.includes('[Roadmap](/reference/roadmap)'))
+  })
+
+  test('names the decisions index when the link text is the adr folder', () => {
+    const out = rewriteLinks('[docs/adr/](docs/adr/)', 'README.md')
+
+    assert.ok(out.includes('[Decisions](/adr/)'))
+  })
+
+  test('keeps the anchor when it names the page', () => {
+    const out = rewriteLinks('[TESTING.md](../TESTING.md#contract-tests)', 'docs/adr/0004-x.md')
+
+    assert.ok(out.includes('[Testing](/guide/testing#contract-tests)'))
+  })
+
+  test('leaves descriptive link text exactly as written', () => {
+    const out = rewriteLinks(
+      '[the testing guide](docs/TESTING.md) and [ADR-0001](adr/0001-lefthook-git-hooks.md)',
+      'README.md'
+    )
+
+    assert.ok(out.includes('[the testing guide](/guide/testing)'))
+    assert.ok(out.includes('[ADR-0001](/adr/0001-lefthook-git-hooks)'))
+  })
+
+  test('does not rename a path it cannot publish', () => {
+    const link = '[scripts/gradle.mjs](scripts/gradle.mjs)'
+
+    assert.equal(rewriteLinks(link, 'README.md'), link)
+  })
+
   test('does not rewrite inside a fenced code block', () => {
     const source = ['```bash', 'cat docs/ROADMAP.md', '```'].join('\n')
 
     assert.equal(rewriteLinks(source, 'README.md'), source)
+  })
+})
+
+/**
+ * The generator is the single point of control for ADR-0006: every published page comes out of it,
+ * so every change to it has to be reviewable. A raw NUL byte in the source makes git classify the
+ * whole file as binary, and a binary file has no diff to review.
+ */
+describe('the generator source', () => {
+  test('holds no raw NUL bytes, so git reads it as text', () => {
+    const source = readFileSync(new URL('./generate.mjs', import.meta.url))
+
+    assert.equal(
+      source.includes(0),
+      false,
+      'a raw NUL byte makes git treat generate.mjs as binary, so its diffs cannot be reviewed'
+    )
+  })
+
+  test('still holds fenced blocks aside with a sentinel markdown cannot contain', () => {
+    const source = ['```bash', 'cat docs/ROADMAP.md', '```', '', 'FENCE0'].join('\n')
+
+    // Were the sentinel ordinary text, restoring the fence would consume this line instead.
+    assert.equal(rewriteLinks(source, 'README.md'), source)
+  })
+})
+
+describe('homePage', () => {
+  const page = homePage('# SDLC Knowledge Graph\n\nIntro. See [roadmap](docs/ROADMAP.md).\n')
+
+  test('is a home layout with a hero that leads to the guides', () => {
+    assert.match(page, /^---\nlayout: home\n/)
+    assert.ok(page.includes('link: /guide/getting-started'))
+    assert.ok(page.includes('link: /guide/user-guide'))
+  })
+
+  test('keeps the README body without its title, which the hero already shows', () => {
+    assert.ok(page.includes('Intro.'))
+    assert.ok(!page.includes('# SDLC Knowledge Graph'))
+  })
+
+  test('still declares itself generated from the README, with links rewritten', () => {
+    assert.ok(page.includes('GENERATED FROM README.md'))
+    assert.ok(page.includes('(/reference/roadmap)'))
   })
 })

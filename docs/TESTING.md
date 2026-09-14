@@ -25,12 +25,12 @@ testing anything.
 
 ## Suites
 
-Backend suites are separate Gradle test suites, so the fast ones can run on every commit and the
-slow ones only on push.
+Backend suites are separate Gradle test suites, so the fast one can be run on its own in seconds
+while the slow ones are left to push and CI.
 
 | Suite | Location | Needs Docker | Runs at |
 | --- | --- | --- | --- |
-| `test` | `backend/src/test` | no | pre-commit, pre-push, CI |
+| `test` | `backend/src/test` | no | pre-push, CI |
 | `integrationTest` | `backend/src/integrationTest` | yes | pre-push, CI |
 | `acceptanceTest` | `backend/src/acceptanceTest` | yes | pre-push, CI |
 | `contractTest` | `backend/src/contractTest` | yes | pre-push, CI |
@@ -74,13 +74,19 @@ Frontend:
 
 ```bash
 cd frontend
-npm run test:unit           # Vitest, with MSW for HTTP
+npm run test:unit -- --run  # Vitest, with MSW for HTTP; without --run it stays in watch mode
 npm run test:contract       # Pact consumer tests, regenerating contracts/pacts/
 npm run verify              # lint, typecheck, unit tests, contract tests, build
 
 cd e2e
-npx playwright test         # browser tests against the compose stack
+npm ci                                          # once
+npx playwright install --with-deps chromium     # once
+npx playwright test         # starts the compose stack itself, then runs the browser tests on :5173
 ```
+
+`npm run verify` does not run `format:check`, but CI does, so run `npm run format:check` (or
+`npm run format`) before pushing a frontend change; the pre-commit hook formats staged files, which
+covers the usual case.
 
 ## Lint
 
@@ -98,7 +104,7 @@ npm run format:check      # prettier --check .
 cd e2e
 npm run lint              # reuses the frontend flat config
 
-npx --yes actionlint@latest .github/workflows/*.yml   # GitHub workflow files
+npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the repository root
 ```
 
 ## Gates
@@ -106,9 +112,9 @@ npx --yes actionlint@latest .github/workflows/*.yml   # GitHub workflow files
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, and the guards below |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, the website drift check when a documentation source is staged, and the guards below |
 | `pre-merge-commit` | the three guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
-| `pre-push` | the branch guard, `./gradlew check` and the frontend verify chain |
+| `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
 
@@ -117,7 +123,7 @@ they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.
 
 | Guard | Refuses | Way out |
 | --- | --- | --- |
-| `protected-branch` | committing while `main` is checked out, and any push that would write `main` | `ALLOW_MAIN=1` |
+| `protected-branch` | committing while `main` or `master` is checked out, and any push that would write one | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
 | `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
@@ -134,7 +140,8 @@ way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every
 Run them over the whole repository without committing:
 
 ```bash
-npm run guards            # hygiene + secretlint + lefthook validate, every tracked file
+npm run guards            # hygiene over every tracked file, secretlint over the working tree, lefthook validate
+node scripts/guards.mjs hygiene   # or secrets, or config, on its own
 npm run test:unit         # the guards' own tests
 ```
 
@@ -151,8 +158,10 @@ is not a gate.
 Tests run on push instead, against the state actually being shared. Intermediate red commits inside
 a branch are expected and fine, as long as the tip of the branch is green.
 
-CI re-runs all of it and adds the browser end-to-end job, because a hook can be skipped and a CI
-check cannot.
+CI re-runs all of it and adds what no hook runs: the browser end-to-end job, the website job
+(generator tests, drift, build, site tests) and `format:check`, because a hook can be skipped and a
+CI check cannot. The one hook with no CI counterpart is `protected-branch`; CI cannot stop a direct
+push to `main`, it can only turn red afterwards.
 
 Hooks are installed by `npm install` at the repository root, which runs `lefthook install`. If hooks
 are not firing, run it again and confirm `.git/hooks/pre-commit` exists.
