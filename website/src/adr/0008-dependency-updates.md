@@ -69,7 +69,7 @@ page that stopped being generated correctly.
 `@pact-foundation/pact 17` rewrote the committed pact: twelve empty `"header": {}` and `"status": {}`
 matching-rule buckets are no longer emitted, and the metadata records the new library version. No
 request, response or matching rule changed, and the backend's `contractTest` verifies against the
-regenerated document unchanged ([ADR-0004](0004-pact-folder-no-broker.md) explains why that document
+regenerated document unchanged ([ADR-0004](/adr/0004-pact-folder-no-broker) explains why that document
 is committed).
 
 Dependabot will now open pull requests that nobody asked for, every week. That is the intended cost.
