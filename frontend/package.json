@@ -30,7 +30,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.9.1",
-    "eslint": "^9.30.0",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
