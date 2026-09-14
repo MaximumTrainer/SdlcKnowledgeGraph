@@ -34,6 +34,24 @@ class ConnectorSteps(
     @Before
     fun resetTheScript() {
         fake.reset()
+        awaitNoRunInFlight()
+    }
+
+    /**
+     * Waits until the fake connector is idle.
+     *
+     * One scenario deliberately leaves a run going to prove that overlapping runs are refused. Left
+     * alone, the next scenario asks for a sync, gets that 409, and fails somewhere unrelated - so the
+     * suite would only pass in the order it happened to be written in.
+     */
+    private fun awaitNoRunInFlight() {
+        val deadline = Instant.now().plus(RUN_TIMEOUT)
+        while (Instant.now().isBefore(deadline)) {
+            world.get("/api/v1/connectors/fake/runs?limit=1")
+            val newest = world.lastBody().firstOrNull()
+            if (newest == null || newest.path("status").asText() != "RUNNING") return
+            Thread.sleep(POLL.toMillis())
+        }
     }
 
     @Given("the fake connector is registered with capabilities FULL, INCREMENTAL and WEBHOOK")
@@ -198,14 +216,15 @@ class ConnectorSteps(
         watermark: String,
     ) {
         world.get("/api/v1/connectors/$connector")
-        assertEquals(
-            watermark,
+        val stored =
             world
                 .lastBody()
                 .path("state")
                 .path("watermark")
-                .asText(),
-        )
+                .asText()
+        // Compared as instants, not as strings: an Instant renders 10:00:00 as "10:00", so the same
+        // moment has more than one spelling and a string compare fails on formatting alone.
+        assertEquals(Instant.parse(watermark), Instant.parse(stored)) { "the stored watermark was '$stored'" }
     }
 
     @Then("the fake connector was asked for changes since {string}")

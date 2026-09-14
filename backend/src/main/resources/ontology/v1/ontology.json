@@ -130,12 +130,28 @@
       "properties": [
         { "name": "id", "type": "string", "required": true, "description": null },
         { "name": "connector", "type": "string", "required": true, "description": null },
+        { "name": "sourceSystem", "type": "string", "required": false, "description": "What this run stamped on the provenance of everything it wrote" },
+        { "name": "mode", "type": "string", "required": false, "description": "FULL, INCREMENTAL or WEBHOOK" },
         { "name": "startedAt", "type": "instant", "required": false, "description": null },
         { "name": "finishedAt", "type": "instant", "required": false, "description": null },
-        { "name": "status", "type": "string", "required": false, "description": null },
+        { "name": "status", "type": "string", "required": false, "description": "RUNNING, SUCCESS, PARTIAL or FAILED" },
         { "name": "nodesUpserted", "type": "int", "required": false, "description": null },
         { "name": "edgesUpserted", "type": "int", "required": false, "description": null },
+        { "name": "tombstones", "type": "int", "required": false, "description": "Facts this run closed because the source stopped reporting them" },
+        { "name": "watermark", "type": "instant", "required": false, "description": "Where the next incremental run should start" },
         { "name": "error", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "ConnectorState",
+      "description": "What the graph remembers about a connector between runs.",
+      "identity": ["connector"],
+      "properties": [
+        { "name": "connector", "type": "string", "required": true, "description": null },
+        { "name": "watermark", "type": "instant", "required": false, "description": "Reported by the last successful run" },
+        { "name": "lastRunId", "type": "string", "required": false, "description": null },
+        { "name": "lastStatus", "type": "string", "required": false, "description": null },
+        { "name": "lastFinishedAt", "type": "instant", "required": false, "description": null }
       ]
     }
   ],
@@ -222,6 +238,15 @@
       "from": ["Repository"],
       "to": ["Service"],
       "inverse": "PROVIDED_BY",
+      "properties": [
+      ]
+    },
+    {
+      "name": "PRODUCED",
+      "description": "A sync run asserted this node.",
+      "from": ["SyncRun"],
+      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem"],
+      "inverse": "PRODUCED_BY",
       "properties": [
       ]
     }

@@ -31,3 +31,9 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+# Ingestion from systems of record. Every connector is off until someone turns it on: a connector
+# reaches a real system with real credentials, so being on the classpath must not be the same as
+# being allowed to talk to anything (docs/ADAPTERS.md).
+connectors:
+  settings: {}

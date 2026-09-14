@@ -38,6 +38,7 @@ class OntologyStartupIT {
                 "ConfigurationItem",
                 "Ontology",
                 "SyncRun",
+                "ConnectorState",
             ),
             names,
         )

@@ -148,12 +148,28 @@ type SyncRunNode implements GraphNode {
   id: ID!
   key: String!
   connector: String!
+  sourceSystem: String
+  mode: String
   startedAt: String
   finishedAt: String
   status: String
   nodesUpserted: Int
   edgesUpserted: Int
+  tombstones: Int
+  watermark: String
   error: String
+  provenance: Provenance!
+}
+
+"""What the graph remembers about a connector between runs."""
+type ConnectorStateNode implements GraphNode {
+  id: ID!
+  key: String!
+  connector: String!
+  watermark: String
+  lastRunId: String
+  lastStatus: String
+  lastFinishedAt: String
   provenance: Provenance!
 }
 
@@ -167,6 +183,7 @@ enum EdgeType {
   DEPLOYED_TO
   TO_ENVIRONMENT
   PROVIDES
+  PRODUCED
 }
 
 type Edge {

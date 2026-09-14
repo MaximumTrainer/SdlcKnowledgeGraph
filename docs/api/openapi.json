@@ -56,6 +56,99 @@
         "required" : [ "id", "name", "provider", "resourceType" ],
         "type" : "object"
       },
+      "ConnectorDetail" : {
+        "properties" : {
+          "capabilities" : {
+            "items" : {
+              "enum" : [ "FULL", "INCREMENTAL", "WEBHOOK", "DISCOVERY" ],
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "edgeTypes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "health" : {
+            "$ref" : "#/components/schemas/HealthView"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nodeTypes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          },
+          "state" : {
+            "$ref" : "#/components/schemas/ConnectorStateView"
+          }
+        },
+        "required" : [ "capabilities", "edgeTypes", "enabled", "health", "name", "nodeTypes", "sourceSystem", "state" ],
+        "type" : "object"
+      },
+      "ConnectorStateView" : {
+        "properties" : {
+          "lastFinishedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "lastRunId" : {
+            "type" : [ "string", "null" ]
+          },
+          "lastStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "watermark" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ConnectorSummary" : {
+        "properties" : {
+          "capabilities" : {
+            "items" : {
+              "enum" : [ "FULL", "INCREMENTAL", "WEBHOOK", "DISCOVERY" ],
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "health" : {
+            "$ref" : "#/components/schemas/HealthView"
+          },
+          "lastRun" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/LastRunView"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "capabilities", "enabled", "health", "name", "sourceSystem" ],
+        "type" : "object"
+      },
       "CreateRepositoryRequest" : {
         "properties" : {
           "codeowners" : {
@@ -231,6 +324,18 @@
         "required" : [ "direction", "displayName", "inverse", "other", "props", "provenance", "type" ],
         "type" : "object"
       },
+      "HealthView" : {
+        "properties" : {
+          "detail" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "status" ],
+        "type" : "object"
+      },
       "ImpactAnalysisResponse" : {
         "properties" : {
           "cloudResources" : {
@@ -256,6 +361,23 @@
           }
         },
         "required" : [ "cloudResources", "dependents", "deployments", "repoId" ],
+        "type" : "object"
+      },
+      "LastRunView" : {
+        "properties" : {
+          "finishedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "watermark" : {
+            "type" : [ "string", "null" ]
+          }
+        },
         "type" : "object"
       },
       "NodePageResponse" : {
@@ -557,6 +679,57 @@
         "required" : [ "ciName", "id", "serviceId" ],
         "type" : "object"
       },
+      "SyncAccepted" : {
+        "properties" : {
+          "syncRunId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "syncRunId" ],
+        "type" : "object"
+      },
+      "SyncRunView" : {
+        "properties" : {
+          "connector" : {
+            "type" : "string"
+          },
+          "edgesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "finishedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "startedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "tombstones" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "watermark" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "connector", "edgesUpserted", "id", "nodesUpserted", "tombstones" ],
+        "type" : "object"
+      },
       "Team" : {
         "properties" : {
           "email" : {
@@ -580,6 +753,156 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/v1/connectors" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConnectorSummary"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List every connector, with its state and last run",
+        "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/connectors/{name}" : {
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectorDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One connector, its descriptor and what the graph remembers about it",
+        "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/connectors/{name}/health" : {
+      "get" : {
+        "operationId" : "health",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HealthView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Whether the source system is reachable now",
+        "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/connectors/{name}/runs" : {
+      "get" : {
+        "operationId" : "runs",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/SyncRunView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "This connector's runs, newest first",
+        "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/connectors/{name}/sync" : {
+      "post" : {
+        "operationId" : "sync",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "mode",
+          "required" : false,
+          "schema" : {
+            "default" : "incremental",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Ask a connector to sync now",
+        "tags" : [ "Connectors" ]
+      }
+    },
     "/api/v1/edges" : {
       "delete" : {
         "operationId" : "delete_1",
@@ -1564,6 +1887,43 @@
         "summary" : "Link repository to a team",
         "tags" : [ "Repositories (deprecated links)" ]
       }
+    },
+    "/api/v1/webhooks/{name}" : {
+      "post" : {
+        "operationId" : "receive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Accept a signed webhook from a source system",
+        "tags" : [ "Webhooks" ]
+      }
     }
   },
   "tags" : [ {
@@ -1572,6 +1932,9 @@
   }, {
     "description" : "Git repository management",
     "name" : "Repositories"
+  }, {
+    "description" : "Ingestion from systems of record",
+    "name" : "Connectors"
   }, {
     "description" : "The declared contract for what may exist in the graph",
     "name" : "Ontology"
@@ -1587,5 +1950,8 @@
   }, {
     "description" : "Engineering knowledge graph queries",
     "name" : "Graph Queries"
+  }, {
+    "description" : "Push ingestion from systems of record",
+    "name" : "Webhooks"
   } ]
 }
