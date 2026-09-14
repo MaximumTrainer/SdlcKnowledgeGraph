@@ -76,9 +76,15 @@ updates:
       # that fails `:detekt` with a "compiled with ... running with ..." mismatch. Grouping means one
       # incompatible member blocks the whole backend group, so this is ignored by name rather than
       # the group being abandoned. Unblocks when a detekt release supports the Kotlin line (#109).
-      - dependency-name: org.jetbrains.kotlin.jvm
+      #
+      # `jvm` and `plugin.spring`, not the plugin IDs: build.gradle.kts declares these as
+      # `kotlin("jvm")` and `kotlin("plugin.spring")`, and Dependabot names a dependency after the
+      # accessor it finds rather than after what the plugin resolves to. Taken from the
+      # `updated-dependencies:` block of its own commits, which is the only authority on this - the
+      # first attempt used the plugin IDs, matched nothing, and the update arrived again (#125).
+      - dependency-name: jvm
         update-types: [version-update:semver-minor, version-update:semver-major]
-      - dependency-name: org.jetbrains.kotlin.plugin.spring
+      - dependency-name: plugin.spring
         update-types: [version-update:semver-minor, version-update:semver-major]
       # springdoc 3 targets Spring Framework 7 / Spring Boot 4, so this major is a Spring Boot 4
       # migration wearing a different name and belongs in an issue of its own, not a dependency bump.
