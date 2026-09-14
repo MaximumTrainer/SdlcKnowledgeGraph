@@ -16,7 +16,7 @@
     "test:unit": "node scripts/run-tests.mjs"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.8.1",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
     "actionlint": "^2.0.6",
