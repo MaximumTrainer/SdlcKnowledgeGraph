@@ -1,12 +1,23 @@
 import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { createRepo } from './test-support.mjs'
 
-/** Scratch directories the staged scan creates, so a leak of them can be asserted against. */
-const tempScanDirectories = () =>
-  readdirSync(tmpdir()).filter(name => name.startsWith('secretlint-staged-')).sort()
+/**
+ * A temp directory private to one test, and the environment that points a child process at it.
+ *
+ * `node --test` runs test files in parallel, and merge-guards.test.mjs also runs
+ * `secretlint.mjs --staged` through a real hook. Asserting against the shared `os.tmpdir()` sees
+ * that other run's scratch copy and fails for a reason that has nothing to do with this guard
+ * (#123). `os.tmpdir()` reads TMPDIR on POSIX and TEMP/TMP on Windows, so setting all three is what
+ * makes the child's scratch directory land somewhere only this test looks at.
+ */
+const privateTmpdir = () => {
+  const home = mkdtempSync(path.join(realpathSync(tmpdir()), 'skg-scratch-'))
+  return { home, env: { TMPDIR: home, TEMP: home, TMP: home } }
+}
 
 /**
  * The `secrets` guard is the one whose miss cannot be undone: a committed credential has to be
@@ -113,15 +124,25 @@ describe('secretlint', () => {
       assert.equal(scanStaged([]).status, 0)
     })
 
+    /**
+     * The scratch copy holds the very credential being refused, so it has to go on every exit -
+     * including the one where secretlint found something, which is the path a `finally` is easiest
+     * to get wrong on. `process.exit` would skip it entirely.
+     */
     test('leaves no temporary directory behind, on a finding or a pass', () => {
-      const before = tempScanDirectories()
+      const { home, env } = privateTmpdir()
 
-      staged.stage('leftover.conf', basicAuthUrl())
-      assert.equal(scanStaged(['leftover.conf']).status, 1)
-      staged.stage('tidy.conf', 'url = https://example.com/repo.git')
-      assert.equal(scanStaged(['tidy.conf']).status, 0)
+      try {
+        staged.stage('leftover.conf', basicAuthUrl())
+        assert.equal(staged.run('secretlint.mjs', ['--staged', 'leftover.conf'], { env }).status, 1)
 
-      assert.deepEqual(tempScanDirectories(), before)
+        staged.stage('tidy.conf', 'url = https://example.com/repo.git')
+        assert.equal(staged.run('secretlint.mjs', ['--staged', 'tidy.conf'], { env }).status, 0)
+
+        assert.deepEqual(readdirSync(home), [], 'the staged scan left its scratch copy behind')
+      } finally {
+        rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
+      }
     })
   })
 
