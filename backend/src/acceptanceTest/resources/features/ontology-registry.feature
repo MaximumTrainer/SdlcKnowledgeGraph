@@ -20,6 +20,7 @@ Feature: Ontology registry
       | ConfigurationItem |
       | Ontology          |
       | SyncRun           |
+      | ConnectorState    |
     And every edge type declares a non-empty inverse
 
   Scenario: An edge type states what it connects and how to traverse it backwards

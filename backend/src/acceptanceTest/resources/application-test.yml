@@ -4,3 +4,14 @@ management:
     health:
       show-components: always
       show-details: always
+
+# The scripted connector the connector-sync feature drives. Enabled here and nowhere else: the point
+# of connectors being off by default is that being on the classpath is not consent to run.
+connectors:
+  settings:
+    fake:
+      enabled: true
+      # Far enough away that the scheduler never fires during a run, so what the scenarios observe is
+      # what they asked for rather than a scheduled sync arriving in the middle.
+      schedule: "0 0 5 31 2 ?"
+      webhook-secret: fake-secret

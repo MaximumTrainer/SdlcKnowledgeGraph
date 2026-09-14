@@ -8,6 +8,11 @@ thing interactively at `/swagger-ui.html`.
 
 | Method | Path | Summary | Responses |
 | --- | --- | --- | --- |
+| `GET` | `/api/v1/connectors` | List every connector, with its state and last run | 200 |
+| `GET` | `/api/v1/connectors/{name}` | One connector, its descriptor and what the graph remembers about it | 200 |
+| `GET` | `/api/v1/connectors/{name}/health` | Whether the source system is reachable now | 200 |
+| `GET` | `/api/v1/connectors/{name}/runs` | This connector's runs, newest first | 200 |
+| `POST` | `/api/v1/connectors/{name}/sync` | Ask a connector to sync now | 200 |
 | `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
 | `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees | 200 |
 | `POST` | `/api/v1/edges` | State a relationship between two existing nodes | 200 |
@@ -41,3 +46,4 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/repositories/{repoId}/pipelines/{pipelineId}` | Link repository to a pipeline | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/servicenow/{ciId}` | Link repository to a ServiceNow CI item | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/teams/{teamId}` | Link repository to a team | 200 |
+| `POST` | `/api/v1/webhooks/{name}` | Accept a signed webhook from a source system | 200 |

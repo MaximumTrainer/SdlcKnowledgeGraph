@@ -1,6 +1,7 @@
 package com.repodatagraph.acceptance
 
 import com.repodatagraph.support.Neo4jTestcontainersConfig
+import com.repodatagraph.support.connector.FakeConnectorConfig
 import io.cucumber.spring.CucumberContextConfiguration
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -12,6 +13,6 @@ import org.springframework.test.context.ActiveProfiles
  */
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(Neo4jTestcontainersConfig::class)
+@Import(Neo4jTestcontainersConfig::class, FakeConnectorConfig::class)
 @ActiveProfiles("test")
 class CucumberSpringConfig

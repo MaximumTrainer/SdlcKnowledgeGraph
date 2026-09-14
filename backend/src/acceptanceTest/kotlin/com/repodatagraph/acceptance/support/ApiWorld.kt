@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.cucumber.spring.ScenarioScope
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 
@@ -47,6 +49,26 @@ class ApiWorld(
         restTemplate
             .exchange(path, method, body?.let { HttpEntity(it) }, String::class.java)
             .also { response = it }
+
+    /**
+     * A POST whose body is sent exactly as given, with extra headers.
+     *
+     * A webhook is verified over the raw bytes, so anything that re-serialises the body - which is
+     * what `post` does - would change what the signature is computed against and make every
+     * signature test pass or fail for the wrong reason.
+     */
+    fun postSigned(
+        path: String,
+        body: String,
+        headers: Map<String, String>,
+    ): ResponseEntity<String> {
+        val httpHeaders = HttpHeaders()
+        headers.forEach { (name, value) -> httpHeaders.add(name, value) }
+        httpHeaders.contentType = MediaType.APPLICATION_JSON
+        return restTemplate
+            .exchange(path, HttpMethod.POST, HttpEntity(body, httpHeaders), String::class.java)
+            .also { response = it }
+    }
 
     fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 

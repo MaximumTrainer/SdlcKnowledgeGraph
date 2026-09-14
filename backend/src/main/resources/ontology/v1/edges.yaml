@@ -69,3 +69,12 @@ edges:
     from: [Repository]
     to: [Service]
     inverse: PROVIDED_BY
+
+  # Which run asserted a fact. Provenance already records the run id on every node, but an edge makes
+  # it traversable: "show me everything that run wrote" is then one hop rather than a property scan,
+  # which is what makes a bad sync reversible rather than merely auditable.
+  PRODUCED:
+    description: A sync run asserted this node.
+    from: [SyncRun]
+    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem]
+    inverse: PRODUCED_BY

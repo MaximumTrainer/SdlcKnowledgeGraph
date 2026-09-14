@@ -161,12 +161,30 @@ Identity: `id`
 | --- | --- | --- | --- |
 | `id` | `string` | yes |  |
 | `connector` | `string` | yes |  |
+| `sourceSystem` | `string` | no | What this run stamped on the provenance of everything it wrote |
+| `mode` | `string` | no | FULL, INCREMENTAL or WEBHOOK |
 | `startedAt` | `instant` | no |  |
 | `finishedAt` | `instant` | no |  |
-| `status` | `string` | no |  |
+| `status` | `string` | no | RUNNING, SUCCESS, PARTIAL or FAILED |
 | `nodesUpserted` | `int` | no |  |
 | `edgesUpserted` | `int` | no |  |
+| `tombstones` | `int` | no | Facts this run closed because the source stopped reporting them |
+| `watermark` | `instant` | no | Where the next incremental run should start |
 | `error` | `string` | no |  |
+
+### ConnectorState
+
+What the graph remembers about a connector between runs.
+
+Identity: `connector`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `connector` | `string` | yes |  |
+| `watermark` | `instant` | no | Reported by the last successful run |
+| `lastRunId` | `string` | no |  |
+| `lastStatus` | `string` | no |  |
+| `lastFinishedAt` | `instant` | no |  |
 
 ## Relationship types
 
@@ -184,6 +202,7 @@ second relationship.
 | `DEPLOYED_TO` | Artifact | Deployment | `DEPLOYMENT_OF` | An artifact was the subject of a deployment. |
 | `TO_ENVIRONMENT` | Deployment | Environment | `HOSTS` | A deployment targeted an environment. |
 | `PROVIDES` | Repository | Service | `PROVIDED_BY` | A repository provides a running service. |
+| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem | `PRODUCED_BY` | A sync run asserted this node. |
 
 ### Relationship properties
 

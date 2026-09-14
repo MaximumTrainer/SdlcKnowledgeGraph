@@ -121,12 +121,26 @@ export interface Ontology {
 export interface SyncRun {
   id: string
   connector: string
+  sourceSystem?: string
+  mode?: string
   startedAt?: string
   finishedAt?: string
   status?: string
   nodesUpserted?: number
   edgesUpserted?: number
+  tombstones?: number
+  watermark?: string
   error?: string
+}
+
+/** What the graph remembers about a connector between runs. */
+export interface ConnectorState {
+  id: string
+  connector: string
+  watermark?: string
+  lastRunId?: string
+  lastStatus?: string
+  lastFinishedAt?: string
 }
 
 export type NodeType =
@@ -141,6 +155,7 @@ export type NodeType =
   | 'ConfigurationItem'
   | 'Ontology'
   | 'SyncRun'
+  | 'ConnectorState'
 
 export const NODE_TYPES: readonly NodeType[] = [
   'Repository',
@@ -153,7 +168,8 @@ export const NODE_TYPES: readonly NodeType[] = [
   'CloudResource',
   'ConfigurationItem',
   'Ontology',
-  'SyncRun'
+  'SyncRun',
+  'ConnectorState'
 ]
 
 export type EdgeTypeName =
@@ -166,6 +182,7 @@ export type EdgeTypeName =
   | 'DEPLOYED_TO'
   | 'TO_ENVIRONMENT'
   | 'PROVIDES'
+  | 'PRODUCED'
 
 export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'OWNED_BY',
@@ -176,5 +193,6 @@ export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'BUILT_FROM',
   'DEPLOYED_TO',
   'TO_ENVIRONMENT',
-  'PROVIDES'
+  'PROVIDES',
+  'PRODUCED'
 ]

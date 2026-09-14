@@ -118,9 +118,26 @@ nodes:
     properties:
       - { name: id, type: string, required: true }
       - { name: connector, type: string, required: true }
+      - { name: sourceSystem, type: string, required: false, description: "What this run stamped on the provenance of everything it wrote" }
+      - { name: mode, type: string, required: false, description: "FULL, INCREMENTAL or WEBHOOK" }
       - { name: startedAt, type: instant, required: false }
       - { name: finishedAt, type: instant, required: false }
-      - { name: status, type: string, required: false }
+      - { name: status, type: string, required: false, description: "RUNNING, SUCCESS, PARTIAL or FAILED" }
       - { name: nodesUpserted, type: int, required: false }
       - { name: edgesUpserted, type: int, required: false }
+      - { name: tombstones, type: int, required: false, description: "Facts this run closed because the source stopped reporting them" }
+      - { name: watermark, type: instant, required: false, description: "Where the next incremental run should start" }
       - { name: error, type: string, required: false }
+
+  # Where the last successful run got to, per connector. Separate from SyncRun because a watermark
+  # has to survive the runs that produced it: reading it back from the newest successful run would
+  # mean a pruned history silently restarts every connector from the beginning.
+  ConnectorState:
+    description: What the graph remembers about a connector between runs.
+    identity: [connector]
+    properties:
+      - { name: connector, type: string, required: true }
+      - { name: watermark, type: instant, required: false, description: "Reported by the last successful run" }
+      - { name: lastRunId, type: string, required: false }
+      - { name: lastStatus, type: string, required: false }
+      - { name: lastFinishedAt, type: instant, required: false }
