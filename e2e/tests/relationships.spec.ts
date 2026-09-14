@@ -14,7 +14,6 @@ const createRepository = async (page: Page, name: string) => {
   const url = `https://github.com/acme/${name}`
   await page.goto('/nodes/Repository/new')
   await page.getByLabel('url').fill(url)
-  await page.getByLabel('url').fill(`https://github.com/acme/${name}`)
   await page.getByLabel('defaultBranch').fill('main')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page).toHaveURL(new RegExp(`/nodes/Repository/github.com/acme/${name}$`))
