@@ -39,6 +39,24 @@ while the slow ones are left to push and CI.
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
 `contractTest`.
 
+Outside the backend there are three more suites, each on `node:test` with no extra framework:
+
+| Suite | Location | Covers | Runs at |
+| --- | --- | --- | --- |
+| root | `scripts/*.test.mjs` | the commit guards themselves | CI, on Linux and Windows |
+| website | `website/scripts/*.test.mjs` | the page generator | pre-commit drift check, CI |
+| frontend | `frontend/src/**` | components and stores, with MSW | pre-push, CI |
+
+The root suite exists because the guards are the one part of this repository whose failure is
+silent: a guard that has stopped refusing looks exactly like a guard with nothing to refuse, since
+commits keep succeeding either way. Each test drives the real script against a throwaway repository
+under the OS temp directory - never the working repository, and never `origin`. It runs on both
+platforms because path separators and line endings are where these scripts break.
+
+```bash
+npm run test:unit         # at the repository root
+```
+
 Unit tests must not start a Spring context. If a test needs one, it belongs in `integrationTest`.
 
 Commands:
@@ -95,6 +113,7 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required |
 | `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-merge-commit` | the three guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
@@ -104,13 +123,18 @@ they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.
 
 | Guard | Refuses | Way out |
 | --- | --- | --- |
-| `protected-branch` | committing or pushing while `main` or `master` is checked out (it runs on `pre-push` too) | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
-| `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES` |
+| `protected-branch` | committing while `main` or `master` is checked out, and any push that would write one | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
+| `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
 
 A leaked credential has to be rotated, a large file cannot be removed without rewriting history, and
-a direct push to `main` skips review and trips the push-triggered CI run on the default branch. Each
+a direct push to `main` skips review and trips the push-triggered CI run on the default branch.
+
+They run on merges too. Git does not run `pre-commit` for a merge commit - it runs
+`pre-merge-commit` - so without that hook a merge would introduce content no guard had ever seen. A
+conflicted merge arrives by the other road: git stops without creating a commit, and the separate
+`git commit` recording the resolution runs `pre-commit`. Each
 way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every gate at once.
 
 Run them over the whole repository without committing:
@@ -118,6 +142,7 @@ Run them over the whole repository without committing:
 ```bash
 npm run guards            # hygiene over every tracked file, secretlint over the working tree, lefthook validate
 node scripts/guards.mjs hygiene   # or secrets, or config, on its own
+npm run test:unit         # the guards' own tests
 ```
 
 That is also a CI job, because a guard that lived only in a hook would be the one check `LEFTHOOK=0`

@@ -36,9 +36,9 @@ Add four guard jobs to the hooks. They are not linters and they run no test; the
 
 | Guard | Hook | What it refuses |
 | --- | --- | --- |
-| `protected-branch` | `pre-commit`, `pre-push` | A commit or push made while `main` is checked out |
-| `hygiene` | `pre-commit` | Conflict markers, files over 512 KiB, credential files (`.env`, private keys, keystores) |
-| `secrets` | `pre-commit` | Content matching the secretlint recommended ruleset |
+| `protected-branch` | `pre-commit`, `pre-merge-commit`, `pre-push` | A commit or merge made while `main` is checked out, and any push that would write `main` |
+| `hygiene` | `pre-commit`, `pre-merge-commit` | Conflict markers, files over 512 KiB, credential files (`.env`, private keys, keystores) |
+| `secrets` | `pre-commit`, `pre-merge-commit` | Content matching the secretlint recommended ruleset |
 | `lefthook-config` | `pre-commit` | A `lefthook.yml` that no longer parses, which would silently disable every gate |
 
 **secretlint** is the scanner, over gitleaks and trufflehog. Both are better known, and both are a
@@ -60,19 +60,53 @@ guard that existed only in a hook would be the one gate that bypass disables for
 the Gradle jobs already in that hook.
 
 The escape hatches are deliberate and named, because a guard with no way out gets disabled wholesale.
-`ALLOW_MAIN=1` permits a commit on `main`, `HYGIENE_MAX_BYTES` raises the size limit, and
-`.secretlintignore` excludes a path. Each is an explicit decision that shows up in a command line or
-a diff, unlike `LEFTHOOK=0`, which turns off everything at once and leaves no trace.
+`ALLOW_MAIN=1` permits a commit on `main`, `HYGIENE_MAX_BYTES` raises the size limit,
+`.hygieneignore` exempts a path from the credential *name* rule, and `.secretlintignore` excludes a
+path from the content scan. Each is an explicit decision that shows up in a command line or a diff,
+unlike `LEFTHOOK=0`, which turns off everything at once and leaves no trace.
+
+`.hygieneignore` was added by #64. The credential rule matches on the path, and credential-shaped
+paths that hold no credential are ordinary - an `.npmrc` setting `engine-strict`, a public
+certificate, a keystore used as a test fixture. Until it existed, the only way past that rule was
+`LEFTHOOK=0`, which is the blunt instrument this whole section argues against. It forgives the name
+only: the listed file is still size-checked, still scanned for conflict markers, and still read by
+`secrets`, because an allowlist that exempted content would be the documented way to smuggle a
+credential past the gate.
 
 The size limit will eventually refuse something legitimate. That is the intended failure mode: the
 limit exists to make a large file a decision rather than an accident, and raising it is one
 environment variable.
 
-secretlint scans the working tree rather than the index, so a staged secret whose working copy has
-already been cleaned up would pass. That is the same limitation the ESLint and Prettier jobs have,
-and the CI run over the committed tree closes it.
+secretlint used to scan the working tree rather than the index, so a staged secret whose working
+copy had already been cleaned up would pass, and a secret present only in the working tree would fail
+a commit that never contained it. #62 closed both. On the hook path the staged content is written to
+a scratch directory at the same relative paths and scanned there, so what is judged is what will be
+committed; findings are reported under their repository path, and the scratch copy is removed on
+every exit, findings included, because it holds the credential being refused. The whole-repository
+run keeps reading the working tree, where the index and the tree are the same thing.
+
+The ESLint and Prettier jobs still have that limitation. They report on style rather than refuse
+something unrecoverable, so the CI run over the committed tree is enough for them.
+
+#61 added `pre-merge-commit`. Git does not run `pre-commit` for a merge commit, so until that hook
+existed a merge introduced content no guard had ever seen - and a credential arriving through `git
+merge` has to be rotated exactly as one arriving through `git commit` does. Only the three guards run
+there; the formatters are deliberately absent, because a merge is not the moment to rewrite files
+under someone's feet, and their findings are recoverable anyway.
+
+A conflicted merge arrives by the other road, and always did: git stops without creating a commit,
+and the separate `git commit` recording the resolution runs `pre-commit`. That is the opposite of
+what #61 assumed, so there is a test pinning it rather than an argument.
 
 The guards cannot replace branch protection. A bypassed `protected-branch` guard still permits a push
-to `main`; it only stops the accident, which is what nearly every direct push actually is. If the
+to `main`; it only stops the accident, which is what nearly every direct push actually is.
+
+#63 widened what counts as an accident. The guard originally asked only which branch was checked
+out, which misses `git push origin HEAD:main` from a feature branch - the command that most directly
+moves the default branch without review. On `pre-push` it now reads the refs git names on stdin and
+refuses when any of them writes a protected branch, deletions included, whatever the refspec looked
+like. lefthook does not hand a job that stdin unless the job sets `use_stdin: true`, which is itself
+covered by a test: a guard wired up wrongly refuses nothing, and refusing nothing is how a guard
+fails silently. If the
 repository moves to a plan with branch protection, the server-side rule should be turned on and this
 guard kept, because it fails at the commit rather than after a rejected push.

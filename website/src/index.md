@@ -143,7 +143,7 @@ Commits deliberately run no tests: this workflow commits a failing test before t
 it. The refusals are separate from the linting, because a leaked credential or a large binary cannot
 be undone by a later commit ([ADR-0007](/adr/0007-commit-guards)).
 
-[docs/TESTING.md](/guide/testing) explains the loop, the suites and the gates in more detail.
+[Testing](/guide/testing) explains the loop, the suites and the gates in more detail.
 
 ## Documentation
 
