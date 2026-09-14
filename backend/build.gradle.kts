@@ -44,7 +44,7 @@ dependencies {
     // Unit-test suite only. Pact lives in the contractTest suite; Testcontainers and Cucumber in
     // the integrationTest and acceptanceTest suites (see the `testing { }` block below).
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.3.0")
     testImplementation("org.springframework.graphql:spring-graphql-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
