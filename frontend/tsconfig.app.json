@@ -6,6 +6,12 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "baseUrl": ".",
+    // @vue/tsconfig's dom config sets "types": [] so browser code cannot reach node globals by
+    // accident. The tests under src/test/ read the ontology and the toolchain manifests off disk, so
+    // they genuinely need them. Declared here rather than inherited: until #68 these resolved only
+    // because a transitive dependency happened to emit a /// <reference types="node" />, and
+    // updating that dependency broke the typecheck with nothing in this repository having changed.
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     }
