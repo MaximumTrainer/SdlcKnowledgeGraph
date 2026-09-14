@@ -19,7 +19,7 @@ class RepositoryServiceTest {
 
     @Test
     fun `registerRepository saves to graph and records audit event`() {
-        val repo = Repository(id = "1", orgRepo = "org/repo")
+        val repo = Repository(id = "1", url = "https://github.com/org/repo", host = "github.com", org = "org", name = "repo")
         whenever(graphPort.save(repo)).thenReturn(repo)
 
         val result = service.registerRepository(repo)
@@ -35,7 +35,7 @@ class RepositoryServiceTest {
 
     @Test
     fun `getRepository delegates to graph port`() {
-        val repo = Repository(id = "1", orgRepo = "org/repo")
+        val repo = Repository(id = "1", url = "https://github.com/org/repo", host = "github.com", org = "org", name = "repo")
         whenever(graphPort.findById("1")).thenReturn(repo)
 
         val result = service.getRepository("1")
@@ -56,8 +56,8 @@ class RepositoryServiceTest {
     fun `listRepositories returns all from graph port`() {
         val repos =
             listOf(
-                Repository(id = "1", orgRepo = "org/repo1"),
-                Repository(id = "2", orgRepo = "org/repo2"),
+                Repository(id = "1", url = "https://github.com/org/repo1", host = "github.com", org = "org", name = "repo1"),
+                Repository(id = "2", url = "https://github.com/org/repo2", host = "github.com", org = "org", name = "repo2"),
             )
         whenever(graphPort.findAll()).thenReturn(repos)
 

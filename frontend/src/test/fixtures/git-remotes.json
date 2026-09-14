@@ -83,16 +83,47 @@
       "org": "acme",
       "name": "payments.js",
       "why": "a dot in the name is not a suffix to strip; only a trailing .git is"
+    },
+    {
+      "input": "HTTPS://GitHub.com/ACME/PAYMENTS/",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "a remote shouted in capitals is the same remote; the scheme and host are case-insensitive"
     }
   ],
   "rejected": [
-    { "input": "", "why": "empty" },
-    { "input": "   ", "why": "blank" },
-    { "input": "https://example.com/page", "why": "fewer than two path segments" },
-    { "input": "https://github.com", "why": "a host and nothing else" },
-    { "input": "ftp://github.com/acme/payments", "why": "not a scheme git speaks" },
-    { "input": "acme/pay ments", "why": "whitespace inside the path" },
-    { "input": "acme", "why": "one segment cannot name an organisation and a repository" },
-    { "input": "https://github.com/acme/payments/tree/main", "why": "a path into the repository, not the repository" }
+    {
+      "input": "",
+      "why": "empty"
+    },
+    {
+      "input": "   ",
+      "why": "blank"
+    },
+    {
+      "input": "https://example.com/page",
+      "why": "fewer than two path segments"
+    },
+    {
+      "input": "https://github.com",
+      "why": "a host and nothing else"
+    },
+    {
+      "input": "ftp://github.com/acme/payments",
+      "why": "not a scheme git speaks"
+    },
+    {
+      "input": "acme/pay ments",
+      "why": "whitespace inside the path"
+    },
+    {
+      "input": "acme",
+      "why": "one segment cannot name an organisation and a repository"
+    },
+    {
+      "input": "https://github.com/acme/payments/tree/main",
+      "why": "a path into the repository, not the repository"
+    }
   ]
 }

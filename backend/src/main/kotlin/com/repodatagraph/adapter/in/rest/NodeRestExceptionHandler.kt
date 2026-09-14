@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
+import com.repodatagraph.domain.exception.InvalidGitRemoteException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
@@ -28,6 +29,20 @@ class NodeRestExceptionHandler {
     fun onNodeTypeNotFound(exception: NodeTypeNotFoundException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.status(HttpStatus.NOT_FOUND).body(
             mapOf("error" to "unknown node type", "type" to exception.type),
+        )
+
+    /**
+     * A url that is not a git remote is the caller's to correct, so it is a 400 rather than a 500.
+     *
+     * Reported as its own error rather than as a validation failure on three properties the caller
+     * never sent: `host`, `org` and `name` are derived from the url, so telling someone they are
+     * missing would be telling them to fix the wrong thing. The reason says what is actually wrong
+     * with the url (#8).
+     */
+    @ExceptionHandler(InvalidGitRemoteException::class)
+    fun onInvalidGitRemote(exception: InvalidGitRemoteException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.badRequest().body(
+            mapOf("error" to "invalid git remote", "reason" to exception.reason, "input" to exception.input),
         )
 
     @ExceptionHandler(NodeValidationException::class)

@@ -23,7 +23,7 @@ class RepositoryService(
                 repoId = saved.id,
                 actor = "system",
                 timestamp = Instant.now(),
-                details = mapOf("orgRepo" to saved.orgRepo),
+                details = mapOf("url" to saved.url),
             ),
         )
         return saved

@@ -25,11 +25,10 @@ interface GraphNode {
 type RepositoryNode implements GraphNode {
   id: ID!
   key: String!
-  host: String
-  org: String
-  name: String
-  url: String
-  orgRepo: String!
+  url: String!
+  host: String!
+  org: String!
+  name: String!
   defaultBranch: String!
   topics: [String!]!
   codeowners: [String!]!

@@ -4,7 +4,8 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.Repository
 
 data class CreateRepositoryRequest(
-    val orgRepo: String,
+    /** The git remote, in any written form. Parsed and canonicalised before anything is stored (#8). */
+    val url: String,
     val defaultBranch: String = "main",
     val topics: List<String> = emptyList(),
     val codeowners: List<String> = emptyList(),
@@ -15,7 +16,10 @@ data class CreateRepositoryRequest(
 
 data class RepositoryResponse(
     val id: String,
-    val orgRepo: String,
+    /** The canonical remote, `https://host/org/name`. */
+    val url: String,
+    /** The identity key the node is stored under, `host/org/name`. */
+    val key: String,
     val defaultBranch: String,
     val topics: List<String>,
     val codeowners: List<String>,
@@ -27,7 +31,8 @@ data class RepositoryResponse(
         fun from(repo: Repository) =
             RepositoryResponse(
                 id = repo.id,
-                orgRepo = repo.orgRepo,
+                url = repo.url,
+                key = repo.key,
                 defaultBranch = repo.defaultBranch,
                 topics = repo.topics,
                 codeowners = repo.codeowners,
@@ -45,7 +50,8 @@ data class RepositoryResponse(
         fun from(node: GraphNode) =
             RepositoryResponse(
                 id = node.id,
-                orgRepo = node.props["orgRepo"]?.toString() ?: node.key.key,
+                url = node.props["url"]?.toString() ?: "https://" + node.key.key,
+                key = node.key.key,
                 defaultBranch = node.props["defaultBranch"]?.toString() ?: "main",
                 topics = strings(node.props["topics"]),
                 codeowners = strings(node.props["codeowners"]),

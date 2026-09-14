@@ -6,6 +6,7 @@ import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
 import com.repodatagraph.domain.exception.NodeValidationException
+import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service
 class NodeService(
     private val registry: OntologyRegistry,
     private val identityResolver: IdentityResolver,
+    private val derivedProperties: DerivedProperties,
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
 ) : NodeUseCase {
@@ -37,12 +39,15 @@ class NodeService(
         props: Map<String, Any?>,
     ): GraphNode {
         val nodeType = declared(type)
-        validate(nodeType, props)
+        // Before validation, so the registry can require the identity properties honestly: a caller
+        // supplies a Repository's remote and gets host, org and name filled in from it (#8).
+        val expanded = derivedProperties.expand(type, props)
+        validate(nodeType, expanded)
 
-        val key = identityResolver.keyFor(type, props)
+        val key = identityResolver.keyFor(type, expanded)
         graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
 
-        return graphStore.upsertNode(GraphNode(key, props, Provenance.manual()))
+        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual()))
     }
 
     override fun get(
@@ -83,14 +88,15 @@ class NodeService(
         val existingKey = nodeKey(type, key)
         val existing = graphStore.findNode(existingKey) ?: throw NodeNotFoundException(listOf(existingKey))
 
-        validate(nodeType, props)
+        val expanded = derivedProperties.expand(type, props)
+        validate(nodeType, expanded)
 
-        val derived = identityResolver.keyFor(type, props)
+        val derived = identityResolver.keyFor(type, expanded)
         if (derived != existingKey) {
-            throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, props, existingKey))
+            throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existingKey))
         }
 
-        return graphStore.upsertNode(GraphNode(existingKey, props, Provenance.manual()))
+        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual()))
     }
 
     override fun delete(

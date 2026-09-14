@@ -2,7 +2,7 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
 import com.repodatagraph.adapter.`in`.rest.dto.RepositoryResponse
-import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import io.swagger.v3.oas.annotations.Operation
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 class RepositoryController(
     private val repositoryUseCase: RepositoryUseCase,
     private val nodeUseCase: NodeUseCase,
-    private val identityResolver: IdentityResolver,
+    private val gitRemoteParser: GitRemoteParser,
 ) {
     /**
      * Superseded by `POST /api/v1/nodes/Repository`, and kept only so existing callers keep working.
@@ -46,14 +47,12 @@ class RepositoryController(
     }
 
     /**
-     * The old endpoint accepts `org/repo`, which is a shorthand rather than a remote. It is expanded
-     * to the canonical URL here so the node is stored with a real one, instead of the graph keeping a
-     * fragment that no connector could later match. #8 replaces this with a full parser.
+     * The url is passed through as given: the node use case parses and canonicalises it, so this
+     * endpoint and `POST /api/v1/nodes/Repository` cannot disagree about what a remote means (#8).
      */
     private fun propsOf(request: CreateRepositoryRequest): Map<String, Any?> =
         mapOf(
-            "url" to "https://" + identityResolver.repositoryKey(mapOf("url" to request.orgRepo)),
-            "orgRepo" to request.orgRepo,
+            "url" to request.url,
             "defaultBranch" to request.defaultBranch,
             "topics" to request.topics,
             "codeowners" to request.codeowners,
@@ -66,6 +65,27 @@ class RepositoryController(
     @Operation(summary = "List all registered repositories")
     fun listRepositories(): ResponseEntity<List<RepositoryResponse>> =
         ResponseEntity.ok(repositoryUseCase.listRepositories().map { RepositoryResponse.from(it) })
+
+    /**
+     * Lookup by the key a repository resolves to, rather than by the id the graph assigned.
+     *
+     * This is what a connector needs. It arrives holding a remote in whatever notation its source
+     * system wrote, and has no way to know our id. The key it supplies goes through the same parser
+     * the stored key came from, so `Acme/Payments` finds the node stored as
+     * `github.com/acme/payments` - otherwise every caller would have to normalise first, which is
+     * the duplication this issue exists to remove (#8).
+     */
+    @GetMapping("/by-key")
+    @Operation(summary = "Find a repository by its canonical key, in any remote notation")
+    fun getRepositoryByKey(
+        @RequestParam key: String,
+    ): ResponseEntity<RepositoryResponse> {
+        val canonical = gitRemoteParser.parse(key).key
+        val node =
+            nodeUseCase.get("Repository", canonical)
+                ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(RepositoryResponse.from(node))
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a repository by ID")
