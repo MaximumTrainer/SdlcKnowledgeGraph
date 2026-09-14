@@ -35,6 +35,14 @@ updates:
       security:
         applies-to: security-updates
         patterns: ["*"]
+    # Majors blocked by something outside this repository. Each ignores the *major* only, so a patch
+    # to the line we are on still arrives, and each names what would unblock it (#125). An ignore is
+    # a decision with an expiry, not a pin: ADR-0008 says where these are reviewed.
+    ignore:
+      # typescript-eslint declares `peer typescript@">=4.8.4 <6.1.0"`, so npm cannot resolve
+      # TypeScript 7 at all. Unblocks when typescript-eslint widens its peer range (#108).
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   # The workflows pin actions by major version, so this mostly catches an action that has moved on a
   # major - which is the case that silently stops a job from being maintained.
@@ -62,3 +70,18 @@ updates:
       minor-and-patch:
         applies-to: version-updates
         update-types: [minor, patch]
+    # See the npm block above for why these exist and how they are reviewed (#125).
+    ignore:
+      # detekt 1.23.8 is the latest release and is built against Kotlin 2.0.21, so a Kotlin beyond
+      # that fails `:detekt` with a "compiled with ... running with ..." mismatch. Grouping means one
+      # incompatible member blocks the whole backend group, so this is ignored by name rather than
+      # the group being abandoned. Unblocks when a detekt release supports the Kotlin line (#109).
+      - dependency-name: org.jetbrains.kotlin.jvm
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: org.jetbrains.kotlin.plugin.spring
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      # springdoc 3 targets Spring Framework 7 / Spring Boot 4, so this major is a Spring Boot 4
+      # migration wearing a different name and belongs in an issue of its own, not a dependency bump.
+      # Unblocks when the backend moves to Boot 4 (#111).
+      - dependency-name: org.springdoc:springdoc-openapi-starter-webmvc-ui
+        update-types: [version-update:semver-major]

@@ -82,4 +82,16 @@ the backlog this ADR exists to prevent, with each item now also showing a red bu
 rather than the subject on purpose: a person can write a subject that looks like a dependency bump,
 and only Dependabot can sign as Dependabot, so the exemption cannot be reached by hand.
 
+Some majors cannot be taken, and those are ignored with a reason rather than left to re-propose
+themselves every week. Three were blocked in the first batch (#125): TypeScript 7, because
+`typescript-eslint` caps the peer range below 6.1; Kotlin beyond 2.0.x, because the latest released
+detekt is built against 2.0.21 and fails the `:detekt` task otherwise; and springdoc 3, because it
+targets Spring Boot 4 and so is a framework migration wearing a dependency bump's clothes.
+
+Each `ignore` names the blocker and what would lift it, and each ignores the **major** only, so
+patches to the line we are on still arrive. An ignore is a decision with an expiry rather than a pin:
+the unblock conditions are reviewed whenever one of those pull requests would otherwise have
+appeared — in practice, when the ecosystem moves and the entry stops being necessary. Anything still
+ignored a year from now is a question to ask, not an answer to keep.
+
 The count means something again. A non-zero alert count is now a signal rather than a backlog.
