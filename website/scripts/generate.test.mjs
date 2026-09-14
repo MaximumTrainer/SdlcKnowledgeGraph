@@ -260,6 +260,20 @@ describe('rewriteLinks', () => {
     assert.equal(rewriteLinks(link, 'README.md'), link)
   })
 
+  test('points a link to the white paper at its published page', () => {
+    assert.equal(
+      rewriteLinks('[paper](docs/AGENT-SYSTEMS-WHITE-PAPER.md)', 'README.md'),
+      '[paper](/guide/agent-systems-white-paper)'
+    )
+  })
+
+  test('names the white paper when the link text is its path', () => {
+    assert.equal(
+      rewriteLinks('[docs/AGENT-SYSTEMS-WHITE-PAPER.md](docs/AGENT-SYSTEMS-WHITE-PAPER.md)', 'README.md'),
+      '[White paper](/guide/agent-systems-white-paper)'
+    )
+  })
+
   test('does not rewrite inside a fenced code block', () => {
     const source = ['```bash', 'cat docs/ROADMAP.md', '```'].join('\n')
 
