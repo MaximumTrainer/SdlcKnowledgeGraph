@@ -2,6 +2,7 @@ package com.repodatagraph.acceptance.steps
 
 import com.repodatagraph.acceptance.support.ApiWorld
 import com.repodatagraph.acceptance.support.SyncWorld
+import com.repodatagraph.acceptance.support.says
 import com.repodatagraph.support.connector.FakeGitHub
 import com.repodatagraph.support.connector.FakeRepo
 import io.cucumber.java.Before
@@ -114,14 +115,9 @@ class GitHubConnectorSteps(
 
     @Then("that Repository has its validity closed")
     fun thatRepositoryHasValidityClosed() {
-        assertTrue(
-            world
-                .lastBody()
-                .path("provenance")
-                .path("validTo")
-                .asText()
-                .isNotBlank(),
-        ) { "an archived repository was left open: " + world.lastResponse().body }
+        assertTrue(world.lastBody().path("provenance").says("validTo")) {
+            "an archived repository was left open: " + world.lastResponse().body
+        }
     }
 
     @Then("the graph has Team {string}")
@@ -166,14 +162,9 @@ class GitHubConnectorSteps(
     @Then("the stored watermark for {string} is set")
     fun theStoredWatermarkIsSet(connector: String) {
         world.get("/api/v1/connectors/$connector")
-        assertTrue(
-            world
-                .lastBody()
-                .path("state")
-                .path("watermark")
-                .asText()
-                .isNotBlank(),
-        ) { "no watermark was stored: " + world.lastResponse().body }
+        assertTrue(world.lastBody().path("state").says("watermark")) {
+            "no watermark was stored: " + world.lastResponse().body
+        }
     }
 
     private fun stubRepositories(repos: List<FakeRepo>) {
@@ -190,13 +181,8 @@ class GitHubConnectorSteps(
         return world
             .lastBody()
             .path("items")
-            .filter {
-                it
-                    .path("provenance")
-                    .path("validTo")
-                    .asText()
-                    .isBlank()
-            }.map { it.path("other").path("key").asText() }
+            .filterNot { it.path("provenance").says("validTo") }
+            .map { it.path("other").path("key").asText() }
     }
 
     private companion object {

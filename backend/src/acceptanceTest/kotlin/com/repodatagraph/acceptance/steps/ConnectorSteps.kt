@@ -2,6 +2,7 @@ package com.repodatagraph.acceptance.steps
 
 import com.repodatagraph.acceptance.support.ApiWorld
 import com.repodatagraph.acceptance.support.SyncWorld
+import com.repodatagraph.acceptance.support.says
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
@@ -136,13 +137,7 @@ class ConnectorSteps(
 
     @Then("the body field {string} is present")
     fun theBodyFieldIsPresent(field: String) {
-        assertTrue(
-            world
-                .lastBody()
-                .path(field)
-                .asText()
-                .isNotBlank(),
-        ) { "missing $field in " + world.lastResponse().body }
+        assertTrue(world.lastBody().says(field)) { "missing $field in " + world.lastResponse().body }
     }
 
     @Then("the sync run finishes with status {string}")
@@ -229,14 +224,7 @@ class ConnectorSteps(
 
     @Then("its provenance validTo is set")
     fun itsValidToIsSet() {
-        assertTrue(
-            world
-                .lastBody()
-                .path("provenance")
-                .path("validTo")
-                .asText()
-                .isNotBlank(),
-        ) {
+        assertTrue(world.lastBody().path("provenance").says("validTo")) {
             "validTo was not set: " + world.lastResponse().body
         }
     }
