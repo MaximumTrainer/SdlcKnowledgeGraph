@@ -11,7 +11,7 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.19.0",
     "eslint": "^9.36.0"
   }
