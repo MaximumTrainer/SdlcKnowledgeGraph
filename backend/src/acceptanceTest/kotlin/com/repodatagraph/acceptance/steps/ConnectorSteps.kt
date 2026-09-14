@@ -321,12 +321,21 @@ class ConnectorSteps(
             if (last == expected) return
             Thread.sleep(POLL.toMillis())
         }
-        assertEquals(expected, last) { "the run did not reach $expected within $RUN_TIMEOUT" }
+        assertEquals(expected, last) {
+            "run $id was '$last' after $RUN_TIMEOUT, expected '$expected'"
+        }
     }
 
     private companion object {
         const val ACCEPTED = 202
-        val RUN_TIMEOUT: Duration = Duration.ofSeconds(10)
+
+        /**
+         * Generous on purpose. A run is asynchronous and writes through a Testcontainers Neo4j, which
+         * on a shared CI runner is several times slower than a developer machine - so a timeout tuned
+         * to the fast case fails for being slow rather than for being wrong. Polling means a fast
+         * machine still finishes in milliseconds; only the patience changes.
+         */
+        val RUN_TIMEOUT: Duration = Duration.ofSeconds(30)
         val POLL: Duration = Duration.ofMillis(100)
         val RUN_HOLD: Duration = Duration.ofSeconds(3)
     }
