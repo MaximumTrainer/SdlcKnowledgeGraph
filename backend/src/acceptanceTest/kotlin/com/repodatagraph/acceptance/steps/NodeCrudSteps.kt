@@ -95,9 +95,9 @@ class NodeCrudSteps(
         world.post("/api/v1/nodes/" + type, mapOf("props" to mapOf("name" to name)))
     }
 
-    @When("I POST the deprecated repositories endpoint with orgRepo {string}")
-    fun iPostTheDeprecatedRepositoryEndpoint(orgRepo: String) {
-        world.post("/api/v1/repositories", mapOf("orgRepo" to orgRepo))
+    @When("I POST the deprecated repositories endpoint with url {string}")
+    fun iPostTheDeprecatedRepositoryEndpoint(url: String) {
+        world.post("/api/v1/repositories", mapOf("url" to url))
     }
 
     @When("I DELETE the Team node")
@@ -219,7 +219,6 @@ class NodeCrudSteps(
     ) = mapOf(
         "url" to url,
         "description" to description,
-        "orgRepo" to "acme/payments",
         "defaultBranch" to "main",
         "topics" to emptyList<String>(),
         "codeowners" to emptyList<String>(),

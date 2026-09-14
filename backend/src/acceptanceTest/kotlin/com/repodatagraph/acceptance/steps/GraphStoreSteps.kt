@@ -29,7 +29,7 @@ class GraphStoreSteps(
         graphStore.upsertNode(
             GraphNode(
                 key = NodeKey("Repository", key),
-                props = mapOf("orgRepo" to key.substringAfter('/'), "defaultBranch" to "main"),
+                props = mapOf("url" to "https://$key", "defaultBranch" to "main"),
                 provenance = Provenance.manual(),
             ),
         )

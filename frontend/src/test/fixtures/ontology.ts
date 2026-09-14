@@ -24,7 +24,10 @@ export const ontologyFixture: Ontology = {
       description: 'A git repository',
       identity: ['host', 'org', 'name'],
       properties: [
-        { name: 'orgRepo', type: 'string', required: true, description: null },
+        { name: 'url', type: 'string', required: true, description: null },
+        { name: 'host', type: 'string', required: true, description: null },
+        { name: 'org', type: 'string', required: true, description: null },
+        { name: 'name', type: 'string', required: true, description: null },
         { name: 'description', type: 'string', required: false, description: null }
       ]
     },

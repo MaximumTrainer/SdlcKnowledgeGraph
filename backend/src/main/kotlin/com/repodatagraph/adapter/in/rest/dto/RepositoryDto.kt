@@ -32,7 +32,7 @@ data class RepositoryResponse(
             RepositoryResponse(
                 id = repo.id,
                 url = repo.url,
-                key = repo.key,
+                key = "${repo.host}/${repo.org}/${repo.name}",
                 defaultBranch = repo.defaultBranch,
                 topics = repo.topics,
                 codeowners = repo.codeowners,

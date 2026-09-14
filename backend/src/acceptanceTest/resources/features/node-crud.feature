@@ -58,7 +58,7 @@ Feature: Ontology-driven node CRUD
     And the listed keys are "core, platform"
 
   Scenario: The deprecated repository endpoint still creates a node
-    When I POST the deprecated repositories endpoint with orgRepo "acme/payments"
+    When I POST the deprecated repositories endpoint with url "acme/payments"
     Then the response status is 201
     And the response has header "Deprecation" with value "true"
     And exactly 1 node of type "Repository" has key "github.com/acme/payments"

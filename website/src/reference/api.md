@@ -33,6 +33,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |
 | `GET` | `/api/v1/repositories` | List all registered repositories | 200 |
 | `POST` | `/api/v1/repositories` | Register a repository in the graph | 200 |
+| `GET` | `/api/v1/repositories/by-key` | Find a repository by its canonical key, in any remote notation | 200 |
 | `DELETE` | `/api/v1/repositories/{id}` | Delete a repository from the graph | 200 |
 | `GET` | `/api/v1/repositories/{id}` | Get a repository by ID | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/cloud-resources/{resourceId}` | Link repository to a cloud resource | 200 |

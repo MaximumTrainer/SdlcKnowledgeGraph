@@ -32,7 +32,10 @@ class ProviderStates(
                 key = NodeKey("Repository", REPOSITORY_KEY),
                 props =
                     mapOf(
-                        "orgRepo" to "acme/payments",
+                        "url" to "https://github.com/acme/payments",
+                        "host" to "github.com",
+                        "org" to "acme",
+                        "name" to "payments",
                         "defaultBranch" to "main",
                         "topics" to listOf("payments"),
                         "codeowners" to listOf("@acme/platform"),
@@ -70,8 +73,10 @@ class ProviderStates(
                 key = NodeKey("Repository", REPOSITORY_KEY_OWNED),
                 props =
                     mapOf(
-                        "orgRepo" to "acme/payments",
                         "url" to "https://github.com/acme/payments",
+                        "host" to "github.com",
+                        "org" to "acme",
+                        "name" to "payments",
                         "defaultBranch" to "main",
                         "topics" to listOf("payments"),
                         "codeowners" to listOf("@acme/platform"),
@@ -91,8 +96,8 @@ class ProviderStates(
 
     fun twoRepositoriesExist() {
         emptyGraph()
-        repository(REPOSITORY_KEY_OWNED, "acme/payments")
-        repository(SHARED_LIB_KEY, "acme/shared-lib")
+        repository(REPOSITORY_KEY_OWNED)
+        repository(SHARED_LIB_KEY)
     }
 
     /** The edge as well as its ends: an interaction that lists or removes one needs it to be there. */
@@ -109,17 +114,18 @@ class ProviderStates(
         )
     }
 
-    private fun repository(
-        key: String,
-        orgRepo: String,
-    ) {
+    /** The key is `host/org/name`, so the parts a Repository is identified by come from it. */
+    private fun repository(key: String) {
+        val (host, org, name) = key.split("/")
         graphStore.upsertNode(
             GraphNode(
                 key = NodeKey("Repository", key),
                 props =
                     mapOf(
-                        "orgRepo" to orgRepo,
                         "url" to "https://$key",
+                        "host" to host,
+                        "org" to org,
+                        "name" to name,
                         "defaultBranch" to "main",
                         "topics" to listOf("payments"),
                         "codeowners" to listOf("@acme/platform"),

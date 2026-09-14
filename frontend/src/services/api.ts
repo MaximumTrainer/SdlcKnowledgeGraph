@@ -44,10 +44,27 @@ export interface ImpactAnalysis {
   deployments: Deployment[]
 }
 
+/**
+ * What a caller supplies when registering a repository.
+ *
+ * `host`, `org` and `name` are absent on purpose: the API parses them out of `url`, which may be
+ * written in any remote notation. Asking for them here would invite a caller to split the remote
+ * themselves, and a caller who splits it differently is how one repository becomes two nodes (#8).
+ */
+export type NewRepository = Omit<Repository, 'id' | 'host' | 'org' | 'name'>
+
 export const repositoryApi = {
   list: (): Promise<Repository[]> => client.get('/repositories').then(r => r.data),
   get: (id: string): Promise<Repository> => client.get(`/repositories/${id}`).then(r => r.data),
-  create: (repo: Omit<Repository, 'id'>): Promise<Repository> =>
+  /**
+   * Finds a repository by the key it resolves to, in any remote notation.
+   *
+   * The API normalises the key with the same parser that produced the stored one, so `Acme/Payments`
+   * finds the node held as `github.com/acme/payments` (#8).
+   */
+  byKey: (key: string): Promise<Repository> =>
+    client.get('/repositories/by-key', { params: { key } }).then(r => r.data),
+  create: (repo: NewRepository): Promise<Repository> =>
     client.post('/repositories', repo).then(r => r.data),
   delete: (id: string): Promise<void> => client.delete(`/repositories/${id}`).then(() => undefined),
   linkToTeam: (repoId: string, teamId: string): Promise<void> =>

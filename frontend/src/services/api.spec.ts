@@ -7,6 +7,9 @@ describe('repositoryApi', () => {
     const repos = await repositoryApi.list()
 
     expect(repos).toHaveLength(mockRepositories.length)
-    expect(repos.map(r => r.orgRepo)).toEqual(['acme/payments', 'acme/web'])
+    expect(repos.map(r => r.url)).toEqual([
+      'https://github.com/acme/payments',
+      'https://github.com/acme/web'
+    ])
   })
 })

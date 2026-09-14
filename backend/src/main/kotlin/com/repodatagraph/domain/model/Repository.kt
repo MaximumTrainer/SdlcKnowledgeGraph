@@ -7,6 +7,11 @@ package com.repodatagraph.domain.model
  * differently by everything that mentions it, and only the remote is something they all agree on
  * (#8). `url` is accepted in any written form and stored canonicalised; `host`, `org` and `name` are
  * derived from it and are what the node is keyed on.
+ *
+ * The key itself is deliberately not a property here. OntologyDriftValidator requires every property
+ * of a model class to be declared in the registry, and a derived address is not something the
+ * ontology describes - the same reason `id` is excluded. Callers that need it build it from the
+ * three parts, as RepositoryResponse does.
  */
 data class Repository(
     val id: String,
@@ -20,7 +25,4 @@ data class Repository(
     val serviceId: String? = null,
     val language: String? = null,
     val description: String? = null,
-) {
-    /** The identity key this repository resolves to. */
-    val key: String get() = "$host/$org/$name"
-}
+)
