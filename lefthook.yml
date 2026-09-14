@@ -28,9 +28,11 @@ pre-commit:
     - name: hygiene
       run: node scripts/hygiene.mjs {staged_files}
     # A leaked credential must be rotated even after the commit is removed, so the only gate that
-    # really helps is the one before it enters the history.
+    # really helps is the one before it enters the history. --staged because secretlint reads paths
+    # from disk while a commit contains the index: without it, staging a token and then tidying the
+    # working copy would pass the gate with the token still going in (#62).
     - name: secrets
-      run: node scripts/secretlint.mjs {staged_files}
+      run: node scripts/secretlint.mjs --staged {staged_files}
     # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt
     # is reading them; the group as a whole still runs in parallel with the frontend jobs.
     - name: backend
@@ -62,6 +64,26 @@ pre-commit:
     - name: lefthook-config
       glob: "lefthook.yml"
       run: node scripts/guards.mjs config
+
+# Git runs this instead of `pre-commit` for a merge that commits automatically, so without it a
+# merge introduces content no guard has ever seen - and a credential, an oversized file or a conflict
+# marker arriving through `git merge` is exactly as unrecoverable as one arriving through `git
+# commit` (#61).
+#
+# Only the three guards. The formatters and linters are deliberately absent: a merge is not the
+# moment to rewrite files under the user's feet, and their findings are recoverable anyway.
+#
+# A conflicted merge does not come through here. Git stops without creating a commit, and the
+# separate `git commit` that records the resolution runs `pre-commit`, which already covers it.
+pre-merge-commit:
+  parallel: true
+  jobs:
+    - name: protected-branch
+      run: node scripts/protected-branch.mjs merge
+    - name: hygiene
+      run: node scripts/hygiene.mjs {staged_files}
+    - name: secrets
+      run: node scripts/secretlint.mjs --staged {staged_files}
 
 pre-push:
   parallel: true

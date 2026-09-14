@@ -115,6 +115,7 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required |
 | `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-merge-commit` | the three guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
@@ -130,7 +131,12 @@ they catch cannot be fixed by a later commit ([ADR-0007](/adr/0007-commit-guards
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
 
 A leaked credential has to be rotated, a large file cannot be removed without rewriting history, and
-a direct push to `main` skips review and trips the push-triggered CI run on the default branch. Each
+a direct push to `main` skips review and trips the push-triggered CI run on the default branch.
+
+They run on merges too. Git does not run `pre-commit` for a merge commit - it runs
+`pre-merge-commit` - so without that hook a merge would introduce content no guard had ever seen. A
+conflicted merge arrives by the other road: git stops without creating a commit, and the separate
+`git commit` recording the resolution runs `pre-commit`. Each
 way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every gate at once.
 
 Run them over the whole repository without committing:
