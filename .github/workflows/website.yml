@@ -31,18 +31,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - name: Download the site that CI built
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: website-dist
           path: dist
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       - name: Say which commit was published
         run: echo "Published ${{ github.event.workflow_run.head_sha }} to ${{ steps.deploy.outputs.page_url }}"
