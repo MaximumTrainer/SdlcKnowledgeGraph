@@ -18,9 +18,9 @@ Identity: `host, org, name`
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `url` | `string` | yes | The git remote, in any form; stored canonicalised as https://host/org/name |
-| `host` | `string` | yes | Host of the remote, e.g. github.com. Derived from url |
-| `org` | `string` | yes | Owning organisation or user. Derived from url |
-| `name` | `string` | yes | Repository name. Derived from url |
+| `host` | `string` | no | Host of the remote, e.g. github.com. Derived from url |
+| `org` | `string` | no | Owning organisation or user. Derived from url |
+| `name` | `string` | no | Repository name. Derived from url |
 | `defaultBranch` | `string` | yes |  |
 | `topics` | `string[]` | yes |  |
 | `codeowners` | `string[]` | yes |  |

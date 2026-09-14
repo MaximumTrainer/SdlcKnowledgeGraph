@@ -34,10 +34,10 @@ nodes:
     identity: [host, org, name]
     properties:
       - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com" }
-      - { name: org, type: string, required: false, description: "Owning organisation or user" }
-      - { name: name, type: string, required: false, description: "Repository name" }
-      - { name: url, type: string, required: false, description: "Canonical https remote URL" }
-      - { name: orgRepo, type: string, required: true, description: "Legacy org/repo identifier" }
+      - { name: url, type: string, required: true, description: "The git remote, in any form" }
+      - { name: host, type: string, required: false, description: "Host of the remote. Derived from url" }
+      - { name: org, type: string, required: false, description: "Owning organisation. Derived from url" }
+      - { name: name, type: string, required: false, description: "Repository name. Derived from url" }
       - { name: defaultBranch, type: string, required: true }
       - { name: topics, type: "string[]", required: true }
       - { name: codeowners, type: "string[]", required: true }
@@ -47,10 +47,37 @@ nodes:
 The registry's version lives in `version.yaml` (semver, currently `1.0.0`), not in `nodes.yaml`.
 There is no `default` or `sensitivity` key; a property the loader does not recognise fails startup.
 
-The identity properties are optional on purpose: a Repository may be given as a `url` instead, and
-the resolver derives `host`, `org` and `name` from it. `orgRepo`, `defaultBranch`, `topics` and
-`codeowners` are still required because the typed Kotlin class carries them, and will stay so until
-that class is migrated off them.
+### A Repository is identified by its git remote
+
+The identity properties are optional on purpose, and `url` is the required one. A caller supplies the
+remote in whatever notation their tool wrote it, and the server derives `host`, `org` and `name`
+before anything is validated or stored. Asking a caller for the three parts would push the splitting
+out to every caller, and a caller who splits it differently is how one repository becomes two nodes.
+
+Every one of these is the same Repository, `github.com/acme/payments`:
+
+| Written as | Where it comes from |
+| --- | --- |
+| `https://github.com/acme/payments` | pasted from a browser |
+| `https://github.com/Acme/Payments.git` | the clone URL, with GitHub's casing |
+| `git@github.com:acme/payments.git` | what `git remote -v` prints |
+| `ssh://git@github.com/acme/payments` | the SSH URL form |
+| `github.com/acme/payments` | written in prose |
+| `acme/payments` | the shorthand, which assumes `github.com` |
+
+Only a trailing `.git` is stripped, so `payments.js` keeps its name. The stored `url` is always the
+canonical `https://host/org/name`, whatever was supplied.
+
+One parser decides all of this, and it exists twice: in Kotlin for the API and in TypeScript for the
+editing screen, which previews the key before you save. Both are held to one table of forms,
+`frontend/src/test/fixtures/git-remotes.json`, because a preview that disagrees with what the server
+stores would be worse than showing none. Something that is not a remote is refused as `400 invalid
+git remote` with the reason, rather than as three missing properties the caller never sent.
+
+`GET /api/v1/repositories/by-key?key=` normalises the key it is given through the same parser, so a
+connector holding `Acme/Payments` finds the node without normalising first.
+
+`defaultBranch`, `topics` and `codeowners` are required because the typed Kotlin class carries them.
 
 Seven of the core types keep typed Kotlin classes (Repository, Team, Pipeline, Artifact, Deployment,
 Environment and CloudResource), because the hand-written traversal code benefits from compile-time

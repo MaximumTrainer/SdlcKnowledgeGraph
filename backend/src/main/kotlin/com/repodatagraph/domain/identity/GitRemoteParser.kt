@@ -55,7 +55,11 @@ class GitRemoteParser {
      */
     private fun rejectionReason(remote: String): String {
         val scheme = SCHEME_PREFIX.find(remote)?.groupValues?.get(1)
-        val segments = remote.substringAfter("://").split("/").filter { it.isNotEmpty() }
+        // The host is not a path segment. Counting it would tell someone who pasted a link to a page
+        // that their URL points inside a repository, when it names no repository at all.
+        val afterScheme = remote.substringAfter("://")
+        val pathSegments = afterScheme.split("/").filter { it.isNotEmpty() }
+        val segments = if (scheme != null) pathSegments.drop(1) else pathSegments
         return when {
             remote.isEmpty() -> "it is empty"
             remote.any { it.isWhitespace() } -> "it contains whitespace"

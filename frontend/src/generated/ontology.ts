@@ -19,9 +19,9 @@ export interface Provenance {
 export interface Repository {
   id: string
   url: string
-  host: string
-  org: string
-  name: string
+  host?: string
+  org?: string
+  name?: string
   defaultBranch: string
   topics: string[]
   codeowners: string[]

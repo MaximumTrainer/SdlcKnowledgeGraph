@@ -60,7 +60,10 @@ function rejectionReason(remote: string): string {
   if (scheme && !GIT_SCHEMES.includes(scheme.toLowerCase())) {
     return `'${scheme}' is not a scheme git speaks`
   }
-  const segments = remote.split('://').pop()!.split('/').filter(Boolean)
+  // The host is not a path segment. Counting it would tell someone who pasted a link to a page that
+  // their URL points inside a repository, when it names no repository at all.
+  const pathSegments = remote.split('://').pop()!.split('/').filter(Boolean)
+  const segments = scheme ? pathSegments.slice(1) : pathSegments
   return segments.length < MIN_SEGMENTS
     ? 'it needs an organisation and a repository name'
     : 'it points inside a repository rather than at one'

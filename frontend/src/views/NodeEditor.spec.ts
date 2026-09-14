@@ -168,3 +168,48 @@ describe('NodeEditor', () => {
     expect(wrapper.find('[data-test="error-name"]').text()).toContain('name is required')
   })
 })
+
+/**
+ * The remote is the one thing a person types, and the key it resolves to is what the graph will
+ * store it under. Showing that key as they type is the difference between finding out now and
+ * finding out after saving - and it is the same parser the API uses, so what is previewed is what
+ * will happen (#8).
+ */
+describe('NodeEditor, registering a repository', () => {
+  beforeEach(() => {
+    server.use(http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)))
+  })
+
+  const mountEditor = async () => {
+    const r = router()
+    await r.push('/nodes/Repository/new')
+    await r.isReady()
+    const wrapper = mount(NodeEditor, { global: { plugins: [r] }, props: { type: 'Repository' } })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('previews the key a remote will be stored under, as it is typed', async () => {
+    const wrapper = await mountEditor()
+
+    await wrapper.find('#field-url').setValue('git@github.com:Acme/Payments.git')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="remote-key"]').text()).toContain('github.com/acme/payments')
+  })
+
+  it('says why a remote is not one, rather than waiting for the server to', async () => {
+    const wrapper = await mountEditor()
+
+    await wrapper.find('#field-url').setValue('https://example.com/page')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="remote-key"]').text()).toMatch(/organisation and a repository/)
+  })
+
+  it('shows nothing while the field is empty', async () => {
+    const wrapper = await mountEditor()
+
+    expect(wrapper.find('[data-test="remote-key"]').exists()).toBe(false)
+  })
+})

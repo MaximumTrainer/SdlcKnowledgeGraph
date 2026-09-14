@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TagInput from '@/components/fields/TagInput.vue'
+import { InvalidGitRemoteError, parseGitRemote } from '@/lib/gitRemote'
 import {
   nodeApi,
   ontologyApi,
@@ -28,6 +29,27 @@ const ready = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
 const formError = ref('')
 const saving = ref(false)
+
+/**
+ * The key a typed remote will be stored under, or why it is not a remote.
+ *
+ * A Repository is keyed on its remote, and the remote is written six different ways by the tools
+ * people copy it from. Showing the resolved key as it is typed is the difference between finding out
+ * now and finding out after saving - and it runs the same parser the API does, held to the same test
+ * table, so the preview cannot promise something the server will not do (#8).
+ */
+const remotePreview = computed<{ key: string } | { reason: string } | null>(() => {
+  if (props.type !== 'Repository') return null
+  const url = String(values.value.url ?? '').trim()
+  if (url.length === 0) return null
+  try {
+    return { key: parseGitRemote(url).key }
+  } catch (error) {
+    return {
+      reason: error instanceof InvalidGitRemoteError ? error.reason : 'it is not a git remote'
+    }
+  }
+})
 
 const editing = computed(() => props.id !== undefined && props.id !== '')
 
@@ -172,6 +194,16 @@ const save = async () => {
                 : 'text'
           "
         />
+
+        <small
+          v-if="property.name === 'url' && remotePreview"
+          class="hint"
+          data-test="remote-key"
+          :class="{ 'field-error': 'reason' in remotePreview }"
+        >
+          <template v-if="'key' in remotePreview">Key: {{ remotePreview.key }}</template>
+          <template v-else>Not a git remote: {{ remotePreview.reason }}</template>
+        </small>
 
         <small v-if="property.description" class="hint">{{ property.description }}</small>
         <small v-if="isLocked(property)" class="hint">

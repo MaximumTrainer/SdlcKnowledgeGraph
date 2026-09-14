@@ -26,9 +26,9 @@ type RepositoryNode implements GraphNode {
   id: ID!
   key: String!
   url: String!
-  host: String!
-  org: String!
-  name: String!
+  host: String
+  org: String
+  name: String
   defaultBranch: String!
   topics: [String!]!
   codeowners: [String!]!

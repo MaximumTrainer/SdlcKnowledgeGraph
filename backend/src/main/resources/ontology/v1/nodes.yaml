@@ -12,9 +12,11 @@ nodes:
     identity: [host, org, name]
     properties:
       - { name: url, type: string, required: true, description: "The git remote, in any form; stored canonicalised as https://host/org/name" }
-      - { name: host, type: string, required: true, description: "Host of the remote, e.g. github.com. Derived from url" }
-      - { name: org, type: string, required: true, description: "Owning organisation or user. Derived from url" }
-      - { name: name, type: string, required: true, description: "Repository name. Derived from url" }
+      # Not required of a caller: the server derives all three from url before anything is validated
+      # or stored. They are the identity, so an editing screen shows them but cannot change them.
+      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com. Derived from url" }
+      - { name: org, type: string, required: false, description: "Owning organisation or user. Derived from url" }
+      - { name: name, type: string, required: false, description: "Repository name. Derived from url" }
       - { name: defaultBranch, type: string, required: true }
       - { name: topics, type: "string[]", required: true }
       - { name: codeowners, type: "string[]", required: true }
