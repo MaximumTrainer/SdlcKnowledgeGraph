@@ -89,5 +89,22 @@ updates:
       # springdoc 3 targets Spring Framework 7 / Spring Boot 4, so this major is a Spring Boot 4
       # migration wearing a different name and belongs in an issue of its own, not a dependency bump.
       # Unblocks when the backend moves to Boot 4 (#111).
+      #
+      # Minors are held too: 2.9.x wants Spring Boot 3.5+, and on 3.4.3 every Spring context fails to
+      # start with PatternParseException. Measured, not inferred (#138).
       - dependency-name: org.springdoc:springdoc-openapi-starter-webmvc-ui
-        update-types: [version-update:semver-major]
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      # The 4.7.x jars carry Kotlin metadata newer than 2.0.21 can read, so :compileContractTestKotlin
+      # fails - and detekt 1.23.8 refuses any Kotlin but 2.0.21. That circular constraint is the whole
+      # of #138: one of the two has to move first and neither can, so the upgrade is coordinated
+      # rather than incremental.
+      - dependency-name: au.com.dius.pact.provider:junit5spring
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      # 7.34.x fails acceptanceTest with "TestEngine with ID 'junit-platform-suite' failed to discover
+      # tests"; it needs a JUnit platform this project does not have yet (#138).
+      - dependency-name: io.cucumber:cucumber-java
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: io.cucumber:cucumber-spring
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: io.cucumber:cucumber-junit-platform-engine
+        update-types: [version-update:semver-minor, version-update:semver-major]
