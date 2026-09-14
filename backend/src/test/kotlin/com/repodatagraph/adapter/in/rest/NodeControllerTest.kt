@@ -159,7 +159,7 @@ class NodeControllerTest {
         val repository =
             GraphNode(
                 key = NodeKey("Repository", "github.com/acme/payments"),
-                props = mapOf("orgRepo" to "acme/payments"),
+                props = mapOf("url" to "https://github.com/acme/payments"),
                 provenance = Provenance.manual(Instant.parse("2026-01-01T00:00:00Z")),
             )
         whenever(nodeUseCase.get("Repository", "github.com/acme/payments")).thenReturn(repository)

@@ -1,0 +1,129 @@
+{
+  "_comment": [
+    "The one table of git remote forms, read by both parsers: backend GitRemoteParserTest and",
+    "frontend gitRemote.spec.ts. Two implementations of one rule drift the moment they are tested",
+    "separately, and a UI that previews a different key from the one the API derives is worse than no",
+    "preview at all - so the table lives in one file and neither side owns it.",
+    "See docs/ONTOLOGY.md for why a Repository is keyed on its remote."
+  ],
+  "accepted": [
+    {
+      "input": "https://github.com/acme/payments",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the URL a person copies from the browser"
+    },
+    {
+      "input": "https://github.com/Acme/Payments.git",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the clone URL, with the .git suffix and the casing GitHub displays"
+    },
+    {
+      "input": "https://github.com/acme/payments/",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "a trailing slash survives a copy and paste"
+    },
+    {
+      "input": "git@github.com:acme/payments.git",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the scp-style SSH remote git itself writes"
+    },
+    {
+      "input": "ssh://git@github.com/acme/payments.git",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the SSH URL form"
+    },
+    {
+      "input": "github.com/acme/payments",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "host and path with no scheme, as written in prose"
+    },
+    {
+      "input": "acme/payments",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the bare shorthand, which assumes the default host"
+    },
+    {
+      "input": "  https://github.com/acme/payments  ",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "surrounding whitespace is a paste artefact, not part of the remote"
+    },
+    {
+      "input": "https://gitlab.com/acme/payments",
+      "host": "gitlab.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "the host is parsed, not assumed to be GitHub"
+    },
+    {
+      "input": "git@ssh.dev.azure.com:acme/payments",
+      "host": "ssh.dev.azure.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "a host with several labels"
+    },
+    {
+      "input": "https://github.com/acme/payments.js",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments.js",
+      "why": "a dot in the name is not a suffix to strip; only a trailing .git is"
+    },
+    {
+      "input": "HTTPS://GitHub.com/ACME/PAYMENTS/",
+      "host": "github.com",
+      "org": "acme",
+      "name": "payments",
+      "why": "a remote shouted in capitals is the same remote; the scheme and host are case-insensitive"
+    }
+  ],
+  "rejected": [
+    {
+      "input": "",
+      "why": "empty"
+    },
+    {
+      "input": "   ",
+      "why": "blank"
+    },
+    {
+      "input": "https://example.com/page",
+      "why": "fewer than two path segments"
+    },
+    {
+      "input": "https://github.com",
+      "why": "a host and nothing else"
+    },
+    {
+      "input": "ftp://github.com/acme/payments",
+      "why": "not a scheme git speaks"
+    },
+    {
+      "input": "acme/pay ments",
+      "why": "whitespace inside the path"
+    },
+    {
+      "input": "acme",
+      "why": "one segment cannot name an organisation and a repository"
+    },
+    {
+      "input": "https://github.com/acme/payments/tree/main",
+      "why": "a path into the repository, not the repository"
+    }
+  ]
+}

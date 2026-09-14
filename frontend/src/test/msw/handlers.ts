@@ -4,7 +4,10 @@ import type { Repository } from '@/services/api'
 export const mockRepositories: Repository[] = [
   {
     id: 'repo-1',
-    orgRepo: 'acme/payments',
+    url: 'https://github.com/acme/payments',
+    host: 'github.com',
+    org: 'acme',
+    name: 'payments',
     defaultBranch: 'main',
     topics: ['payments', 'critical'],
     codeowners: ['@acme/payments-team'],
@@ -13,7 +16,10 @@ export const mockRepositories: Repository[] = [
   },
   {
     id: 'repo-2',
-    orgRepo: 'acme/web',
+    url: 'https://github.com/acme/web',
+    host: 'github.com',
+    org: 'acme',
+    name: 'web',
     defaultBranch: 'main',
     topics: [],
     codeowners: [],

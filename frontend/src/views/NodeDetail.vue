@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import RelationshipPanel from '@/components/RelationshipPanel.vue'
 import { nodeApi, type GraphNode } from '@/services/api'
+import { parseGitRemote } from '@/lib/gitRemote'
 
 /**
  * One node: what it says, and who said it.
@@ -18,6 +19,25 @@ const node = ref<GraphNode | null>(null)
 const error = ref('')
 const confirming = ref(false)
 const edgeCount = ref(0)
+
+/**
+ * The remote this node points at, when it points at one.
+ *
+ * Built from the stored canonical url rather than reassembled from the parts, so the link cannot
+ * claim somewhere the graph does not. The label follows the host, because a GitLab repository saying
+ * "Open in GitHub" would be worse than no link (#8).
+ */
+const remote = computed(() => {
+  const url = node.value?.props?.url
+  if (typeof url !== 'string' || url.length === 0) return null
+  try {
+    const parsed = parseGitRemote(url)
+    return { href: parsed.canonicalUrl, host: parsed.host }
+  } catch {
+    // A stored url that will not parse is a graph problem, not something to shout about here.
+    return null
+  }
+})
 
 const load = async () => {
   error.value = ''
@@ -75,6 +95,12 @@ const remove = async (cascade: boolean) => {
         <button type="button" class="danger" @click="remove(true)">Delete it and its edges</button>
         <button type="button" @click="confirming = false">Cancel</button>
       </div>
+
+      <p v-if="remote" class="remote">
+        <a :href="remote.href" target="_blank" rel="noopener noreferrer" data-test="open-remote"
+          >Open in {{ remote.host }}</a
+        >
+      </p>
 
       <h2>Properties</h2>
       <dl>

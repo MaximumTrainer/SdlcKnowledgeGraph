@@ -1,5 +1,6 @@
 package com.repodatagraph.domain.ontology
 
+import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.NodeKey
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -13,7 +14,9 @@ import java.time.Instant
  * reconcile. Keys are never random, so re-ingesting the same fact is idempotent.
  */
 @Component
-class IdentityResolver {
+class IdentityResolver(
+    private val gitRemoteParser: GitRemoteParser = GitRemoteParser(),
+) {
     fun keyFor(
         type: String,
         props: Map<String, Any?>,
@@ -32,10 +35,16 @@ class IdentityResolver {
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
         }
 
-    /** Normalises any remote form to `host/org/name`, lowercased. */
+    /**
+     * Normalises any remote form to `host/org/name`, lowercased.
+     *
+     * Delegates to [GitRemoteParser] rather than matching remotes here. There used to be a second
+     * set of patterns in this file, which meant the key a node was stored under and the key a lookup
+     * derived could drift apart without anything failing (#8).
+     */
     fun repositoryKey(props: Map<String, Any?>): String {
         val url = props["url"]?.toString()?.trim()
-        if (!url.isNullOrEmpty()) return parseRemote(url)
+        if (!url.isNullOrEmpty()) return gitRemoteParser.parse(url).key
 
         val host = props["host"]?.toString()?.trim()
         val org = props["org"]?.toString()?.trim()
@@ -44,27 +53,6 @@ class IdentityResolver {
             return "$host/$org/$name".lowercase()
         }
         throw IdentityResolutionException("Repository needs either 'url' or all of 'host', 'org' and 'name'")
-    }
-
-    /**
-     * Accepts `https://host/org/name(.git)`, `git@host:org/name(.git)`, `ssh://git@host/org/name`
-     * and the bare `org/name` shorthand, which assumes [DEFAULT_HOST].
-     */
-    private fun parseRemote(rawUrl: String): String {
-        val url = rawUrl.trim().removeSuffix("/")
-
-        val parts =
-            SCP_LIKE.matchEntire(url)?.destructured?.toList()
-                ?: WITH_SCHEME.matchEntire(url)?.destructured?.toList()
-                ?: SHORTHAND
-                    .matchEntire(url)
-                    ?.destructured
-                    ?.toList()
-                    ?.let { listOf(DEFAULT_HOST) + it }
-                ?: throw IdentityResolutionException("'$rawUrl' is not a recognisable git remote")
-
-        val (host, org, name) = parts
-        return "$host/$org/${name.removeSuffix(GIT_SUFFIX)}".lowercase()
     }
 
     private fun configurationItemKey(props: Map<String, Any?>): String {
@@ -121,13 +109,6 @@ class IdentityResolver {
             ?: throw IdentityResolutionException("$type needs '$name' to derive its identity")
 
     private companion object {
-        const val DEFAULT_HOST = "github.com"
-        const val GIT_SUFFIX = ".git"
-
-        val SCP_LIKE = Regex("""^[\w.\-]+@([\w.\-]+):([\w.\-]+)/([\w.\-]+)$""")
-        val WITH_SCHEME = Regex("""^[a-zA-Z]+://(?:[\w.\-]+@)?([\w.\-]+)/([\w.\-]+)/([\w.\-]+)$""")
-        val SHORTHAND = Regex("""^([\w.\-]+)/([\w.\-]+)$""")
-
         val ENVIRONMENT_ALIASES =
             mapOf(
                 "prod" to "production",

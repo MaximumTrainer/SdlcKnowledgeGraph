@@ -198,7 +198,7 @@ class EdgeControllerTest {
                         inverse = "DEPENDED_ON_BY",
                         direction = Direction.INCOMING,
                         displayName = "DEPENDED_ON_BY",
-                        other = GraphNode(payments, mapOf("orgRepo" to "acme/payments"), provenance),
+                        other = GraphNode(payments, mapOf("url" to "https://github.com/acme/payments"), provenance),
                         props = mapOf("kind" to "library"),
                         provenance = provenance,
                     ),

@@ -28,7 +28,7 @@ class GraphQueryServiceTest {
 
     @Test
     fun `getDependencies returns upstream repos`() {
-        val deps = listOf(Repository(id = "dep1", orgRepo = "org/dep1"))
+        val deps = listOf(Repository(id = "dep1", url = "https://github.com/org/dep1", host = "github.com", org = "org", name = "dep1"))
         whenever(graphPort.findDependencies("repoId")).thenReturn(deps)
 
         val result = service.getDependencies("repoId")
@@ -38,7 +38,7 @@ class GraphQueryServiceTest {
 
     @Test
     fun `getDependents returns downstream repos`() {
-        val dependents = listOf(Repository(id = "d1", orgRepo = "org/d1"))
+        val dependents = listOf(Repository(id = "d1", url = "https://github.com/org/d1", host = "github.com", org = "org", name = "d1"))
         whenever(graphPort.findDependents("repoId")).thenReturn(dependents)
 
         val result = service.getDependents("repoId")
@@ -48,7 +48,7 @@ class GraphQueryServiceTest {
 
     @Test
     fun `getImpactAnalysis returns combined results`() {
-        val dependents = listOf(Repository(id = "d1", orgRepo = "org/d1"))
+        val dependents = listOf(Repository(id = "d1", url = "https://github.com/org/d1", host = "github.com", org = "org", name = "d1"))
         val resources = listOf(CloudResource(id = "c1", provider = "AWS", resourceType = "ECS", name = "service"))
         val deployments = listOf(Deployment(id = "dep1", artifactId = "a1", environmentId = "env1"))
         whenever(graphPort.findDependents("repoId")).thenReturn(dependents)

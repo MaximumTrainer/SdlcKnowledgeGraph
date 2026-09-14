@@ -18,11 +18,10 @@ export interface Provenance {
 /** A git repository, the anchor for most of the graph. */
 export interface Repository {
   id: string
+  url: string
   host?: string
   org?: string
   name?: string
-  url?: string
-  orgRepo: string
   defaultBranch: string
   topics: string[]
   codeowners: string[]

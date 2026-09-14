@@ -1,5 +1,6 @@
 package com.repodatagraph.domain.ontology
 
+import com.repodatagraph.domain.exception.InvalidGitRemoteException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -48,10 +49,16 @@ class IdentityResolverTest {
         assertEquals("github.com/acme/payments", key.key)
     }
 
+    /**
+     * Now an [InvalidGitRemoteException] rather than an [IdentityResolutionException], because the
+     * two say different things to a caller. This one means the url they sent is wrong and can be
+     * corrected, which the API reports as a 400. Identity resolution failing means the node type has
+     * no rule, which is ours to fix, not theirs (#8).
+     */
     @Test
     fun `a url that is not a repository is rejected`() {
         val error =
-            assertThrows<IdentityResolutionException> {
+            assertThrows<InvalidGitRemoteException> {
                 resolver.keyFor("Repository", mapOf("url" to "https://example.com"))
             }
 

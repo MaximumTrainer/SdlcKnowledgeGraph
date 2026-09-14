@@ -45,7 +45,8 @@ describe('repository API contract', () => {
         headers: JSON_HEADERS,
         body: {
           id: like('R1'),
-          orgRepo: like('acme/payments'),
+          url: like('https://github.com/acme/payments'),
+          key: like('github.com/acme/payments'),
           defaultBranch: like('main'),
           topics: eachLike('payments'),
           codeowners: eachLike('@acme/platform')
@@ -55,7 +56,7 @@ describe('repository API contract', () => {
     await provider.executeTest(async mockServer => {
       const repository = await against(mockServer.url, () => repositoryApi.get('R1'))
 
-      expect(repository.orgRepo).toBe('acme/payments')
+      expect(repository.url).toBe('https://github.com/acme/payments')
       expect(repository.defaultBranch).toBe('main')
       expect(repository.topics).toEqual(['payments'])
       expect(repository.codeowners).toEqual(['@acme/platform'])
@@ -79,23 +80,28 @@ describe('repository API contract', () => {
   it('registers a repository', async () => {
     provider
       .given(NO_REPOSITORIES)
-      .uponReceiving('a request to register acme/payments')
+      .uponReceiving('a request to register the acme/payments remote')
       .withRequest({
         method: 'POST',
         path: '/api/v1/repositories',
         headers: JSON_HEADERS,
-        body: { orgRepo: 'acme/payments', defaultBranch: 'main', topics: [], codeowners: [] }
+        body: { url: 'acme/payments', defaultBranch: 'main', topics: [], codeowners: [] }
       })
       .willRespondWith({
         status: 201,
         headers: JSON_HEADERS,
-        body: { id: like('Repository:github.com/acme/payments'), orgRepo: like('acme/payments') }
+        body: {
+          id: like('Repository:github.com/acme/payments'),
+          url: like('https://github.com/acme/payments'),
+          key: like('github.com/acme/payments')
+        }
       })
 
     await provider.executeTest(async mockServer => {
       const created = await against(mockServer.url, () =>
         repositoryApi.create({
-          orgRepo: 'acme/payments',
+          // The shorthand, deliberately: the contract is that the API canonicalises it (#8).
+          url: 'acme/payments',
           defaultBranch: 'main',
           topics: [],
           codeowners: []

@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.graphql
 
+import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.port.`in`.GraphQueryUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
@@ -13,6 +14,7 @@ import java.util.UUID
 class GraphQLResolver(
     private val repositoryUseCase: RepositoryUseCase,
     private val graphQueryUseCase: GraphQueryUseCase,
+    private val gitRemoteParser: GitRemoteParser,
 ) {
     @QueryMapping
     fun repository(
@@ -74,10 +76,16 @@ class GraphQLResolver(
     fun registerRepository(
         @Argument input: Map<String, Any>,
     ): Repository {
+        // The remote is parsed here rather than trusted, so a GraphQL caller lands on the same node
+        // a REST caller would for the same repository (#8).
+        val remote = gitRemoteParser.parse(input["url"] as String)
         val repo =
             Repository(
                 id = UUID.randomUUID().toString(),
-                orgRepo = input["orgRepo"] as String,
+                url = remote.canonicalUrl,
+                host = remote.host,
+                org = remote.org,
+                name = remote.name,
                 defaultBranch = input["defaultBranch"] as? String ?: "main",
                 topics = (input["topics"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 codeowners = (input["codeowners"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),

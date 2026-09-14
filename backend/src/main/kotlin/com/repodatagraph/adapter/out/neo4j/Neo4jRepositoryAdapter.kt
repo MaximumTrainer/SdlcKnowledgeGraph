@@ -32,13 +32,16 @@ class Neo4jRepositoryAdapter(
     private val neo4jClient: Neo4jClient,
 ) : RepositoryGraphPort {
     override fun save(repository: DomainRepository): DomainRepository {
-        val key = identityResolver.keyFor("Repository", mapOf("url" to repository.orgRepo))
+        val key = identityResolver.keyFor("Repository", mapOf("url" to repository.url))
         graphStore.upsertNode(
             GraphNode(
                 key = key,
                 props =
                     mapOf(
-                        "orgRepo" to repository.orgRepo,
+                        "url" to repository.url,
+                        "host" to repository.host,
+                        "org" to repository.org,
+                        "name" to repository.name,
                         "defaultBranch" to repository.defaultBranch,
                         "topics" to repository.topics,
                         "codeowners" to repository.codeowners,
@@ -236,7 +239,10 @@ class Neo4jRepositoryAdapter(
     private fun Map<String, Any?>.toRepository(): DomainRepository =
         DomainRepository(
             id = str("id").ifEmpty { "Repository:${str("key")}" },
-            orgRepo = str("orgRepo").ifEmpty { str("key") },
+            url = str("url"),
+            host = str("host"),
+            org = str("org"),
+            name = str("name"),
             defaultBranch = strOrNull("defaultBranch") ?: "main",
             topics = stringList("topics"),
             codeowners = stringList("codeowners"),

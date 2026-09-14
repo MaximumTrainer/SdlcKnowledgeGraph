@@ -73,9 +73,6 @@
           "language" : {
             "type" : [ "string", "null" ]
           },
-          "orgRepo" : {
-            "type" : "string"
-          },
           "serviceId" : {
             "type" : [ "string", "null" ]
           },
@@ -84,9 +81,12 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "url" : {
+            "type" : "string"
           }
         },
-        "required" : [ "codeowners", "defaultBranch", "orgRepo", "topics" ],
+        "required" : [ "codeowners", "defaultBranch", "topics", "url" ],
         "type" : "object"
       },
       "Deployment" : {
@@ -469,13 +469,19 @@
           "description" : {
             "type" : [ "string", "null" ]
           },
+          "host" : {
+            "type" : "string"
+          },
           "id" : {
             "type" : "string"
           },
           "language" : {
             "type" : [ "string", "null" ]
           },
-          "orgRepo" : {
+          "name" : {
+            "type" : "string"
+          },
+          "org" : {
             "type" : "string"
           },
           "serviceId" : {
@@ -486,9 +492,12 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "url" : {
+            "type" : "string"
           }
         },
-        "required" : [ "codeowners", "defaultBranch", "id", "orgRepo", "topics" ],
+        "required" : [ "codeowners", "defaultBranch", "host", "id", "name", "org", "topics", "url" ],
         "type" : "object"
       },
       "RepositoryResponse" : {
@@ -508,11 +517,11 @@
           "id" : {
             "type" : "string"
           },
+          "key" : {
+            "type" : "string"
+          },
           "language" : {
             "type" : [ "string", "null" ]
-          },
-          "orgRepo" : {
-            "type" : "string"
           },
           "serviceId" : {
             "type" : [ "string", "null" ]
@@ -522,9 +531,12 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "url" : {
+            "type" : "string"
           }
         },
-        "required" : [ "codeowners", "defaultBranch", "id", "orgRepo", "topics" ],
+        "required" : [ "codeowners", "defaultBranch", "id", "key", "topics", "url" ],
         "type" : "object"
       },
       "ServiceNowCI" : {
@@ -1330,6 +1342,33 @@
           }
         },
         "summary" : "Register a repository in the graph",
+        "tags" : [ "Repositories" ]
+      }
+    },
+    "/api/v1/repositories/by-key" : {
+      "get" : {
+        "operationId" : "getRepositoryByKey",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RepositoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Find a repository by its canonical key, in any remote notation",
         "tags" : [ "Repositories" ]
       }
     },

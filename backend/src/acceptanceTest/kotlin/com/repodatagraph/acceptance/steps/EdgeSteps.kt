@@ -31,7 +31,7 @@ class EdgeSteps(
             "Repository",
             mapOf(
                 "url" to url,
-                "orgRepo" to url.substringAfter("github.com/"),
+                "url" to url,
                 "defaultBranch" to "main",
                 "topics" to emptyList<String>(),
                 "codeowners" to emptyList<String>(),

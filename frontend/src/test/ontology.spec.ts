@@ -55,7 +55,10 @@ describe('generated ontology module', () => {
     // A compile-time assertion: `vue-tsc` fails the build if the generated shape disagrees.
     const repository: Repository = {
       id: 'Repository:github.com/acme/payments',
-      orgRepo: 'acme/payments',
+      url: 'https://github.com/acme/payments',
+      host: 'github.com',
+      org: 'acme',
+      name: 'payments',
       defaultBranch: 'main',
       topics: [],
       codeowners: []

@@ -83,10 +83,11 @@
           ],
           "defaultBranch": "main",
           "id": "R1",
-          "orgRepo": "acme/payments",
+          "key": "github.com/acme/payments",
           "topics": [
             "payments"
-          ]
+          ],
+          "url": "https://github.com/acme/payments"
         },
         "headers": {
           "Content-Type": "application/json"
@@ -118,7 +119,7 @@
                 }
               ]
             },
-            "$.orgRepo": {
+            "$.key": {
               "combine": "AND",
               "matchers": [
                 {
@@ -132,6 +133,14 @@
                 {
                   "match": "type",
                   "min": 1
+                }
+              ]
+            },
+            "$.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
                 }
               ]
             }
@@ -617,7 +626,7 @@
       }
     },
     {
-      "description": "a request to register acme/payments",
+      "description": "a request to register the acme/payments remote",
       "providerStates": [
         {
           "name": "no repositories exist"
@@ -627,8 +636,8 @@
         "body": {
           "codeowners": [],
           "defaultBranch": "main",
-          "orgRepo": "acme/payments",
-          "topics": []
+          "topics": [],
+          "url": "acme/payments"
         },
         "headers": {
           "Content-Type": "application/json"
@@ -639,7 +648,8 @@
       "response": {
         "body": {
           "id": "Repository:github.com/acme/payments",
-          "orgRepo": "acme/payments"
+          "key": "github.com/acme/payments",
+          "url": "https://github.com/acme/payments"
         },
         "headers": {
           "Content-Type": "application/json"
@@ -654,7 +664,15 @@
                 }
               ]
             },
-            "$.orgRepo": {
+            "$.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.url": {
               "combine": "AND",
               "matchers": [
                 {

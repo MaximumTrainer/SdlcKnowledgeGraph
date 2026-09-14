@@ -17,11 +17,10 @@ Identity: `host, org, name`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `host` | `string` | no | Host of the remote, e.g. github.com |
-| `org` | `string` | no | Owning organisation or user |
-| `name` | `string` | no | Repository name |
-| `url` | `string` | no | Canonical https remote URL |
-| `orgRepo` | `string` | yes | Legacy org/repo identifier, replaced by host+org+name in #19 |
+| `url` | `string` | yes | The git remote, in any form; stored canonicalised as https://host/org/name |
+| `host` | `string` | no | Host of the remote, e.g. github.com. Derived from url |
+| `org` | `string` | no | Owning organisation or user. Derived from url |
+| `name` | `string` | no | Repository name. Derived from url |
 | `defaultBranch` | `string` | yes |  |
 | `topics` | `string[]` | yes |  |
 | `codeowners` | `string[]` | yes |  |
