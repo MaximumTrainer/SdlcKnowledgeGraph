@@ -1,10 +1,10 @@
 plugins {
-    id("org.springframework.boot") version "3.4.3"
+    id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("jvm") version "2.0.20"
-    kotlin("plugin.spring") version "2.0.20"
+    kotlin("jvm") version "2.0.21"
+    kotlin("plugin.spring") version "2.0.21"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
-    id("io.gitlab.arturbosch.detekt") version "1.23.7"
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
     `jvm-test-suite`
 }
 
@@ -35,7 +35,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     // The ontology registry is YAML on the classpath, read at startup.
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
@@ -76,6 +76,25 @@ detekt {
     config.setFrom(files("config/detekt/detekt.yml"))
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(files("src"))
+}
+
+// detekt runs its own embedded Kotlin compiler and refuses to start when the Kotlin on *its*
+// classpath is not the one it was built against:
+//
+//     detekt was compiled with Kotlin 2.0.21 but is currently running with 2.0.10
+//
+// Spring's dependency-management plugin manages every org.jetbrains.kotlin artifact to the version it
+// sees for the project, and that reaches detekt's classpath too, where it has no business. Pinning
+// detekt's own Kotlin keeps the two independent, so a Kotlin upgrade is no longer silently a detekt
+// upgrade as well, and the other way round (#138).
+//
+// The value is detekt's, not the project's. It changes when detekt does.
+val detektKotlinVersion = "2.0.21"
+
+configurations.matching { it.name.startsWith("detekt") }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin") useVersion(detektKotlinVersion)
+    }
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
@@ -196,7 +215,7 @@ testing {
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
                 implementation("org.testcontainers:junit-jupiter")
                 implementation("org.testcontainers:neo4j")
-                implementation("au.com.dius.pact.provider:junit5spring:4.6.9")
+                implementation("au.com.dius.pact.provider:junit5spring:4.6.21")
             }
             targets.all {
                 testTask.configure {
