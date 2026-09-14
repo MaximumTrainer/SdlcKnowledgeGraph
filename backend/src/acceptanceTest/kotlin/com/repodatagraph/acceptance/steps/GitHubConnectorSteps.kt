@@ -67,8 +67,8 @@ class GitHubConnectorSteps(
     @Given("GitHub has {int} repositories across two pages")
     fun gitHubHasPagedRepositories(total: Int) {
         val all = (1..total).map { FakeRepo(name = "repo-$it") }
-        github.hasPagedRepositories(ORG, all.take(PAGE_SIZE), all.drop(PAGE_SIZE))
-        all.forEach { github.hasNoCodeowners(ORG, it.name) }
+        github.hasRepositories(ORG, all.take(PAGE_SIZE), all.drop(PAGE_SIZE))
+        all.forEach { github.hasCodeowners(ORG, it.name, content = null) }
     }
 
     @Given("GitHub has CODEOWNERS for {string} containing {string}")
@@ -181,7 +181,7 @@ class GitHubConnectorSteps(
         github.hasRepositories(ORG, repos)
         // 404 by default, which is what GitHub answers for a repository with no CODEOWNERS. A
         // scenario that wants one stubs it afterwards, and the later stub takes precedence.
-        repos.forEach { github.hasNoCodeowners(ORG, it.name) }
+        repos.forEach { github.hasCodeowners(ORG, it.name, content = null) }
     }
 
     /** Ownership that is still current: a closed edge is history, not an owner. */
