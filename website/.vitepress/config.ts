@@ -83,7 +83,8 @@ export default defineConfig({
           { text: 'User guide', link: '/guide/user-guide' },
           { text: 'Ontology', link: '/guide/ontology' },
           { text: 'Adapters (planned)', link: '/guide/adapters' },
-          { text: 'Testing and gates', link: '/guide/testing' }
+          { text: 'Testing and gates', link: '/guide/testing' },
+          { text: 'White paper', link: '/guide/agent-systems-white-paper' }
         ]
       },
       {

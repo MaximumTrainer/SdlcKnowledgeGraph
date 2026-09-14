@@ -125,6 +125,7 @@ be undone by a later commit ([ADR-0007](docs/adr/0007-commit-guards.md)).
 | [Ontology](docs/ONTOLOGY.md) | Entity types, relationships, provenance, identity |
 | [Adapters](docs/ADAPTERS.md) | The connector contract, as designed for the next milestone |
 | [Testing](docs/TESTING.md) | The TDD loop, the test suites, and the gates |
+| [White paper](docs/AGENT-SYSTEMS-WHITE-PAPER.md) | How the graph gives software agents a world model they can query |
 | [Decisions](docs/adr/) | Architecture decision records, and why each was made |
 
 All of it is published at
