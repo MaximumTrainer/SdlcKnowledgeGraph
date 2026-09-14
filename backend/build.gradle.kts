@@ -1,17 +1,17 @@
 plugins {
     id("org.springframework.boot") version "3.4.3"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("jvm") version "2.0.20"
-    kotlin("plugin.spring") version "2.0.20"
+    kotlin("jvm") version "2.0.21"
+    kotlin("plugin.spring") version "2.0.21"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.2"
-    id("io.gitlab.arturbosch.detekt") version "1.23.7"
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
     `jvm-test-suite`
 }
 
 group = "com.repodatagraph"
 version = "0.0.1-SNAPSHOT"
 
-val cucumberVersion = "7.20.1"
+val cucumberVersion = "7.34.8"
 
 java {
     toolchain {
@@ -35,7 +35,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     // The ontology registry is YAML on the classpath, read at startup.
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
@@ -196,7 +196,7 @@ testing {
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
                 implementation("org.testcontainers:junit-jupiter")
                 implementation("org.testcontainers:neo4j")
-                implementation("au.com.dius.pact.provider:junit5spring:4.6.9")
+                implementation("au.com.dius.pact.provider:junit5spring:4.7.5")
             }
             targets.all {
                 testTask.configure {
