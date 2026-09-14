@@ -133,7 +133,7 @@ const remove = async (edge: EdgeView) => {
 </script>
 
 <template>
-  <section class="relationships" data-testid="relationship-panel">
+  <section class="relationships" data-test="relationship-panel">
     <header>
       <h2>Relationships</h2>
       <button type="button" @click="adding = !adding">
@@ -194,7 +194,7 @@ const remove = async (edge: EdgeView) => {
 
     <!-- The list is its own region so a test cannot satisfy an assertion from the add form, whose
          type dropdown contains every edge name. -->
-    <div data-testid="relationship-list">
+    <div data-test="relationship-list">
       <p v-if="edges.length === 0">Nothing is related to this yet.</p>
 
       <div v-for="[displayName, group] in grouped" :key="displayName" class="group">

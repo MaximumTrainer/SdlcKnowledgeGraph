@@ -16,6 +16,10 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5173',
+    // The application marks test hooks with `data-test`, so getByTestId has to look for that rather
+    // than Playwright's default `data-testid`. Two of the ten used the default spelling, which is
+    // how the inconsistency stayed invisible until a new spec reached for one of the other eight.
+    testIdAttribute: 'data-test',
     trace: 'on-first-retry'
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
