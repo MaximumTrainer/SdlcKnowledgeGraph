@@ -138,4 +138,62 @@ class RepositoryControllerTest {
             .andExpect(status().isNoContent)
         verify(repositoryUseCase).deleteRepository("1")
     }
+
+    /**
+     * Lookup by canonical key is what a connector needs: it has a remote in some notation and wants
+     * the node, without knowing the id the graph happened to assign. The key it supplies goes through
+     * the same normalisation as the key that was stored, or the two would only match when the caller
+     * already spelled it the way we do - which is the very problem #8 exists to remove.
+     */
+    @Test
+    fun `GET by-key returns the repository for its canonical key`() {
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(storedRepository())
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-key").param("key", "github.com/acme/payments"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value("Repository:github.com/acme/payments"))
+    }
+
+    @Test
+    fun `GET by-key normalises the key it is given`() {
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(storedRepository())
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-key").param("key", "git@github.com:Acme/Payments.git"))
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `GET by-key returns 404 when nothing holds that key`() {
+        whenever(nodeUseCase.get(eq("Repository"), any())).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-key").param("key", "github.com/acme/nothing-here"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `GET by-key refuses something that is not a git remote`() {
+        mockMvc
+            .perform(get("/api/v1/repositories/by-key").param("key", "https://example.com/page"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("invalid git remote"))
+    }
+
+    private fun storedRepository() =
+        GraphNode(
+            key = NodeKey("Repository", "github.com/acme/payments"),
+            props =
+                mapOf(
+                    "url" to "https://github.com/acme/payments",
+                    "host" to "github.com",
+                    "org" to "acme",
+                    "name" to "payments",
+                    "defaultBranch" to "main",
+                    "topics" to emptyList<String>(),
+                    "codeowners" to emptyList<String>(),
+                ),
+            provenance = Provenance(sourceSystem = "manual", ingestedAt = Instant.EPOCH, validFrom = Instant.EPOCH),
+        )
 }
