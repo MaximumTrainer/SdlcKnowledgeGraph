@@ -14,6 +14,15 @@ data class ConnectorSummary(
     val sourceSystem: String,
     val enabled: Boolean,
     val capabilities: Set<Capability>,
+    /**
+     * Whether a run is in flight right now.
+     *
+     * From the in-process guard, not from the newest SyncRun node. They are not the same thing: the
+     * guard is released a moment before the run's final status is written, and the history can be
+     * pruned while a run is going. A caller that inferred this from stored runs would sometimes ask
+     * for a sync and get a 409 it had no way to see coming.
+     */
+    val syncing: Boolean,
     val health: HealthView,
     val lastRun: LastRunView?,
 ) {
@@ -22,11 +31,13 @@ data class ConnectorSummary(
             registered: RegisteredConnector,
             health: HealthStatus,
             state: GraphNode?,
+            syncing: Boolean,
         ) = ConnectorSummary(
             name = registered.name,
             sourceSystem = registered.descriptor.sourceSystem,
             enabled = registered.enabled,
             capabilities = registered.descriptor.capabilities,
+            syncing = syncing,
             health = HealthView(health.status.name, health.detail),
             lastRun = LastRunView.from(state),
         )
@@ -65,6 +76,8 @@ data class ConnectorDetail(
     val capabilities: Set<Capability>,
     val nodeTypes: Set<String>,
     val edgeTypes: Set<String>,
+    /** See [ConnectorSummary.syncing]. */
+    val syncing: Boolean,
     val health: HealthView,
     val state: ConnectorStateView,
 ) {
@@ -73,6 +86,7 @@ data class ConnectorDetail(
             registered: RegisteredConnector,
             health: HealthStatus,
             state: GraphNode?,
+            syncing: Boolean,
         ): ConnectorDetail {
             val descriptor = registered.descriptor
             return ConnectorDetail(
@@ -82,6 +96,7 @@ data class ConnectorDetail(
                 capabilities = descriptor.capabilities,
                 nodeTypes = descriptor.nodeTypes,
                 edgeTypes = descriptor.edgeTypes,
+                syncing = syncing,
                 health = HealthView(health.status.name, health.detail),
                 state = ConnectorStateView.from(state),
             )

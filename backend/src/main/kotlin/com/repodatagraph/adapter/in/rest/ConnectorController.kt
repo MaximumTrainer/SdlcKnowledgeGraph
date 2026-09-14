@@ -48,7 +48,12 @@ class ConnectorController(
     @Operation(summary = "List every connector, with its state and last run")
     fun list(): List<ConnectorSummary> =
         registry.all().map { registered ->
-            ConnectorSummary.from(registered, registered.connector.healthCheck(), stateOf(registered.name))
+            ConnectorSummary.from(
+                registered,
+                registered.connector.healthCheck(),
+                stateOf(registered.name),
+                syncService.isRunning(registered.name),
+            )
         }
 
     @GetMapping("/{name}")
@@ -57,7 +62,12 @@ class ConnectorController(
         @PathVariable name: String,
     ): ConnectorDetail {
         val registered = registry.find(name) ?: throw UnknownConnectorException(name)
-        return ConnectorDetail.from(registered, registered.connector.healthCheck(), stateOf(name))
+        return ConnectorDetail.from(
+            registered,
+            registered.connector.healthCheck(),
+            stateOf(name),
+            syncService.isRunning(name),
+        )
     }
 
     @GetMapping("/{name}/health")

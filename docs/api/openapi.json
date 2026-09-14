@@ -94,9 +94,12 @@
           },
           "state" : {
             "$ref" : "#/components/schemas/ConnectorStateView"
+          },
+          "syncing" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "capabilities", "edgeTypes", "enabled", "health", "name", "nodeTypes", "sourceSystem", "state" ],
+        "required" : [ "capabilities", "edgeTypes", "enabled", "health", "name", "nodeTypes", "sourceSystem", "state", "syncing" ],
         "type" : "object"
       },
       "ConnectorStateView" : {
@@ -144,9 +147,12 @@
           },
           "sourceSystem" : {
             "type" : "string"
+          },
+          "syncing" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "capabilities", "enabled", "health", "name", "sourceSystem" ],
+        "required" : [ "capabilities", "enabled", "health", "name", "sourceSystem", "syncing" ],
         "type" : "object"
       },
       "CreateRepositoryRequest" : {

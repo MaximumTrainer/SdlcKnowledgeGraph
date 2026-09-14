@@ -43,17 +43,17 @@ class ConnectorSteps(
      * One scenario deliberately leaves a run going to prove that overlapping runs are refused. Left
      * alone, the next scenario asks for a sync, gets that 409, and fails somewhere unrelated - so the
      * suite would only pass in the order it happened to be written in.
+     *
+     * Asks the connector, not the stored runs. Another step class empties the graph before every
+     * scenario, and Cucumber does not order hooks across classes - so a guard that read SyncRun nodes
+     * would sometimes find them already deleted, conclude all was quiet, and walk into the 409 it was
+     * written to avoid.
      */
     private fun awaitNoRunInFlight() {
         val deadline = Instant.now().plus(RUN_TIMEOUT)
         while (Instant.now().isBefore(deadline)) {
-            // Every run, not just the newest. Runs are ordered by when they started, and two that
-            // start in the same instant have no reliable order - so asking only for the newest can
-            // return a finished one while another is still going, and the next scenario then starts
-            // against a busy connector and gets a 409 somewhere unrelated.
-            world.get("/api/v1/connectors/fake/runs?limit=50")
-            val stillRunning = world.lastBody().any { it.path("status").asText() == "RUNNING" }
-            if (!stillRunning) return
+            world.get("/api/v1/connectors/fake")
+            if (!world.lastBody().path("syncing").asBoolean()) return
             Thread.sleep(POLL.toMillis())
         }
     }
