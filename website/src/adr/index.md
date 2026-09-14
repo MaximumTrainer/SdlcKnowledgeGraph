@@ -16,3 +16,4 @@ record, not an edit to the old one.
 | [0006](./0006-website-generated-from-sources) | The website is generated from repository sources | Accepted |
 | [0007](./0007-commit-guards) | Guard the commit against what cannot be undone | Accepted |
 | [0008](./0008-dependency-updates) | Dependency updates arrive continuously, and the toolchain tracks supported majors | Accepted |
+| [0009](./0009-branch-protection) | `main` is protected on the server, and the rule applies to everyone | Accepted |
