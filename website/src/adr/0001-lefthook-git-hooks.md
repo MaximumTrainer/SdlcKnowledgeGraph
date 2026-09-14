@@ -17,7 +17,7 @@ a passing check before merge. Local git hooks plus a CI status check are the gat
 
 > **Note, added later.** That premise no longer holds. The repository went public, branch protection
 > became available, and `main` is now protected on the server - see
-> [ADR-0009](0009-branch-protection.md). The hooks are kept: a server-side rule rejects a push after
+> [ADR-0009](/adr/0009-branch-protection). The hooks are kept: a server-side rule rejects a push after
 > the work is done, while a hook refuses the commit before it is. The paragraph above is left as it
 > was written, because it was true then and it is why the hooks exist at all.
 

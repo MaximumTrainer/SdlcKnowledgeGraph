@@ -64,15 +64,23 @@ rather than only a commit made while standing on `main`.
 ## Consequences
 
 Required status checks have to name checks that actually run, or a merge waits forever for a report
-that never arrives. The list is therefore the six jobs on `main` at the time this was applied:
-`Commit messages`, `Guards (hygiene, secrets, hook config)`,
-`Backend (unit, integration, acceptance, contract)`, `Frontend (lint, typecheck, unit, build)`,
-`Website (generate, drift, build)` and `End-to-end (compose + Playwright)`.
+that never arrives. Eight are required:
 
-`Root scripts (guard unit tests)`, added by [#65](../../../issues/65), is deliberately absent: it
-does not exist on `main` yet, and requiring a check that never reports would have deadlocked every
-merge including the one that introduces it. It should be added to the required list once it has run
-on `main` at least once. Adding a
+| Check | From |
+| --- | --- |
+| `Commit messages` | commitlint over the branch's commits |
+| `Guards (hygiene, secrets, hook config)` | the whole-repository guard run |
+| `Root scripts (guard unit tests) (ubuntu-latest)` | [#65](../../../issues/65) |
+| `Root scripts (guard unit tests) (windows-latest)` | [#65](../../../issues/65) |
+| `Backend (unit, integration, acceptance, contract)` | all four Gradle suites |
+| `Frontend (lint, typecheck, unit, build)` | the frontend verify chain |
+| `Website (generate, drift, build)` | the generator, its drift check and the site tests |
+| `End-to-end (compose + Playwright)` | the browser tests against the compose stack |
+
+The two `Root scripts` contexts were added in a second pass rather than with the rest. They did not
+exist on `main` when the rule was first applied, and requiring a check that never reports deadlocks
+every merge — including the one that would introduce it. The general rule follows from that: a job
+has to run on `main` at least once before it can be required. Adding a
 CI job means adding its context here, and **removing or renaming one means removing it from the
 required list first** — a required check whose job no longer exists blocks every merge, and the
 symptom (a pull request stuck on "Expected — waiting for status to be reported") does not obviously

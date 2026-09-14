@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
@@ -45,6 +45,27 @@ jobs:
       # them: unresolved conflict markers, oversized files, credential files, leaked secrets, and a
       # lefthook.yml that still parses.
       - run: npm run guards
+
+  root-scripts:
+    # The guards decide whether a commit is allowed, and their failure mode is silent: one that has
+    # stopped refusing looks exactly like one with nothing to refuse. Both platforms are run because
+    # path separators and line endings are where these scripts break - see #53, which was exactly
+    # that, and was invisible in CI precisely because CI only ran Linux.
+    name: Root scripts (guard unit tests)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run test:unit
 
   backend:
     name: Backend (unit, integration, acceptance, contract)
@@ -83,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -116,7 +137,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: website/package-lock.json
       - run: npm ci
@@ -148,7 +169,7 @@ jobs:
         run: docker compose up -d --build --wait
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci

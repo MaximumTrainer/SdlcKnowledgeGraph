@@ -1,0 +1,16 @@
+# Paths the `hygiene` guard's credential rule must not refuse.
+#
+# That rule matches on the path - `.env`, private keys, keystores, `.npmrc` - because the content
+# scanner cannot help once a file is an opaque binary like a PKCS#12 store. Some credential-shaped
+# paths hold no credential: an `.npmrc` setting `engine-strict`, a public certificate, a keystore
+# used as a test fixture. Listing one here is the named way out, so that the first false positive is
+# not met with `LEFTHOOK=0`, which turns off every other guard at the same time (ADR-0007).
+#
+# One path or glob per line, matched against the whole repository-relative path. `*` stops at a
+# directory separator, `**` does not. A bare name is the path at the root, so listing `.npmrc` does
+# not forgive `deploy/.npmrc`.
+#
+# This forgives the name only. `secrets` still scans the content, and the size and conflict-marker
+# checks still apply - otherwise this file would be the way to smuggle a credential past the gate.
+#
+# Nothing needs allowing yet. Keep it that way where you can.

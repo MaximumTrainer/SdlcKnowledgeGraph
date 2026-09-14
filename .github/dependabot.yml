@@ -1,0 +1,64 @@
+# Keeps dependency updates arriving continuously instead of accumulating into a backlog.
+#
+# Enabling alerts on this repository surfaced 48 of them at once, 19 high (#68). None were new; they
+# had simply never been reported. Weekly grouped pull requests are the point of this file: a steady
+# trickle that gets reviewed, rather than a pile nobody can face.
+#
+# Grouping matters as much as the schedule. Ungrouped, the backlog above would have opened forty
+# pull requests, and forty pull requests get ignored exactly like one enormous one does. Minor and
+# patch updates are grouped per ecosystem; majors are left to arrive on their own, because those are
+# the ones that need a person to look at a changelog.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /            # lefthook, commitlint, secretlint - the commit gates
+      - /frontend    # the Vue application and its toolchain
+      - /website     # the generated documentation site
+      - /e2e         # Playwright, against the compose stack
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      # commitlint enforces conventional commits with a known scope, and rejects anything else, so a
+      # Dependabot pull request that does not use one cannot be merged (see commitlint.config.cjs).
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps)"
+    groups:
+      # One pull request per ecosystem for the routine updates. Security fixes are grouped too: the
+      # whole problem this file solves is a backlog of small, individually unremarkable bumps.
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # The workflows pin actions by major version, so this mostly catches an action that has moved on a
+  # major - which is the case that silently stops a job from being maintained.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Gradle and the Spring Boot BOM. The backend was not in the alert backlog, which is not the same
+  # as being up to date - nothing was watching it.
+  - package-ecosystem: gradle
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
