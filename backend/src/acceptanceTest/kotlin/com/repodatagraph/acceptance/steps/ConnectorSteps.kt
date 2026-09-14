@@ -88,8 +88,7 @@ class ConnectorSteps(
         watermark: String,
     ) {
         fake.pages = listOf({ GraphDelta(watermark = Instant.parse(watermark)) })
-        world.post("/api/v1/connectors/$connector/sync?mode=full", null)
-        awaitRun(world.lastBody().path("syncRunId").asText(), "SUCCESS")
+        awaitRun(startSync(connector), "SUCCESS")
         fake.requests.clear()
     }
 
@@ -108,8 +107,7 @@ class ConnectorSteps(
     @Given("the fake connector previously produced a Repository {string}")
     fun theFakeConnectorPreviouslyProduced(key: String) {
         fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert(key))) })
-        world.post("/api/v1/connectors/fake/sync?mode=full", null)
-        awaitRun(world.lastBody().path("syncRunId").asText(), "SUCCESS")
+        awaitRun(startSync("fake"), "SUCCESS")
     }
 
     @Given("the fake connector will return a tombstone for Repository {string}")
@@ -134,6 +132,20 @@ class ConnectorSteps(
     @When("I ask the fake connector for an incremental sync")
     fun iAskForAnIncrementalSync() {
         requestSync("fake", "incremental")
+    }
+
+    /**
+     * Starts a sync that the scenario is relying on, and fails here if it was refused.
+     *
+     * Without this, a refused setup leaves an empty run id and the failure surfaces much later as
+     * "the run did not reach SUCCESS" - which says nothing about the sync never having started.
+     */
+    private fun startSync(connector: String): String {
+        world.post("/api/v1/connectors/$connector/sync?mode=full", null)
+        assertEquals(ACCEPTED, world.lastStatus()) {
+            "setting up a sync for '" + connector + "' was refused: " + world.lastResponse().body
+        }
+        return world.lastBody().path("syncRunId").asText()
     }
 
     private fun requestSync(
