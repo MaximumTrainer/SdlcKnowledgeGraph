@@ -4,6 +4,7 @@ import App from './App.vue'
 import NodeList from './views/NodeList.vue'
 import NodeDetail from './views/NodeDetail.vue'
 import NodeEditor from './views/NodeEditor.vue'
+import ConnectorsView from './views/ConnectorsView.vue'
 
 /**
  * One set of routes for every node type, keyed by registry type, so a type added to the ontology is
@@ -32,6 +33,7 @@ const router = createRouter({
       component: NodeDetail,
       props: route => ({ type: route.params.type, id: nodeId(route.params.id) })
     },
+    { path: '/connectors', component: ConnectorsView },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },
     { path: '/repositories/:id', redirect: to => `/nodes/Repository/${to.params.id}` }

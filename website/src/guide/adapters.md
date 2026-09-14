@@ -5,15 +5,14 @@
 An adapter, or connector, reads a source system and produces graph changes. Connectors are how the
 graph stops being a hand-maintained diagram and starts reflecting reality.
 
-> **Status: design, not yet implemented.** Nothing on this page exists in the codebase today. There
-> is no `SourceConnector` interface, no `AdapterRegistry`, no `connectors.*` configuration, no
-> `/api/v1/connectors` endpoints and no link resolution engine; `SyncRun` is declared in the
-> ontology registry but nothing writes one, and every node and edge is currently entered by hand
-> (see the [user guide](/guide/user-guide)). This document is the target contract that the M2
-> milestone builds: the SPI in [#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22), with reference implementations in
-> [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) (GitHub), [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) (ServiceNow) and [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25)
-> (AWS), and link resolution in [#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28). Read every present-tense sentence below as
-> a requirement on that work.
+> **Status: the mechanism is built; the connectors are not.** [#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22) implemented the
+> SPI, `AdapterRegistry`, `SyncService`, `GraphDeltaWriter`, `SyncScheduler`, the `connectors.*`
+> configuration, the `/api/v1/connectors` and `/api/v1/webhooks` endpoints, the `SyncRun` and
+> `ConnectorState` nodes and the `PRODUCED` edge. What does **not** exist yet is a connector to any
+> real system: GitHub is [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23), ServiceNow [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24), AWS
+> [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25), and link resolution [#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28). Until one of those lands, every
+> node and edge is entered by hand (see the [user guide](/guide/user-guide)) — the graph has a front
+> door, and nothing is coming through it yet.
 
 ## The contract
 
@@ -140,12 +139,55 @@ rejects it, recording a tombstone with a reason so the rule does not keep re-pro
 
 Re-running the engine is idempotent.
 
-## Adding a connector
+## Writing a connector
 
-1. Write the acceptance feature first, using the fake source server.
-2. Implement `SourceConnector`, or `ItsmConnector` or `CloudConnector` if one fits.
-3. Declare every node and edge type it produces in `descriptor()`, and add any new types to the
-   ontology registry.
-4. Derive identity keys with the shared resolver. Never invent an identifier.
-5. Set provenance honestly. A guess is `inferred = true` with a confidence below 1.0.
-6. Register configuration under `connectors.<name>` with credentials from environment variables.
+A connector says **what it saw** and **when**. Everything else — identity, provenance, the run it
+belonged to, whether a fact is still current — is the mechanism's job. That division is what makes a
+connector small, and what stops six connectors each getting provenance slightly wrong.
+
+1. **Write the acceptance feature first**, against a fake source server. `FakeConnector` in
+   `src/testSupport` already proves the mechanism: that a run is recorded, that provenance is
+   stamped, that a tombstone closes rather than deletes. Your feature only needs to prove the part
+   that is about *your* source system.
+2. **Implement `SourceConnector`**, or `ItsmConnector` / `CloudConnector` if one fits.
+3. **Declare every node and edge type you produce** in `descriptor()`. `AdapterRegistry` checks them
+   against the ontology at startup and refuses to boot on an unknown one, because a connector writing
+   an undeclared type fills the graph with nodes no traversal can reach.
+4. **Return pages, not everything.** An estate does not fit in memory, and a page that fails leaves
+   the pages before it intact — the run is marked `PARTIAL` rather than lost.
+5. **Report a watermark** on each page if the source can say where you got to. It is stored only after
+   a wholly successful run, so a partial one is retried rather than skipped.
+6. **Never construct provenance.** Set `observedAt` when the source says the fact was true, and
+   `confidence`/`inferred` when you are guessing rather than reporting. Who reported it and in which
+   run is stamped for you.
+7. **Never invent an identifier.** Return the properties an identity is derived from and let the
+   resolver derive the key, or the same thing seen by two connectors becomes two nodes.
+8. **Emit a tombstone** when the source stops reporting something. It closes the fact's validity; it
+   does not delete it. A bad day at the source must not erase history.
+9. **Implement `verifyWebhook`** if you accept webhooks, using `WebhookSignatureVerifier` for the
+   constant-time HMAC compare. It defaults to refusing everything, which is the right default.
+10. **Register configuration** under `connectors.<name>`, with credentials from environment
+    variables. Connectors are disabled by default: being on the classpath is not consent to reach a
+    real system.
+
+### Configuration
+
+```yaml
+connectors:
+  settings:
+    github:
+      enabled: true
+      schedule: "0 */15 * * * *"   # cron; the default is every quarter hour
+      webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+```
+
+A disabled connector is still listed by `GET /api/v1/connectors` with `enabled: false`, so "why is
+nothing syncing" is answered by looking rather than by guessing which bean failed to load.
+
+### What a run records
+
+`SyncRun` holds the connector, the mode (`FULL`, `INCREMENTAL`, `WEBHOOK`), the counts, the
+watermark and the error if there was one. `ConnectorState` holds where the last successful run got
+to. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
+run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
+than merely auditable.

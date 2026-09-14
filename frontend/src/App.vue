@@ -7,6 +7,7 @@
           <router-link to="/nodes/Repository">Repositories</router-link>
           <router-link to="/nodes/Team">Teams</router-link>
           <router-link to="/nodes/Service">Services</router-link>
+          <router-link to="/connectors">Connectors</router-link>
         </div>
       </nav>
     </header>

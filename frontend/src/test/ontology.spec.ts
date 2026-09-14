@@ -30,7 +30,9 @@ describe('generated ontology module', () => {
   })
 
   it('covers the nine core types of the minimum viable graph', () => {
-    expect(NODE_TYPES.length).toBe(11)
+    // Named rather than counted. A total also caught a type being dropped, but it caught every type
+    // being *added* just as loudly — including the meta types that describe the graph itself — so it
+    // failed for the wrong reason every time the registry grew.
     for (const core of [
       'Repository',
       'Team',
@@ -43,6 +45,13 @@ describe('generated ontology module', () => {
       'ConfigurationItem'
     ] as NodeType[]) {
       expect(NODE_TYPES).toContain(core)
+    }
+  })
+
+  /** The graph describing itself: which ontology version built it, and what has been ingested. */
+  it('declares the meta types the ingestion mechanism records into', () => {
+    for (const meta of ['Ontology', 'SyncRun', 'ConnectorState'] as NodeType[]) {
+      expect(NODE_TYPES).toContain(meta)
     }
   })
 
