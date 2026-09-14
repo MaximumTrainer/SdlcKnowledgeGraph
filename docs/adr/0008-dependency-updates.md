@@ -72,7 +72,14 @@ is committed).
 
 Dependabot will now open pull requests that nobody asked for, every week. That is the intended cost.
 They go through the same gate as any other change — a branch, a pull request, green CI — and
-`commit-message.prefix` is set so their subjects satisfy `commitlint`, which would otherwise reject
-them and make them unmergeable.
+`commit-message.prefix` is set so their subjects satisfy `commitlint`'s `type-enum` and `scope-enum`.
+
+That was not sufficient on its own. `commitlint.config.cjs` also requires an issue reference, which
+Dependabot cannot supply because it has no issue, so the first eleven pull requests this
+configuration opened all failed the commit message check and none could be merged — rebuilding
+the backlog this ADR exists to prevent, with each item now also showing a red build. #119 added an
+`ignores` predicate keyed on the `Signed-off-by: dependabot[bot]` trailer. Keyed on the signature
+rather than the subject on purpose: a person can write a subject that looks like a dependency bump,
+and only Dependabot can sign as Dependabot, so the exemption cannot be reached by hand.
 
 The count means something again. A non-zero alert count is now a signal rather than a backlog.
