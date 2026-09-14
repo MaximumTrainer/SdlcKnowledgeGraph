@@ -23,7 +23,7 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.30.0",
+    "@eslint/js": "^10.0.1",
     "@pact-foundation/pact": "^17.1.4",
     "@types/node": "^26.5.1",
     "@vitejs/plugin-vue": "^6.0.8",
