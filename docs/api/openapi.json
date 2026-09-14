@@ -4,10 +4,10 @@
       "AuditEvent" : {
         "properties" : {
           "actor" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "artifactId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "details" : {
             "additionalProperties" : {
@@ -22,7 +22,7 @@
             "type" : "string"
           },
           "repoId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "timestamp" : {
             "format" : "date-time",
@@ -44,10 +44,10 @@
             "type" : "string"
           },
           "region" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "repoId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "resourceType" : {
             "type" : "string"
@@ -68,16 +68,16 @@
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "language" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "orgRepo" : {
             "type" : "string"
           },
           "serviceId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "topics" : {
             "items" : {
@@ -99,7 +99,7 @@
             "type" : "string"
           },
           "deployedBy" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "environmentId" : {
             "type" : "string"
@@ -132,9 +132,7 @@
             "type" : "string"
           },
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
+            "additionalProperties" : { },
             "type" : "object"
           },
           "toId" : {
@@ -156,9 +154,7 @@
             "type" : "string"
           },
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
+            "additionalProperties" : { },
             "type" : "object"
           },
           "provenance" : {
@@ -177,7 +173,7 @@
       "EdgeTypeResponse" : {
         "properties" : {
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "from" : {
             "items" : {
@@ -222,9 +218,7 @@
             "$ref" : "#/components/schemas/NodeRefResponse"
           },
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
+            "additionalProperties" : { },
             "type" : "object"
           },
           "provenance" : {
@@ -273,7 +267,7 @@
             "type" : "array"
           },
           "nextCursor" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         },
         "required" : [ "items" ],
@@ -288,10 +282,8 @@
             "type" : "string"
           },
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
-            "type" : "object"
+            "additionalProperties" : { },
+            "type" : [ "object", "null" ]
           },
           "type" : {
             "type" : "string"
@@ -303,9 +295,7 @@
       "NodeRequest" : {
         "properties" : {
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
+            "additionalProperties" : { },
             "type" : "object"
           }
         },
@@ -321,9 +311,7 @@
             "type" : "string"
           },
           "props" : {
-            "additionalProperties" : {
-              "type" : "object"
-            },
+            "additionalProperties" : { },
             "type" : "object"
           },
           "provenance" : {
@@ -339,7 +327,7 @@
       "NodeTypeResponse" : {
         "properties" : {
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "identity" : {
             "items" : {
@@ -387,7 +375,7 @@
             "type" : "string"
           },
           "lastRunStatus" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "name" : {
             "type" : "string"
@@ -405,13 +393,13 @@
       "PropertyResponse" : {
         "properties" : {
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "enum" : {
             "items" : {
               "type" : "string"
             },
-            "type" : "array"
+            "type" : [ "array", "null" ]
           },
           "name" : {
             "type" : "string"
@@ -444,16 +432,16 @@
           },
           "observedAt" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "sourceId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "sourceSystem" : {
             "type" : "string"
           },
           "syncRunId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "validFrom" : {
             "format" : "date-time",
@@ -461,7 +449,7 @@
           },
           "validTo" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         },
         "required" : [ "confidence", "current", "inferred", "ingestedAt", "sourceSystem", "validFrom" ],
@@ -479,19 +467,19 @@
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "type" : "string"
           },
           "language" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "orgRepo" : {
             "type" : "string"
           },
           "serviceId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "topics" : {
             "items" : {
@@ -515,19 +503,19 @@
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "type" : "string"
           },
           "language" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "orgRepo" : {
             "type" : "string"
           },
           "serviceId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "topics" : {
             "items" : {
@@ -548,7 +536,7 @@
             "type" : "string"
           },
           "repoId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "serviceId" : {
             "type" : "string"
@@ -560,7 +548,7 @@
       "Team" : {
         "properties" : {
           "email" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "type" : "string"
