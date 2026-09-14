@@ -47,9 +47,13 @@ class ConnectorSteps(
     private fun awaitNoRunInFlight() {
         val deadline = Instant.now().plus(RUN_TIMEOUT)
         while (Instant.now().isBefore(deadline)) {
-            world.get("/api/v1/connectors/fake/runs?limit=1")
-            val newest = world.lastBody().firstOrNull()
-            if (newest == null || newest.path("status").asText() != "RUNNING") return
+            // Every run, not just the newest. Runs are ordered by when they started, and two that
+            // start in the same instant have no reliable order - so asking only for the newest can
+            // return a finished one while another is still going, and the next scenario then starts
+            // against a busy connector and gets a 409 somewhere unrelated.
+            world.get("/api/v1/connectors/fake/runs?limit=50")
+            val stillRunning = world.lastBody().any { it.path("status").asText() == "RUNNING" }
+            if (!stillRunning) return
             Thread.sleep(POLL.toMillis())
         }
     }
@@ -137,7 +141,10 @@ class ConnectorSteps(
         mode: String,
     ) {
         world.post("/api/v1/connectors/$connector/sync?mode=$mode", null)
-        if (world.lastStatus() == ACCEPTED) syncRunId = world.lastBody().path("syncRunId").asText()
+        // Cleared rather than left alone when the sync was refused. Keeping the previous run's id
+        // would let a later step wait happily on a run that finished in an earlier scenario, and
+        // report success for something that never started.
+        syncRunId = if (world.lastStatus() == ACCEPTED) world.lastBody().path("syncRunId").asText() else null
     }
 
     @When("I list the connectors")
