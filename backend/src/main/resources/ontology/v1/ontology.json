@@ -16,7 +16,8 @@
         { "name": "serviceId", "type": "string", "required": false, "description": null },
         { "name": "language", "type": "string", "required": false, "description": null },
         { "name": "description", "type": "string", "required": false, "description": null },
-        { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] }
+        { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] },
+        { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" }
       ]
     },
     {
@@ -116,6 +117,27 @@
       ]
     },
     {
+      "name": "Library",
+      "description": "A third-party package a repository depends on, as its ecosystem names it.",
+      "identity": ["ecosystem", "name"],
+      "properties": [
+        { "name": "ecosystem", "type": "string", "required": true, "description": "npm, maven, pypi, go or gradle", "enum": ["npm", "maven", "pypi", "go"] },
+        { "name": "name", "type": "string", "required": true, "description": "The package name as the manifest spells it" },
+        { "name": "description", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "IacFile",
+      "description": "An infrastructure-as-code file, and the resources it names.",
+      "identity": ["repoKey", "path"],
+      "properties": [
+        { "name": "repoKey", "type": "string", "required": true, "description": "Key of the repository holding the file" },
+        { "name": "path", "type": "string", "required": true, "description": "Path within the default branch" },
+        { "name": "format", "type": "string", "required": true, "description": null, "enum": ["terraform", "cdk", "bicep", "cloudformation"] },
+        { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on" }
+      ]
+    },
+    {
       "name": "Ontology",
       "description": "Records which ontology version the graph was built with.",
       "identity": ["version"],
@@ -179,13 +201,24 @@
     },
     {
       "name": "DEPENDS_ON",
-      "description": "A dependency between repositories or services.",
+      "description": "A dependency between repositories, services or third-party libraries.",
       "from": ["Repository", "Service"],
-      "to": ["Repository", "Service"],
+      "to": ["Repository", "Service", "Library"],
       "inverse": "DEPENDED_ON_BY",
       "properties": [
         { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data"] },
-        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" }
+        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" },
+        { "name": "version", "type": "string", "required": false, "description": "The version the manifest asks for, as written" },
+        { "name": "scope", "type": "string", "required": false, "description": "Whether the dependency is needed to run or only to build", "enum": ["runtime", "dev"] }
+      ]
+    },
+    {
+      "name": "CONTAINS_IAC",
+      "description": "A repository holds an infrastructure-as-code file.",
+      "from": ["Repository"],
+      "to": ["IacFile"],
+      "inverse": "IAC_IN",
+      "properties": [
       ]
     },
     {
@@ -247,7 +280,7 @@
       "name": "PRODUCED",
       "description": "A sync run asserted this node.",
       "from": ["SyncRun"],
-      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem"],
+      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile"],
       "inverse": "PRODUCED_BY",
       "properties": [
       ]

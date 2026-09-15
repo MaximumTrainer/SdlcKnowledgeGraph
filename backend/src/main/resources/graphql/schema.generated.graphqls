@@ -36,6 +36,7 @@ type RepositoryNode implements GraphNode {
   language: String
   description: String
   visibility: String
+  packageNames: [String!]
   provenance: Provenance!
 }
 
@@ -135,6 +136,27 @@ type ConfigurationItemNode implements GraphNode {
   provenance: Provenance!
 }
 
+"""A third-party package a repository depends on, as its ecosystem names it."""
+type LibraryNode implements GraphNode {
+  id: ID!
+  key: String!
+  ecosystem: String!
+  name: String!
+  description: String
+  provenance: Provenance!
+}
+
+"""An infrastructure-as-code file, and the resources it names."""
+type IacFileNode implements GraphNode {
+  id: ID!
+  key: String!
+  repoKey: String!
+  path: String!
+  format: String!
+  resourceRefs: [String!]
+  provenance: Provenance!
+}
+
 """Records which ontology version the graph was built with."""
 type OntologyNode implements GraphNode {
   id: ID!
@@ -178,6 +200,7 @@ enum EdgeType {
   OWNED_BY
   OWNS_RESOURCE
   DEPENDS_ON
+  CONTAINS_IAC
   HAS_PIPELINE
   RELATES_TO_CI
   BUILT_FROM

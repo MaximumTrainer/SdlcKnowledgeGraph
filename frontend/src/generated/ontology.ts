@@ -29,6 +29,7 @@ export interface Repository {
   language?: string
   description?: string
   visibility?: string
+  packageNames?: string[]
 }
 
 /** A group that owns repositories, services or infrastructure. */
@@ -111,6 +112,23 @@ export interface ConfigurationItem {
   serviceId?: string
 }
 
+/** A third-party package a repository depends on, as its ecosystem names it. */
+export interface Library {
+  id: string
+  ecosystem: string
+  name: string
+  description?: string
+}
+
+/** An infrastructure-as-code file, and the resources it names. */
+export interface IacFile {
+  id: string
+  repoKey: string
+  path: string
+  format: string
+  resourceRefs?: string[]
+}
+
 /** Records which ontology version the graph was built with. */
 export interface Ontology {
   id: string
@@ -154,6 +172,8 @@ export type NodeType =
   | 'Environment'
   | 'CloudResource'
   | 'ConfigurationItem'
+  | 'Library'
+  | 'IacFile'
   | 'Ontology'
   | 'SyncRun'
   | 'ConnectorState'
@@ -168,6 +188,8 @@ export const NODE_TYPES: readonly NodeType[] = [
   'Environment',
   'CloudResource',
   'ConfigurationItem',
+  'Library',
+  'IacFile',
   'Ontology',
   'SyncRun',
   'ConnectorState'
@@ -177,6 +199,7 @@ export type EdgeTypeName =
   | 'OWNED_BY'
   | 'OWNS_RESOURCE'
   | 'DEPENDS_ON'
+  | 'CONTAINS_IAC'
   | 'HAS_PIPELINE'
   | 'RELATES_TO_CI'
   | 'BUILT_FROM'
@@ -189,6 +212,7 @@ export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'OWNED_BY',
   'OWNS_RESOURCE',
   'DEPENDS_ON',
+  'CONTAINS_IAC',
   'HAS_PIPELINE',
   'RELATES_TO_CI',
   'BUILT_FROM',

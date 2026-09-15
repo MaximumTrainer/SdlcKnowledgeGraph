@@ -25,14 +25,15 @@ class GitHubConnector(
     private val properties: GitHubProperties,
     private val client: GitHubClient,
     private val mapper: GitHubRepositoryMapper,
+    private val contentsMapper: RepositoryContentsMapper,
     private val clock: Clock,
 ) : SourceConnector {
     override fun descriptor() =
         ConnectorDescriptor(
             name = NAME,
             sourceSystem = NAME,
-            nodeTypes = setOf("Repository", "Team"),
-            edgeTypes = setOf("OWNED_BY"),
+            nodeTypes = setOf("Repository", "Team", "Library", "IacFile"),
+            edgeTypes = setOf("OWNED_BY", "DEPENDS_ON", "CONTAINS_IAC"),
             // No WEBHOOK yet: the SPI refuses a capability that is only declared, and repository and
             // team events are their own piece of work (#23c).
             capabilities = setOf(Capability.FULL, Capability.INCREMENTAL, Capability.DISCOVERY),
@@ -52,7 +53,7 @@ class GitHubConnector(
         )
 
     /**
-     * One delta per page of repositories, so a run that fails halfway keeps what it had already read.
+     * Hands the run to a [GitHubSyncSession], which carries the state a run needs while it is going.
      *
      * The watermark is when the run started reading, not the latest `pushed_at` seen. A push that
      * lands mid-run is then read by the next run rather than skipped: its `pushed_at` is after the
@@ -60,57 +61,18 @@ class GitHubConnector(
      */
     override fun sync(request: SyncRequest): Sequence<GraphDelta> {
         require(properties.isConfigured()) { UNCONFIGURED }
-        val startedAt = Instant.now(clock)
-        return properties.orgs
-            .asSequence()
-            .filter { it.isNotBlank() }
-            .flatMap { org ->
-                client
-                    .repositories(org)
-                    .chunked(PAGE_SIZE)
-                    .map { page -> page.mapNotNull { repo -> delta(org, repo, request.since) }.merge(startedAt) }
-            }
+        return GitHubSyncSession(
+            client = client,
+            repositoryMapper = mapper,
+            contentsMapper = contentsMapper,
+            properties = properties,
+            since = request.since,
+            watermark = Instant.now(clock),
+        ).deltas()
     }
-
-    /** Null for a repository this run has nothing to say about. */
-    private fun delta(
-        org: String,
-        repo: GitHubRepo,
-        since: Instant?,
-    ): GraphDelta? {
-        // An archive is never "unchanged": it is the one change that does not move pushed_at.
-        if (!repo.archived && unchangedSince(repo, since)) return null
-        // Not read for an archived repository: ownership of something retired is not worth a request
-        // against the rate limit, and the tombstone closes the edges along with the node.
-        val codeowners = if (repo.archived) Codeowners.NONE else client.codeowners(org, repo.name) ?: Codeowners.NONE
-        return mapper.map(repo, codeowners)
-    }
-
-    /**
-     * A repository GitHub says has not been touched since the watermark.
-     *
-     * No `pushed_at` at all counts as changed: GitHub cannot say when it last moved, and reading a
-     * repository unnecessarily costs one request, while skipping one wrongly loses it until somebody
-     * notices it is missing.
-     */
-    private fun unchangedSince(
-        repo: GitHubRepo,
-        since: Instant?,
-    ): Boolean = since != null && repo.pushedAt != null && !repo.pushedAt.isAfter(since)
-
-    private fun List<GraphDelta>.merge(watermark: Instant) =
-        GraphDelta(
-            nodes = flatMap { it.nodes },
-            edges = flatMap { it.edges },
-            tombstones = flatMap { it.tombstones },
-            watermark = watermark,
-        )
 
     private companion object {
         const val NAME = "github"
         const val UNCONFIGURED = "connectors.github needs at least one org and a token before it can read anything"
-
-        /** One delta per page GitHub returns, so what is written matches what was read. */
-        const val PAGE_SIZE = 100
     }
 }

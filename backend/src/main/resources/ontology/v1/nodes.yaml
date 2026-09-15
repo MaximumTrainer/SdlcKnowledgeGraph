@@ -24,6 +24,9 @@ nodes:
       - { name: language, type: string, required: false }
       - { name: description, type: string, required: false }
       - { name: visibility, type: string, required: false, description: "public, private or internal, as the forge reports it", enum: [public, private, internal] }
+      # What this repository publishes, so a dependency naming one of them resolves to it rather than
+      # to a third-party Library with the same name.
+      - { name: packageNames, type: "string[]", required: false, description: "Package names this repository publishes" }
 
   Team:
     description: A group that owns repositories, services or infrastructure.
@@ -104,6 +107,27 @@ nodes:
       - { name: ciName, type: string, required: true }
       - { name: ciClass, type: string, required: false, description: "e.g. cmdb_ci_service" }
       - { name: serviceId, type: string, required: false }
+
+  Library:
+    description: A third-party package a repository depends on, as its ecosystem names it.
+    # Keyed by ecosystem as well as name, because "utils" on npm and "utils" on PyPI are different
+    # packages and a shared key would merge two unrelated dependencies into one node.
+    identity: [ecosystem, name]
+    properties:
+      - { name: ecosystem, type: string, required: true, description: "npm, maven, pypi, go or gradle", enum: [npm, maven, pypi, go] }
+      - { name: name, type: string, required: true, description: "The package name as the manifest spells it" }
+      - { name: description, type: string, required: false }
+
+  IacFile:
+    description: An infrastructure-as-code file, and the resources it names.
+    # Not the resources themselves. A CloudResource is something that exists; this is a file that
+    # claims one should. Turning the claim into a link is the job of the link engine (#28).
+    identity: [repoKey, path]
+    properties:
+      - { name: repoKey, type: string, required: true, description: "Key of the repository holding the file" }
+      - { name: path, type: string, required: true, description: "Path within the default branch" }
+      - { name: format, type: string, required: true, enum: [terraform, cdk, bicep, cloudformation] }
+      - { name: resourceRefs, type: "string[]", required: false, description: "Identifiers the file names literally, for the link engine to match on" }
 
   # Meta types: these describe the graph itself rather than the software it models.
   Ontology:

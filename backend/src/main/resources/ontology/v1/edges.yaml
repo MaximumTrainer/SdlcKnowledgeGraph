@@ -24,9 +24,9 @@ edges:
       - { name: rule, type: string, required: false, description: "Which link rule proposed this, e.g. tag or iac" }
 
   DEPENDS_ON:
-    description: A dependency between repositories or services.
+    description: A dependency between repositories, services or third-party libraries.
     from: [Repository, Service]
-    to: [Repository, Service]
+    to: [Repository, Service, Library]
     inverse: DEPENDED_ON_BY
     properties:
       - name: kind
@@ -35,6 +35,14 @@ edges:
         description: "What sort of dependency this is"
         enum: [library, api, event, data]
       - { name: manifest, type: string, required: false, description: "File the dependency was read from, e.g. build.gradle.kts" }
+      - { name: version, type: string, required: false, description: "The version the manifest asks for, as written" }
+      - { name: scope, type: string, required: false, description: "Whether the dependency is needed to run or only to build", enum: [runtime, dev] }
+
+  CONTAINS_IAC:
+    description: A repository holds an infrastructure-as-code file.
+    from: [Repository]
+    to: [IacFile]
+    inverse: IAC_IN
 
   HAS_PIPELINE:
     description: A repository defines a CI/CD pipeline.
@@ -80,5 +88,8 @@ edges:
   PRODUCED:
     description: A sync run asserted this node.
     from: [SyncRun]
-    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem]
+    # Every type a connector can write. A type missing from here is one a run cannot record having
+    # written, which fails the page rather than losing it quietly - so this list grows with the
+    # others above it.
+    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile]
     inverse: PRODUCED_BY

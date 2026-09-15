@@ -30,6 +30,8 @@ class IdentityResolver(
             "Environment" -> NodeKey(type, environmentKey(required(props, "name", type)))
             "Deployment" -> NodeKey(type, deploymentKey(props))
             "Team", "Service" -> NodeKey(type, required(props, "name", type).lowercase().trim())
+            "Library" -> NodeKey(type, libraryKey(props))
+            "IacFile" -> NodeKey(type, iacFileKey(props))
             "Ontology" -> NodeKey(type, required(props, "version", type))
             "SyncRun" -> NodeKey(type, required(props, "id", type))
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
@@ -54,6 +56,19 @@ class IdentityResolver(
         }
         throw IdentityResolutionException("Repository needs either 'url' or all of 'host', 'org' and 'name'")
     }
+
+    /**
+     * `<ecosystem>:<name>`, with the name left as its ecosystem spells it.
+     *
+     * The ecosystem is lowercased because "npm" and "NPM" are one registry; the name is not, because
+     * Maven coordinates are case-sensitive and folding them would merge distinct artefacts.
+     */
+    private fun libraryKey(props: Map<String, Any?>): String =
+        required(props, "ecosystem", "Library").lowercase().trim() + ":" + required(props, "name", "Library").trim()
+
+    /** `<repoKey>:<path>`. A path is only meaningful inside the repository that holds it. */
+    private fun iacFileKey(props: Map<String, Any?>): String =
+        required(props, "repoKey", "IacFile").trim() + ":" + required(props, "path", "IacFile").trim().removePrefix("/")
 
     private fun configurationItemKey(props: Map<String, Any?>): String {
         val system = (props["sourceSystem"]?.toString() ?: "servicenow").lowercase()

@@ -28,6 +28,7 @@ Identity: `host, org, name`
 | `language` | `string` | no |  |
 | `description` | `string` | no |  |
 | `visibility` | `string` | no | public, private or internal, as the forge reports it |
+| `packageNames` | `string[]` | no | Package names this repository publishes |
 
 ### Team
 
@@ -141,6 +142,31 @@ Identity: `sourceSystem, instance, sysId`
 | `ciClass` | `string` | no | e.g. cmdb_ci_service |
 | `serviceId` | `string` | no |  |
 
+### Library
+
+A third-party package a repository depends on, as its ecosystem names it.
+
+Identity: `ecosystem, name`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ecosystem` | `string` | yes | npm, maven, pypi, go or gradle |
+| `name` | `string` | yes | The package name as the manifest spells it |
+| `description` | `string` | no |  |
+
+### IacFile
+
+An infrastructure-as-code file, and the resources it names.
+
+Identity: `repoKey, path`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `repoKey` | `string` | yes | Key of the repository holding the file |
+| `path` | `string` | yes | Path within the default branch |
+| `format` | `string` | yes |  |
+| `resourceRefs` | `string[]` | no | Identifiers the file names literally, for the link engine to match on |
+
 ### Ontology
 
 Records which ontology version the graph was built with.
@@ -196,14 +222,15 @@ second relationship.
 | --- | --- | --- | --- | --- |
 | `OWNED_BY` | Repository, Service, CloudResource | Team | `OWNS` | Ownership of a repository, service or cloud resource by a team. |
 | `OWNS_RESOURCE` | Repository, Service | CloudResource | `OWNED_BY_REPO` | A repository or service is responsible for a piece of infrastructure. |
-| `DEPENDS_ON` | Repository, Service | Repository, Service | `DEPENDED_ON_BY` | A dependency between repositories or services. |
+| `DEPENDS_ON` | Repository, Service | Repository, Service, Library | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries. |
+| `CONTAINS_IAC` | Repository | IacFile | `IAC_IN` | A repository holds an infrastructure-as-code file. |
 | `HAS_PIPELINE` | Repository | Pipeline | `PIPELINE_OF` | A repository defines a CI/CD pipeline. |
 | `RELATES_TO_CI` | Repository, Service | ConfigurationItem | `CI_OF` | A repository or service corresponds to a configuration item in service management. |
 | `BUILT_FROM` | Artifact | Repository | `BUILDS` | An artifact was built from a repository at a particular commit. |
 | `DEPLOYED_TO` | Artifact | Deployment | `DEPLOYMENT_OF` | An artifact was the subject of a deployment. |
 | `TO_ENVIRONMENT` | Deployment | Environment | `HOSTS` | A deployment targeted an environment. |
 | `PROVIDES` | Repository | Service | `PROVIDED_BY` | A repository provides a running service. |
-| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem | `PRODUCED_BY` | A sync run asserted this node. |
+| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile | `PRODUCED_BY` | A sync run asserted this node. |
 
 ### Relationship properties
 
@@ -213,4 +240,6 @@ second relationship.
 | `OWNS_RESOURCE` | `rule` | `string` | no |
 | `DEPENDS_ON` | `kind` | `string` | yes |
 | `DEPENDS_ON` | `manifest` | `string` | no |
+| `DEPENDS_ON` | `version` | `string` | no |
+| `DEPENDS_ON` | `scope` | `string` | no |
 | `BUILT_FROM` | `commitSha` | `string` | no |
