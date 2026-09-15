@@ -35,6 +35,7 @@ type RepositoryNode implements GraphNode {
   serviceId: String
   language: String
   description: String
+  visibility: String
   provenance: Provenance!
 }
 

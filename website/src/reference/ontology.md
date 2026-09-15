@@ -27,6 +27,7 @@ Identity: `host, org, name`
 | `serviceId` | `string` | no |  |
 | `language` | `string` | no |  |
 | `description` | `string` | no |  |
+| `visibility` | `string` | no | public, private or internal, as the forge reports it |
 
 ### Team
 
@@ -208,6 +209,7 @@ second relationship.
 
 | Type | Property | Value | Required |
 | --- | --- | --- | --- |
+| `OWNED_BY` | `pathPatterns` | `string[]` | no |
 | `OWNS_RESOURCE` | `rule` | `string` | no |
 | `DEPENDS_ON` | `kind` | `string` | yes |
 | `DEPENDS_ON` | `manifest` | `string` | no |

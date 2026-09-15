@@ -1,5 +1,6 @@
 package com.repodatagraph.config
 
+import com.repodatagraph.adapter.out.github.GitHubProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -17,7 +18,7 @@ import java.time.Clock
  */
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(ConnectorsProperties::class)
+@EnableConfigurationProperties(ConnectorsProperties::class, GitHubProperties::class)
 class ConnectorConfig {
     @Bean
     fun clock(): Clock = Clock.systemUTC()

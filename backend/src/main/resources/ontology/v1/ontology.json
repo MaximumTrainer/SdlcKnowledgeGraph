@@ -15,7 +15,8 @@
         { "name": "codeowners", "type": "string[]", "required": true, "description": null },
         { "name": "serviceId", "type": "string", "required": false, "description": null },
         { "name": "language", "type": "string", "required": false, "description": null },
-        { "name": "description", "type": "string", "required": false, "description": null }
+        { "name": "description", "type": "string", "required": false, "description": null },
+        { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] }
       ]
     },
     {
@@ -163,6 +164,7 @@
       "to": ["Team"],
       "inverse": "OWNS",
       "properties": [
+        { "name": "pathPatterns", "type": "string[]", "required": false, "description": "CODEOWNERS patterns the owner was named against, where ownership came from a file" }
       ]
     },
     {

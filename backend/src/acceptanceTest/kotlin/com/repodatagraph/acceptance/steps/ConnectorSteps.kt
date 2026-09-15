@@ -1,6 +1,8 @@
 package com.repodatagraph.acceptance.steps
 
 import com.repodatagraph.acceptance.support.ApiWorld
+import com.repodatagraph.acceptance.support.SyncWorld
+import com.repodatagraph.acceptance.support.says
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
@@ -27,35 +29,13 @@ import java.time.Instant
  */
 class ConnectorSteps(
     private val world: ApiWorld,
+    private val sync: SyncWorld,
     private val fake: FakeConnector,
 ) {
-    private var syncRunId: String? = null
-
     @Before
     fun resetTheScript() {
         fake.reset()
-        awaitNoRunInFlight()
-    }
-
-    /**
-     * Waits until the fake connector is idle.
-     *
-     * One scenario deliberately leaves a run going to prove that overlapping runs are refused. Left
-     * alone, the next scenario asks for a sync, gets that 409, and fails somewhere unrelated - so the
-     * suite would only pass in the order it happened to be written in.
-     *
-     * Asks the connector, not the stored runs. Another step class empties the graph before every
-     * scenario, and Cucumber does not order hooks across classes - so a guard that read SyncRun nodes
-     * would sometimes find them already deleted, conclude all was quiet, and walk into the 409 it was
-     * written to avoid.
-     */
-    private fun awaitNoRunInFlight() {
-        val deadline = Instant.now().plus(RUN_TIMEOUT)
-        while (Instant.now().isBefore(deadline)) {
-            world.get("/api/v1/connectors/fake")
-            if (!world.lastBody().path("syncing").asBoolean()) return
-            Thread.sleep(POLL.toMillis())
-        }
+        sync.awaitIdle("fake")
     }
 
     @Given("the fake connector is registered with capabilities FULL, INCREMENTAL and WEBHOOK")
@@ -88,7 +68,7 @@ class ConnectorSteps(
         watermark: String,
     ) {
         fake.pages = listOf({ GraphDelta(watermark = Instant.parse(watermark)) })
-        awaitRun(startSync(connector), "SUCCESS")
+        sync.awaitRun("SUCCESS", sync.startSync(connector))
         fake.requests.clear()
     }
 
@@ -107,7 +87,7 @@ class ConnectorSteps(
     @Given("the fake connector previously produced a Repository {string}")
     fun theFakeConnectorPreviouslyProduced(key: String) {
         fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert(key))) })
-        awaitRun(startSync("fake"), "SUCCESS")
+        sync.awaitRun("SUCCESS", sync.startSync("fake"))
     }
 
     @Given("the fake connector will return a tombstone for Repository {string}")
@@ -126,37 +106,12 @@ class ConnectorSteps(
 
     @When("I ask the fake connector for a full sync")
     fun iAskForAFullSync() {
-        requestSync("fake", "full")
+        sync.requestSync("fake", "full")
     }
 
     @When("I ask the fake connector for an incremental sync")
     fun iAskForAnIncrementalSync() {
-        requestSync("fake", "incremental")
-    }
-
-    /**
-     * Starts a sync that the scenario is relying on, and fails here if it was refused.
-     *
-     * Without this, a refused setup leaves an empty run id and the failure surfaces much later as
-     * "the run did not reach SUCCESS" - which says nothing about the sync never having started.
-     */
-    private fun startSync(connector: String): String {
-        world.post("/api/v1/connectors/$connector/sync?mode=full", null)
-        assertEquals(ACCEPTED, world.lastStatus()) {
-            "setting up a sync for '" + connector + "' was refused: " + world.lastResponse().body
-        }
-        return world.lastBody().path("syncRunId").asText()
-    }
-
-    private fun requestSync(
-        connector: String,
-        mode: String,
-    ) {
-        world.post("/api/v1/connectors/$connector/sync?mode=$mode", null)
-        // Cleared rather than left alone when the sync was refused. Keeping the previous run's id
-        // would let a later step wait happily on a run that finished in an earlier scenario, and
-        // report success for something that never started.
-        syncRunId = if (world.lastStatus() == ACCEPTED) world.lastBody().path("syncRunId").asText() else null
+        sync.requestSync("fake", "incremental")
     }
 
     @When("I list the connectors")
@@ -177,23 +132,17 @@ class ConnectorSteps(
     @When("a webhook arrives for the fake connector signed correctly")
     fun aWebhookSignedCorrectly() {
         postWebhook("fake", "{}", fake.webhookSecret)
-        if (world.lastStatus() == ACCEPTED) syncRunId = world.lastBody().path("syncRunId").asText()
+        if (world.lastStatus() == ACCEPTED) sync.recordRun(world.lastBody().path("syncRunId").asText())
     }
 
     @Then("the body field {string} is present")
     fun theBodyFieldIsPresent(field: String) {
-        assertTrue(
-            world
-                .lastBody()
-                .path(field)
-                .asText()
-                .isNotBlank(),
-        ) { "missing $field in " + world.lastResponse().body }
+        assertTrue(world.lastBody().says(field)) { "missing $field in " + world.lastResponse().body }
     }
 
     @Then("the sync run finishes with status {string}")
     fun theSyncRunFinishesWith(status: String) {
-        awaitRun(requireNotNull(syncRunId) { "no sync run was started" }, status)
+        sync.awaitRun(status)
     }
 
     @Then("the sync run recorded {int} nodes and {int} edge")
@@ -201,14 +150,21 @@ class ConnectorSteps(
         nodes: Int,
         edges: Int,
     ) {
-        val run = runNode(requireNotNull(syncRunId))
+        val run = sync.runNode()
         assertEquals(nodes, run.path("props").path("nodesUpserted").asInt())
         assertEquals(edges, run.path("props").path("edgesUpserted").asInt())
     }
 
     @Then("the sync run has mode {string}")
     fun theSyncRunHasMode(mode: String) {
-        assertEquals(mode, runNode(requireNotNull(syncRunId)).path("props").path("mode").asText())
+        assertEquals(
+            mode,
+            sync
+                .runNode()
+                .path("props")
+                .path("mode")
+                .asText(),
+        )
     }
 
     @Then("every node it wrote has provenance sourceSystem {string} and the run's id")
@@ -217,7 +173,7 @@ class ConnectorSteps(
         assertTrue(written.isNotEmpty()) { "the run wrote no Repository nodes" }
         written.forEach {
             assertEquals(sourceSystem, it.path("provenance").path("sourceSystem").asText())
-            assertEquals(syncRunId, it.path("provenance").path("syncRunId").asText())
+            assertEquals(sync.runId, it.path("provenance").path("syncRunId").asText())
         }
     }
 
@@ -268,14 +224,7 @@ class ConnectorSteps(
 
     @Then("its provenance validTo is set")
     fun itsValidToIsSet() {
-        assertTrue(
-            world
-                .lastBody()
-                .path("provenance")
-                .path("validTo")
-                .asText()
-                .isNotBlank(),
-        ) {
+        assertTrue(world.lastBody().path("provenance").says("validTo")) {
             "validTo was not set: " + world.lastResponse().body
         }
     }
@@ -325,37 +274,10 @@ class ConnectorSteps(
             .let { world.lastBody().path("items").toList() }
             .filter { it.path("provenance").path("sourceSystem").asText() == "fake" }
 
-    private fun runNode(id: String) = world.get("/api/v1/nodes/SyncRun/" + id.substringAfter(":")).let { world.lastBody() }
-
-    /** Polls rather than sleeps: a sync is asynchronous, and a fixed wait is either slow or flaky. */
-    private fun awaitRun(
-        id: String,
-        expected: String,
-    ) {
-        syncRunId = id
-        val deadline = Instant.now().plus(RUN_TIMEOUT)
-        var last = ""
-        while (Instant.now().isBefore(deadline)) {
-            last = runNode(id).path("props").path("status").asText()
-            if (last == expected) return
-            Thread.sleep(POLL.toMillis())
-        }
-        assertEquals(expected, last) {
-            "run $id was '$last' after $RUN_TIMEOUT, expected '$expected'"
-        }
-    }
-
     private companion object {
         const val ACCEPTED = 202
 
-        /**
-         * Generous on purpose. A run is asynchronous and writes through a Testcontainers Neo4j, which
-         * on a shared CI runner is several times slower than a developer machine - so a timeout tuned
-         * to the fast case fails for being slow rather than for being wrong. Polling means a fast
-         * machine still finishes in milliseconds; only the patience changes.
-         */
-        val RUN_TIMEOUT: Duration = Duration.ofSeconds(30)
-        val POLL: Duration = Duration.ofMillis(100)
+        /** Long enough that the run is still in flight when the next request arrives. */
         val RUN_HOLD: Duration = Duration.ofSeconds(3)
     }
 }
