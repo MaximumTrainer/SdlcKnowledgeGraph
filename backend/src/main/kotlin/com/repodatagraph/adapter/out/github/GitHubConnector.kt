@@ -7,6 +7,7 @@ import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.HealthStatus
 import com.repodatagraph.domain.port.out.connector.SourceConnector
 import com.repodatagraph.domain.port.out.connector.SyncRequest
+import com.repodatagraph.domain.port.out.connector.WebhookEvent
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Instant
@@ -26,6 +27,9 @@ class GitHubConnector(
     private val client: GitHubClient,
     private val mapper: GitHubRepositoryMapper,
     private val contentsMapper: RepositoryContentsMapper,
+    private val reader: RepositoryReader,
+    private val webhooks: GitHubWebhookHandler,
+    private val webhookVerifier: GitHubWebhookVerifier,
     private val clock: Clock,
 ) : SourceConnector {
     override fun descriptor() =
@@ -34,9 +38,8 @@ class GitHubConnector(
             sourceSystem = NAME,
             nodeTypes = setOf("Repository", "Team", "Library", "IacFile"),
             edgeTypes = setOf("OWNED_BY", "DEPENDS_ON", "CONTAINS_IAC"),
-            // No WEBHOOK yet: the SPI refuses a capability that is only declared, and repository and
-            // team events are their own piece of work (#23c).
-            capabilities = setOf(Capability.FULL, Capability.INCREMENTAL, Capability.DISCOVERY),
+            capabilities =
+                setOf(Capability.FULL, Capability.INCREMENTAL, Capability.WEBHOOK, Capability.DISCOVERY),
         )
 
     override fun healthCheck(): HealthStatus =
@@ -63,6 +66,7 @@ class GitHubConnector(
         require(properties.isConfigured()) { UNCONFIGURED }
         return GitHubSyncSession(
             client = client,
+            reader = reader,
             repositoryMapper = mapper,
             contentsMapper = contentsMapper,
             properties = properties,
@@ -70,6 +74,15 @@ class GitHubConnector(
             watermark = Instant.now(clock),
         ).deltas()
     }
+
+    override fun verifyWebhook(
+        headers: Map<String, String>,
+        body: ByteArray,
+    ): Boolean = webhookVerifier.verify(headers, body)
+
+    override fun onWebhook(event: WebhookEvent): GraphDelta? = webhooks.handle(event)
+
+    override fun deliveryId(event: WebhookEvent): String? = webhookVerifier.deliveryId(event)
 
     private companion object {
         const val NAME = "github"

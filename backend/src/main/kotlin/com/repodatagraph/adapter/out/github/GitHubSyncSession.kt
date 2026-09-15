@@ -2,11 +2,9 @@ package com.repodatagraph.adapter.out.github
 
 import com.repodatagraph.adapter.out.github.manifest.DeclaredDependency
 import com.repodatagraph.adapter.out.github.manifest.DependencyScope
-import com.repodatagraph.adapter.out.github.manifest.UnreadableManifestException
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
-import org.slf4j.LoggerFactory
 import java.time.Instant
 
 /** Some repositories could not be read. The run keeps what it read and records this. */
@@ -27,14 +25,13 @@ class PartialSyncException(
  */
 class GitHubSyncSession(
     private val client: GitHubClient,
+    private val reader: RepositoryReader,
     private val repositoryMapper: GitHubRepositoryMapper,
     private val contentsMapper: RepositoryContentsMapper,
     private val properties: GitHubProperties,
     private val since: Instant?,
     private val watermark: Instant,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     /** Package name to the repository that publishes it, built up as repositories are read. */
     private val publishedBy = mutableMapOf<String, NodeKey>()
     private val pending = mutableListOf<PendingInternalDependency>()
@@ -66,74 +63,13 @@ class GitHubSyncSession(
     ): GraphDelta? {
         // An archive is never "unchanged": it is the one change that does not move pushed_at.
         if (!repo.archived && unchangedSince(repo)) return null
-        return GraphDelta(watermark = watermark) + read(org, repo)
-    }
 
-    /**
-     * Everything one repository has to say.
-     *
-     * An archived repository is read no further: ownership and dependencies of something retired are
-     * not worth requests against the rate limit, and the tombstone closes its edges along with it.
-     */
-    private fun read(
-        org: String,
-        repo: GitHubRepo,
-    ): GraphDelta {
-        if (repo.archived) return repositoryMapper.map(repo, Codeowners.NONE)
+        val read = reader.read(org, repo)
+        read.publishes.forEach { publishedBy[it.lowercase()] = repositoryMapper.keyOf(repo) }
+        pending += read.pending
+        read.failure?.let { failures += it }
 
-        val codeowners = client.codeowners(org, repo.name) ?: Codeowners.NONE
-        val key = repositoryMapper.keyOf(repo)
-        val contents = contentsOf(org, repo, key)
-
-        contents.publishes.forEach { publishedBy[it.lowercase()] = key }
-        pending += contents.pending
-
-        return repositoryMapper.map(repo, codeowners, contents.publishes) + contents.delta
-    }
-
-    /**
-     * What the files said, or nothing at all if one of them could not be read.
-     *
-     * The repository itself is still recorded either way. A repository with a malformed manifest is
-     * a repository we know about whose dependencies we do not - which is a more useful thing for the
-     * graph to say than the repository being absent altogether.
-     */
-    private fun contentsOf(
-        org: String,
-        repo: GitHubRepo,
-        key: NodeKey,
-    ): RepositoryContents =
-        try {
-            contentsMapper.map(key, interestingFiles(org, repo), repo.pushedAt)
-        } catch (unreadable: UnreadableManifestException) {
-            failures += "${repo.fullName}: ${unreadable.message}"
-            log.warn("could not read {} in {}", unreadable.path, repo.fullName)
-            RepositoryContents()
-        }
-
-    /**
-     * The files worth fetching, listed once and then fetched one by one.
-     *
-     * The listing is a single request for the whole branch; fetching is a request per file, which is
-     * why only files something can actually read are fetched at all.
-     */
-    private fun interestingFiles(
-        org: String,
-        repo: GitHubRepo,
-    ): Map<String, String> {
-        if (!properties.manifests.enabled && !properties.iac.enabled) return emptyMap()
-        val branch = repo.defaultBranch ?: DEFAULT_BRANCH
-        return client
-            .tree(org, repo.name, branch)
-            .filter { contentsMapper.isInteresting(it.path) }
-            .filter { entry ->
-                // A manifest is kilobytes. A file of megabytes with a manifest's name is something
-                // else, and reading it costs the run more than it is worth.
-                val small = entry.size <= properties.manifests.maxFileBytes
-                if (!small) log.info("skipping {} in {}: {} bytes", entry.path, repo.fullName, entry.size)
-                small
-            }.mapNotNull { entry -> client.file(org, repo.name, entry.path)?.let { entry.path to it } }
-            .toMap()
+        return GraphDelta(watermark = watermark) + read.delta
     }
 
     /**
@@ -200,14 +136,6 @@ class GitHubSyncSession(
      * somebody notices it is missing.
      */
     private fun unchangedSince(repo: GitHubRepo): Boolean = since != null && repo.pushedAt != null && !repo.pushedAt.isAfter(since)
-
-    private operator fun GraphDelta.plus(other: GraphDelta) =
-        GraphDelta(
-            nodes = nodes + other.nodes,
-            edges = edges + other.edges,
-            tombstones = tombstones + other.tombstones,
-            watermark = watermark ?: other.watermark,
-        )
 
     private companion object {
         const val DEFAULT_BRANCH = "main"

@@ -34,6 +34,7 @@ class SyncRunRecorder(
         totals: DeltaResult,
         watermark: Instant?,
         error: String?,
+        sourceId: String? = null,
     ) {
         val now = Instant.now(clock)
         // Kept from the first write, so a finished run still says when it began.
@@ -47,6 +48,7 @@ class SyncRunRecorder(
                         "connector" to registered.name,
                         "sourceSystem" to registered.descriptor.sourceSystem,
                         "mode" to mode.name,
+                        "sourceId" to sourceId,
                         "status" to status.name,
                         "startedAt" to startedAt,
                         "finishedAt" to if (status == RunStatus.RUNNING) null else now,
@@ -86,6 +88,24 @@ class SyncRunRecorder(
             ),
         )
     }
+
+    /**
+     * The run a delivery already produced, if this one has been seen before.
+     *
+     * Asked of the graph rather than of memory: a redelivery can arrive after a restart, or at
+     * another instance, and an in-process set would let both of those apply the same event twice.
+     */
+    fun runForDelivery(
+        connector: String,
+        sourceId: String,
+    ): String? =
+        graphStore
+            .findNodes(SYNC_RUN, mapOf("connector" to connector, "sourceId" to sourceId), limit = 1)
+            .firstOrNull()
+            // The key, not the `id` property: the store overwrites `id` with the node's qualified
+            // identity, so a SyncRun's own `id` reads back as "SyncRun:<uuid>" rather than the run id.
+            ?.key
+            ?.key
 
     /**
      * Where the last successful run of this connector got to.

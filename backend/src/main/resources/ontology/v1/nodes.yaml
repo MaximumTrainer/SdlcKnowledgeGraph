@@ -145,6 +145,9 @@ nodes:
       - { name: connector, type: string, required: true }
       - { name: sourceSystem, type: string, required: false, description: "What this run stamped on the provenance of everything it wrote" }
       - { name: mode, type: string, required: false, description: "FULL, INCREMENTAL or WEBHOOK" }
+      # The event that caused this run, as the source system numbered it. Present only for a webhook,
+      # and the reason a redelivery is recognised rather than applied a second time.
+      - { name: sourceId, type: string, required: false, description: "The source system's id for the delivery that caused this run" }
       - { name: startedAt, type: instant, required: false }
       - { name: finishedAt, type: instant, required: false }
       - { name: status, type: string, required: false, description: "RUNNING, SUCCESS, PARTIAL or FAILED" }

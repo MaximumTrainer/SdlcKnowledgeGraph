@@ -203,9 +203,20 @@ class SyncService(
         val registered = registry.find(name) ?: throw UnknownConnectorException(name)
         requireCapability(name, registered.descriptor.capabilities, SyncMode.WEBHOOK)
 
+        // Before the connector is asked to interpret anything: a provider redelivers when it is
+        // unsure the first attempt landed, and interpreting it again costs the same requests to the
+        // source system before arriving at the same answer.
+        val deliveryId = registered.connector.deliveryId(event)
+        deliveryId?.let { id ->
+            recorder.runForDelivery(name, id)?.let { existing ->
+                log.info("delivery {} for {} was already applied by run {}", id, name, existing)
+                return existing
+            }
+        }
+
         val delta = registered.connector.onWebhook(event) ?: return null
         val runId = newRunId()
-        recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.RUNNING, DeltaResult(), null, null)
+        recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.RUNNING, DeltaResult(), null, null, deliveryId)
 
         val totals =
             try {
@@ -214,11 +225,20 @@ class SyncService(
                 @Suppress("TooGenericExceptionCaught") failure: Exception,
             ) {
                 log.error("webhook for {} failed to apply in run {}", name, runId, failure)
-                recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.FAILED, DeltaResult(), null, failure.message)
+                recorder.recordRun(
+                    runId,
+                    registered,
+                    SyncMode.WEBHOOK,
+                    RunStatus.FAILED,
+                    DeltaResult(),
+                    null,
+                    failure.message,
+                    deliveryId,
+                )
                 return runId
             }
 
-        recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.SUCCESS, totals, delta.watermark, null)
+        recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.SUCCESS, totals, delta.watermark, null, deliveryId)
         return runId
     }
 

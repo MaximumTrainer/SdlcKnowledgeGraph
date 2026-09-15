@@ -173,6 +173,7 @@ type SyncRunNode implements GraphNode {
   connector: String!
   sourceSystem: String
   mode: String
+  sourceId: String
   startedAt: String
   finishedAt: String
   status: String

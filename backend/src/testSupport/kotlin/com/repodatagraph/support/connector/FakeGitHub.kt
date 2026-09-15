@@ -58,6 +58,13 @@ class FakeGitHub {
         vararg pages: List<FakeRepo>,
     ) {
         val path = "/orgs/$org/repos"
+        // Also on its own, because a webhook reads one repository back rather than listing the org.
+        pages.flatMap { it }.forEach { repo ->
+            server.stubFor(
+                get(urlPathEqualTo("/repos/$org/${repo.name}"))
+                    .willReturn(jsonResponse(repo.json(org))),
+            )
+        }
         pages.forEachIndexed { index, page ->
             val body = page.joinToString(",", "[", "]") { it.json(org) }
             val response =
