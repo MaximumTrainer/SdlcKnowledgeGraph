@@ -142,6 +142,7 @@ export interface SyncRun {
   connector: string
   sourceSystem?: string
   mode?: string
+  sourceId?: string
   startedAt?: string
   finishedAt?: string
   status?: string

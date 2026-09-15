@@ -190,6 +190,7 @@ Identity: `id`
 | `connector` | `string` | yes |  |
 | `sourceSystem` | `string` | no | What this run stamped on the provenance of everything it wrote |
 | `mode` | `string` | no | FULL, INCREMENTAL or WEBHOOK |
+| `sourceId` | `string` | no | The source system's id for the delivery that caused this run |
 | `startedAt` | `instant` | no |  |
 | `finishedAt` | `instant` | no |  |
 | `status` | `string` | no | RUNNING, SUCCESS, PARTIAL or FAILED |

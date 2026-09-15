@@ -36,6 +36,12 @@ class GitHubClient(
             }
         }
 
+    /** One repository, read back by name. Null if the token cannot see it, or it is gone. */
+    fun repository(
+        org: String,
+        repo: String,
+    ): GitHubRepo? = http.getOrNull("/repos/$org/$repo", GitHubRepo::class.java)
+
     /**
      * Every file in the branch, in one request.
      *

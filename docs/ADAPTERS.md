@@ -9,8 +9,8 @@ graph stops being a hand-maintained diagram and starts reflecting reality.
 > endpoints, the `SyncRun` and `ConnectorState` nodes and the `PRODUCED` edge.
 > [#23](../../issues/23) added the GitHub connector: repositories, their topics, team ownership read
 > from CODEOWNERS, the dependencies declared in seven manifest formats, and an index of
-> infrastructure-as-code files (see [below](#the-github-connector)). GitHub webhooks are still to
-> come. Nothing else is connected yet: ServiceNow is
+> infrastructure-as-code files, and webhooks for near-real-time change (see
+> [below](#the-github-connector)). Nothing else is connected yet: ServiceNow is
 > [#24](../../issues/24), AWS [#25](../../issues/25), and link resolution [#28](../../issues/28), so
 > everything outside GitHub is still entered by hand (see the [user guide](USER-GUIDE.md)).
 
@@ -252,6 +252,41 @@ infrastructure.
 the hundred either side of it: it is still recorded, without its dependencies, the run finishes
 everything else and is then marked `PARTIAL` with the reason on the run record.
 
+### Webhooks
+
+A schedule says what was true a quarter of an hour ago. A webhook says what is true now, which is the
+difference between a graph somebody consults and a graph somebody trusts.
+
+Point a GitHub webhook at `POST /api/v1/webhooks/github`, content type `application/json`, with the
+same secret as `connectors.settings.github.webhook-secret`, and subscribe to **Repositories**,
+**Pushes** and **Teams**. Everything else is accepted and ignored.
+
+| Event | What happens |
+| --- | --- |
+| `repository` | the repository is read back from the API and re-recorded; an archived one is closed |
+| `push` to the default branch | only if it touched CODEOWNERS, a manifest or an IaC path — otherwise nothing |
+| `team` | the team's name is upserted; membership is not ownership, which comes from CODEOWNERS |
+| anything else | `204`, because the event was genuine and refusing it would have GitHub retrying for ever |
+
+Three things about this are deliberate.
+
+**A webhook is a hint, not a payload to believe.** It says "something changed here"; what changed is
+then read back from the API through exactly the same code path a scheduled run uses. Trusting the
+payload would mean a graph whose contents depend on which fields GitHub happened to include in which
+event, and a second mapping to keep in step with the first.
+
+**Nothing unverified reaches the connector.** `X-Hub-Signature-256` is checked with a constant-time
+compare before `onWebhook` is called at all, and a signature under a scheme this code does not
+implement fails rather than being read as though it were the one it does. An unverified body gets a
+`401` that says nothing about why: a response distinguishing "no signature" from "wrong signature"
+helps whoever is guessing at one.
+
+**The same delivery twice is applied once.** GitHub redelivers whenever it is unsure the first
+attempt landed. `X-GitHub-Delivery` is stored on the `SyncRun` as `sourceId`, and a repeat returns
+`202` naming the run that already applied it. The check reads the graph rather than process memory,
+so it survives a restart and works across instances. This lives in `SyncService` rather than in the
+connector — every provider redelivers, and only the header name differs.
+
 ### Configuring it
 
 ```yaml
@@ -260,6 +295,7 @@ connectors:
     github:
       enabled: true               # off by default, like every connector
       schedule: "0 */15 * * * *"
+      webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
   github:
     orgs: ${GITHUB_ORGS:}         # comma-separated; every org is read by the same run
     token: ${GITHUB_TOKEN:}       # a fine-grained token: repository metadata and contents, read-only
@@ -278,9 +314,9 @@ The token needs read access to repository metadata and contents, and nothing els
 that CODEOWNERS can be read. A connector with no org or no token reports itself `DOWN` with the
 reason rather than failing at the first sync.
 
-Two things [#23](../../issues/23) asks for are deliberately not here yet. **GitHub App
-authentication** is not implemented; a fine-grained personal access token is, and the two differ only
-in how a token is obtained. **Repositories that disappear from a full sync** are not tombstoned —
+Two things [#23](../../issues/23) asks for are deliberately not here. **GitHub App authentication**
+is not implemented; a fine-grained personal access token is, and the two differ only in how a token
+is obtained. **Repositories that disappear from a full sync** are not tombstoned —
 only archived ones are. Recognising "the source stopped reporting this" needs the sync engine to
 compare a full run against what the connector produced last time, which is a mechanism every
 connector should share rather than six connectors each getting subtly wrong, so it is

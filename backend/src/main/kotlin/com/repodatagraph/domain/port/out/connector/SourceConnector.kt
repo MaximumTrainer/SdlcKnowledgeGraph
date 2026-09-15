@@ -49,6 +49,16 @@ interface SourceConnector {
         headers: Map<String, String>,
         body: ByteArray,
     ): Boolean = false
+
+    /**
+     * The source system's own id for this delivery, if it sends one.
+     *
+     * Deduplication lives in the mechanism rather than in each connector, because every provider
+     * redelivers - GitHub does it whenever it is unsure the first attempt landed - and applying one
+     * event twice writes the same facts under two runs, so "what did that run change" stops having a
+     * single answer. What differs per provider is only which header carries the id.
+     */
+    fun deliveryId(event: WebhookEvent): String? = null
 }
 
 /** A service management system: configuration items, changes and incidents. */
