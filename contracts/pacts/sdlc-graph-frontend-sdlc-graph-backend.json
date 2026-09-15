@@ -150,6 +150,66 @@
       }
     },
     {
+      "description": "a request for the configuration item of repository R1",
+      "providerStates": [
+        {
+          "name": "repository R1 is linked to a configuration item"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/graph/repositories/R1/servicenow"
+      },
+      "response": {
+        "body": {
+          "ciName": "payments-api",
+          "id": "ConfigurationItem:servicenow:sn.example.test:a1",
+          "repoId": "R1",
+          "serviceId": "SVC-1"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.ciName": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.repoId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.serviceId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the edges of shared-lib",
       "providerStates": [
         {

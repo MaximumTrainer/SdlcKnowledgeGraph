@@ -36,9 +36,9 @@ class OntologyConfiguration {
          * Core types that have a typed Kotlin class as well as a registry entry. Both definitions are
          * checked against each other at startup.
          *
-         * `Service` and `ConfigurationItem` are registry-only for now: nothing constructs them yet.
-         * `ServiceNowCI` is the reverse, a Kotlin class with no registry entry, because
-         * `ConfigurationItem` replaces it in #24; it is deliberately left out of this check until then.
+         * `Service`, `ConfigurationItem`, `ChangeRequest` and `Incident` are registry-only: the
+         * connectors that write them build property maps from the registry rather than Kotlin
+         * classes, which is the direction the rest of these are heading in.
          */
         val TYPED_MODEL: Map<String, KClass<*>> =
             mapOf(

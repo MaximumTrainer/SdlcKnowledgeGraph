@@ -668,6 +668,7 @@
         "type" : "object"
       },
       "ServiceNowCI" : {
+        "description" : "A configuration item, in the shape this endpoint has always returned",
         "properties" : {
           "ciName" : {
             "type" : "string"

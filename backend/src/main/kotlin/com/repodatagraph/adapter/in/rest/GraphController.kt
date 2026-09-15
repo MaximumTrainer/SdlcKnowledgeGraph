@@ -1,12 +1,12 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.adapter.`in`.rest.dto.ImpactAnalysisResponse
+import com.repodatagraph.adapter.`in`.rest.dto.ServiceNowCIResponse
 import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
-import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
 import com.repodatagraph.domain.port.`in`.GraphQueryUseCase
 import io.swagger.v3.oas.annotations.Operation
@@ -66,9 +66,9 @@ class GraphController(
     @Operation(summary = "Get the ServiceNow CI item linked to a repository")
     fun getServiceNowCI(
         @PathVariable repoId: String,
-    ): ResponseEntity<ServiceNowCI> {
-        val ci = graphQueryUseCase.getServiceNowCIForRepo(repoId) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(ci)
+    ): ResponseEntity<ServiceNowCIResponse> {
+        val ci = graphQueryUseCase.getConfigurationItemForRepo(repoId) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(ServiceNowCIResponse.from(ci, repoId))
     }
 
     @GetMapping("/repositories/{repoId}/pipelines")

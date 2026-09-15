@@ -3,9 +3,9 @@ package com.repodatagraph.domain.port.`in`
 import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
-import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
 
 interface GraphQueryUseCase {
@@ -21,7 +21,7 @@ interface GraphQueryUseCase {
 
     fun getTeamForRepo(repoId: String): Team?
 
-    fun getServiceNowCIForRepo(repoId: String): ServiceNowCI?
+    fun getConfigurationItemForRepo(repoId: String): GraphNode?
 
     fun getPipelinesForRepo(repoId: String): List<Pipeline>
 
