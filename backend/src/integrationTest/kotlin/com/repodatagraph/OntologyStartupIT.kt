@@ -25,7 +25,11 @@ class OntologyStartupIT {
 
         assertEquals("1.0.0", registry.version)
         val names = registry.allNodeTypes().map { it.name }.toSet()
-        assertEquals(
+
+        // Named rather than counted, and checked for presence rather than equality. An exact set also
+        // caught a type being dropped, but it caught every type being *added* just as loudly - so it
+        // failed for the wrong reason every time the ontology grew.
+        val minimumViableGraph =
             setOf(
                 "Repository",
                 "Team",
@@ -36,12 +40,12 @@ class OntologyStartupIT {
                 "Environment",
                 "CloudResource",
                 "ConfigurationItem",
-                "Ontology",
-                "SyncRun",
-                "ConnectorState",
-            ),
-            names,
-        )
+            )
+        assertTrue(names.containsAll(minimumViableGraph)) { "missing " + (minimumViableGraph - names) }
+
+        // The graph describing itself: which ontology built it, and what has been ingested into it.
+        val meta = setOf("Ontology", "SyncRun", "ConnectorState")
+        assertTrue(names.containsAll(meta)) { "missing " + (meta - names) }
     }
 
     @Test

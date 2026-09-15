@@ -9,7 +9,6 @@ import com.github.tomakehurst.wiremock.matching.EqualToPattern
 import com.github.tomakehurst.wiremock.stubbing.Scenario
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
 import java.time.Instant
-import java.util.Base64
 
 /**
  * A GitHub that is not GitHub, over real HTTP.
@@ -21,6 +20,9 @@ import java.util.Base64
  */
 class FakeGitHub {
     private val server = WireMockServer(options().dynamicPort())
+
+    /** What is inside the repositories: the tree listing, and the contents API. */
+    val files = FakeGitHubFiles(server)
 
     val baseUrl: String get() = server.baseUrl()
 
@@ -34,6 +36,7 @@ class FakeGitHub {
     /** Forgets every stub and every recorded request, so scenarios cannot see each other's setup. */
     fun reset() {
         server.resetAll()
+        files.forget()
         stubRateLimit(remaining = RATE_LIMIT_PLENTY)
     }
 
@@ -68,34 +71,6 @@ class FakeGitHub {
             // the number the `Link` header sent the client to.
             server.stubFor(if (index == 0) stub else stub.withQueryParam("page", EqualToPattern("${index + 1}")))
         }
-    }
-
-    /**
-     * CODEOWNERS as the contents API returns it: base64, in a JSON envelope.
-     *
-     * A null [content] answers 404 from every place GitHub allows the file to live, which is what it
-     * says about most repositories - an absence of information rather than an error.
-     */
-    fun hasCodeowners(
-        org: String,
-        repo: String,
-        content: String?,
-        path: String = "CODEOWNERS",
-    ) {
-        if (content == null) {
-            CODEOWNERS_PATHS.forEach { absent ->
-                server.stubFor(
-                    get(urlPathEqualTo("/repos/$org/$repo/contents/$absent"))
-                        .willReturn(aResponse().withStatus(NOT_FOUND).withBody("""{"message":"Not Found"}""")),
-                )
-            }
-            return
-        }
-        val encoded = Base64.getEncoder().encodeToString(content.toByteArray())
-        server.stubFor(
-            get(urlPathEqualTo("/repos/$org/$repo/contents/$path"))
-                .willReturn(jsonResponse("""{"content":"$encoded","encoding":"base64"}""")),
-        )
     }
 
     /**
@@ -203,13 +178,9 @@ class FakeGitHub {
         /** A failure count that never recovers. */
         const val ALWAYS = -1
 
-        /** Everywhere GitHub looks for CODEOWNERS, in the order it looks. */
-        val CODEOWNERS_PATHS = listOf("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
-
         private const val RATE_LIMIT_PLENTY = 5000
         private const val OK = 200
         private const val FORBIDDEN = 403
-        private const val NOT_FOUND = 404
         private const val SERVER_ERROR = 500
     }
 }

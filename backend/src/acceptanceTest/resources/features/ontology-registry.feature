@@ -18,6 +18,8 @@ Feature: Ontology registry
       | Environment       |
       | CloudResource     |
       | ConfigurationItem |
+      | Library           |
+      | IacFile           |
       | Ontology          |
       | SyncRun           |
       | ConnectorState    |

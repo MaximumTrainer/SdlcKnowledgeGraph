@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.out.github
 
+import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
@@ -22,11 +23,15 @@ import java.net.URI
 class GitHubRepositoryMapper(
     private val identityResolver: IdentityResolver,
 ) {
+    /** The key this repository will be stored under, for an edge that has to name it. */
+    fun keyOf(repo: GitHubRepo): NodeKey = identityResolver.keyFor(REPOSITORY, mapOf("url" to repo.htmlUrl))
+
     fun map(
         repo: GitHubRepo,
         codeowners: Codeowners,
+        publishes: List<String> = emptyList(),
     ): GraphDelta {
-        val props = repositoryProps(repo, codeowners)
+        val props = repositoryProps(repo, codeowners, publishes)
         val repositoryKey = identityResolver.keyFor(REPOSITORY, props)
         val host = hostOf(repo.htmlUrl)
 
@@ -75,6 +80,7 @@ class GitHubRepositoryMapper(
     private fun repositoryProps(
         repo: GitHubRepo,
         codeowners: Codeowners,
+        publishes: List<String>,
     ): Map<String, Any?> =
         buildMap {
             put("url", repo.htmlUrl)
@@ -84,6 +90,9 @@ class GitHubRepositoryMapper(
             repo.language?.let { put("language", it) }
             repo.description?.let { put("description", it) }
             repo.visibility?.let { put("visibility", it) }
+            // Only when something actually said so. An empty list would claim this repository
+            // publishes nothing, which is a different statement from not having looked.
+            if (publishes.isNotEmpty()) put("packageNames", publishes.distinct())
         }
 
     /**

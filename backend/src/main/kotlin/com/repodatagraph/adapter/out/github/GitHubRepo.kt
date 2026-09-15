@@ -35,3 +35,26 @@ data class GitHubContent(
     val content: String? = null,
     val encoding: String? = null,
 )
+
+/**
+ * A branch's whole file listing, in one response.
+ *
+ * `truncated` is GitHub saying the repository has more files than it will list at once. It is not an
+ * error and it is not rare in a monorepo, so what is read is "every file GitHub was willing to name"
+ * rather than "every file" - and the connector says so rather than quietly implying completeness.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GitHubTree(
+    val sha: String? = null,
+    val truncated: Boolean = false,
+    val tree: List<GitHubTreeEntry> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GitHubTreeEntry(
+    val path: String,
+    /** `blob` for a file, `tree` for a directory, `commit` for a submodule. */
+    val type: String,
+    val size: Long = 0,
+    val sha: String? = null,
+)

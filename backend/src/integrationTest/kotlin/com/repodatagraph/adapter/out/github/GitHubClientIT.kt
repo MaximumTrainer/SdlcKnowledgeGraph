@@ -39,11 +39,9 @@ class GitHubClientIT {
     @BeforeEach
     fun reset() {
         github.reset()
-        client =
-            GitHubClient(
-                GitHubProperties(orgs = listOf(ORG), baseUrl = github.baseUrl, token = "fake-token", waitForResetSeconds = 5),
-                RestClient.builder(),
-            )
+        val properties =
+            GitHubProperties(orgs = listOf(ORG), baseUrl = github.baseUrl, token = "fake-token", waitForResetSeconds = 5)
+        client = GitHubClient(GitHubHttp(properties, RestClient.builder()), properties)
     }
 
     @Test
@@ -156,7 +154,7 @@ class GitHubClientIT {
 
     @Test
     fun `reads CODEOWNERS wherever GitHub allows it to live`() {
-        github.hasCodeowners(ORG, "payments", "* @acme/platform-team", path = ".github/CODEOWNERS")
+        github.files.hasCodeowners(ORG, "payments", "* @acme/platform-team", path = ".github/CODEOWNERS")
 
         val owners = client.codeowners(ORG, "payments")
 
@@ -165,7 +163,7 @@ class GitHubClientIT {
 
     @Test
     fun `treats a missing CODEOWNERS as an absence, not a failure`() {
-        github.hasCodeowners(ORG, "payments", content = null)
+        github.files.hasCodeowners(ORG, "payments", content = null)
 
         // 404 is GitHub's normal answer for a repository that has no CODEOWNERS, which is most of
         // them. Treating it as an error would fail nearly every run.

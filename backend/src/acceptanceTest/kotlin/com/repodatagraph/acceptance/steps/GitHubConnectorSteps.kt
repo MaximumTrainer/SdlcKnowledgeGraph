@@ -60,6 +60,14 @@ class GitHubConnectorSteps(
         stubRepositories(listOf(FakeRepo(name = name, topics = listOf(topic))))
     }
 
+    @Given("GitHub also has repository {string} with topics {string}")
+    fun gitHubAlsoHasRepository(
+        name: String,
+        topic: String,
+    ) {
+        stubRepositories(stubbedRepos + FakeRepo(name = name, topics = listOf(topic)))
+    }
+
     @Given("GitHub also has archived repository {string}")
     fun gitHubAlsoHasArchivedRepository(name: String) {
         stubRepositories(stubbedRepos + FakeRepo(name = name, archived = true))
@@ -69,7 +77,7 @@ class GitHubConnectorSteps(
     fun gitHubHasPagedRepositories(total: Int) {
         val all = (1..total).map { FakeRepo(name = "repo-$it") }
         github.hasRepositories(ORG, all.take(PAGE_SIZE), all.drop(PAGE_SIZE))
-        all.forEach { github.hasCodeowners(ORG, it.name, content = null) }
+        all.forEach { github.files.hasCodeowners(ORG, it.name, content = null) }
     }
 
     @Given("GitHub has CODEOWNERS for {string} containing {string}")
@@ -77,7 +85,7 @@ class GitHubConnectorSteps(
         repo: String,
         content: String,
     ) {
-        github.hasCodeowners(ORG, repo, content)
+        github.files.hasCodeowners(ORG, repo, content)
     }
 
     @When("I ask the GitHub connector for a full sync")
@@ -172,7 +180,7 @@ class GitHubConnectorSteps(
         github.hasRepositories(ORG, repos)
         // 404 by default, which is what GitHub answers for a repository with no CODEOWNERS. A
         // scenario that wants one stubs it afterwards, and the later stub takes precedence.
-        repos.forEach { github.hasCodeowners(ORG, it.name, content = null) }
+        repos.forEach { github.files.hasCodeowners(ORG, it.name, content = null) }
     }
 
     /** Ownership that is still current: a closed edge is history, not an owner. */

@@ -24,3 +24,6 @@ connectors:
   github:
     orgs: [acme]
     token: fake-token
+    manifests:
+      # What the fake GitHub publishes under, so an internal dependency can be told from a library.
+      internal-package-prefixes: ["@acme/", "com.acme"]

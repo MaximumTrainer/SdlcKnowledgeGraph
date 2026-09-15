@@ -160,6 +160,36 @@ class IdentityResolverTest {
     }
 
     @Test
+    fun `libraries are keyed by ecosystem as well as name`() {
+        val npm = resolver.keyFor("Library", mapOf("ecosystem" to "npm", "name" to "utils"))
+        val pypi = resolver.keyFor("Library", mapOf("ecosystem" to "pypi", "name" to "utils"))
+
+        // "utils" on npm and "utils" on PyPI are different packages. A key on name alone would merge
+        // two unrelated dependencies into one node, and every traversal through it would be wrong.
+        assertEquals("npm:utils", npm.key)
+        assertEquals("pypi:utils", pypi.key)
+    }
+
+    @Test
+    fun `a library keeps the case its ecosystem is case-sensitive about`() {
+        val key = resolver.keyFor("Library", mapOf("ecosystem" to "MAVEN", "name" to "com.acme:Payments"))
+
+        // Maven coordinates are case-sensitive; the ecosystem name is not.
+        assertEquals("maven:com.acme:Payments", key.key)
+    }
+
+    @Test
+    fun `an IaC file is keyed by the repository and the path within it`() {
+        val key =
+            resolver.keyFor(
+                "IacFile",
+                mapOf("repoKey" to "github.com/acme/payments", "path" to "infra/main.tf"),
+            )
+
+        assertEquals("github.com/acme/payments:infra/main.tf", key.key)
+    }
+
+    @Test
     fun `a missing required property is reported rather than producing a partial key`() {
         val error =
             assertThrows<IdentityResolutionException> {

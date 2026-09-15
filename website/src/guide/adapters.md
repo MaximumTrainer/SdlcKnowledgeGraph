@@ -9,9 +9,10 @@ graph stops being a hand-maintained diagram and starts reflecting reality.
 > [#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22) implemented the SPI, `AdapterRegistry`, `SyncService`, `GraphDeltaWriter`,
 > `SyncScheduler`, the `connectors.*` configuration, the `/api/v1/connectors` and `/api/v1/webhooks`
 > endpoints, the `SyncRun` and `ConnectorState` nodes and the `PRODUCED` edge.
-> [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) added the GitHub connector: repositories, their topics, and team ownership
-> read from CODEOWNERS (see [below](#the-github-connector)). Dependency manifests and IaC files are
-> still to come, as are GitHub webhooks. Nothing else is connected yet: ServiceNow is
+> [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) added the GitHub connector: repositories, their topics, team ownership read
+> from CODEOWNERS, the dependencies declared in seven manifest formats, and an index of
+> infrastructure-as-code files (see [below](#the-github-connector)). GitHub webhooks are still to
+> come. Nothing else is connected yet: ServiceNow is
 > [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24), AWS [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25), and link resolution [#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28), so
 > everything outside GitHub is still entered by hand (see the [user guide](/guide/user-guide)).
 
@@ -196,7 +197,7 @@ The first connector on the SPI, and the one the others are modelled on.
 | `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` | a `Team` per owning team, and an `OWNED_BY` edge carrying the patterns it was named against |
 | `archived` | a tombstone, closing the repository's validity |
 
-Four decisions in it are worth knowing about.
+Several decisions in it are worth knowing about.
 
 **Ownership comes from CODEOWNERS and nowhere else.** The org a repository sits in, who pushed to it
 last, who has admin — all of these look like ownership and none of them is a statement of it. A
@@ -220,6 +221,39 @@ away is waited out; one an hour away ends the run with the reset time in its err
 share a pool of four threads and a run that sleeps for an hour stops every other connector. A 5xx is
 retried three times; a 404 for CODEOWNERS is an answer, not a failure.
 
+**A manifest is a declaration, not a build.** What is recorded is the version a repository *asks
+for* — `^4.18.0` — not the version some build resolved today. The second is a fact about one build on
+one day; the first is a fact about the repository, and only that outlives the build. For the same
+reason a lockfile is **off by default**: it is the transitive closure, thousands of packages for a
+repository that declares twenty, and recording it turns "who depends on this" into a question about
+npm's install graph. Turn it on for "which repositories ship this exact vulnerable version", which is
+the one question it answers better.
+
+**Runtime and dev are kept apart.** A graph that cannot tell "this service ships this library" from
+"somebody's test uses it" answers "what is affected by this CVE" with a list twice as long as the
+truth, which is the same as answering nothing.
+
+**A dependency on our own package is marked as the guess it is.** `@acme/billing` resolves to the
+repository that publishes `@acme/billing` — matched by package name, held back until every repository
+in the run has been read, and recorded at confidence 0.9 with `inferred: true`. It rests on a naming
+convention, not on anything GitHub said, and a reviewer has to be able to tell it from a dependency
+read straight out of a file. A name that matches the prefix but nothing in the org becomes an
+ordinary `Library` after all, rather than being dropped.
+
+**An IaC file is evidence, not infrastructure.** The graph records that a repository contains a file
+claiming a bucket called `acme-payments-receipts` should exist. Whether one does, and whether it is
+the one the cloud connector found, is the link engine's question ([#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28)) — and
+keeping the two apart is what stops a plan nobody applied from becoming an asserted fact. Extraction
+is deliberately shallow: identifiers a file states literally, never evaluated. A Terraform
+configuration is a program, and running one against every repository in an estate is not something an
+ingestion job should do, so a resource named entirely by interpolation is not indexed. YAML is only
+treated as CloudFormation when its *name* says so, or every CI workflow in the estate would arrive as
+infrastructure.
+
+**One delta per repository.** A repository whose manifest will not parse costs that repository, not
+the hundred either side of it: it is still recorded, without its dependencies, the run finishes
+everything else and is then marked `PARTIAL` with the reason on the run record.
+
 ### Configuring it
 
 ```yaml
@@ -233,6 +267,13 @@ connectors:
     token: ${GITHUB_TOKEN:}       # a fine-grained token: repository metadata and contents, read-only
     base-url: https://api.github.com    # override for GitHub Enterprise Server
     wait-for-reset-seconds: 60          # how long a run will wait out a rate limit before giving up
+    manifests:
+      enabled: true
+      internal-package-prefixes: ["@acme/", "com.acme"]  # what this organisation publishes under
+      include-lockfiles: false          # the transitive closure; see above before turning this on
+      max-file-bytes: 1048576           # anything larger is skipped and logged
+    iac:
+      enabled: true
 ```
 
 The token needs read access to repository metadata and contents, and nothing else — contents only so
