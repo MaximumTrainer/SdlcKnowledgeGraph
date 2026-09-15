@@ -7,7 +7,6 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Provenance
-import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.port.out.GraphStore
@@ -154,19 +153,11 @@ class Neo4jRepositoryAdapter(
             Team(id = props.str("id"), name = props.str("name"), email = props.strOrNull("email"))
         }
 
-    override fun findServiceNowCIForRepo(repoId: String): ServiceNowCI? =
+    override fun findConfigurationItemForRepo(repoId: String): GraphNode? =
         query(
             "MATCH (r:Repository { key: ${'$'}key })-[:RELATES_TO_CI]->(c:ConfigurationItem) RETURN c { .* } AS c",
             repoId,
-        ).firstOrNull()?.let { row ->
-            val props = row.nodeProps("c")
-            ServiceNowCI(
-                id = props.str("id"),
-                ciName = props.str("ciName"),
-                serviceId = props.strOrNull("serviceId").orEmpty(),
-                repoId = props.strOrNull("repoId"),
-            )
-        }
+        ).firstOrNull()?.let { row -> GraphRowMapper.toNode("ConfigurationItem", row["c"]) }
 
     override fun findPipelinesForRepo(repoId: String): List<Pipeline> =
         query(

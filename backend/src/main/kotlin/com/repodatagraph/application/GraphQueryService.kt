@@ -3,9 +3,9 @@ package com.repodatagraph.application
 import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
-import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
 import com.repodatagraph.domain.port.`in`.GraphQueryUseCase
 import com.repodatagraph.domain.port.out.FactStorePort
@@ -29,7 +29,7 @@ class GraphQueryService(
 
     override fun getTeamForRepo(repoId: String): Team? = graphPort.findTeamForRepo(repoId)
 
-    override fun getServiceNowCIForRepo(repoId: String): ServiceNowCI? = graphPort.findServiceNowCIForRepo(repoId)
+    override fun getConfigurationItemForRepo(repoId: String): GraphNode? = graphPort.findConfigurationItemForRepo(repoId)
 
     override fun getPipelinesForRepo(repoId: String): List<Pipeline> = graphPort.findPipelinesForRepo(repoId)
 

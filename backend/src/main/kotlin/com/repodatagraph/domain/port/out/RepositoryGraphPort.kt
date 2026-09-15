@@ -2,9 +2,9 @@ package com.repodatagraph.domain.port.out
 
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
-import com.repodatagraph.domain.model.ServiceNowCI
 import com.repodatagraph.domain.model.Team
 
 interface RepositoryGraphPort {
@@ -51,7 +51,14 @@ interface RepositoryGraphPort {
 
     fun findTeamForRepo(repoId: String): Team?
 
-    fun findServiceNowCIForRepo(repoId: String): ServiceNowCI?
+    /**
+     * The configuration item a repository is linked to, as the registry declares it.
+     *
+     * A [GraphNode] rather than a hand-written type: what a CMDB records about a service is the
+     * ontology's business now, and a Kotlin class beside it was a second declaration that could
+     * disagree with the first.
+     */
+    fun findConfigurationItemForRepo(repoId: String): GraphNode?
 
     fun findPipelinesForRepo(repoId: String): List<Pipeline>
 }
