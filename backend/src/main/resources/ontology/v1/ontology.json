@@ -113,7 +113,52 @@
         { "name": "sysId", "type": "string", "required": true, "description": "Identifier in the source system" },
         { "name": "ciName", "type": "string", "required": true, "description": null },
         { "name": "ciClass", "type": "string", "required": false, "description": "e.g. cmdb_ci_service" },
-        { "name": "serviceId", "type": "string", "required": false, "description": null }
+        { "name": "serviceId", "type": "string", "required": false, "description": null },
+        { "name": "operationalStatus", "type": "string", "required": false, "description": "As the CMDB reports it, e.g. Operational or Retired" },
+        { "name": "environment", "type": "string", "required": false, "description": null },
+        { "name": "businessCriticality", "type": "string", "required": false, "description": "e.g. 1 - most critical" },
+        { "name": "ownerGroup", "type": "string", "required": false, "description": null },
+        { "name": "supportGroup", "type": "string", "required": false, "description": null },
+        { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one" }
+      ]
+    },
+    {
+      "name": "ChangeRequest",
+      "description": "A change as a service-management tool records it, with its approval and window.",
+      "identity": ["sourceSystem", "instance", "sysId"],
+      "properties": [
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
+        { "name": "instance", "type": "string", "required": true, "description": null },
+        { "name": "sysId", "type": "string", "required": true, "description": null },
+        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. CHG0001" },
+        { "name": "shortDescription", "type": "string", "required": false, "description": null },
+        { "name": "state", "type": "string", "required": false, "description": "As the tool reports it, e.g. Implement or Closed" },
+        { "name": "changeType", "type": "string", "required": false, "description": null, "enum": ["standard", "normal", "emergency"] },
+        { "name": "risk", "type": "string", "required": false, "description": null },
+        { "name": "startDate", "type": "instant", "required": false, "description": "Start of the planned window" },
+        { "name": "endDate", "type": "instant", "required": false, "description": "End of the planned window" },
+        { "name": "closeCode", "type": "string", "required": false, "description": null },
+        { "name": "requestedBy", "type": "string", "required": false, "description": null },
+        { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
+      ]
+    },
+    {
+      "name": "Incident",
+      "description": "An operational failure as a service-management tool records it.",
+      "identity": ["sourceSystem", "instance", "sysId"],
+      "properties": [
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
+        { "name": "instance", "type": "string", "required": true, "description": null },
+        { "name": "sysId", "type": "string", "required": true, "description": null },
+        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. INC0001" },
+        { "name": "shortDescription", "type": "string", "required": false, "description": null },
+        { "name": "state", "type": "string", "required": false, "description": null },
+        { "name": "priority", "type": "string", "required": false, "description": null },
+        { "name": "severity", "type": "string", "required": false, "description": null },
+        { "name": "openedAt", "type": "instant", "required": false, "description": null },
+        { "name": "resolvedAt", "type": "instant", "required": false, "description": null },
+        { "name": "closeCode", "type": "string", "required": false, "description": null },
+        { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
       ]
     },
     {
@@ -203,14 +248,15 @@
     {
       "name": "DEPENDS_ON",
       "description": "A dependency between repositories, services or third-party libraries.",
-      "from": ["Repository", "Service"],
-      "to": ["Repository", "Service", "Library"],
+      "from": ["Repository", "Service", "ConfigurationItem"],
+      "to": ["Repository", "Service", "Library", "ConfigurationItem"],
       "inverse": "DEPENDED_ON_BY",
       "properties": [
-        { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data"] },
+        { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data", "cmdb"] },
         { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" },
         { "name": "version", "type": "string", "required": false, "description": "The version the manifest asks for, as written" },
-        { "name": "scope", "type": "string", "required": false, "description": "Whether the dependency is needed to run or only to build", "enum": ["runtime", "dev"] }
+        { "name": "scope", "type": "string", "required": false, "description": "Whether the dependency is needed to run or only to build", "enum": ["runtime", "dev"] },
+        { "name": "relType", "type": "string", "required": false, "description": "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'" }
       ]
     },
     {
@@ -237,6 +283,24 @@
       "from": ["Repository", "Service"],
       "to": ["ConfigurationItem"],
       "inverse": "CI_OF",
+      "properties": [
+      ]
+    },
+    {
+      "name": "AFFECTS",
+      "description": "A change or an incident concerns a configuration item, service or repository.",
+      "from": ["ChangeRequest", "Incident"],
+      "to": ["ConfigurationItem", "Service", "Repository"],
+      "inverse": "AFFECTED_BY",
+      "properties": [
+      ]
+    },
+    {
+      "name": "CAUSED_BY",
+      "description": "An incident is attributed to a change.",
+      "from": ["Incident"],
+      "to": ["ChangeRequest", "Deployment"],
+      "inverse": "CAUSED",
       "properties": [
       ]
     },
@@ -281,7 +345,7 @@
       "name": "PRODUCED",
       "description": "A sync run asserted this node.",
       "from": ["SyncRun"],
-      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile"],
+      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile", "ChangeRequest", "Incident"],
       "inverse": "PRODUCED_BY",
       "properties": [
       ]

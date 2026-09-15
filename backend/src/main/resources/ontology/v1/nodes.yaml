@@ -107,6 +107,54 @@ nodes:
       - { name: ciName, type: string, required: true }
       - { name: ciClass, type: string, required: false, description: "e.g. cmdb_ci_service" }
       - { name: serviceId, type: string, required: false }
+      # What a CMDB is consulted for. Criticality and support group are the fields somebody actually
+      # reads at three in the morning, and a graph that has the CI but not these sends them back to
+      # the CMDB to look them up - which is the trip this graph exists to save.
+      - { name: operationalStatus, type: string, required: false, description: "As the CMDB reports it, e.g. Operational or Retired" }
+      - { name: environment, type: string, required: false }
+      - { name: businessCriticality, type: string, required: false, description: "e.g. 1 - most critical" }
+      - { name: ownerGroup, type: string, required: false }
+      - { name: supportGroup, type: string, required: false }
+      - { name: number, type: string, required: false, description: "The human-facing identifier, where the CI has one" }
+
+  # A planned change, as the service-management tool records it. Not a deployment: a change request is
+  # somebody's intention and its approval, and whether it actually reached production is a fact the
+  # CI/CD connector reports. Keeping them apart is what lets "was this outage a change we approved"
+  # be asked at all.
+  ChangeRequest:
+    description: A change as a service-management tool records it, with its approval and window.
+    identity: [sourceSystem, instance, sysId]
+    properties:
+      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
+      - { name: instance, type: string, required: true }
+      - { name: sysId, type: string, required: true }
+      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. CHG0001" }
+      - { name: shortDescription, type: string, required: false }
+      - { name: state, type: string, required: false, description: "As the tool reports it, e.g. Implement or Closed" }
+      - { name: changeType, type: string, required: false, enum: [standard, normal, emergency] }
+      - { name: risk, type: string, required: false }
+      - { name: startDate, type: instant, required: false, description: "Start of the planned window" }
+      - { name: endDate, type: instant, required: false, description: "End of the planned window" }
+      - { name: closeCode, type: string, required: false }
+      - { name: requestedBy, type: string, required: false }
+      - { name: assignmentGroup, type: string, required: false }
+
+  Incident:
+    description: An operational failure as a service-management tool records it.
+    identity: [sourceSystem, instance, sysId]
+    properties:
+      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
+      - { name: instance, type: string, required: true }
+      - { name: sysId, type: string, required: true }
+      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. INC0001" }
+      - { name: shortDescription, type: string, required: false }
+      - { name: state, type: string, required: false }
+      - { name: priority, type: string, required: false }
+      - { name: severity, type: string, required: false }
+      - { name: openedAt, type: instant, required: false }
+      - { name: resolvedAt, type: instant, required: false }
+      - { name: closeCode, type: string, required: false }
+      - { name: assignmentGroup, type: string, required: false }
 
   Library:
     description: A third-party package a repository depends on, as its ecosystem names it.

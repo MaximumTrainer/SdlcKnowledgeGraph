@@ -5,6 +5,7 @@ import com.repodatagraph.adapter.out.github.manifest.DependencyScope
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
+import com.repodatagraph.domain.port.out.connector.plus
 import java.time.Instant
 
 /** Some repositories could not be read. The run keeps what it read and records this. */

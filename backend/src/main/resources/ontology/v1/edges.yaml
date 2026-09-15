@@ -25,18 +25,19 @@ edges:
 
   DEPENDS_ON:
     description: A dependency between repositories, services or third-party libraries.
-    from: [Repository, Service]
-    to: [Repository, Service, Library]
+    from: [Repository, Service, ConfigurationItem]
+    to: [Repository, Service, Library, ConfigurationItem]
     inverse: DEPENDED_ON_BY
     properties:
       - name: kind
         type: string
         required: true
         description: "What sort of dependency this is"
-        enum: [library, api, event, data]
+        enum: [library, api, event, data, cmdb]
       - { name: manifest, type: string, required: false, description: "File the dependency was read from, e.g. build.gradle.kts" }
       - { name: version, type: string, required: false, description: "The version the manifest asks for, as written" }
       - { name: scope, type: string, required: false, description: "Whether the dependency is needed to run or only to build", enum: [runtime, dev] }
+      - { name: relType, type: string, required: false, description: "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'" }
 
   CONTAINS_IAC:
     description: A repository holds an infrastructure-as-code file.
@@ -55,6 +56,21 @@ edges:
     from: [Repository, Service]
     to: [ConfigurationItem]
     inverse: CI_OF
+
+  # What a change or an incident was about. One name for both, because the question asked of them is
+  # the same one - "what else is touching this thing" - and two names would mean every traversal that
+  # wanted the answer had to know which kind it was looking at first.
+  AFFECTS:
+    description: A change or an incident concerns a configuration item, service or repository.
+    from: [ChangeRequest, Incident]
+    to: [ConfigurationItem, Service, Repository]
+    inverse: AFFECTED_BY
+
+  CAUSED_BY:
+    description: An incident is attributed to a change.
+    from: [Incident]
+    to: [ChangeRequest, Deployment]
+    inverse: CAUSED
 
   BUILT_FROM:
     description: An artifact was built from a repository at a particular commit.
@@ -91,5 +107,5 @@ edges:
     # Every type a connector can write. A type missing from here is one a run cannot record having
     # written, which fails the page rather than losing it quietly - so this list grows with the
     # others above it.
-    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile]
+    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident]
     inverse: PRODUCED_BY

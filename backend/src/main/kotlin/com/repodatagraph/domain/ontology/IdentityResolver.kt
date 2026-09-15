@@ -24,7 +24,9 @@ class IdentityResolver(
         when (type) {
             "Repository" -> NodeKey(type, repositoryKey(props))
             "CloudResource" -> NodeKey(type, "${required(props, "provider", type).lowercase()}:${required(props, "resourceId", type)}")
-            "ConfigurationItem" -> NodeKey(type, configurationItemKey(props))
+            // One rule for all three: a CI, a change and an incident are all rows in one instance of
+            // one service-management tool, and their ids only mean anything together with it.
+            "ConfigurationItem", "ChangeRequest", "Incident" -> NodeKey(type, serviceManagementKey(type, props))
             "Pipeline" -> NodeKey(type, pipelineKey(props))
             "Artifact" -> NodeKey(type, artifactKey(props))
             "Environment" -> NodeKey(type, environmentKey(required(props, "name", type)))
@@ -70,10 +72,13 @@ class IdentityResolver(
     private fun iacFileKey(props: Map<String, Any?>): String =
         required(props, "repoKey", "IacFile").trim() + ":" + required(props, "path", "IacFile").trim().removePrefix("/")
 
-    private fun configurationItemKey(props: Map<String, Any?>): String {
+    private fun serviceManagementKey(
+        type: String,
+        props: Map<String, Any?>,
+    ): String {
         val system = (props["sourceSystem"]?.toString() ?: "servicenow").lowercase()
-        val instance = required(props, "instance", "ConfigurationItem")
-        val sysId = required(props, "sysId", "ConfigurationItem")
+        val instance = required(props, "instance", type)
+        val sysId = required(props, "sysId", type)
         return "$system:$instance:$sysId"
     }
 

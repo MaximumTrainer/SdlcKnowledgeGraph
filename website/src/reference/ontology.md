@@ -141,6 +141,55 @@ Identity: `sourceSystem, instance, sysId`
 | `ciName` | `string` | yes |  |
 | `ciClass` | `string` | no | e.g. cmdb_ci_service |
 | `serviceId` | `string` | no |  |
+| `operationalStatus` | `string` | no | As the CMDB reports it, e.g. Operational or Retired |
+| `environment` | `string` | no |  |
+| `businessCriticality` | `string` | no | e.g. 1 - most critical |
+| `ownerGroup` | `string` | no |  |
+| `supportGroup` | `string` | no |  |
+| `number` | `string` | no | The human-facing identifier, where the CI has one |
+
+### ChangeRequest
+
+A change as a service-management tool records it, with its approval and window.
+
+Identity: `sourceSystem, instance, sysId`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sourceSystem` | `string` | yes | e.g. servicenow |
+| `instance` | `string` | yes |  |
+| `sysId` | `string` | yes |  |
+| `number` | `string` | yes | The human-facing identifier, e.g. CHG0001 |
+| `shortDescription` | `string` | no |  |
+| `state` | `string` | no | As the tool reports it, e.g. Implement or Closed |
+| `changeType` | `string` | no |  |
+| `risk` | `string` | no |  |
+| `startDate` | `instant` | no | Start of the planned window |
+| `endDate` | `instant` | no | End of the planned window |
+| `closeCode` | `string` | no |  |
+| `requestedBy` | `string` | no |  |
+| `assignmentGroup` | `string` | no |  |
+
+### Incident
+
+An operational failure as a service-management tool records it.
+
+Identity: `sourceSystem, instance, sysId`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sourceSystem` | `string` | yes | e.g. servicenow |
+| `instance` | `string` | yes |  |
+| `sysId` | `string` | yes |  |
+| `number` | `string` | yes | The human-facing identifier, e.g. INC0001 |
+| `shortDescription` | `string` | no |  |
+| `state` | `string` | no |  |
+| `priority` | `string` | no |  |
+| `severity` | `string` | no |  |
+| `openedAt` | `instant` | no |  |
+| `resolvedAt` | `instant` | no |  |
+| `closeCode` | `string` | no |  |
+| `assignmentGroup` | `string` | no |  |
 
 ### Library
 
@@ -223,15 +272,17 @@ second relationship.
 | --- | --- | --- | --- | --- |
 | `OWNED_BY` | Repository, Service, CloudResource | Team | `OWNS` | Ownership of a repository, service or cloud resource by a team. |
 | `OWNS_RESOURCE` | Repository, Service | CloudResource | `OWNED_BY_REPO` | A repository or service is responsible for a piece of infrastructure. |
-| `DEPENDS_ON` | Repository, Service | Repository, Service, Library | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries. |
+| `DEPENDS_ON` | Repository, Service, ConfigurationItem | Repository, Service, Library, ConfigurationItem | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries. |
 | `CONTAINS_IAC` | Repository | IacFile | `IAC_IN` | A repository holds an infrastructure-as-code file. |
 | `HAS_PIPELINE` | Repository | Pipeline | `PIPELINE_OF` | A repository defines a CI/CD pipeline. |
 | `RELATES_TO_CI` | Repository, Service | ConfigurationItem | `CI_OF` | A repository or service corresponds to a configuration item in service management. |
+| `AFFECTS` | ChangeRequest, Incident | ConfigurationItem, Service, Repository | `AFFECTED_BY` | A change or an incident concerns a configuration item, service or repository. |
+| `CAUSED_BY` | Incident | ChangeRequest, Deployment | `CAUSED` | An incident is attributed to a change. |
 | `BUILT_FROM` | Artifact | Repository | `BUILDS` | An artifact was built from a repository at a particular commit. |
 | `DEPLOYED_TO` | Artifact | Deployment | `DEPLOYMENT_OF` | An artifact was the subject of a deployment. |
 | `TO_ENVIRONMENT` | Deployment | Environment | `HOSTS` | A deployment targeted an environment. |
 | `PROVIDES` | Repository | Service | `PROVIDED_BY` | A repository provides a running service. |
-| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile | `PRODUCED_BY` | A sync run asserted this node. |
+| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident | `PRODUCED_BY` | A sync run asserted this node. |
 
 ### Relationship properties
 
@@ -243,4 +294,5 @@ second relationship.
 | `DEPENDS_ON` | `manifest` | `string` | no |
 | `DEPENDS_ON` | `version` | `string` | no |
 | `DEPENDS_ON` | `scope` | `string` | no |
+| `DEPENDS_ON` | `relType` | `string` | no |
 | `BUILT_FROM` | `commitSha` | `string` | no |
