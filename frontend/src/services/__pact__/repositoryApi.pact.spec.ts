@@ -15,6 +15,7 @@ const { like, eachLike } = MatchersV3
  */
 const REPOSITORY_R1_EXISTS = 'a repository with id R1 exists'
 const NO_REPOSITORIES = 'no repositories exist'
+const R1_RELATES_TO_A_CI = 'repository R1 is linked to a configuration item'
 
 const provider = new PactV3({
   consumer: 'sdlc-graph-frontend',
@@ -109,6 +110,39 @@ describe('repository API contract', () => {
       )
 
       expect(created.id).toBeTruthy()
+    })
+  })
+
+  /**
+   * The narrow, older shape of a configuration item.
+   *
+   * Worth a contract of its own because it is the one endpoint that reports a registry-declared type
+   * through a hand-written projection: `ConfigurationItem` has eleven properties and this sends four.
+   * Anything that widened it - a connector adding a field, somebody returning the node itself - would
+   * pass every backend test and still change what a caller receives. This is what notices.
+   */
+  it('reads the configuration item linked to a repository', async () => {
+    provider
+      .given(R1_RELATES_TO_A_CI)
+      .uponReceiving('a request for the configuration item of repository R1')
+      .withRequest({ method: 'GET', path: '/api/v1/graph/repositories/R1/servicenow' })
+      .willRespondWith({
+        status: 200,
+        headers: JSON_HEADERS,
+        body: {
+          id: like('ConfigurationItem:servicenow:sn.example.test:a1'),
+          ciName: like('payments-api'),
+          serviceId: like('SVC-1'),
+          repoId: like('R1')
+        }
+      })
+
+    await provider.executeTest(async mockServer => {
+      const ci = await against(mockServer.url, () => graphApi.getServiceNowCI('R1'))
+
+      expect(ci?.ciName).toBe('payments-api')
+      expect(ci?.serviceId).toBe('SVC-1')
+      expect(ci?.repoId).toBe('R1')
     })
   })
 

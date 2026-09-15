@@ -71,4 +71,7 @@ class GraphApiContractTest {
 
     @State(ProviderStates.PAYMENTS_DEPENDS_ON_SHARED_LIB)
     fun paymentsDependsOnSharedLib() = states.paymentsDependsOnSharedLib()
+
+    @State(ProviderStates.R1_RELATES_TO_A_CI)
+    fun repositoryR1RelatesToACi() = states.repositoryR1RelatesToACi()
 }

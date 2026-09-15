@@ -94,6 +94,43 @@ class ProviderStates(
         )
     }
 
+    /**
+     * A repository linked to a configuration item, seeded the way the ServiceNow connector writes one.
+     *
+     * The CI carries more than the endpoint reports - criticality and a support group among them -
+     * because that is the point of the interaction: verification has to prove the projection is
+     * narrow, and a CI with only the four reported fields could not tell a projection from a
+     * passthrough.
+     */
+    fun repositoryR1RelatesToACi() {
+        repositoryR1Exists()
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("ConfigurationItem", CI_KEY),
+                props =
+                    mapOf(
+                        "sourceSystem" to "servicenow",
+                        "instance" to "sn.example.test",
+                        "sysId" to "a1",
+                        "ciName" to "payments-api",
+                        "ciClass" to "cmdb_ci_app",
+                        "serviceId" to "SVC-1",
+                        "businessCriticality" to "1 - most critical",
+                        "supportGroup" to "Payments On Call",
+                    ),
+                provenance = Provenance.manual(),
+            ),
+        )
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "RELATES_TO_CI",
+                from = NodeKey("Repository", REPOSITORY_KEY),
+                to = NodeKey("ConfigurationItem", CI_KEY),
+                provenance = Provenance.manual(),
+            ),
+        )
+    }
+
     fun twoRepositoriesExist() {
         emptyGraph()
         repository(REPOSITORY_KEY_OWNED)
@@ -146,11 +183,13 @@ class ProviderStates(
         const val TEAM_PLATFORM_EXISTS = "a Team named platform exists"
         const val TWO_REPOSITORIES_EXIST = "two repositories exist"
         const val PAYMENTS_DEPENDS_ON_SHARED_LIB = "payments DEPENDS_ON shared-lib"
+        const val R1_RELATES_TO_A_CI = "repository R1 is linked to a configuration item"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
         private const val REPOSITORY_KEY_OWNED = "github.com/acme/payments"
         private const val SHARED_LIB_KEY = "github.com/acme/shared-lib"
+        private const val CI_KEY = "servicenow:sn.example.test:a1"
 
         /** Every state this provider can seed. */
         val ALL =
@@ -161,6 +200,7 @@ class ProviderStates(
                 TEAM_PLATFORM_EXISTS,
                 TWO_REPOSITORIES_EXIST,
                 PAYMENTS_DEPENDS_ON_SHARED_LIB,
+                R1_RELATES_TO_A_CI,
             )
     }
 }

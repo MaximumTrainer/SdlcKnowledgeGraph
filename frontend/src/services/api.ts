@@ -88,7 +88,27 @@ export const graphApi = {
       .then(r => r.data)
       .catch(() => null),
   getImpact: (repoId: string): Promise<ImpactAnalysis> =>
-    client.get(`/graph/repositories/${repoId}/impact`).then(r => r.data)
+    client.get(`/graph/repositories/${repoId}/impact`).then(r => r.data),
+  getServiceNowCI: (repoId: string): Promise<ServiceNowCI | null> =>
+    client
+      .get(`/graph/repositories/${repoId}/servicenow`)
+      .then(r => r.data)
+      .catch(() => null)
+}
+
+/**
+ * The configuration item linked to a repository, in the four fields this endpoint has always sent.
+ *
+ * Narrower than the `ConfigurationItem` the registry declares, on purpose: this endpoint predates the
+ * generic node API and callers built against it read these four. Everything a CMDB actually records -
+ * criticality, support group, environment - comes back from `/nodes/ConfigurationItem/{key}` without
+ * anybody widening this.
+ */
+export interface ServiceNowCI {
+  id: string
+  ciName: string
+  serviceId: string
+  repoId: string | null
 }
 
 /**
