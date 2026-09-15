@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.out.github
 
 import com.repodatagraph.adapter.out.github.manifest.UnreadableManifestException
 import com.repodatagraph.domain.port.out.connector.GraphDelta
+import com.repodatagraph.domain.port.out.connector.plus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -97,12 +98,3 @@ class RepositoryReader(
         const val DEFAULT_BRANCH = "main"
     }
 }
-
-/** Two deltas as one. Kept here so both callers of [RepositoryReader] combine them the same way. */
-internal operator fun GraphDelta.plus(other: GraphDelta) =
-    GraphDelta(
-        nodes = nodes + other.nodes,
-        edges = edges + other.edges,
-        tombstones = tombstones + other.tombstones,
-        watermark = watermark ?: other.watermark,
-    )

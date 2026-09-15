@@ -114,6 +114,21 @@ data class GraphDelta(
     val watermark: Instant? = null,
 )
 
+/**
+ * Two deltas as one.
+ *
+ * On the type rather than in a connector, because every connector that reads more than one thing per
+ * subject needs it and three private copies would eventually disagree about the watermark. The first
+ * watermark wins: a delta that can say where it got to has already said it.
+ */
+operator fun GraphDelta.plus(other: GraphDelta) =
+    GraphDelta(
+        nodes = nodes + other.nodes,
+        edges = edges + other.edges,
+        tombstones = tombstones + other.tombstones,
+        watermark = watermark ?: other.watermark,
+    )
+
 /** A raw webhook, before anyone has decided whether to believe it. */
 class WebhookEvent(
     val connector: String,

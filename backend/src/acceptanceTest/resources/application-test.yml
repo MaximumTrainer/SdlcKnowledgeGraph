@@ -19,6 +19,9 @@ connectors:
       enabled: true
       schedule: "0 0 5 31 2 ?"
       webhook-secret: github-secret
+    servicenow:
+      enabled: true
+      schedule: "0 0 5 31 2 ?"
   # The org the fake serves. The base URL is set from the fake's port in CucumberSpringConfig, so
   # nothing here reaches the real api.github.com.
   github:
@@ -27,3 +30,15 @@ connectors:
     manifests:
       # What the fake GitHub publishes under, so an internal dependency can be told from a library.
       internal-package-prefixes: ["@acme/", "com.acme"]
+  # The fake ServiceNow's instance. The URL is set from the fake's port in CucumberSpringConfig.
+  servicenow:
+    # Named rather than derived from the fake's localhost URL, because the key an assertion names has
+    # to be stable whatever port the fake happens to get.
+    instance-name: sn.example.test
+    auth:
+      mode: BASIC
+      username: integration
+      password: fake-password
+    # Small on purpose: crossing a page boundary is what pagination has to prove, and proving it with
+    # five hundred rows a page costs minutes of Testcontainers writes to say the same thing.
+    page-size: 100

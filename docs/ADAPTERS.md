@@ -10,9 +10,12 @@ graph stops being a hand-maintained diagram and starts reflecting reality.
 > [#23](../../issues/23) added the GitHub connector: repositories, their topics, team ownership read
 > from CODEOWNERS, the dependencies declared in seven manifest formats, and an index of
 > infrastructure-as-code files, and webhooks for near-real-time change (see
-> [below](#the-github-connector)). Nothing else is connected yet: ServiceNow is
-> [#24](../../issues/24), AWS [#25](../../issues/25), and link resolution [#28](../../issues/28), so
-> everything outside GitHub is still entered by hand (see the [user guide](USER-GUIDE.md)).
+> [below](#the-github-connector)). [#24](../../issues/24) added ServiceNow: configuration items,
+> CMDB relationships, changes and incidents (see [below](#the-servicenow-connector)), and with it the
+> `ItsmConnector` shape that Jira Service Management ([#35](../../issues/35)) will reuse. The clouds
+> are still to come - AWS [#25](../../issues/25) - as is link resolution
+> [#28](../../issues/28), so anything outside GitHub and the CMDB is still entered by hand (see the
+> [user guide](USER-GUIDE.md)).
 
 ## The contract
 
@@ -138,6 +141,89 @@ which surfaces in a review screen where a person accepts it, promoting it to a m
 rejects it, recording a tombstone with a reason so the rule does not keep re-proposing it.
 
 Re-running the engine is idempotent.
+
+## The ServiceNow connector
+
+The CMDB is where an enterprise has already written down what its services are called and who
+supports them. Reading it is how the graph stops being a developer's view of the estate and becomes
+the same estate operations already argues about.
+
+| It reads | It writes |
+| --- | --- |
+| `cmdb_ci_service`, `cmdb_ci_app`, `cmdb_ci_business_app` | a `ConfigurationItem` per row, keyed `servicenow:<instance>:<sys_id>` |
+| `cmdb_rel_ci` where the type is a configured dependency | `ConfigurationItem DEPENDS_ON ConfigurationItem {kind: cmdb}` |
+| `change_request` | a `ChangeRequest`, and `AFFECTS` to the CI it names |
+| `incident` | an `Incident`, `AFFECTS` to its CI, and `CAUSED_BY` to the change when one is recorded |
+| a custom field naming a repository | `Repository RELATES_TO_CI ConfigurationItem` at confidence 0.95 |
+| `operational_status` of `Retired` | a tombstone, closing the CI's validity |
+
+What makes this worth connecting is not the inventory. It is that a change and an incident both point
+at the same configuration item, so "was this outage something we approved" becomes a traversal rather
+than a meeting.
+
+Four decisions are worth knowing about.
+
+**The four reads happen in order, and that order is the design.** Configuration items first, because
+everything else points at one; then relationships, changes and incidents, each using the sys_ids the
+earlier passes actually ingested. An edge written before its far end exists is an edge the writer
+refuses.
+
+**A row referring to something outside the synced tables is skipped.** A CMDB relates services to
+hardware, contracts, locations and people. Following those would pull an entire enterprise's asset
+register into a graph about software, and an edge to a node that was never ingested is worse than no
+edge — a traversal finds it and then finds nothing on the other side.
+
+**A repository named in a custom field becomes an edge only if the graph already has that
+repository.** A CMDB field is a claim that a repository exists somewhere, not evidence of one here.
+Creating one from it would fill the graph with repositories nobody can open. The link is recorded at
+0.95 rather than 1.0: it rests on somebody having filled in a field correctly, which is a better
+guess than a name match and still a guess.
+
+**A retired CI is closed, not dropped.** "This used to be a service" answers half the questions asked
+of a CMDB six months later.
+
+### Configuring it
+
+```yaml
+connectors:
+  settings:
+    servicenow:
+      enabled: true
+      schedule: "0 */15 * * * *"
+  servicenow:
+    instance-url: ${SERVICENOW_URL:}
+    instance-name: ""                 # defaults to the host of instance-url; set it to keep keys
+                                      # stable if the instance moves behind a new domain
+    auth:
+      mode: BASIC                     # OAUTH is configurable and not yet implemented
+      username: ${SERVICENOW_USERNAME:}
+      password: ${SERVICENOW_PASSWORD:}
+    ci-tables: [cmdb_ci_service, cmdb_ci_app, cmdb_ci_business_app]
+    repo-url-field: u_repository_url  # the custom field, if your instance has one
+    dependency-rel-types: ["Depends on::Used by"]
+    page-size: 500
+    change-lookback-days: 90          # a first sync would otherwise read every change ever raised
+    incident-lookback-days: 90
+```
+
+The integration user needs **read** on the CI tables listed, on `cmdb_rel_ci`, `change_request`,
+`incident` and `sys_properties` — the last only because the health check reads one row from it — and
+nothing else. The connector never writes to ServiceNow.
+
+Two things [#24](../../issues/24) asks for are not here. **OAuth client credentials** is configurable
+and refused at the health check: the token exchange is a second endpoint with its own refresh, and
+shipping a half-built one would be worse than saying so. **Retiring CIs that vanish from a full
+sync** is the same reconciliation as [#150](../../issues/150) and belongs to the sync engine; a CI
+the CMDB marks `Retired` is closed today.
+
+### Implementing `ItsmConnector` for another tool
+
+`ItsmConnector` adds three entry points to `SourceConnector` — `configurationItems`,
+`changeRequests`, `incidents` — each taking a watermark and returning deltas. The contract they carry
+is the one above: identity is `<tool>:<instance>:<id>`, a change and an incident both `AFFECTS` the
+thing they are about, and an id referring to something outside what was ingested is skipped rather
+than turned into a dangling edge. A tool that can answer those three questions is a few hundred lines
+of client and mapper, which is the whole point of the interface existing.
 
 ## Writing a connector
 

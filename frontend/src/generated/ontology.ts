@@ -110,6 +110,47 @@ export interface ConfigurationItem {
   ciName: string
   ciClass?: string
   serviceId?: string
+  operationalStatus?: string
+  environment?: string
+  businessCriticality?: string
+  ownerGroup?: string
+  supportGroup?: string
+  number?: string
+}
+
+/** A change as a service-management tool records it, with its approval and window. */
+export interface ChangeRequest {
+  id: string
+  sourceSystem: string
+  instance: string
+  sysId: string
+  number: string
+  shortDescription?: string
+  state?: string
+  changeType?: string
+  risk?: string
+  startDate?: string
+  endDate?: string
+  closeCode?: string
+  requestedBy?: string
+  assignmentGroup?: string
+}
+
+/** An operational failure as a service-management tool records it. */
+export interface Incident {
+  id: string
+  sourceSystem: string
+  instance: string
+  sysId: string
+  number: string
+  shortDescription?: string
+  state?: string
+  priority?: string
+  severity?: string
+  openedAt?: string
+  resolvedAt?: string
+  closeCode?: string
+  assignmentGroup?: string
 }
 
 /** A third-party package a repository depends on, as its ecosystem names it. */
@@ -173,6 +214,8 @@ export type NodeType =
   | 'Environment'
   | 'CloudResource'
   | 'ConfigurationItem'
+  | 'ChangeRequest'
+  | 'Incident'
   | 'Library'
   | 'IacFile'
   | 'Ontology'
@@ -189,6 +232,8 @@ export const NODE_TYPES: readonly NodeType[] = [
   'Environment',
   'CloudResource',
   'ConfigurationItem',
+  'ChangeRequest',
+  'Incident',
   'Library',
   'IacFile',
   'Ontology',
@@ -203,6 +248,8 @@ export type EdgeTypeName =
   | 'CONTAINS_IAC'
   | 'HAS_PIPELINE'
   | 'RELATES_TO_CI'
+  | 'AFFECTS'
+  | 'CAUSED_BY'
   | 'BUILT_FROM'
   | 'DEPLOYED_TO'
   | 'TO_ENVIRONMENT'
@@ -216,6 +263,8 @@ export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'CONTAINS_IAC',
   'HAS_PIPELINE',
   'RELATES_TO_CI',
+  'AFFECTS',
+  'CAUSED_BY',
   'BUILT_FROM',
   'DEPLOYED_TO',
   'TO_ENVIRONMENT',

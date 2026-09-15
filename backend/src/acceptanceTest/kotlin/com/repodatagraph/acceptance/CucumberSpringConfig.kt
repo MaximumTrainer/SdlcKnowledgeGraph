@@ -3,6 +3,7 @@ package com.repodatagraph.acceptance
 import com.repodatagraph.support.Neo4jTestcontainersConfig
 import com.repodatagraph.support.connector.FakeConnectorConfig
 import com.repodatagraph.support.connector.FakeGitHubConfig
+import com.repodatagraph.support.connector.FakeServiceNowConfig
 import io.cucumber.spring.CucumberContextConfiguration
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -16,18 +17,24 @@ import org.springframework.test.context.DynamicPropertySource
  */
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(Neo4jTestcontainersConfig::class, FakeConnectorConfig::class, FakeGitHubConfig::class)
+@Import(
+    Neo4jTestcontainersConfig::class,
+    FakeConnectorConfig::class,
+    FakeGitHubConfig::class,
+    FakeServiceNowConfig::class,
+)
 @ActiveProfiles("test")
 // Cucumber instantiates this class to build the context, so it cannot become an object however few
 // members it has - and `@DynamicPropertySource` is only discovered on the context configuration class.
 @Suppress("UtilityClassWithPublicConstructor")
 class CucumberSpringConfig {
     companion object {
-        /** The fake's port is only known once it has started, so the connector is told here. */
+        /** A fake's port is only known once it has started, so each connector is told here. */
         @JvmStatic
         @DynamicPropertySource
-        fun fakeGitHub(registry: DynamicPropertyRegistry) {
+        fun fakes(registry: DynamicPropertyRegistry) {
             registry.add("connectors.github.base-url") { FakeGitHubConfig.baseUrl }
+            registry.add("connectors.servicenow.instance-url") { FakeServiceNowConfig.baseUrl }
         }
     }
 }

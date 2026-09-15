@@ -42,3 +42,12 @@ connectors:
   github:
     orgs: ${GITHUB_ORGS:}
     token: ${GITHUB_TOKEN:}
+  # Where the ServiceNow connector looks, and as whom. From the environment for the same reason.
+  servicenow:
+    instance-url: ${SERVICENOW_URL:}
+    auth:
+      mode: ${SERVICENOW_AUTH_MODE:BASIC}
+      username: ${SERVICENOW_USERNAME:}
+      password: ${SERVICENOW_PASSWORD:}
+      client-id: ${SERVICENOW_CLIENT_ID:}
+      client-secret: ${SERVICENOW_CLIENT_SECRET:}

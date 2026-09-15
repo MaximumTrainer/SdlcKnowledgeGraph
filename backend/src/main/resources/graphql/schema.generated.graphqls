@@ -133,6 +133,51 @@ type ConfigurationItemNode implements GraphNode {
   ciName: String!
   ciClass: String
   serviceId: String
+  operationalStatus: String
+  environment: String
+  businessCriticality: String
+  ownerGroup: String
+  supportGroup: String
+  number: String
+  provenance: Provenance!
+}
+
+"""A change as a service-management tool records it, with its approval and window."""
+type ChangeRequestNode implements GraphNode {
+  id: ID!
+  key: String!
+  sourceSystem: String!
+  instance: String!
+  sysId: String!
+  number: String!
+  shortDescription: String
+  state: String
+  changeType: String
+  risk: String
+  startDate: String
+  endDate: String
+  closeCode: String
+  requestedBy: String
+  assignmentGroup: String
+  provenance: Provenance!
+}
+
+"""An operational failure as a service-management tool records it."""
+type IncidentNode implements GraphNode {
+  id: ID!
+  key: String!
+  sourceSystem: String!
+  instance: String!
+  sysId: String!
+  number: String!
+  shortDescription: String
+  state: String
+  priority: String
+  severity: String
+  openedAt: String
+  resolvedAt: String
+  closeCode: String
+  assignmentGroup: String
   provenance: Provenance!
 }
 
@@ -204,6 +249,8 @@ enum EdgeType {
   CONTAINS_IAC
   HAS_PIPELINE
   RELATES_TO_CI
+  AFFECTS
+  CAUSED_BY
   BUILT_FROM
   DEPLOYED_TO
   TO_ENVIRONMENT

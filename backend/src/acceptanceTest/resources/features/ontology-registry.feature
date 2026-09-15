@@ -20,6 +20,8 @@ Feature: Ontology registry
       | ConfigurationItem |
       | Library           |
       | IacFile           |
+      | ChangeRequest     |
+      | Incident          |
       | Ontology          |
       | SyncRun           |
       | ConnectorState    |
