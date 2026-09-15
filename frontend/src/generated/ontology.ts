@@ -28,6 +28,7 @@ export interface Repository {
   serviceId?: string
   language?: string
   description?: string
+  visibility?: string
 }
 
 /** A group that owns repositories, services or infrastructure. */

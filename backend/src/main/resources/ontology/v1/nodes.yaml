@@ -23,6 +23,7 @@ nodes:
       - { name: serviceId, type: string, required: false }
       - { name: language, type: string, required: false }
       - { name: description, type: string, required: false }
+      - { name: visibility, type: string, required: false, description: "public, private or internal, as the forge reports it", enum: [public, private, internal] }
 
   Team:
     description: A group that owns repositories, services or infrastructure.

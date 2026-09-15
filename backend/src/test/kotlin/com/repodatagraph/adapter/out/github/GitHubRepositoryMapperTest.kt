@@ -42,6 +42,7 @@ class GitHubRepositoryMapperTest {
             .containsEntry("topics", listOf("java", "payments"))
             .containsEntry("language", "Kotlin")
             .containsEntry("description", "Takes the money")
+            .containsEntry("visibility", "private")
     }
 
     @Test
@@ -64,7 +65,14 @@ class GitHubRepositoryMapperTest {
 
     @Test
     fun `turns a CODEOWNERS team into a Team and an ownership edge`() {
-        val delta = mapper.map(payments, Codeowners(handles = listOf("@acme/platform-team"), teams = listOf("acme/platform-team")))
+        val delta =
+            mapper.map(
+                payments,
+                Codeowners(
+                    handles = listOf("@acme/platform-team"),
+                    teams = listOf(TeamOwnership("acme/platform-team", listOf("*"))),
+                ),
+            )
 
         val team = delta.nodes.single { it.type == "Team" }
         // Qualified by host as well as org. Two forges, or two orgs, can each have a "platform" team,
@@ -75,6 +83,8 @@ class GitHubRepositoryMapperTest {
         assertThat(edge.type).isEqualTo("OWNED_BY")
         assertThat(edge.from).isEqualTo(NodeKey("Repository", "github.com/acme/payments"))
         assertThat(edge.to).isEqualTo(NodeKey("Team", "github.com/acme/platform-team"))
+        // What the claim rests on, carried onto the edge rather than discarded with the file.
+        assertThat(edge.props).containsEntry("pathPatterns", listOf("*"))
     }
 
     @Test
@@ -82,7 +92,7 @@ class GitHubRepositoryMapperTest {
         val delta =
             mapper.map(
                 payments,
-                Codeowners(handles = listOf("@some-person", "@acme/platform-team"), teams = listOf("acme/platform-team")),
+                Codeowners(handles = listOf("@some-person", "@acme/platform-team"), teams = listOf(TeamOwnership("acme/platform-team"))),
             )
 
         val node = delta.nodes.single { it.type == "Repository" }
@@ -116,13 +126,14 @@ class GitHubRepositoryMapperTest {
 
     @Test
     fun `survives the fields GitHub leaves null`() {
-        val bare = payments.copy(description = null, language = null, pushedAt = null, topics = emptyList())
+        val bare =
+            payments.copy(description = null, language = null, visibility = null, pushedAt = null, topics = emptyList())
 
         val node = mapper.map(bare, Codeowners.NONE).nodes.single()
 
         // Absent rather than present-and-null: the registry treats a declared optional property with
         // a null value as a property that was set to nothing, which is a different claim.
-        assertThat(node.props).doesNotContainKeys("description", "language")
+        assertThat(node.props).doesNotContainKeys("description", "language", "visibility")
         assertThat(node.props).containsEntry("topics", emptyList<String>())
         assertThat(node.observedAt).isNull()
     }

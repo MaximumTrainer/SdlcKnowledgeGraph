@@ -10,6 +10,10 @@ edges:
     from: [Repository, Service, CloudResource]
     to: [Team]
     inverse: OWNS
+    properties:
+      # What the claim rests on. A CODEOWNERS line names a team against a path, and "owns everything"
+      # and "owns /docs/" are both recorded as ownership - only the pattern says which was declared.
+      - { name: pathPatterns, type: "string[]", required: false, description: "CODEOWNERS patterns the owner was named against, where ownership came from a file" }
 
   OWNS_RESOURCE:
     description: A repository or service is responsible for a piece of infrastructure.

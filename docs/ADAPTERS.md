@@ -191,7 +191,7 @@ The first connector on the SPI, and the one the others are modelled on.
 | --- | --- |
 | `GET /orgs/{org}/repos`, every page | a `Repository` per repository, keyed on its remote |
 | each repository's `topics` | `topics` on that node |
-| `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` | a `Team` per owning team, and an `OWNED_BY` edge |
+| `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` | a `Team` per owning team, and an `OWNED_BY` edge carrying the patterns it was named against |
 | `archived` | a tombstone, closing the repository's validity |
 
 Four decisions in it are worth knowing about.
@@ -213,9 +213,10 @@ watermark saves. Filtering the listing itself would be cheaper and wrong: an arc
 repository being retired.
 
 **A spent rate limit is read from the header, not inferred from the status.** A 403 also means "your
-token may not do that". The run fails with the reset time in its error, so why it stopped is
-answerable from the run record rather than by going and asking GitHub. A 5xx is retried three times;
-a 404 for CODEOWNERS is an answer, not a failure.
+token may not do that". A limit is an instruction rather than an error, so a reset that is seconds
+away is waited out; one an hour away ends the run with the reset time in its error, because syncs
+share a pool of four threads and a run that sleeps for an hour stops every other connector. A 5xx is
+retried three times; a 404 for CODEOWNERS is an answer, not a failure.
 
 ### Configuring it
 
@@ -226,14 +227,23 @@ connectors:
       enabled: true               # off by default, like every connector
       schedule: "0 */15 * * * *"
   github:
-    org: ${GITHUB_ORG:}
+    orgs: ${GITHUB_ORGS:}         # comma-separated; every org is read by the same run
     token: ${GITHUB_TOKEN:}       # a fine-grained token: repository metadata and contents, read-only
-    base-url: https://api.github.com   # override for GitHub Enterprise Server
+    base-url: https://api.github.com    # override for GitHub Enterprise Server
+    wait-for-reset-seconds: 60          # how long a run will wait out a rate limit before giving up
 ```
 
 The token needs read access to repository metadata and contents, and nothing else — contents only so
 that CODEOWNERS can be read. A connector with no org or no token reports itself `DOWN` with the
 reason rather than failing at the first sync.
+
+Two things [#23](../../issues/23) asks for are deliberately not here yet. **GitHub App
+authentication** is not implemented; a fine-grained personal access token is, and the two differ only
+in how a token is obtained. **Repositories that disappear from a full sync** are not tombstoned —
+only archived ones are. Recognising "the source stopped reporting this" needs the sync engine to
+compare a full run against what the connector produced last time, which is a mechanism every
+connector should share rather than six connectors each getting subtly wrong, so it is
+[#150](../../issues/150).
 
 ### What a run records
 

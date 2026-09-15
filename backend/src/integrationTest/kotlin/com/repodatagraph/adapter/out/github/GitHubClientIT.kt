@@ -10,7 +10,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.web.client.RestClient
+import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 /**
  * The client, against a GitHub that is not GitHub but speaks HTTP.
@@ -39,7 +41,7 @@ class GitHubClientIT {
         github.reset()
         client =
             GitHubClient(
-                GitHubProperties(org = ORG, baseUrl = github.baseUrl, token = "fake-token"),
+                GitHubProperties(orgs = listOf(ORG), baseUrl = github.baseUrl, token = "fake-token", waitForResetSeconds = 5),
                 RestClient.builder(),
             )
     }
@@ -49,7 +51,7 @@ class GitHubClientIT {
         val all = (1..PAGED_TOTAL).map { FakeRepo(name = "repo-$it") }
         github.hasRepositories(ORG, all.take(PAGE_SIZE), all.drop(PAGE_SIZE))
 
-        val read = client.repositories().toList()
+        val read = client.repositories(ORG).toList()
 
         // A connector that reads only the first page is the classic way to silently ingest a third of
         // an estate: nothing fails, the graph is just quietly incomplete.
@@ -61,7 +63,7 @@ class GitHubClientIT {
     fun `stops when there is no next page`() {
         github.hasRepositories(ORG, listOf(FakeRepo(name = "only")))
 
-        assertThat(client.repositories().toList()).hasSize(1)
+        assertThat(client.repositories(ORG).toList()).hasSize(1)
     }
 
     @Test
@@ -71,7 +73,7 @@ class GitHubClientIT {
             listOf(FakeRepo(name = "Payments", topics = listOf("java"), language = "Kotlin", archived = true)),
         )
 
-        val repo = client.repositories().single()
+        val repo = client.repositories(ORG).single()
 
         assertThat(repo.name).isEqualTo("Payments")
         assertThat(repo.fullName).isEqualTo("acme/Payments")
@@ -86,7 +88,7 @@ class GitHubClientIT {
     fun `identifies itself and asks for a pinned API version`() {
         github.hasRepositories(ORG, listOf(FakeRepo(name = "only")))
 
-        client.repositories().toList()
+        client.repositories(ORG).toList()
 
         val request = github.lastRequest()
         // A pinned version, because GitHub changes response shapes behind an unpinned one and the
@@ -100,7 +102,7 @@ class GitHubClientIT {
     fun `asks for a full page at a time`() {
         github.hasRepositories(ORG, listOf(FakeRepo(name = "only")))
 
-        client.repositories().toList()
+        client.repositories(ORG).toList()
 
         // 100 is GitHub's maximum. Anything smaller multiplies requests against a rate limit shared
         // with everything else the token is used for.
@@ -108,15 +110,30 @@ class GitHubClientIT {
     }
 
     @Test
-    fun `refuses to hammer a spent rate limit`() {
-        val resetsAt = Instant.parse("2026-09-01T11:00:00Z")
+    fun `gives up on a rate limit it would have to wait out`() {
+        val resetsAt = Instant.now().plus(Duration.ofHours(1))
         github.hasExhaustedRateLimit(ORG, resetsAt)
 
-        assertThatThrownBy { client.repositories().toList() }
+        // Syncs run on a pool of four threads. A run that sleeps for an hour stops every other
+        // connector as surely as a deadlock would, so a long reset ends the run instead.
+        assertThatThrownBy { client.repositories(ORG).toList() }
             .isInstanceOf(GitHubRateLimitException::class.java)
             // Naming the reset makes "why did the sync stop" answerable from the run record alone,
             // rather than by going and asking GitHub.
-            .hasMessageContaining(resetsAt.toString())
+            .hasMessageContaining(resetsAt.truncatedTo(ChronoUnit.SECONDS).toString())
+    }
+
+    @Test
+    fun `waits out a rate limit that is about to reset`() {
+        github.hasExhaustedRateLimit(
+            ORG,
+            resetsAt = Instant.now().plusSeconds(1),
+            thenReturning = listOf(FakeRepo(name = "patient")),
+        )
+
+        // A rate limit is an instruction rather than an error. A reset seconds away is worth waiting
+        // for; failing the run would throw away everything the next attempt would have read anyway.
+        assertThat(client.repositories(ORG).toList()).hasSize(1)
     }
 
     @Test
@@ -125,14 +142,14 @@ class GitHubClientIT {
 
         // A 5xx from GitHub is usually a moment rather than a condition, and failing the whole run on
         // one would make a sync of a large org close to impossible.
-        assertThat(client.repositories().toList()).hasSize(1)
+        assertThat(client.repositories(ORG).toList()).hasSize(1)
     }
 
     @Test
     fun `gives up on a server error that will not stop`() {
         github.failsThenReturns(ORG, times = FakeGitHub.ALWAYS)
 
-        assertThatThrownBy { client.repositories().toList() }
+        assertThatThrownBy { client.repositories(ORG).toList() }
             .isInstanceOf(GitHubUnavailableException::class.java)
             .hasMessageContaining("500")
     }
@@ -141,9 +158,9 @@ class GitHubClientIT {
     fun `reads CODEOWNERS wherever GitHub allows it to live`() {
         github.hasCodeowners(ORG, "payments", "* @acme/platform-team", path = ".github/CODEOWNERS")
 
-        val owners = client.codeowners("payments")
+        val owners = client.codeowners(ORG, "payments")
 
-        assertThat(owners?.teams).containsExactly("acme/platform-team")
+        assertThat(owners?.teams?.map { it.slug }).containsExactly("acme/platform-team")
     }
 
     @Test
@@ -152,7 +169,7 @@ class GitHubClientIT {
 
         // 404 is GitHub's normal answer for a repository that has no CODEOWNERS, which is most of
         // them. Treating it as an error would fail nearly every run.
-        assertThat(client.codeowners("payments")).isNull()
+        assertThat(client.codeowners(ORG, "payments")).isNull()
     }
 
     @Test

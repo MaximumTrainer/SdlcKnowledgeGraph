@@ -31,8 +31,8 @@ class GitHubRepositoryMapper(
         val host = hostOf(repo.htmlUrl)
 
         val teams =
-            codeowners.teams.map { slug ->
-                NodeUpsert(type = TEAM, props = mapOf("name" to "$host/$slug"), observedAt = repo.pushedAt)
+            codeowners.teams.map { owner ->
+                owner to NodeUpsert(type = TEAM, props = mapOf("name" to "$host/${owner.slug}"), observedAt = repo.pushedAt)
             }
 
         return GraphDelta(
@@ -46,13 +46,16 @@ class GitHubRepositoryMapper(
                         // recognised as the one already in the graph rather than appearing as new.
                         sourceId = repo.nodeId,
                     ),
-                ) + teams,
+                ) + teams.map { (_, node) -> node },
             edges =
-                teams.map { team ->
+                teams.map { (owner, team) ->
                     EdgeUpsert(
                         type = OWNED_BY,
                         from = repositoryKey,
                         to = identityResolver.keyFor(TEAM, team.props),
+                        // The CODEOWNERS lines the team was named against, so the edge carries what
+                        // the claim rests on rather than only that somebody made it.
+                        props = mapOf("pathPatterns" to owner.patterns),
                         observedAt = repo.pushedAt,
                     )
                 },
@@ -80,6 +83,7 @@ class GitHubRepositoryMapper(
             put("codeowners", codeowners.handles)
             repo.language?.let { put("language", it) }
             repo.description?.let { put("description", it) }
+            repo.visibility?.let { put("visibility", it) }
         }
 
     /**

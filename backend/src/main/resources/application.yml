@@ -40,5 +40,5 @@ connectors:
   # Where the GitHub connector looks. From the environment rather than from here: a token is a
   # credential, and a credential in a file that is committed is a credential that has leaked.
   github:
-    org: ${GITHUB_ORG:}
+    orgs: ${GITHUB_ORGS:}
     token: ${GITHUB_TOKEN:}

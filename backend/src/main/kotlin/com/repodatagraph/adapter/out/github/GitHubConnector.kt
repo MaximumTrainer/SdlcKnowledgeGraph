@@ -40,15 +40,14 @@ class GitHubConnector(
 
     override fun healthCheck(): HealthStatus =
         when {
-            !properties.isConfigured() ->
-                HealthStatus.down("connectors.github needs an org and a token before it can read anything")
-            client.isReachable() -> HealthStatus.up("${properties.baseUrl} as org ${properties.org}")
+            !properties.isConfigured() -> HealthStatus.down(UNCONFIGURED)
+            client.isReachable() -> HealthStatus.up("${properties.baseUrl} as ${properties.orgs.joinToString(", ")}")
             else -> HealthStatus.down("${properties.baseUrl} did not answer")
         }
 
     override fun discover(): DiscoveryResult =
         DiscoveryResult(
-            scopes = listOf(properties.org),
+            scopes = properties.orgs,
             detail = mapOf("baseUrl" to properties.baseUrl, "configured" to properties.isConfigured()),
         )
 
@@ -60,18 +59,22 @@ class GitHubConnector(
      * watermark either way, and the alternative loses it silently.
      */
     override fun sync(request: SyncRequest): Sequence<GraphDelta> {
-        require(properties.isConfigured()) {
-            "connectors.github needs an org and a token before it can read anything"
-        }
+        require(properties.isConfigured()) { UNCONFIGURED }
         val startedAt = Instant.now(clock)
-        return client
-            .repositories()
-            .chunked(PAGE_SIZE)
-            .map { page -> page.mapNotNull { repo -> delta(repo, request.since) }.merge(startedAt) }
+        return properties.orgs
+            .asSequence()
+            .filter { it.isNotBlank() }
+            .flatMap { org ->
+                client
+                    .repositories(org)
+                    .chunked(PAGE_SIZE)
+                    .map { page -> page.mapNotNull { repo -> delta(org, repo, request.since) }.merge(startedAt) }
+            }
     }
 
     /** Null for a repository this run has nothing to say about. */
     private fun delta(
+        org: String,
         repo: GitHubRepo,
         since: Instant?,
     ): GraphDelta? {
@@ -79,7 +82,7 @@ class GitHubConnector(
         if (!repo.archived && unchangedSince(repo, since)) return null
         // Not read for an archived repository: ownership of something retired is not worth a request
         // against the rate limit, and the tombstone closes the edges along with the node.
-        val codeowners = if (repo.archived) Codeowners.NONE else client.codeowners(repo.name) ?: Codeowners.NONE
+        val codeowners = if (repo.archived) Codeowners.NONE else client.codeowners(org, repo.name) ?: Codeowners.NONE
         return mapper.map(repo, codeowners)
     }
 
@@ -105,6 +108,7 @@ class GitHubConnector(
 
     private companion object {
         const val NAME = "github"
+        const val UNCONFIGURED = "connectors.github needs at least one org and a token before it can read anything"
 
         /** One delta per page GitHub returns, so what is written matches what was read. */
         const val PAGE_SIZE = 100

@@ -102,23 +102,41 @@ class FakeGitHub {
      * The rate limit spent, as GitHub reports it: a 403 with `X-RateLimit-Remaining: 0`.
      *
      * The status alone does not distinguish this from "your token may not do that", which is why the
-     * header is what the client has to read.
+     * header is what the client has to read. Given [thenReturning], the limit lifts after one
+     * refusal, so waiting for a reset can be told apart from giving up on one.
      */
     fun hasExhaustedRateLimit(
         org: String,
         resetsAt: Instant,
+        thenReturning: List<FakeRepo>? = null,
     ) {
         stubRateLimit(remaining = 0, resetEpochSeconds = resetsAt.epochSecond)
+        val path = "/orgs/$org/repos"
+        val refusal =
+            aResponse()
+                .withStatus(FORBIDDEN)
+                .withHeader("Content-Type", "application/json")
+                .withHeader(REMAINING_HEADER, "0")
+                .withHeader(RESET_HEADER, resetsAt.epochSecond.toString())
+                .withBody("""{"message":"API rate limit exceeded"}""")
+
+        if (thenReturning == null) {
+            server.stubFor(get(urlPathEqualTo(path)).willReturn(refusal))
+            return
+        }
+        val scenario = "rate-limit-$org"
         server.stubFor(
-            get(urlPathEqualTo("/orgs/$org/repos"))
-                .willReturn(
-                    aResponse()
-                        .withStatus(FORBIDDEN)
-                        .withHeader("Content-Type", "application/json")
-                        .withHeader(REMAINING_HEADER, "0")
-                        .withHeader(RESET_HEADER, resetsAt.epochSecond.toString())
-                        .withBody("""{"message":"API rate limit exceeded"}"""),
-                ),
+            get(urlPathEqualTo(path))
+                .inScenario(scenario)
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willSetStateTo("reset")
+                .willReturn(refusal),
+        )
+        server.stubFor(
+            get(urlPathEqualTo(path))
+                .inScenario(scenario)
+                .whenScenarioStateIs("reset")
+                .willReturn(jsonResponse(thenReturning.joinToString(",", "[", "]") { it.json(org) })),
         )
     }
 

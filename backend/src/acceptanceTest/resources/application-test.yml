@@ -22,5 +22,5 @@ connectors:
   # The org the fake serves. The base URL is set from the fake's port in CucumberSpringConfig, so
   # nothing here reaches the real api.github.com.
   github:
-    org: acme
+    orgs: [acme]
     token: fake-token

@@ -11,6 +11,8 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import java.net.URI
+import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.Base64
 
@@ -54,6 +56,7 @@ class GitHubClient(
     private val properties: GitHubProperties,
     builder: RestClient.Builder,
     private val codeownersParser: CodeownersParser = CodeownersParser(),
+    private val clock: Clock = Clock.systemUTC(),
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,9 +78,9 @@ class GitHubClient(
      * A sequence rather than a list: an org with ten thousand repositories is ten thousand objects
      * held at once otherwise, and the caller writes each page as it arrives anyway.
      */
-    fun repositories(): Sequence<GitHubRepo> =
+    fun repositories(org: String): Sequence<GitHubRepo> =
         sequence {
-            var next: URI? = URI.create("${properties.baseUrl}/orgs/${properties.org}/repos?per_page=$PAGE_SIZE&sort=full_name")
+            var next: URI? = URI.create("${properties.baseUrl}/orgs/$org/repos?per_page=$PAGE_SIZE&sort=full_name")
             while (next != null) {
                 val page = repositoryPage(next)
                 yieldAll(page.repos)
@@ -91,9 +94,12 @@ class GitHubClient(
      * Null is an absence of information, not a statement that nobody owns the repository. The caller
      * must not turn it into one.
      */
-    fun codeowners(repo: String): Codeowners? {
+    fun codeowners(
+        org: String,
+        repo: String,
+    ): Codeowners? {
         CODEOWNERS_PATHS.forEach { path ->
-            val content = contentAt("/repos/${properties.org}/$repo/contents/$path")
+            val content = contentAt("/repos/$org/$repo/contents/$path")
             if (content != null) return codeownersParser.parse(content)
         }
         return null
@@ -106,7 +112,7 @@ class GitHubClient(
                 client.get().uri("/rate_limit").exchange { _, response ->
                     refuseIfRateLimited(response.headers, response.statusCode.value())
                     response.statusCode.is2xxSuccessful
-                } ?: false
+                } == true
             }
         } catch (unreachable: GitHubException) {
             log.warn("GitHub is not reachable: {}", unreachable.message)
@@ -137,27 +143,27 @@ class GitHubClient(
                     response.statusCode.value() == NOT_FOUND -> null
                     else -> {
                         failUnlessOk(response.statusCode.value(), path)
-                        decode(response.bodyTo(GitHubContent::class.java))
+                        // GitHub wraps the base64 at 60 characters, which the plain decoder refuses.
+                        response
+                            .bodyTo(GitHubContent::class.java)
+                            ?.content
+                            ?.let { String(Base64.getMimeDecoder().decode(it)) }
                     }
                 }
             }
         }
 
-    private fun decode(envelope: GitHubContent?): String? {
-        val encoded = envelope?.content ?: return null
-        // GitHub wraps the base64 at 60 characters, which the plain decoder refuses.
-        return String(Base64.getMimeDecoder().decode(encoded))
-    }
-
     /**
-     * Retries what is worth retrying.
+     * Retries what is worth retrying, and waits out a rate limit only if the wait is short.
      *
      * A 5xx from GitHub is usually a moment rather than a condition, and failing a whole run on one
-     * would make syncing a large org close to impossible. A refusal and a spent rate limit are not
-     * retried: neither would answer differently for being asked again.
+     * would make syncing a large org close to impossible. A rate limit is different: it is not an
+     * error but an instruction, so the client waits when the reset is seconds away and gives up when
+     * it is an hour away - because syncs run on a pool of four threads, and a run that sleeps for an
+     * hour stops every other connector as surely as a deadlock would. A refusal is never retried.
      */
     private fun <T> withRetries(call: () -> T): T {
-        var lastFailure: GitHubUnavailableException? = null
+        var lastFailure: GitHubException? = null
         repeat(MAX_ATTEMPTS) { attempt ->
             try {
                 return call()
@@ -165,9 +171,20 @@ class GitHubClient(
                 lastFailure = unavailable
                 log.info("GitHub failed ({}), attempt {} of {}", unavailable.message, attempt + 1, MAX_ATTEMPTS)
                 Thread.sleep(BACKOFF_MILLIS * (attempt + 1))
+            } catch (limited: GitHubRateLimitException) {
+                lastFailure = limited
+                waitOutOrRethrow(limited)
             }
         }
         throw checkNotNull(lastFailure)
+    }
+
+    private fun waitOutOrRethrow(limited: GitHubRateLimitException) {
+        val wait = Duration.between(Instant.now(clock), limited.resetsAt)
+        val budget = Duration.ofSeconds(properties.waitForResetSeconds)
+        if (wait > budget) throw limited
+        log.info("GitHub's rate limit resets in {}s; waiting for it", wait.seconds.coerceAtLeast(0))
+        Thread.sleep(wait.toMillis().coerceAtLeast(0))
     }
 
     /**
