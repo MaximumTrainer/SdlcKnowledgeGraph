@@ -175,7 +175,7 @@ testing {
                 // limit headers and all - rather than against a mocked client that cannot get those
                 // wrong. Standalone: it brings its own shaded Jetty and does not fight Boot's. On
                 // every suite that compiles src/testSupport, because FakeGitHub lives there.
-                implementation("org.wiremock:wiremock-standalone:3.13.1")
+                implementation("org.wiremock:wiremock-standalone:3.13.2")
             }
             targets.all {
                 testTask.configure {
@@ -204,7 +204,7 @@ testing {
                 // limit headers and all - rather than against a mocked client that cannot get those
                 // wrong. Standalone: it brings its own shaded Jetty and does not fight Boot's. On
                 // every suite that compiles src/testSupport, because FakeGitHub lives there.
-                implementation("org.wiremock:wiremock-standalone:3.13.1")
+                implementation("org.wiremock:wiremock-standalone:3.13.2")
                 implementation("io.cucumber:cucumber-java:$cucumberVersion")
                 implementation("io.cucumber:cucumber-spring:$cucumberVersion")
                 implementation("io.cucumber:cucumber-junit-platform-engine:$cucumberVersion")
@@ -229,7 +229,7 @@ testing {
                 // limit headers and all - rather than against a mocked client that cannot get those
                 // wrong. Standalone: it brings its own shaded Jetty and does not fight Boot's. On
                 // every suite that compiles src/testSupport, because FakeGitHub lives there.
-                implementation("org.wiremock:wiremock-standalone:3.13.1")
+                implementation("org.wiremock:wiremock-standalone:3.13.2")
                 implementation("au.com.dius.pact.provider:junit5spring:4.6.21")
             }
             targets.all {
