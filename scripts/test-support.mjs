@@ -65,6 +65,11 @@ export const createRepo = () => {
   git('config', 'user.email', 'guards@example.invalid')
   git('config', 'user.name', 'Guard Tests')
   git('config', 'commit.gpgsign', 'false')
+  // Recent git runs auto maintenance detached after a commit, so it can still be writing into .git
+  // when a test's cleanup removes the directory, which then fails with ENOTEMPTY. A throwaway
+  // repository never needs maintenance.
+  git('config', 'maintenance.auto', 'false')
+  git('config', 'gc.auto', '0')
   // The working repository installs lefthook into .git/hooks. A throwaway repository must not run
   // anybody's hooks, so point it at a directory that holds none.
   mkdirSync(path.join(dir, '.no-hooks'))
