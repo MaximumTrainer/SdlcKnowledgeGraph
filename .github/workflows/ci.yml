@@ -193,6 +193,24 @@ jobs:
               echo "| \`$image\` | $((bytes / 1024 / 1024)) MB |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
+      # Every line the API writes is one JSON object a platform can aggregate, and a request's
+      # correlation id reaches it through nginx and comes back (#44).
+      - name: The API logs JSON and echoes the request id
+        run: |
+          id=$(curl -s -D - -o /dev/null -H 'X-Request-Id: ci-trace-1' http://localhost:5173/api/v1/ontology \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "x-request-id" { print $2 }')
+          if [ "$id" != "ci-trace-1" ]; then
+            echo "::error::X-Request-Id came back as '$id', not ci-trace-1"
+            exit 1
+          fi
+          # The JVM announces JAVA_TOOL_OPTIONS on stderr before any logger exists; that one line is not the API's.
+          logs=$(docker compose logs --no-log-prefix --no-color backend | grep -v '^Picked up JAVA_TOOL_OPTIONS: ')
+          if grep -v '^{' <<<"$logs" | grep -q .; then
+            grep -v '^{' <<<"$logs" | head -20
+            echo "::error::the API wrote log lines that are not JSON"
+            exit 1
+          fi
+          jq -s -e 'length > 0 and all(has("@timestamp") and has("level") and .service == "sdlc-graph-backend")' <<<"$logs" >/dev/null
       # A container without its database setting must refuse to start rather than come up broken.
       - name: The API refuses to start without NEO4J_URI
         run: |

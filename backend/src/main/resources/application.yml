@@ -26,6 +26,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# Each readable log line names the request it was written for (RequestIdFilter, #44). Under the
+# docker profile the same id is a field of the JSON line instead (logback-spring.xml).
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}] "
+
 management:
   endpoints:
     web:

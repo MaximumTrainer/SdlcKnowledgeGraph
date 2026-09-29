@@ -45,7 +45,8 @@ data class AllowedWrite(
  * listed; it has to guard itself, and the list only narrows what has to.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+// Straight after the request id filter, so a refused request can still be traced.
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 class ReadOnlyGuard internal constructor(
     private val readOnly: Boolean,
     private val allowlist: Set<AllowedWrite>,
