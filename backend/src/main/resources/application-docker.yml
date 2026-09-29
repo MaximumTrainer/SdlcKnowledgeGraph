@@ -6,6 +6,9 @@
 spring:
   neo4j:
     uri: ${NEO4J_URI:}
+  # The banner is not a log line, and every line a container writes has to be JSON (logback-spring.xml).
+  main:
+    banner-mode: off
 
 management:
   endpoint:

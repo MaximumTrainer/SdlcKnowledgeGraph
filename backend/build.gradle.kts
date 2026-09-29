@@ -41,6 +41,8 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // One JSON object per log line under the docker profile (#44), so a platform can aggregate the logs.
+    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17")

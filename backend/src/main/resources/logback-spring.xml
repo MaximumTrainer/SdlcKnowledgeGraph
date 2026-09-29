@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging (#44).
+
+  Under the docker profile, which is how every container runs, one JSON object per line: a platform
+  can aggregate and query that without parsing a human format. Each line carries the requestId of the
+  request it was written for (RequestIdFilter), the service, and the commit the image was built from.
+  A throwable goes in its own stack_trace field, never inside message.
+
+  Everywhere else, Spring Boot's readable format, with the requestId from logging.pattern.correlation.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProfile name="docker">
+        <springProperty scope="context" name="commit" source="SDLC_COMMIT" defaultValue="unknown"/>
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeContext>false</includeContext>
+                <includeMdcKeyName>requestId</includeMdcKeyName>
+                <customFields>{"service":"sdlc-graph-backend","version":"${commit}"}</customFields>
+                <fieldNames>
+                    <levelValue>[ignore]</levelValue>
+                    <version>[ignore]</version>
+                    <logger>logger</logger>
+                    <thread>thread</thread>
+                </fieldNames>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!docker">
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>
