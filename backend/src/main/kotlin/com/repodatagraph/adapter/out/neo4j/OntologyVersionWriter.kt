@@ -1,7 +1,7 @@
 package com.repodatagraph.adapter.out.neo4j
 
 import com.repodatagraph.domain.ontology.OntologyRegistry
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.core.annotation.Order
@@ -23,8 +23,6 @@ class OntologyVersionWriter(
     private val neo4jClient: Neo4jClient,
     private val registry: OntologyRegistry,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @EventListener(ApplicationReadyEvent::class)
     fun recordVersion() {
         val stored =
@@ -55,7 +53,7 @@ class OntologyVersionWriter(
             .bindAll(mapOf("version" to registry.version))
             .run()
 
-        log.info("Ontology version {} recorded", registry.version)
+        LogEvents.ontologyVersionRecorded(registry.version)
     }
 
     private fun isNewerThanRegistry(storedVersion: String): Boolean = compareVersions(storedVersion, registry.version) > 0

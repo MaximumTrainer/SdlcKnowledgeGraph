@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpHeaders
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
@@ -60,8 +60,6 @@ class GitHubHttp(
     builder: RestClient.Builder,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val client =
         builder
             .baseUrl(properties.baseUrl)
@@ -123,7 +121,7 @@ class GitHubHttp(
                 } == true
             }
         } catch (unreachable: GitHubException) {
-            log.warn("GitHub is not reachable: {}", unreachable.message)
+            LogEvents.githubUnreachable(unreachable.message.orEmpty())
             false
         }
 
@@ -143,7 +141,7 @@ class GitHubHttp(
                 return call()
             } catch (unavailable: GitHubUnavailableException) {
                 lastFailure = unavailable
-                log.info("GitHub failed ({}), attempt {} of {}", unavailable.message, attempt + 1, MAX_ATTEMPTS)
+                LogEvents.githubRetrying(unavailable.message.orEmpty(), attempt + 1, MAX_ATTEMPTS)
                 Thread.sleep(BACKOFF_MILLIS * (attempt + 1))
             } catch (limited: GitHubRateLimitException) {
                 lastFailure = limited
@@ -156,7 +154,7 @@ class GitHubHttp(
     private fun waitOutOrRethrow(limited: GitHubRateLimitException) {
         val wait = Duration.between(Instant.now(clock), limited.resetsAt)
         if (wait > Duration.ofSeconds(properties.waitForResetSeconds)) throw limited
-        log.info("GitHub's rate limit resets in {}s; waiting for it", wait.seconds.coerceAtLeast(0))
+        LogEvents.githubRateLimited(wait.seconds.coerceAtLeast(0).toInt())
         Thread.sleep(wait.toMillis().coerceAtLeast(0))
     }
 

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.NodeUpsert
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
 
 /**
@@ -28,8 +28,6 @@ class GitHubWebhookHandler(
     private val contentsMapper: RepositoryContentsMapper,
     private val properties: GitHubProperties,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     /** Null when the event says nothing this graph records. */
     fun handle(event: WebhookEvent): GraphDelta? =
         parse(event.body)
@@ -53,7 +51,7 @@ class GitHubWebhookHandler(
             "push" -> if (touchesSomethingRead(payload)) reread(org, payload) else null
             "team" -> team(org, payload)
             else -> {
-                log.debug("ignoring GitHub {} event", type)
+                LogEvents.githubWebhookIgnored(type.orEmpty())
                 null
             }
         }
@@ -79,7 +77,7 @@ class GitHubWebhookHandler(
                 val read = reader.read(org, repo)
                 // A dependency on one of our own packages needs every repository read to resolve,
                 // which a webhook has not done. It is left to the next scheduled run.
-                if (read.pending.isNotEmpty()) log.debug("{} internal dependencies deferred", read.pending.size)
+                if (read.pending.isNotEmpty()) LogEvents.githubDependenciesDeferred(read.pending.size)
                 read.delta
             }
 
@@ -138,7 +136,7 @@ class GitHubWebhookHandler(
         } catch (malformed: com.fasterxml.jackson.core.JacksonException) {
             // A verified signature over unparseable JSON is GitHub sending something new, not an
             // attack. Nothing to record, and nothing to retry.
-            log.warn("a verified GitHub webhook body was not JSON: {}", malformed.message)
+            LogEvents.githubWebhookMalformed(malformed.message.orEmpty())
             null
         }
 

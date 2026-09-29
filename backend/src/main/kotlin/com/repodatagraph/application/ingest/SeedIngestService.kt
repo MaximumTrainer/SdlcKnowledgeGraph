@@ -6,6 +6,7 @@ import com.repodatagraph.config.IngestProperties
 import com.repodatagraph.domain.port.`in`.SeedIngestOutcome
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Service
 
 /**
@@ -28,7 +29,8 @@ class SeedIngestService(
     ): SeedIngestOutcome =
         when {
             !properties.enabled -> SeedIngestOutcome.Disabled
-            !DeploymentReports.bearerMatches(authorization, properties.token) -> SeedIngestOutcome.Unauthorized
+            !DeploymentReports.bearerMatches(authorization, properties.token) ->
+                SeedIngestOutcome.Unauthorized.also { LogEvents.ingestUnauthorized(ENDPOINT) }
             else ->
                 when (val parsed = parser.parse(body)) {
                     is ParsedSeed.Invalid -> SeedIngestOutcome.Invalid(parsed.errors)
@@ -44,6 +46,7 @@ class SeedIngestService(
         val alreadyApplied = recorder.runForDelivery(CONNECTOR, DeploymentReports.deliveryIdOf(body)) != null
         syncService.applyWebhook(CONNECTOR, WebhookEvent(CONNECTOR, mapOf(AUTHORIZATION to authorization), body))
 
+        LogEvents.ingestSeedReceived(parsed.delta.nodes.size, parsed.delta.edges.size, created = !alreadyApplied)
         return SeedIngestOutcome.Accepted(
             created = !alreadyApplied,
             nodes = parsed.delta.nodes.size,
@@ -55,5 +58,6 @@ class SeedIngestService(
         /** The connector a batch is applied through, and the source system its facts are credited to. */
         const val CONNECTOR = "dogfood-seed"
         private const val AUTHORIZATION = "Authorization"
+        private const val ENDPOINT = "/api/v1/ingest/seed"
     }
 }

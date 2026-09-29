@@ -33,7 +33,7 @@ on a branch where the hooks were bypassed with `LEFTHOOK=0`.
 cd backend && ./gradlew check --console=plain
 ```
 
-`check` runs ktlint, detekt, `ontologyDriftCheck`, and the unit, integration, acceptance and
+`check` runs ktlint, detekt, `ontologyDriftCheck`, `logEventDriftCheck`, and the unit, integration, acceptance and
 contract suites. Reports land in `backend/build/reports/`.
 
 **On Windows, Testcontainers needs the Docker Desktop pipe or every integration and acceptance test

@@ -1,7 +1,7 @@
 package com.repodatagraph.adapter.out.neo4j
 
 import com.repodatagraph.domain.ontology.OntologyRegistry
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.core.annotation.Order
@@ -25,8 +25,6 @@ class Neo4jSchemaInitializer(
     private val registry: OntologyRegistry,
     private val cypher: CypherBuilder,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @EventListener(ApplicationReadyEvent::class)
     fun createConstraints() {
         registry.allNodeTypes().forEach { nodeType ->
@@ -44,7 +42,7 @@ class Neo4jSchemaInitializer(
                 .run()
         }
 
-        log.info("Ensured key constraints for {} node types", registry.allNodeTypes().size)
+        LogEvents.ontologyConstraintsEnsured(registry.allNodeTypes().size)
     }
 }
 
