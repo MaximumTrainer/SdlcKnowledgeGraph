@@ -80,6 +80,11 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
+      - name: Lint the Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: backend/Dockerfile
+          config: .hadolint.yaml
       - name: Lint and run all test suites
         run: ./gradlew check --no-daemon
       - name: Upload test and Cucumber reports
@@ -107,6 +112,11 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Lint the Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: frontend/Dockerfile
+          config: .hadolint.yaml
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
@@ -169,6 +179,30 @@ jobs:
         run: docker compose up -d --build --wait
         env:
           SDLC_COMMIT: ${{ github.sha }}
+      - name: Report the image sizes
+        run: |
+          {
+            echo "### Image sizes"
+            echo
+            echo "| Image | Size |"
+            echo "| --- | --- |"
+            for image in sdlc-graph-backend:local sdlc-graph-frontend:local; do
+              bytes=$(docker image inspect --format '{{.Size}}' "$image")
+              echo "| \`$image\` | $((bytes / 1024 / 1024)) MB |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      # A container without its database setting must refuse to start rather than come up broken.
+      - name: The API refuses to start without NEO4J_URI
+        run: |
+          if output=$(timeout 60 docker compose run --rm --no-deps -e NEO4J_URI= backend 2>&1); then
+            echo "::error::the API started without NEO4J_URI"
+            exit 1
+          fi
+          if ! grep -q "NEO4J_URI must be set" <<<"$output"; then
+            echo "$output"
+            echo "::error::the API did not say NEO4J_URI must be set"
+            exit 1
+          fi
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
