@@ -54,3 +54,9 @@ Feature: A read-only deployment refuses every write
     # as read-only, and it is not open either: without its bearer token it is refused as unauthorised.
     When I send a POST to "/api/v1/ingest/deployment"
     Then the response status is 401
+
+  Scenario: The seed endpoint stays open to the seed script, behind the same token
+    # The dogfood seed (#47) writes this repository's own SDLC to a read-only instance. Like the
+    # deployment ingest endpoint, it is allowed through and guards itself.
+    When I send a POST to "/api/v1/ingest/seed"
+    Then the response status is 401

@@ -1439,6 +1439,43 @@
         "tags" : [ "Ingest" ]
       }
     },
+    "/api/v1/ingest/seed" : {
+      "post" : {
+        "operationId" : "seed",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Authorization",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Record repositories, teams, pipelines and dependencies read by the dogfood seed",
+        "tags" : [ "Ingest" ]
+      }
+    },
     "/api/v1/nodes/{type}" : {
       "get" : {
         "operationId" : "list",

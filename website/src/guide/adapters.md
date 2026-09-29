@@ -500,6 +500,43 @@ The dogfood deploy is the first reporter. After every deploy, including a failed
 images by digest (`scripts/deployment-report.mjs`), when the `dogfood` environment has an
 `INGEST_TOKEN` (`fly/README.md`).
 
-This is the one write a read-only instance still accepts ([Deployment contract](/guide/deployment), D6),
-because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions` with
-the same payload and token, which is the generic webhook route that #22 set up.
+This is one of the two writes a read-only instance still accepts ([Deployment contract](/guide/deployment),
+D6), because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions`
+with the same payload and token, which is the generic webhook route that #22 set up.
+
+## Seeding: this repository on the dogfood instance
+
+Until the GitHub connector (#23) can read a repository for itself, the dogfood instance learns about
+this one from a seed (#47): the repository, the teams in `CODEOWNERS`, the workflows, and the
+repositories it depends on. The instance is read-only, so the seed writes through its own endpoint,
+`POST /api/v1/ingest/seed`, behind the same `INGEST_TOKEN` as deployment reports, and is recorded
+through the `dogfood-seed` connector.
+
+```json
+{
+  "nodes": [
+    { "type": "Repository", "sourceId": "https://github.com/MaximumTrainer/SdlcKnowledgeGraph",
+      "props": { "url": "https://github.com/MaximumTrainer/SdlcKnowledgeGraph", "defaultBranch": "main",
+                 "topics": [], "codeowners": ["@maximumtrainer"] } },
+    { "type": "Team", "props": { "name": "maximumtrainer" } },
+    { "type": "Pipeline", "props": { "provider": "github-actions", "repoKey": "github.com/maximumtrainer/sdlcknowledgegraph",
+                                     "workflowPath": ".github/workflows/ci.yml", "name": "ci.yml",
+                                     "repoId": "github.com/maximumtrainer/sdlcknowledgegraph", "lastRunStatus": "success" } }
+  ],
+  "edges": [
+    { "type": "OWNED_BY", "from": 0, "to": 1, "props": { "pathPatterns": ["*"] } },
+    { "type": "HAS_PIPELINE", "from": 0, "to": 2 }
+  ]
+}
+```
+
+An edge names its ends by their position in `nodes`. A seed may write only `Repository`, `Team` and
+`Pipeline` nodes and `OWNED_BY`, `HAS_PIPELINE` and `DEPENDS_ON` edges. Every property is checked
+against the ontology exactly as the node and edge APIs check it, and an edge only joins the types the
+ontology lets it join. A batch holds at most 500 nodes and 2000 edges.
+
+The answers are those of the deployment endpoint: `202 {created, nodes, edges}`, `400 {error, fields}`
+naming every problem, `401` without the token and `503` on an instance with none. Keys are derived,
+so seeding again changes properties such as a pipeline's `lastRunStatus` and never adds nodes; the
+same batch twice is one delivery. Every fact has provenance `sourceSystem=dogfood-seed`, so it can be
+told from what the GitHub connector writes once it replaces the seed.
