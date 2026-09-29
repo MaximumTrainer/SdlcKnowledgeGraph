@@ -64,6 +64,21 @@ tests use, where D5 has to fail, so a suite that has stopped checking anything i
 second run is after restarting the API read-only, where every requirement has to pass. The dogfood
 deploy runs it against the live instance after each deploy, and a failure turns the deploy red.
 
+## Released images
+
+Pushing a version tag (`v1.2.0`) runs the whole of CI on the tagged commit and then publishes
+`ghcr.io/maximumtrainer/sdlc-graph-backend` and `ghcr.io/maximumtrainer/sdlc-graph-frontend`, each
+tagged with the version and the full commit SHA (`release.yml`, in `.github/workflows`). Each image
+has an SPDX SBOM, kept with the workflow run, and a signed build provenance attestation pushed
+next to it:
+
+```bash
+gh attestation verify oci://ghcr.io/maximumtrainer/sdlc-graph-backend:v1.2.0 --owner MaximumTrainer
+```
+
+A deployment elsewhere should run one of these by digest, which is what D3 asks. The dogfood
+instance does not use them: it builds and deploys every green commit on `main` itself.
+
 ## Adding a requirement
 
 A new requirement is a new `D` number, a test whose title starts with it, and a row in the table
