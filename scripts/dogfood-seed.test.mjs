@@ -40,7 +40,7 @@ describe('dogfood-seed', () => {
     test('keeps only package.json dependencies that resolve to a git remote', () => {
       const manifest = JSON.stringify({
         dependencies: { vue: '^3.5.0', kit: 'github:Acme/UI-Kit#v2', '@acme/charts': 'git+https://github.com/acme/charts.git' },
-        devDependencies: { lint: 'acme/lint-rules', local: 'file:../local', tarball: 'https://example.com/x.tgz' },
+        devDependencies: { lint: 'acme/lint-rules', local: 'file:../local', sibling: '../sibling', tarball: 'https://example.com/x.tgz' },
       })
 
       assert.deepEqual(dependenciesFromPackageJson('frontend/package.json', manifest), [

@@ -1,0 +1,61 @@
+name: Dogfood seed
+
+# Seeds this repository's own SDLC into the dogfood instance (#47, FR11): the repository, the teams in
+# CODEOWNERS, each workflow with its last run, and the repositories it depends on by git remote
+# (scripts/dogfood-seed.mjs). Daily, so pipeline statuses stay current, and on demand.
+#
+# It reads main as GitHub reports it and writes through POST /api/v1/ingest/seed, so it never deploys
+# anything and does not wait on CI. It fails when the instance cannot be reached, and when the instance
+# holds more nodes than SEED_NODE_CEILING, the cheap sign that something else is writing to it.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: dogfood-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed the dogfood graph
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: dogfood
+      url: https://sdlc-graph.fly.dev
+    env:
+      INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+    steps:
+      # Without the token the instance accepts no seed, and that is a setup step still to do rather than
+      # a failure, so it is reported without going red. With it, every other problem fails the run.
+      - name: Check the dogfood environment is set up
+        id: setup
+        run: |
+          if [ -z "$INGEST_TOKEN" ]; then
+            echo "::warning::Not seeded: INGEST_TOKEN is not set on the dogfood environment (fly/README.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.setup.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          node-version: "22"
+
+      - name: Seed this repository
+        if: steps.setup.outputs.ready == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SEED_BASE_URL: https://sdlc-graph.fly.dev
+          # The seed writes a few dozen nodes and deployments add a few a day; thousands means a leak.
+          SEED_NODE_CEILING: "1000"
+        run: node scripts/dogfood-seed.mjs
