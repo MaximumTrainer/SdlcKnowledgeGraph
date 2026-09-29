@@ -1,8 +1,11 @@
 # Active inside the compose stack (SPRING_PROFILES_ACTIVE=docker). Connection details come from the
 # environment (see compose.yaml); this file only holds container-specific defaults.
+#
+# NEO4J_URI has no default: a container without one refuses to start (Neo4jUriGuard) rather than
+# guessing a host.
 spring:
   neo4j:
-    uri: ${NEO4J_URI:bolt://neo4j:7687}
+    uri: ${NEO4J_URI:}
 
 management:
   endpoint:
