@@ -266,7 +266,9 @@ must not change it, such as a public demonstration, would otherwise be an open d
 
 - Every request other than `GET`, `HEAD` and `OPTIONS` is refused with
   `403 {"error": "this instance is read-only"}`, on every path. The refusal is deny-by-default: a
-  write endpoint added later is refused until it is deliberately allowed, and none is allowed today.
+  write endpoint added later is refused until it is deliberately allowed. The one allowed today is
+  `POST /api/v1/ingest/deployment`, where the deploy pipeline reports what it deployed. It has its own
+  bearer token and refuses anyone without it ([Adapters](ADAPTERS.md#self-ingestion-deployments-from-the-pipeline)).
 - `POST /graphql` is answered only when the document can be parsed and contains no mutation. A
   document that carries a mutation anywhere, whichever operation it names, is refused, and so is
   one that cannot be parsed or is larger than 256 KB.

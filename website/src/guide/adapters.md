@@ -442,3 +442,60 @@ watermark and the error if there was one. `ConnectorState` holds where the last 
 to. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
 run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
 than merely auditable.
+
+## Self-ingestion: deployments from the pipeline
+
+"Why did the deployment fail" has no answer in a graph that never hears about deployments. So the
+pipeline that deploys this project is itself a source system. After each deploy it posts what it
+deployed to `POST /api/v1/ingest/deployment`, and the report is recorded through the `github-actions`
+connector like any other webhook: in a `SyncRun`, deduplicated, with that connector's provenance.
+
+```json
+{
+  "repository": "github.com/maximumtrainer/sdlcknowledgegraph",
+  "commitSha": "5efa09d68706304efec8ec74349dd72ed44912cb",
+  "artifacts": [
+    { "name": "ghcr.io/maximumtrainer/sdlc-graph-backend", "digest": "sha256:…", "tag": "5efa09d" }
+  ],
+  "environment": "production",
+  "status": "SUCCESS",
+  "deployedAt": "2026-09-29T12:00:00Z",
+  "deployedBy": "octocat",
+  "runUrl": "https://github.com/maximumtrainer/sdlcknowledgegraph/actions/runs/42",
+  "pipeline": { "provider": "github-actions", "workflowPath": ".github/workflows/deploy-dogfood.yml" }
+}
+```
+
+`status` is `SUCCESS` or `FAILED`, and `deployedAt` is an ISO-8601 instant. `deployedBy` is
+optional, and so is `pipeline.provider`, which defaults to `github-actions`. An artifact needs a
+`digest` or a `tag`; a digest is preferred, because it is what identifies the artifact.
+
+The report becomes:
+
+| Fact | Key |
+| --- | --- |
+| `Repository`, merged into the one already there | `github.com/org/name` |
+| `Pipeline`, with `lastRunStatus` | `github-actions:<repoKey>:<workflowPath>` |
+| `Artifact` per entry, with `commitSha` and the tag as `version` | `<registry>/<name>@<digest>` |
+| `Deployment` per artifact, with `status`, `deployedBy` | `<artifactKey>#<environmentKey>#<epoch seconds>` |
+| `Environment`, with `prod`, `stg` and the other aliases resolved | `production`, `staging`, … |
+| `HAS_PIPELINE`, `BUILT_FROM {commitSha}`, `DEPLOYED_TO`, `TO_ENVIRONMENT` | between the above |
+
+Every fact has provenance `sourceSystem=github-actions`, with `sourceId` set to the run URL and
+`observedAt` set to the time of the deploy. `GET /api/v1/graph/deployments?repoId=…` then lists the
+deployment with that provenance.
+
+| Answer | When |
+| --- | --- |
+| `202 {deploymentIds, created, nodes, edges}` | recorded; `created` is false when this exact report had already been applied |
+| `400 {error, fields}` | the report is invalid; `fields` names every bad field, not only the first |
+| `401` | no `Authorization: Bearer <token>` header, or the wrong token |
+| `503` | this instance has no `ingest.token` (`INGEST_TOKEN`), so nobody may report to it |
+
+The token is checked before the body is read, so a caller without it learns nothing from the
+validation errors. The same report posted twice is one delivery: it is named by a hash of its bytes,
+and a retrying workflow step applies it once.
+
+This is the one write a read-only instance still accepts ([Deployment contract](/guide/deployment), D6),
+because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions` with
+the same payload and token, which is the generic webhook route that #22 set up.
