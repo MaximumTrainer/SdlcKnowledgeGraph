@@ -56,3 +56,7 @@ connectors:
 # by people who must not change it is not an open database while there is no authentication (#3).
 sdlc:
   read-only: ${SDLC_READ_ONLY:false}
+  # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),
+  # so a pipeline can ask the running instance whether it is serving the commit it meant to deploy.
+  deployment:
+    commit: ${SDLC_COMMIT:}

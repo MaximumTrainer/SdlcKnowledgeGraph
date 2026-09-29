@@ -25,6 +25,10 @@ RUN apk add --no-cache curl \
 WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar /app/app.jar
 USER app
+# The commit this image was built from, reported on /actuator/info (docs/DEPLOYMENT.md, D2). Unset in a
+# local build, where the info endpoint says "unknown" rather than guessing.
+ARG SDLC_COMMIT=""
+ENV SDLC_COMMIT=$SDLC_COMMIT
 EXPOSE 8080
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
