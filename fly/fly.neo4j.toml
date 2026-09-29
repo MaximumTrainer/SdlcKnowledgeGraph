@@ -1,0 +1,33 @@
+# The graph database for the dogfood instance (#47). Reached only over fly's private network.
+#
+# No [http_service] and no [[services]]: fly gives an app a public address only when it declares a
+# service, so this one has none and bolt is reachable at <app>.internal:7687 from the other apps in
+# the organisation and from nowhere else (#48 D7). The deploy workflow checks that with
+# `flyctl ips list`, rather than trusting this comment.
+#
+# The app name is a default; the workflow passes --app from FLY_APP_PREFIX.
+app = "sdlc-graph-neo4j"
+primary_region = "lhr"
+swap_size_mb = 512
+
+[build]
+  image = "neo4j:5.26-community"
+
+[env]
+  # fly's private network is IPv6, and Neo4j listens on IPv4 only unless told otherwise.
+  NEO4J_server_default__listen__address = "::"
+  # Sized for a 512 MB machine: the dogfood graph is small, and anything larger costs money.
+  NEO4J_server_memory_heap_initial__size = "256m"
+  NEO4J_server_memory_heap_max__size = "256m"
+  NEO4J_server_memory_pagecache_size = "64m"
+  # NEO4J_AUTH (neo4j/<password>) is a secret, set by fly/bootstrap.sh from the dogfood environment.
+
+# The graph is disposable: every fact carries provenance and can be re-derived, so the volume is not
+# backed up. Recovery is to destroy it and re-seed (fly/README.md).
+[mounts]
+  source = "neo4j_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

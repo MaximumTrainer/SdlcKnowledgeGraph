@@ -1,0 +1,30 @@
+# The web interface for the dogfood instance (#47), and its only public address: https://<app>.fly.dev
+#
+# nginx serves the single-page application and proxies /api/ to the backend's private flycast
+# address. The app name is a default; the workflow passes --app from FLY_APP_PREFIX, and BACKEND_URL
+# with it.
+app = "sdlc-graph"
+primary_region = "lhr"
+
+[env]
+  BACKEND_URL = "http://sdlc-graph-backend.flycast:8080"
+  # fly's internal DNS, which resolves .flycast and .internal names.
+  NGINX_RESOLVER = "[fdaa::3] valid=10s"
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
