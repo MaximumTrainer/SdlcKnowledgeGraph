@@ -60,3 +60,10 @@ Feature: A read-only deployment refuses every write
     # deployment ingest endpoint, it is allowed through and guards itself.
     When I send a POST to "/api/v1/ingest/seed"
     Then the response status is 401
+
+  Scenario: A refused write still carries its correlation id
+    # The refusal happens before any controller, so the id has to be assigned before the guard runs,
+    # or the one request an operator most wants to trace is the one without an id (#44).
+    When I send a POST to "/api/v1/nodes/Team" with X-Request-Id "refused-1"
+    Then the response status is 403
+    And the response header X-Request-Id is "refused-1"

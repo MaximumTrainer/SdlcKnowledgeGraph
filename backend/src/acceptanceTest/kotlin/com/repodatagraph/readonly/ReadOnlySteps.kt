@@ -42,6 +42,22 @@ class ReadOnlySteps(
         response = restTemplate.exchange(path, HttpMethod.valueOf(verb), body, String::class.java)
     }
 
+    @When("I send a POST to {string} with X-Request-Id {string}")
+    fun iSendAPostWithRequestId(
+        path: String,
+        requestId: String,
+    ) {
+        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+        headers.add("X-Request-Id", requestId)
+        response =
+            restTemplate.exchange(path, HttpMethod.POST, HttpEntity("""{"props":{"name":"platform"}}""", headers), String::class.java)
+    }
+
+    @Then("the response header X-Request-Id is {string}")
+    fun theResponseHeaderIs(expected: String) {
+        assertEquals(expected, lastResponse().headers.getFirst("X-Request-Id"))
+    }
+
     @When("I send the GraphQL document {string}")
     fun iSendTheGraphQlDocument(document: String) {
         val payload = objectMapper.writeValueAsString(mapOf("query" to document))
