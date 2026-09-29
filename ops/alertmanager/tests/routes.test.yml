@@ -1,0 +1,19 @@
+# Which receiver each alert reaches (#44, FR12). scripts/promtool.mjs asks amtool to resolve every case
+# against ops/alertmanager/alertmanager.yml and fails when the receiver differs. Add a case whenever an
+# alert or a route is added.
+cases:
+  - name: a fast error budget burn pages
+    labels: { alertname: AvailabilityBudgetFastBurn, severity: page, slo: availability, job: sdlc-graph-backend }
+    receiver: page
+  - name: a slow error budget burn opens a ticket
+    labels: { alertname: LatencyBudgetSlowBurn, severity: ticket, slo: latency, job: sdlc-graph-backend }
+    receiver: ticket
+  - name: a down instance pages
+    labels: { alertname: InstanceDown, severity: page, job: sdlc-graph-backend }
+    receiver: page
+  - name: an unreachable Neo4j pages
+    labels: { alertname: Neo4jUnreachable, severity: page, job: sdlc-graph-backend }
+    receiver: page
+  - name: an alert with no severity is still delivered, as a ticket
+    labels: { alertname: SomethingNew, job: sdlc-graph-backend }
+    receiver: ticket
