@@ -86,6 +86,17 @@ npx playwright install --with-deps chromium     # once
 npx playwright test         # starts the compose stack itself, then runs the browser tests on :5173
 ```
 
+In CI a failed browser test is retried twice, so that the retry records a trace, but a test that
+fails and then passes on a retry still fails the run (`failOnFlakyTests`). A retry that turns red
+into green hides races like the one in #148, and a real regression would be hidden the same way. A
+browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
+never by reading a locator once straight after the click that loads it.
+
+`e2e/conformance` is a separate Playwright suite with its own config: the deployment contract in
+[Deployment](/guide/deployment), run against any base URL with no browser. CI runs it against the
+compose stack, once writable where D5 must fail and once read-only where everything must pass, and
+the dogfood deploy runs it against the live instance.
+
 `npm run verify` does not run `format:check`, but CI does, so run `npm run format:check` (or
 `npm run format`) before pushing a frontend change; the pre-commit hook formats staged files, which
 covers the usual case.
@@ -114,13 +125,13 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, the website drift check when a documentation source is staged, and the guards below |
-| `pre-merge-commit` | the three guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
 
-Four `pre-commit` jobs are not linters: they refuse a commit rather than report on it, because what
+Five `pre-commit` jobs are not linters: they refuse a commit rather than report on it, because what
 they catch cannot be fixed by a later commit ([ADR-0007](/adr/0007-commit-guards)).
 
 | Guard | Refuses | Way out |
@@ -128,6 +139,7 @@ they catch cannot be fixed by a later commit ([ADR-0007](/adr/0007-commit-guards
 | `protected-branch` | committing while `main` or `master` is checked out, and any push that would write one | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
 | `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
+| `config-secrets` | a credential in deployment configuration (`backend/src/main/resources`, `fly/`, `ops/`, `.github/`) where a reference belongs (a `${...}` placeholder, a GitHub Actions secret, or a `$VAR` shell variable): a literal under a key such as `password` or `client-secret`, a private key block, a known token prefix, or a long encoded run ([#48](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/48), D8) | a `not-a-secret` comment on the line |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
 
 A leaked credential has to be rotated, a large file cannot be removed without rewriting history, and
@@ -142,8 +154,8 @@ way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every
 Run them over the whole repository without committing:
 
 ```bash
-npm run guards            # hygiene over every tracked file, secretlint over the working tree, lefthook validate
-node scripts/guards.mjs hygiene   # or secrets, or config, on its own
+npm run guards            # hygiene and config-secrets over every tracked file, secretlint over the working tree, lefthook validate
+node scripts/guards.mjs hygiene   # or secrets, config-secrets, or config, on its own
 npm run test:unit         # the guards' own tests
 ```
 
@@ -161,8 +173,10 @@ Tests run on push instead, against the state actually being shared. Intermediate
 a branch are expected and fine, as long as the tip of the branch is green.
 
 CI re-runs all of it and adds what no hook runs: the browser end-to-end job, the website job
-(generator tests, drift, build, site tests) and `format:check`, because a hook can be skipped and a
-CI check cannot. The one hook with no CI counterpart is `protected-branch`; CI cannot stop a direct
+(generator tests, drift, build, site tests), `format:check` and hadolint on both Dockerfiles
+(configured in `.hadolint.yaml`), because a hook can be skipped and a CI check cannot. The
+end-to-end job also writes the two image sizes to its summary, and starts the backend image without
+`NEO4J_URI` to check that it refuses to. The one hook with no CI counterpart is `protected-branch`; CI cannot stop a direct
 push to `main`, it can only turn red afterwards.
 
 Hooks are installed by `npm install` at the repository root, which runs `lefthook install`. If hooks

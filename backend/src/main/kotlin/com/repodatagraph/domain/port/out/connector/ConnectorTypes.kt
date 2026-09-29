@@ -32,6 +32,10 @@ enum class Capability {
  *
  * @param name the key in configuration and in every URL, for example `github`
  * @param sourceSystem what goes in provenance, for example `github` or `servicenow:prod`
+ * @param fullSyncIsComplete whether a FULL sync reports everything this [sourceSystem] knows. When it
+ *   does, a successful full run closes whatever the source asserted earlier and did not report again
+ *   (#150). A connector whose full sync is scoped - one account of several, one table of many - must
+ *   say false, or every run would close everything outside the scope it happened to read.
  */
 data class ConnectorDescriptor(
     val name: String,
@@ -39,6 +43,7 @@ data class ConnectorDescriptor(
     val nodeTypes: Set<String>,
     val edgeTypes: Set<String>,
     val capabilities: Set<Capability>,
+    val fullSyncIsComplete: Boolean = true,
 ) {
     init {
         require(name.isNotBlank()) { "a connector needs a name" }

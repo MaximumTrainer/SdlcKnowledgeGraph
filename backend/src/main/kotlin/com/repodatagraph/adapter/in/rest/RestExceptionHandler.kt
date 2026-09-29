@@ -5,7 +5,7 @@ import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.UnknownEdgeTypeException
 import com.repodatagraph.domain.exception.UnknownNodeTypeException
 import com.repodatagraph.domain.ontology.IdentityResolutionException
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -19,8 +19,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  */
 @RestControllerAdvice
 class RestExceptionHandler {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @ExceptionHandler(NodeNotFoundException::class)
     fun onNodeNotFound(exception: NodeNotFoundException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.status(HttpStatus.NOT_FOUND).body(
@@ -45,7 +43,7 @@ class RestExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun onIllegalArgument(exception: IllegalArgumentException): ResponseEntity<Map<String, Any>> {
-        log.debug("rejected a malformed request", exception)
+        LogEvents.httpRequestRejected(exception)
         return ResponseEntity.badRequest().body(mapOf("error" to "invalid request", "detail" to exception.message.orEmpty()))
     }
 }

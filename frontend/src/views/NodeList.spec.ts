@@ -7,8 +7,8 @@ import { ontologyFixture } from '@/test/fixtures/ontology'
 import NodeList from './NodeList.vue'
 
 /**
- * The tabs are the registry's node types, not a hand-written list, which is what lets a type added
- * to the ontology become editable without a frontend release.
+ * The columns are the type's declared properties, not a hand-written list, which is what lets a type
+ * added to the ontology become listable without a frontend release.
  */
 const teams = [
   {
@@ -49,20 +49,6 @@ describe('NodeList', () => {
       http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
       http.get('/api/v1/nodes/Team', () => HttpResponse.json({ items: teams, nextCursor: null }))
     )
-  })
-
-  it('shows one tab per node type the ontology declares', async () => {
-    const wrapper = await listFor('Team')
-
-    const tabs = wrapper.findAll('[data-test="type-tab"]').map(tab => tab.text())
-
-    expect(tabs).toEqual(ontologyFixture.nodeTypes.map(type => type.name))
-  })
-
-  it('marks the type being viewed', async () => {
-    const wrapper = await listFor('Team')
-
-    expect(wrapper.find('[data-test="type-tab"].active').text()).toBe('Team')
   })
 
   it('lists the nodes of that type by key', async () => {

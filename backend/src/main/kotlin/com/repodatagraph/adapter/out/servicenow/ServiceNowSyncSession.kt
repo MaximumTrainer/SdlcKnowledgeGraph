@@ -3,7 +3,7 @@ package com.repodatagraph.adapter.out.servicenow
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.plus
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -28,8 +28,6 @@ class ServiceNowSyncSession(
     private val clock: Clock,
     private val since: Instant?,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val seenCis = mutableSetOf<String>()
     private val seenChanges = mutableSetOf<String>()
 
@@ -90,7 +88,7 @@ class ServiceNowSyncSession(
      */
     private fun withKnownRepositories(delta: GraphDelta): GraphDelta {
         val (known, unknown) = delta.edges.partition { graphStore.findNode(it.from) != null }
-        unknown.forEach { log.info("no Repository {} for the CI it is named on; no link written", it.from.key) }
+        unknown.forEach { LogEvents.servicenowLinkUnresolved(it.from.key) }
         return delta.copy(edges = known)
     }
 

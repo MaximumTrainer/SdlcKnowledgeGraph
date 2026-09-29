@@ -215,8 +215,9 @@ nothing else. The connector never writes to ServiceNow.
 Two things [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) asks for are not here. **OAuth client credentials** is configurable
 and refused at the health check: the token exchange is a second endpoint with its own refresh, and
 shipping a half-built one would be worse than saying so. **Retiring CIs that vanish from a full
-sync** is the same reconciliation as [#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150) and belongs to the sync engine; a CI
-the CMDB marks `Retired` is closed today.
+sync** is not done: the sync engine reconciles only connectors whose full sync is complete
+([#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150)), and this one's is bounded by the lookback windows and the configured
+tables, so it declares `fullSyncIsComplete = false`. A CI the CMDB marks `Retired` is closed.
 
 ### Implementing `ItsmConnector` for another tool
 
@@ -250,8 +251,9 @@ connector small, and what stops six connectors each getting provenance slightly 
    run is stamped for you.
 7. **Never invent an identifier.** Return the properties an identity is derived from and let the
    resolver derive the key, or the same thing seen by two connectors becomes two nodes.
-8. **Emit a tombstone** when the source stops reporting something. It closes the fact's validity; it
-   does not delete it. A bad day at the source must not erase history.
+8. **Emit a tombstone** when the source reports that something has ended. It closes the fact's
+   validity; it does not delete it. A bad day at the source must not erase history. Facts the source
+   simply stops mentioning are closed for you by reconciliation, below, if your full sync is complete.
 9. **Implement `verifyWebhook`** if you accept webhooks, using `WebhookSignatureVerifier` for the
    constant-time HMAC compare. It defaults to refusing everything, which is the right default.
 10. **Register configuration** under `connectors.<name>`, with credentials from environment
@@ -402,13 +404,36 @@ The token needs read access to repository metadata and contents, and nothing els
 that CODEOWNERS can be read. A connector with no org or no token reports itself `DOWN` with the
 reason rather than failing at the first sync.
 
-Two things [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) asks for are deliberately not here. **GitHub App authentication**
+One thing [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) asks for is deliberately not here: **GitHub App authentication**
 is not implemented; a fine-grained personal access token is, and the two differ only in how a token
-is obtained. **Repositories that disappear from a full sync** are not tombstoned —
-only archived ones are. Recognising "the source stopped reporting this" needs the sync engine to
-compare a full run against what the connector produced last time, which is a mechanism every
-connector should share rather than six connectors each getting subtly wrong, so it is
-[#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150).
+is obtained. **Repositories that disappear from a full sync** — deleted, transferred, or moved out of
+the token's scope — are closed by reconciliation (below), as is a team or library no repository
+mentions any more. A manifest that cannot be read costs that repository its dependencies for the
+run, so a library only it used is closed until the next full sync reads it again, which reopens it.
+
+### Reconciliation: what a full sync stops reporting
+
+A tombstone covers a source that says something ended. The other way a fact stops being true is that
+the source simply stops mentioning it, and the sync engine handles that once for every connector
+([#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150)).
+
+After a `FULL` run that finishes `SUCCESS`, every node still open whose provenance names the
+connector's `sourceSystem`, and which was last asserted **before the run began**, is closed: its
+`validTo` is set and the count is added to the run's tombstones. Nothing is deleted, and a node that
+is reported again later is reopened by that write.
+
+It does not run:
+
+- after an `INCREMENTAL` run, which only asked what changed;
+- after a `PARTIAL` or `FAILED` run, which cannot tell "gone" from "not read" — a partial run that
+  closed the estate it failed to read would be the most destructive bug this system could have;
+- for a connector whose descriptor says `fullSyncIsComplete = false`, because its full sync is
+  scoped (one account of several, a time window, some tables of many) and would otherwise close
+  everything outside the scope on every run. ServiceNow says so; the fake and GitHub connectors
+  do not.
+
+Selecting by "asserted before the run began", rather than by what the run itself wrote, also spares a
+node that a webhook asserted while the run was going.
 
 ### What a run records
 
@@ -417,3 +442,108 @@ watermark and the error if there was one. `ConnectorState` holds where the last 
 to. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
 run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
 than merely auditable.
+
+## Self-ingestion: deployments from the pipeline
+
+"Why did the deployment fail" has no answer in a graph that never hears about deployments. So the
+pipeline that deploys this project is itself a source system. After each deploy it posts what it
+deployed to `POST /api/v1/ingest/deployment`, and the report is recorded through the `github-actions`
+connector like any other webhook: in a `SyncRun`, deduplicated, with that connector's provenance.
+
+```json
+{
+  "repository": "github.com/maximumtrainer/sdlcknowledgegraph",
+  "commitSha": "5efa09d68706304efec8ec74349dd72ed44912cb",
+  "artifacts": [
+    { "name": "ghcr.io/maximumtrainer/sdlc-graph-backend", "digest": "sha256:…", "tag": "5efa09d" }
+  ],
+  "environment": "production",
+  "status": "SUCCESS",
+  "deployedAt": "2026-09-29T12:00:00Z",
+  "deployedBy": "octocat",
+  "runUrl": "https://github.com/maximumtrainer/sdlcknowledgegraph/actions/runs/42",
+  "pipeline": { "provider": "github-actions", "workflowPath": ".github/workflows/deploy-dogfood.yml" }
+}
+```
+
+`status` is `SUCCESS` or `FAILED`, and `deployedAt` is an ISO-8601 instant. `deployedBy` is
+optional, and so is `pipeline.provider`, which defaults to `github-actions`. An artifact needs a
+`digest` or a `tag`; a digest is preferred, because it is what identifies the artifact.
+
+The report becomes:
+
+| Fact | Key |
+| --- | --- |
+| `Repository`, merged into the one already there | `github.com/org/name` |
+| `Pipeline`, with `lastRunStatus` | `github-actions:<repoKey>:<workflowPath>` |
+| `Artifact` per entry, with `commitSha` and the tag as `version` | `<registry>/<name>@<digest>` |
+| `Deployment` per artifact, with `status`, `deployedBy` | `<artifactKey>#<environmentKey>#<epoch seconds>` |
+| `Environment`, with `prod`, `stg` and the other aliases resolved | `production`, `staging`, … |
+| `HAS_PIPELINE`, `BUILT_FROM {commitSha}`, `DEPLOYED_TO`, `TO_ENVIRONMENT` | between the above |
+
+Every fact has provenance `sourceSystem=github-actions`, with `sourceId` set to the run URL and
+`observedAt` set to the time of the deploy. `GET /api/v1/graph/deployments?repoId=…` then lists the
+deployment with that provenance.
+
+| Answer | When |
+| --- | --- |
+| `202 {deploymentIds, created, nodes, edges}` | recorded; `created` is false when this exact report had already been applied |
+| `400 {error, fields}` | the report is invalid; `fields` names every bad field, not only the first |
+| `401` | no `Authorization: Bearer <token>` header, or the wrong token |
+| `503` | this instance has no `ingest.token` (`INGEST_TOKEN`), so nobody may report to it |
+
+The token is checked before the body is read, so a caller without it learns nothing from the
+validation errors. The same report posted twice is one delivery: it is named by a hash of its bytes,
+and a retrying workflow step applies it once.
+
+The dogfood deploy is the first reporter. After every deploy, including a failed one, it posts both
+images by digest (`scripts/deployment-report.mjs`), when the `dogfood` environment has an
+`INGEST_TOKEN` (`fly/README.md`).
+
+This is one of the two writes a read-only instance still accepts ([Deployment contract](/guide/deployment),
+D6), because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions`
+with the same payload and token, which is the generic webhook route that #22 set up.
+
+## Seeding: this repository on the dogfood instance
+
+Until the GitHub connector (#23) can read a repository for itself, the dogfood instance learns about
+this one from a seed (#47): the repository, the teams in `CODEOWNERS`, the workflows, and the
+repositories it depends on. The instance is read-only, so the seed writes through its own endpoint,
+`POST /api/v1/ingest/seed`, behind the same `INGEST_TOKEN` as deployment reports, and is recorded
+through the `dogfood-seed` connector.
+
+```json
+{
+  "nodes": [
+    { "type": "Repository", "sourceId": "https://github.com/MaximumTrainer/SdlcKnowledgeGraph",
+      "props": { "url": "https://github.com/MaximumTrainer/SdlcKnowledgeGraph", "defaultBranch": "main",
+                 "topics": [], "codeowners": ["@maximumtrainer"] } },
+    { "type": "Team", "props": { "name": "maximumtrainer" } },
+    { "type": "Pipeline", "props": { "provider": "github-actions", "repoKey": "github.com/maximumtrainer/sdlcknowledgegraph",
+                                     "workflowPath": ".github/workflows/ci.yml", "name": "ci.yml",
+                                     "repoId": "github.com/maximumtrainer/sdlcknowledgegraph", "lastRunStatus": "success" } }
+  ],
+  "edges": [
+    { "type": "OWNED_BY", "from": 0, "to": 1, "props": { "pathPatterns": ["*"] } },
+    { "type": "HAS_PIPELINE", "from": 0, "to": 2 }
+  ]
+}
+```
+
+An edge names its ends by their position in `nodes`. A seed may write only `Repository`, `Team` and
+`Pipeline` nodes and `OWNED_BY`, `HAS_PIPELINE` and `DEPENDS_ON` edges. Every property is checked
+against the ontology exactly as the node and edge APIs check it, and an edge only joins the types the
+ontology lets it join. A batch holds at most 500 nodes and 2000 edges.
+
+The answers are those of the deployment endpoint: `202 {created, nodes, edges}`, `400 {error, fields}`
+naming every problem, `401` without the token and `503` on an instance with none. Keys are derived,
+so seeding again changes properties such as a pipeline's `lastRunStatus` and never adds nodes; the
+same batch twice is one delivery. Every fact has provenance `sourceSystem=dogfood-seed`, so it can be
+told from what the GitHub connector writes once it replaces the seed.
+
+The writer is `scripts/dogfood-seed.mjs`, run daily and on demand by `.github/workflows/dogfood-seed.yml`.
+It reads the repository, `CODEOWNERS`, each workflow file's latest run on the default branch, and the
+dependencies in `frontend/package.json` and `backend/build.gradle.kts` that name a git remote. Registry
+versions and local paths are not repositories, so they are left out. It fails when the instance cannot
+be reached, and when the instance holds more nodes than `SEED_NODE_CEILING` (1000), the cheap sign
+that something else is writing to it.

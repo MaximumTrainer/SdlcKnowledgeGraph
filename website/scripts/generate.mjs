@@ -26,6 +26,9 @@ const GUIDE_PAGES = {
   'ONTOLOGY.md': 'guide/ontology',
   'ADAPTERS.md': 'guide/adapters',
   'TESTING.md': 'guide/testing',
+  'DEPLOYMENT.md': 'guide/deployment',
+  'OBSERVABILITY.md': 'guide/observability',
+  'DOGFOOD.md': 'guide/dogfood',
   'AGENT-SYSTEMS-WHITE-PAPER.md': 'guide/agent-systems-white-paper',
   'ROADMAP.md': 'reference/roadmap'
 }
@@ -40,6 +43,9 @@ const PAGE_NAMES = {
   '/guide/ontology': 'Ontology',
   '/guide/adapters': 'Adapters',
   '/guide/testing': 'Testing',
+  '/guide/deployment': 'Deployment',
+  '/guide/observability': 'Observability',
+  '/guide/dogfood': 'Dogfood instance',
   '/guide/agent-systems-white-paper': 'White paper',
   '/reference/roadmap': 'Roadmap',
   '/adr/': 'Decisions'

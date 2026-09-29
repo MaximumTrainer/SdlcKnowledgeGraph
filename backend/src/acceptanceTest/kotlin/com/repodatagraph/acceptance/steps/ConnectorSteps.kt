@@ -32,6 +32,9 @@ class ConnectorSteps(
     private val sync: SyncWorld,
     private val fake: FakeConnector,
 ) {
+    /** The repository a scenario recorded earlier, for a later step that reports it again. */
+    private var remembered: String? = null
+
     @Before
     fun resetTheScript() {
         fake.reset()
@@ -226,6 +229,73 @@ class ConnectorSteps(
     fun itsValidToIsSet() {
         assertTrue(world.lastBody().path("provenance").says("validTo")) {
             "validTo was not set: " + world.lastResponse().body
+        }
+    }
+
+    @Given("a full sync of the fake connector recorded Repository {string}")
+    fun aFullSyncRecorded(key: String) {
+        fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert(key))) })
+        sync.awaitRun("SUCCESS", sync.startSync("fake", "full"))
+        remembered = key
+    }
+
+    @Given("a Team {string} was created by hand")
+    fun aTeamWasCreatedByHand(name: String) {
+        world.post("/api/v1/nodes/Team", mapOf("props" to mapOf("name" to name)))
+        assertEquals(201, world.lastStatus()) { "creating the team was refused: " + world.lastResponse().body }
+    }
+
+    @When("a later full sync of the fake connector succeeds without mentioning it")
+    fun aLaterFullSyncWithoutIt() {
+        // Something else, so the run has written a page and succeeded rather than seen nothing at all.
+        fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert("github.com/acme/unrelated"))) })
+        sync.awaitRun("SUCCESS", sync.startSync("fake", "full"))
+    }
+
+    @When("a later full sync of the fake connector succeeds and reports it again")
+    fun aLaterFullSyncWithIt() {
+        val key = requireNotNull(remembered) { "no repository was recorded earlier in this scenario" }
+        fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert(key))) })
+        sync.awaitRun("SUCCESS", sync.startSync("fake", "full"))
+    }
+
+    @When("a later full sync of the fake connector fails halfway")
+    fun aLaterFullSyncFailsHalfway() {
+        fake.pages =
+            listOf(
+                { GraphDelta(nodes = listOf(repositoryUpsert("github.com/acme/unrelated"))) },
+                { throw IllegalStateException("the source system fell over mid-page") },
+            )
+        sync.awaitRun("PARTIAL", sync.startSync("fake", "full"))
+    }
+
+    @When("a later incremental sync of the fake connector succeeds without mentioning it")
+    fun aLaterIncrementalSyncWithoutIt() {
+        fake.pages = listOf({ GraphDelta(nodes = listOf(repositoryUpsert("github.com/acme/unrelated"))) })
+        sync.awaitRun("SUCCESS", sync.startSync("fake", "incremental"))
+    }
+
+    @Then("the {word} {string} is closed but not deleted")
+    fun theNodeIsClosed(
+        type: String,
+        key: String,
+    ) {
+        world.get("/api/v1/nodes/$type/$key")
+        assertEquals(200, world.lastStatus()) { "the node was deleted instead of closed" }
+        assertTrue(world.lastBody().path("provenance").says("validTo")) {
+            "validTo was not set: " + world.lastResponse().body
+        }
+    }
+
+    @Then("the {word} {string} is still open")
+    fun theNodeIsStillOpen(
+        type: String,
+        key: String,
+    ) {
+        world.get("/api/v1/nodes/$type/$key")
+        assertEquals(200, world.lastStatus()) { "the node is missing: " + world.lastResponse().body }
+        assertFalse(world.lastBody().path("provenance").says("validTo")) {
+            "validTo was set on a node that should still be open: " + world.lastResponse().body
         }
     }
 

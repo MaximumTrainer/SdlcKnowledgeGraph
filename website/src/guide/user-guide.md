@@ -39,9 +39,15 @@ the registry appears in the interface without a frontend change.
 
 ### Browsing nodes
 
-Opening the interface shows the **Repository** list. Across the top of every list is a tab strip
-with one tab per node type in the registry. Each list shows the node's key, which links to the
-node's page, and the first three properties the registry declares for that type.
+Opening the interface shows the **Repository** list. The header of every page has a link per node
+type in the registry, and one to the connectors. The graph's own bookkeeping types (`Ontology`,
+`SyncRun`, `ConnectorState`) are left out of it; their lists are still at `/nodes/<type>`. Each list
+shows the node's key, which links to the node's page, and the first three properties the registry
+declares for that type.
+
+The footer of every page says which ontology version and which build (the short commit) are
+serving, and `read-only` when the instance refuses writes. An address the interface does not know
+shows a "Page not found" page with a link back to the graph.
 
 A list shows the first page of nodes only, fifty by default. There is no search, filtering or
 sorting yet, and no page control; a type with more than fifty nodes shows the first fifty in key
@@ -253,6 +259,47 @@ GraphiQL at `/graphiql` for trying queries. It is the pre-registry surface: quer
 neighbours only; the generic node and edge operations, and provenance, are available through REST.
 The generated `<Type>Node` types in `schema.generated.graphqls` exist for the registry-driven
 schema that will replace this, and no query returns them yet.
+
+## Read-only instances
+
+An instance started with `sdlc.read-only=true` (environment variable `SDLC_READ_ONLY=true`) refuses
+every write. It exists because there is no authentication yet: an instance reachable by people who
+must not change it, such as a public demonstration, would otherwise be an open database.
+
+- Every request other than `GET`, `HEAD` and `OPTIONS` is refused with
+  `403 {"error": "this instance is read-only"}`, on every path. The refusal is deny-by-default: a
+  write endpoint added later is refused until it is deliberately allowed. Two are allowed today:
+  `POST /api/v1/ingest/deployment`, where the deploy pipeline reports what it deployed, and
+  `POST /api/v1/ingest/seed`, where the dogfood seed records this repository. Both have their own
+  bearer token and refuse anyone without it ([Adapters](/guide/adapters#self-ingestion-deployments-from-the-pipeline)).
+- `POST /graphql` is answered only when the document can be parsed and contains no mutation. A
+  document that carries a mutation anywhere, whichever operation it names, is refused, and so is
+  one that cannot be parsed or is larger than 256 KB.
+- GraphiQL is not served (`/graphiql` returns 404), and WebSocket upgrades are refused.
+
+The web interface still browses; creating, editing and deleting fail with the refusal above. This is
+a posture, not access control: sign-in and permissions are [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3).
+
+## What an instance is running
+
+`GET /actuator/info` answers with a `deployment` block, so a person or a pipeline can ask a running
+instance what it is before trusting it:
+
+```json
+{
+  "deployment": {
+    "commit": "0bfe55cc6c3c2ad984aeae0183e5423149acbdd8",
+    "version": "0.0.1-SNAPSHOT",
+    "ontologyVersion": "1.0.0",
+    "profile": "docker",
+    "readOnly": true
+  }
+}
+```
+
+`commit` is the full SHA the image was built from, stamped by the image build (`SDLC_COMMIT`); an
+image built without it says `unknown`. The dogfood deploy compares it with the commit it meant to
+deploy and fails if they differ.
 
 ## The Neo4j browser
 

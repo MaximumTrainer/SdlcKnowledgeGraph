@@ -2,7 +2,7 @@ package com.repodatagraph.adapter.out.servicenow
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.json.JsonMapper
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.http.HttpHeaders
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.stereotype.Component
@@ -90,8 +90,6 @@ class ServiceNowClient(
     private val properties: ServiceNowProperties,
     builder: RestClient.Builder,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val client =
         builder
             .baseUrl(properties.instanceUrl)
@@ -140,10 +138,10 @@ class ServiceNowClient(
             page("sys_properties", since = null, offset = 0, limit = 1)
             true
         } catch (unreachable: ServiceNowUnavailableException) {
-            log.warn("ServiceNow is not reachable: {}", unreachable.message)
+            LogEvents.servicenowUnreachable(unreachable.message.orEmpty())
             false
         } catch (refused: ServiceNowRefusedException) {
-            log.warn("ServiceNow refused the health check: {}", refused.message)
+            LogEvents.servicenowHealthRefused(refused.message.orEmpty())
             false
         }
 
@@ -197,7 +195,7 @@ class ServiceNowClient(
                 return call()
             } catch (unavailable: ServiceNowUnavailableException) {
                 last = unavailable
-                log.info("ServiceNow failed ({}), attempt {} of {}", unavailable.message, attempt + 1, MAX_ATTEMPTS)
+                LogEvents.servicenowRetrying(unavailable.message.orEmpty(), attempt + 1, MAX_ATTEMPTS)
                 Thread.sleep(minOf(retryAfter ?: Duration.ofMillis(BACKOFF_MILLIS * (attempt + 1)), MAX_WAIT).toMillis())
             }
         }

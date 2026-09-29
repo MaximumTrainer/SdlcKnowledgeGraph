@@ -43,6 +43,10 @@ describe('lefthook.yml', () => {
     assert.match(hookBlock('pre-commit'), /- name: protected-branch/)
   })
 
+  test('scans deployment configuration for credentials on commit (#48, D8)', () => {
+    assert.match(hookBlock('pre-commit'), /- name: config-secrets\n\s+run: node scripts\/check-no-secrets\.mjs \{staged_files\}/)
+  })
+
   /**
    * Git runs `pre-merge-commit`, not `pre-commit`, for a merge that commits automatically. Without
    * this block a merge introduces content no guard has ever seen, and everything ADR-0007 calls
@@ -52,7 +56,7 @@ describe('lefthook.yml', () => {
   describe('pre-merge-commit', () => {
     const block = () => hookBlock('pre-merge-commit')
 
-    for (const guard of ['protected-branch', 'hygiene', 'secrets']) {
+    for (const guard of ['protected-branch', 'hygiene', 'secrets', 'config-secrets']) {
       test(`runs the ${guard} guard, as pre-commit does`, () => {
         assert.match(block(), new RegExp(`- name: ${guard}`))
       })

@@ -31,12 +31,18 @@ services:
   backend:
     build:
       context: ./backend
+      # The commit /actuator/info reports (docs/DEPLOYMENT.md D2). CI sets it; a local build says "unknown".
+      args:
+        SDLC_COMMIT: ${SDLC_COMMIT:-}
     image: sdlc-graph-backend:local
     environment:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: neo4j
       NEO4J_PASSWORD: password
       SPRING_PROFILES_ACTIVE: docker
+      # Writable by default, which is what local work and the browser suite need. CI restarts the
+      # backend read-only to run the deployment conformance suite against it.
+      SDLC_READ_ONLY: ${SDLC_READ_ONLY:-false}
     ports:
       - "8080:8080"
     depends_on:

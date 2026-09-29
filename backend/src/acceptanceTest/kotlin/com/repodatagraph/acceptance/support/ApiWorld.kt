@@ -25,6 +25,17 @@ class ApiWorld(
 
     fun get(path: String): ResponseEntity<String> = restTemplate.getForEntity(path, String::class.java).also { response = it }
 
+    fun get(
+        path: String,
+        headers: Map<String, String>,
+    ): ResponseEntity<String> {
+        val httpHeaders = HttpHeaders()
+        headers.forEach { (name, value) -> httpHeaders.add(name, value) }
+        return restTemplate
+            .exchange(path, HttpMethod.GET, HttpEntity<Unit>(httpHeaders), String::class.java)
+            .also { response = it }
+    }
+
     fun post(
         path: String,
         body: Any?,

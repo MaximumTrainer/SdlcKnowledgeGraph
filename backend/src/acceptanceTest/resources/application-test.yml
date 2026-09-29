@@ -5,6 +5,16 @@ management:
       show-components: always
       show-details: always
 
+# What the image build would stamp from the commit it was built from (SDLC_COMMIT). Fixed here so the
+# deployment-info scenario can assert its shape without a git checkout.
+sdlc:
+  deployment:
+    commit: 0123456789abcdef0123456789abcdef01234567
+
+# The bearer token the deploy pipeline sends to POST /api/v1/ingest/deployment (#7).
+ingest:
+  token: test-ingest-token # not-a-secret: a fixture for the deployment-ingest feature
+
 # The scripted connector the connector-sync feature drives. Enabled here and nowhere else: the point
 # of connectors being off by default is that being on the classpath is not consent to run.
 connectors:

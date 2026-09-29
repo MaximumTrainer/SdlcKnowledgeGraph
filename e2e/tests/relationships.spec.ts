@@ -36,7 +36,10 @@ const addRelationship = async (page: Page, type: string, targetKey: string, kind
 const relationships = (page: Page) => page.getByTestId('relationship-list')
 
 test.describe('typed relationships', () => {
-  test('only edge types the ontology allows for this node are offered', async ({ page, request }) => {
+  test('only edge types the ontology allows for this node are offered', async ({
+    page,
+    request
+  }) => {
     const ontology = await (await request.get('/api/v1/ontology')).json()
     // A node may sit at either end, so BUILT_FROM (Artifact -> Repository) belongs here too.
     const allowedForRepository = ontology.edgeTypes
@@ -47,14 +50,25 @@ test.describe('typed relationships', () => {
       .map((edge: { name: string }) => edge.name)
 
     const key = await createRepository(page, unique('offers'))
+    // The panel fills its dropdown from the ontology, fetched alongside the node's edges. Holding
+    // that response back makes the race this test once lost by chance (#148) happen every time: an
+    // assertion that reads the dropdown before it is populated now fails on every run, not one in
+    // several, and CI's retries cannot hide it.
+    await page.route('**/api/v1/ontology', async route => {
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      await route.continue()
+    })
     await page.goto(`/nodes/Repository/${key}`)
     await page.getByRole('button', { name: 'Add relationship' }).click()
 
-    const offered = await page.getByLabel('Relationship').locator('option').allTextContents()
-
-    for (const type of allowedForRepository) expect(offered).toContain(type)
-    // Deployment -> Environment has a Repository at neither end.
-    expect(offered).not.toContain('TO_ENVIRONMENT')
+    // Web-first assertions, which wait for the options to arrive, rather than reading them once.
+    const options = page.getByLabel('Relationship').locator('option')
+    for (const type of allowedForRepository) {
+      await expect(options.filter({ hasText: new RegExp(`^${type}$`) })).toHaveCount(1)
+    }
+    // Deployment -> Environment has a Repository at neither end. Checked only once the allowed
+    // types are present, so an empty dropdown cannot pass it.
+    await expect(options.filter({ hasText: /^TO_ENVIRONMENT$/ })).toHaveCount(0)
   })
 
   test('one edge is seen under its own name from one end and its inverse from the other', async ({

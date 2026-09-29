@@ -84,6 +84,9 @@ export default defineConfig({
           { text: 'Ontology', link: '/guide/ontology' },
           { text: 'Adapters (planned)', link: '/guide/adapters' },
           { text: 'Testing and gates', link: '/guide/testing' },
+          { text: 'Deployment contract', link: '/guide/deployment' },
+          { text: 'Observability', link: '/guide/observability' },
+          { text: 'Dogfood instance', link: '/guide/dogfood' },
           { text: 'White paper', link: '/guide/agent-systems-white-paper' }
         ]
       },

@@ -6,7 +6,7 @@ import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.NodeUpsert
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
 
 /**
@@ -31,8 +31,6 @@ class ServiceNowMapper(
     private val gitRemoteParser: GitRemoteParser,
     private val properties: ServiceNowProperties,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     fun configurationItem(
         row: ServiceNowRow,
         table: String,
@@ -169,7 +167,7 @@ class ServiceNowMapper(
             .value(properties.repoUrlField)
             ?.let { url ->
                 runCatching { gitRemoteParser.parse(url) }
-                    .onFailure { log.info("{} is not a git remote, from {} on {}", url, properties.repoUrlField, ci.key) }
+                    .onFailure { LogEvents.servicenowRemoteInvalid(url, properties.repoUrlField, ci.key) }
                     .getOrNull()
             }?.let { remote ->
                 EdgeUpsert(

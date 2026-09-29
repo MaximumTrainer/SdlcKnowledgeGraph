@@ -1,0 +1,161 @@
+name: Deploy dogfood
+
+# Deploys the dogfood instance on fly.io (#47) from exactly the commit a green CI run on main tested.
+#
+# Triggered by the CI run rather than by the push, for the same reason the Website workflow is: a red
+# run on main deploys nothing, and a green one deploys its own head_sha rather than whatever main
+# points at by the time this starts. Pull request runs and runs on other branches deploy nothing.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancelled halfway: a cancelled deploy leaves machines half-replaced.
+concurrency:
+  group: deploy-dogfood
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to fly.io and verify
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: dogfood
+      url: https://sdlc-graph.fly.dev
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+      # Optional. With it, the deploy reports itself to the graph it just deployed (#7).
+      INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+      # App names are <prefix>, <prefix>-backend and <prefix>-neo4j, and fly.io names are global. If
+      # these are taken, change them here and in the environment url above.
+      FLY_APP_PREFIX: sdlc-graph
+      FLY_ORG: personal
+      FLY_REGION: lhr
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      # Until the dogfood environment has its secrets there is nothing to deploy to, and that is a
+      # setup step still to do rather than a failure of main, so it is reported without going red.
+      - name: Check the dogfood environment is set up
+        id: setup
+        run: |
+          if [ -z "$FLY_API_TOKEN" ] || [ -z "$NEO4J_PASSWORD" ]; then
+            echo "::warning::Not deployed: FLY_API_TOKEN and NEO4J_PASSWORD are not set on the dogfood environment (fly/README.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$INGEST_TOKEN" ]; then
+            echo "::warning::This deploy will not be recorded in the graph: INGEST_TOKEN is not set on the dogfood environment (fly/README.md)"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.setup.outputs.ready == 'true'
+
+      - name: Create whatever is missing on fly.io
+        if: steps.setup.outputs.ready == 'true'
+        run: fly/bootstrap.sh
+
+      - name: Deploy the graph database
+        if: steps.setup.outputs.ready == 'true'
+        run: >-
+          flyctl deploy --config fly/fly.neo4j.toml --app "$FLY_APP_PREFIX-neo4j"
+          --ha=false --wait-timeout 300
+
+      # Images are built here, from the commit CI tested, and deployed by digest, so what runs is
+      # exactly what was built for this commit and never a tag that has since moved.
+      - name: Log in to fly's registry
+        if: steps.setup.outputs.ready == 'true'
+        run: flyctl auth docker
+
+      - name: Build, push and deploy the API
+        id: api
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          image="registry.fly.io/$FLY_APP_PREFIX-backend:$SHA"
+          docker build --tag "$image" --build-arg "SDLC_COMMIT=$SHA" backend
+          docker push "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          flyctl deploy --config fly/fly.backend.toml --app "$FLY_APP_PREFIX-backend" \
+            --image "$digest" \
+            --env "NEO4J_URI=bolt://$FLY_APP_PREFIX-neo4j.internal:7687" \
+            --ha=false --wait-timeout 300
+
+      - name: Build, push and deploy the web interface
+        id: web
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          image="registry.fly.io/$FLY_APP_PREFIX:$SHA"
+          docker build --tag "$image" frontend
+          docker push "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          flyctl deploy --config fly/fly.frontend.toml --app "$FLY_APP_PREFIX" \
+            --image "$digest" \
+            --env "BACKEND_URL=http://$FLY_APP_PREFIX-backend.flycast:8080" \
+            --ha=false --wait-timeout 300
+
+      - name: Verify the live instance
+        if: steps.setup.outputs.ready == 'true'
+        run: fly/verify.sh "$FLY_APP_PREFIX"
+
+      # A deployment that cannot pass its own contract is not a deployment (docs/DEPLOYMENT.md). Run
+      # from outside, against the public address, the way anyone else reaches it.
+      - uses: actions/setup-node@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Run the deployment conformance suite
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: e2e
+        run: |
+          npm ci
+          CONFORMANCE_BASE_URL="https://$FLY_APP_PREFIX.fly.dev" EXPECTED_COMMIT="$SHA" \
+            npx playwright test --config=conformance.config.ts
+
+      # The graph records its own deployments (#7): what was deployed, from which commit, and whether
+      # it worked. Runs after a failure too, because a failed deploy is the one worth recording. A
+      # refused report fails a deploy that otherwise succeeded, since it means the endpoint or the
+      # token is broken; after a failed deploy it is only a warning, as the API may be what failed.
+      - name: Report the deployment to the graph
+        if: always() && steps.setup.outputs.ready == 'true' && env.INGEST_TOKEN != ''
+        env:
+          REPORT_COMMIT: ${{ env.SHA }}
+          REPORT_ENVIRONMENT: dogfood
+          REPORT_JOB_STATUS: ${{ job.status }}
+          REPORT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPORT_WORKFLOW_PATH: .github/workflows/deploy-dogfood.yml
+          REPORT_ARTIFACTS: ${{ steps.api.outputs.image }} ${{ steps.web.outputs.image }}
+        run: |
+          if ! report=$(node scripts/deployment-report.mjs); then
+            echo "::warning::Not reported to the graph: there was no deployment to report"
+            exit 0
+          fi
+          status=$(curl -sS -o "$RUNNER_TEMP/ingest.json" -w '%{http_code}' \
+            -X POST "https://$FLY_APP_PREFIX.fly.dev/api/v1/ingest/deployment" \
+            -H "Authorization: Bearer $INGEST_TOKEN" -H 'Content-Type: application/json' \
+            --data "$report") || status=000
+          cat "$RUNNER_TEMP/ingest.json" 2>/dev/null || true
+          echo
+          if [ "$status" != 202 ]; then
+            if [ "$REPORT_JOB_STATUS" = success ]; then
+              echo "::error::The graph refused the deployment report (HTTP $status)"
+              exit 1
+            fi
+            echo "::warning::The failed deploy could not be recorded in the graph (HTTP $status)"
+          fi

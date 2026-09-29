@@ -26,6 +26,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# Each readable log line names the request it was written for (RequestIdFilter, #44). Under the
+# docker profile the same id is a field of the JSON line instead (logback-spring.xml).
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}] "
+
 management:
   endpoints:
     web:
@@ -51,3 +57,17 @@ connectors:
       password: ${SERVICENOW_PASSWORD:}
       client-id: ${SERVICENOW_CLIENT_ID:}
       client-secret: ${SERVICENOW_CLIENT_SECRET:}
+
+# Deployment posture (#48). Read-only refuses every write, deny-by-default, so an instance reachable
+# by people who must not change it is not an open database while there is no authentication (#3).
+# The bearer token the deploy pipeline sends to POST /api/v1/ingest/deployment (#7). Unset turns the
+# endpoint off (503) rather than leaving it open.
+ingest:
+  token: ${INGEST_TOKEN:}
+
+sdlc:
+  read-only: ${SDLC_READ_ONLY:false}
+  # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),
+  # so a pipeline can ask the running instance whether it is serving the commit it meant to deploy.
+  deployment:
+    commit: ${SDLC_COMMIT:}

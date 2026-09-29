@@ -206,6 +206,13 @@
           "id" : {
             "type" : "string"
           },
+          "provenance" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Provenance"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "status" : {
             "type" : "string"
           }
@@ -463,6 +470,9 @@
             },
             "type" : "array"
           },
+          "meta" : {
+            "type" : "boolean"
+          },
           "name" : {
             "type" : "string"
           },
@@ -473,7 +483,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "identity", "name", "properties" ],
+        "required" : [ "identity", "meta", "name", "properties" ],
         "type" : "object"
       },
       "OntologyResponse" : {
@@ -1392,6 +1402,80 @@
         "tags" : [ "Graph Queries" ]
       }
     },
+    "/api/v1/ingest/deployment" : {
+      "post" : {
+        "operationId" : "ingest",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Authorization",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Record a deployment reported by the deploy pipeline",
+        "tags" : [ "Ingest" ]
+      }
+    },
+    "/api/v1/ingest/seed" : {
+      "post" : {
+        "operationId" : "seed",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Authorization",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Record repositories, teams, pipelines and dependencies read by the dogfood seed",
+        "tags" : [ "Ingest" ]
+      }
+    },
     "/api/v1/nodes/{type}" : {
       "get" : {
         "operationId" : "list",
@@ -1954,6 +2038,9 @@
   }, {
     "description" : "Ontology-driven CRUD for every declared node type",
     "name" : "Nodes"
+  }, {
+    "description" : "Push ingestion from the delivery pipeline",
+    "name" : "Ingest"
   }, {
     "description" : "Engineering knowledge graph queries",
     "name" : "Graph Queries"

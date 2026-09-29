@@ -33,6 +33,10 @@ pre-commit:
     # working copy would pass the gate with the token still going in (#62).
     - name: secrets
       run: node scripts/secretlint.mjs --staged {staged_files}
+    # Deployment configuration must reference the platform's secret store, never hold a credential
+    # (#48, D8). No glob: the script picks its own files, so the scope is defined once.
+    - name: config-secrets
+      run: node scripts/check-no-secrets.mjs {staged_files}
     # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt
     # is reading them; the group as a whole still runs in parallel with the frontend jobs.
     - name: backend
@@ -54,6 +58,10 @@ pre-commit:
     - name: ontology-drift
       glob: "backend/src/main/resources/ontology/**"
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
+    # The event registry and the LogEvents it generates are committed together or not at all (#44).
+    - name: log-event-drift
+      glob: "backend/src/main/resources/observability/**"
+      run: node scripts/gradle.mjs logEventDriftCheck --quiet
     - name: website-drift
       glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"
       run: npm --prefix website run drift
@@ -84,6 +92,8 @@ pre-merge-commit:
       run: node scripts/hygiene.mjs {staged_files}
     - name: secrets
       run: node scripts/secretlint.mjs --staged {staged_files}
+    - name: config-secrets
+      run: node scripts/check-no-secrets.mjs {staged_files}
 
 pre-push:
   parallel: true

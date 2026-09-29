@@ -16,6 +16,7 @@ What you will have at the end:
 | `http://localhost:8080/swagger-ui.html` | Interactive REST documentation |
 | `http://localhost:8080/graphiql` | GraphiQL, for the GraphQL endpoint at `/graphql` |
 | `http://localhost:8080/actuator/health` | Health, including the Neo4j connection |
+| `http://localhost:8080/actuator/info` | What the instance is running: commit, version, ontology version, profile, read-only |
 | `http://localhost:7474` | The Neo4j browser (user `neo4j`, password `password`) |
 
 ## Prerequisites
@@ -68,6 +69,8 @@ cd frontend && npm install && npm run dev   # UI on http://localhost:3000, proxy
 
 The backend reads its Neo4j connection from `NEO4J_URI`, `NEO4J_USERNAME` and `NEO4J_PASSWORD`,
 defaulting to the values `compose.yaml` uses, so nothing needs configuring for the local database.
+A container, which runs with the `docker` profile, has no default: started without `NEO4J_URI`, it
+stops at once with `NEO4J_URI must be set`.
 
 Run `npm install` at the root even if you never touch the backend: it installs lefthook, which is
 what enforces the commit and push gates described in [the testing guide](/guide/testing). Without it a commit

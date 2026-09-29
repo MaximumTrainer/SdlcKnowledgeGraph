@@ -39,6 +39,8 @@ data class NodeTypeDef(
     /** Property names whose values, in order, form the node's key. */
     val identity: List<String>,
     val properties: List<PropertyDef>,
+    /** Describes the graph itself (its ontology, its sync runs) rather than the software it models. */
+    val meta: Boolean = false,
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 

@@ -5,6 +5,9 @@
 # against the typed Kotlin classes at startup: a required property here must exist on the class of
 # the same name. Properties marked optional may exist only in the registry, which is how the target
 # identity model is declared before #19 migrates the Kotlin classes onto it.
+#
+# `meta: true` marks a type that describes the graph itself rather than the software it models. The
+# web interface leaves meta types out of its navigation; they are still stored and queryable.
 
 nodes:
   Repository:
@@ -180,6 +183,7 @@ nodes:
   # Meta types: these describe the graph itself rather than the software it models.
   Ontology:
     description: Records which ontology version the graph was built with.
+    meta: true
     identity: [version]
     properties:
       - { name: version, type: string, required: true }
@@ -187,6 +191,7 @@ nodes:
 
   SyncRun:
     description: One execution of a connector, for auditing what a sync changed.
+    meta: true
     identity: [id]
     properties:
       - { name: id, type: string, required: true }
@@ -210,6 +215,7 @@ nodes:
   # mean a pruned history silently restarts every connector from the beginning.
   ConnectorState:
     description: What the graph remembers about a connector between runs.
+    meta: true
     identity: [connector]
     properties:
       - { name: connector, type: string, required: true }

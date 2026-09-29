@@ -16,6 +16,7 @@ import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Service
 
 /**
@@ -47,7 +48,9 @@ class NodeService(
         val key = identityResolver.keyFor(type, expanded)
         graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
 
-        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual()))
+        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual())).also {
+            LogEvents.nodeCreated(type, key.key, props.keys.sorted())
+        }
     }
 
     override fun get(
@@ -123,7 +126,10 @@ class NodeService(
         props: Map<String, Any?>,
     ) {
         val errors = validator.validate(nodeType, props)
-        if (errors.isNotEmpty()) throw NodeValidationException(errors)
+        if (errors.isNotEmpty()) {
+            LogEvents.nodeRejected(nodeType.name, errors.map { it.field }.distinct().sorted())
+            throw NodeValidationException(errors)
+        }
     }
 
     /**

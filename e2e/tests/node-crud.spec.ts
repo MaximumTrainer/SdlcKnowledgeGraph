@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 /**
  * The editing surface is rendered from GET /api/v1/ontology rather than hand-written per type, so
- * these tests assert the screens follow the registry: the tabs are the registry's node types, and a
- * form's fields are the type's declared properties.
+ * these tests assert the screens follow the registry: a form's fields are the type's declared
+ * properties. The navigation between types is the shell's, and `app-shell.spec.ts` covers it.
  *
  * The bug this issue closes is the last test: saving an edit used to create a second node.
  *
@@ -32,17 +32,6 @@ const createTeam = async (page: Page, name: string) => {
 }
 
 test.describe('ontology-driven node CRUD', () => {
-  test('the type tabs are the node types the ontology declares', async ({ page, request }) => {
-    const ontology = await (await request.get('/api/v1/ontology')).json()
-    const declared: string[] = ontology.nodeTypes.map((type: { name: string }) => type.name)
-
-    await page.goto('/nodes/Repository')
-
-    for (const name of declared) {
-      await expect(page.getByRole('link', { name, exact: true })).toBeVisible()
-    }
-  })
-
   test('/ redirects to the Repository list', async ({ page }) => {
     await page.goto('/')
 
