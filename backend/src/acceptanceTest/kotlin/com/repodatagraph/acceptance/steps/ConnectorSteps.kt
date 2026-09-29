@@ -107,6 +107,16 @@ class ConnectorSteps(
             )
     }
 
+    @Given("the fake connector will find nothing in the next webhook")
+    fun theFakeConnectorWillFindNothing() {
+        fake.webhookDelta = null
+    }
+
+    @When("the fake connector is idle again")
+    fun theFakeConnectorIsIdleAgain() {
+        sync.awaitIdle("fake")
+    }
+
     @When("I ask the fake connector for a full sync")
     fun iAskForAFullSync() {
         sync.requestSync("fake", "full")
