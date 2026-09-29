@@ -71,6 +71,12 @@ class ReadOnlySteps(
         assertEquals(0L, count, "$type nodes in the graph")
     }
 
+    @Then("the deployment info says it is read-only")
+    fun theDeploymentInfoSaysItIsReadOnly() {
+        val flag = objectMapper.readTree(lastResponse().body ?: "null").path("deployment").path("readOnly")
+        assertEquals(true, flag.isBoolean && flag.booleanValue(), "deployment.readOnly: $flag")
+    }
+
     private fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 
     private fun jsonEntity(json: String): HttpEntity<String> =

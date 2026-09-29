@@ -14,6 +14,7 @@ What you will have at the end:
 | `http://localhost:8080/swagger-ui.html` | Interactive REST documentation |
 | `http://localhost:8080/graphiql` | GraphiQL, for the GraphQL endpoint at `/graphql` |
 | `http://localhost:8080/actuator/health` | Health, including the Neo4j connection |
+| `http://localhost:8080/actuator/info` | What the instance is running: commit, version, ontology version, profile, read-only |
 | `http://localhost:7474` | The Neo4j browser (user `neo4j`, password `password`) |
 
 ## Prerequisites

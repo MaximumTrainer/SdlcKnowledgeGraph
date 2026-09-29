@@ -34,6 +34,16 @@ if wait_for_200 "$base/api/v1/nodes/Repository"; then pass "the API reads the gr
 write=$(status_of -X POST -H 'Content-Type: application/json' -d '{"props":{"name":"verify"}}' "$base/api/v1/nodes/Team")
 if [ "$write" = 403 ]; then pass "a write from the internet is refused"; else fail "a write from the internet answered $write, not 403"; fi
 
+# The API is running the commit this deploy built (#48 D2, D3). /actuator is not proxied to the
+# internet, so it is read from inside the API's own machine.
+if [ -n "${EXPECTED_COMMIT:-}" ]; then
+  running=$(flyctl ssh console --app "$prefix-backend" --quiet --command "curl -s localhost:8080/actuator/info" | jq -r '.deployment.commit // "missing"' || echo "unreadable")
+  if [ "$running" = "$EXPECTED_COMMIT" ]; then pass "the API is running $EXPECTED_COMMIT"; else fail "the API reports commit $running, expected $EXPECTED_COMMIT"; fi
+fi
+# The web interface answers every unknown path with the app's index page, so what matters is whether
+# the actuator's own answer comes back, not the status.
+if curl -s --max-time 60 "$base/actuator/info" | grep -q '"deployment"'; then fail "$base/actuator/info is public"; else pass "/actuator is not reachable from the internet"; fi
+
 # The database and the API have no public address (#48 D7): only private ones may be listed.
 for app in "$prefix-neo4j" "$prefix-backend"; do
   public=$(flyctl ips list --app "$app" --json | jq '[.[] | select(((.Type // .type) | ascii_downcase) != "private_v6")] | length')

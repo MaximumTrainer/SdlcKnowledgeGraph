@@ -79,7 +79,7 @@ jobs:
         if: steps.setup.outputs.ready == 'true'
         run: |
           image="registry.fly.io/$FLY_APP_PREFIX-backend:$SHA"
-          docker build --tag "$image" backend
+          docker build --tag "$image" --build-arg "SDLC_COMMIT=$SHA" backend
           docker push "$image"
           digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
           flyctl deploy --config fly/fly.backend.toml --app "$FLY_APP_PREFIX-backend" \
@@ -101,4 +101,4 @@ jobs:
 
       - name: Verify the live instance
         if: steps.setup.outputs.ready == 'true'
-        run: fly/verify.sh "$FLY_APP_PREFIX"
+        run: EXPECTED_COMMIT="$SHA" fly/verify.sh "$FLY_APP_PREFIX"

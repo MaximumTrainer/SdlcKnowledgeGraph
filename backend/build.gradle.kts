@@ -11,6 +11,14 @@ plugins {
 group = "com.repodatagraph"
 version = "0.0.1-SNAPSHOT"
 
+// META-INF/build-info.properties, so /actuator/info can report the version it was built as (#48, D2).
+// Without the time, so an unchanged build stays up to date instead of rebuilding for a timestamp.
+springBoot {
+    buildInfo {
+        excludes.set(setOf("time"))
+    }
+}
+
 val cucumberVersion = "7.20.1"
 
 java {
