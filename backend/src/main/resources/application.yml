@@ -54,6 +54,11 @@ connectors:
 
 # Deployment posture (#48). Read-only refuses every write, deny-by-default, so an instance reachable
 # by people who must not change it is not an open database while there is no authentication (#3).
+# The bearer token the deploy pipeline sends to POST /api/v1/ingest/deployment (#7). Unset turns the
+# endpoint off (503) rather than leaving it open.
+ingest:
+  token: ${INGEST_TOKEN:}
+
 sdlc:
   read-only: ${SDLC_READ_ONLY:false}
   # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),

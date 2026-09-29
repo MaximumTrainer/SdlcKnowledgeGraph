@@ -62,7 +62,10 @@ class OntologyDriftValidator(
     }
 
     private companion object {
-        /** `id` is how a node is addressed, not something the ontology describes. */
-        val STRUCTURAL_PROPERTIES = setOf("id")
+        /**
+         * `id` is how a node is addressed and `provenance` is where its facts came from. Every node has
+         * both, and neither is something the ontology describes per type.
+         */
+        val STRUCTURAL_PROPERTIES = setOf("id", "provenance")
     }
 }
