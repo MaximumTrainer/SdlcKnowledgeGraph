@@ -48,3 +48,9 @@ Feature: A read-only deployment refuses every write
     When I send a GET to "/actuator/info"
     Then the response status is 200
     And the deployment info says it is read-only
+
+  Scenario: The deployment ingest endpoint stays open to the pipeline, behind its own token
+    # The one write a read-only instance still takes (#7, docs/DEPLOYMENT.md D6). It is not refused
+    # as read-only, and it is not open either: without its bearer token it is refused as unauthorised.
+    When I send a POST to "/api/v1/ingest/deployment"
+    Then the response status is 401

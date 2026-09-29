@@ -141,6 +141,7 @@ class Neo4jRepositoryAdapter(
                 deployedAt = props.instant("deployedAt"),
                 deployedBy = props.strOrNull("deployedBy"),
                 status = props.strOrNull("status") ?: "SUCCESS",
+                provenance = props.takeIf { it["prov_sourceSystem"] != null }?.let(ProvenanceMapper::fromProperties),
             )
         }
 

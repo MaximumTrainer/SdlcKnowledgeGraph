@@ -9,4 +9,6 @@ data class Deployment(
     val deployedAt: Instant = Instant.now(),
     val deployedBy: String? = null,
     val status: String = "SUCCESS",
+    /** Who reported this deployment. Null for one written before provenance was recorded on it. */
+    val provenance: Provenance? = null,
 )

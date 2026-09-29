@@ -19,7 +19,12 @@ import java.time.Clock
  */
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(ConnectorsProperties::class, GitHubProperties::class, ServiceNowProperties::class)
+@EnableConfigurationProperties(
+    ConnectorsProperties::class,
+    GitHubProperties::class,
+    ServiceNowProperties::class,
+    IngestProperties::class,
+)
 class ConnectorConfig {
     @Bean
     fun clock(): Clock = Clock.systemUTC()

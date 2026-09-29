@@ -173,10 +173,11 @@ class ReadOnlyGuard internal constructor(
 
     companion object {
         /**
-         * The writes a read-only instance still accepts. Empty until the deployment ingest endpoint (#7)
-         * exists; it is the one entry #48 plans, and it keeps its own bearer token.
+         * The writes a read-only instance still accepts: the deployment ingest endpoint (#7), which
+         * keeps its own bearer token (docs/DEPLOYMENT.md, D6), so the pipeline can record what it
+         * deployed to an instance the public cannot write to.
          */
-        val ALLOWLIST: Set<AllowedWrite> = emptySet()
+        val ALLOWLIST: Set<AllowedWrite> = setOf(AllowedWrite("POST", "/api/v1/ingest/deployment"))
 
         /** A GraphQL request larger than this is refused rather than read into memory to be inspected. */
         const val MAX_INSPECTED_BODY_BYTES = 256 * 1024

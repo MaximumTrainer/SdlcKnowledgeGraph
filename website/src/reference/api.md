@@ -29,6 +29,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/graph/repositories/{repoId}/pipelines` | Get pipelines for a repository | 200 |
 | `GET` | `/api/v1/graph/repositories/{repoId}/servicenow` | Get the ServiceNow CI item linked to a repository | 200 |
 | `GET` | `/api/v1/graph/repositories/{repoId}/team` | Get the owning team for a repository | 200 |
+| `POST` | `/api/v1/ingest/deployment` | Record a deployment reported by the deploy pipeline | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |
 | `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
