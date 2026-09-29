@@ -33,6 +33,11 @@ Feature: Ontology registry
     Then the edge type "BUILT_FROM" has inverse "BUILDS"
     And the edge type "BUILT_FROM" goes from "Artifact" to "Repository"
 
+  Scenario: Types that describe the graph itself are marked, so a client can leave them out
+    When I GET "/api/v1/ontology"
+    Then the meta node types are "Ontology, SyncRun, ConnectorState"
+    And every other node type is not meta
+
   Scenario: A known node type can be fetched on its own
     Given the application is running
     When I GET "/api/v1/ontology/nodes/Repository"
