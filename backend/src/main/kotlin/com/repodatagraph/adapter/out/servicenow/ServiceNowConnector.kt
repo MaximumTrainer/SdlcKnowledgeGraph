@@ -42,6 +42,10 @@ class ServiceNowConnector(
             // No webhooks: ServiceNow pushes through Business Rules, which is a change to the
             // instance rather than to this application, and nobody has asked for it yet.
             capabilities = setOf(Capability.FULL, Capability.INCREMENTAL, Capability.DISCOVERY),
+            // A full sync reads changes and incidents only as far back as the lookback windows, and
+            // only the configured CI tables, so what it does not mention may simply be out of range.
+            // Closing it would retire every change older than the window on every run (#150).
+            fullSyncIsComplete = false,
         )
 
     override fun healthCheck(): HealthStatus =

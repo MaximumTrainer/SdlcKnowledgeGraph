@@ -6,6 +6,7 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.out.FactLifecycle
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.connector.ConnectorDescriptor
 import com.repodatagraph.domain.port.out.connector.GraphDelta
@@ -40,6 +41,7 @@ data class DeltaResult(
 @Component
 class GraphDeltaWriter(
     private val graphStore: GraphStore,
+    private val factLifecycle: FactLifecycle,
     private val identityResolver: IdentityResolver,
     private val derivedProperties: DerivedProperties,
     private val clock: Clock,
@@ -102,6 +104,17 @@ class GraphDeltaWriter(
 
         return DeltaResult(nodes.size, delta.edges.size, closed)
     }
+
+    /**
+     * Closes what [descriptor]'s source asserted before a complete run began and did not report in it
+     * (#150). Closed, never deleted, for the same reason a tombstone is.
+     *
+     * @return how many facts were closed
+     */
+    fun reconcile(
+        descriptor: ConnectorDescriptor,
+        runStartedAt: Instant,
+    ): Int = factLifecycle.closeNodesNotReasserted(descriptor.sourceSystem, runStartedAt, Instant.now(clock))
 
     /**
      * Closes a fact rather than deleting it.

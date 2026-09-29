@@ -215,8 +215,9 @@ nothing else. The connector never writes to ServiceNow.
 Two things [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) asks for are not here. **OAuth client credentials** is configurable
 and refused at the health check: the token exchange is a second endpoint with its own refresh, and
 shipping a half-built one would be worse than saying so. **Retiring CIs that vanish from a full
-sync** is the same reconciliation as [#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150) and belongs to the sync engine; a CI
-the CMDB marks `Retired` is closed today.
+sync** is not done: the sync engine reconciles only connectors whose full sync is complete
+([#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150)), and this one's is bounded by the lookback windows and the configured
+tables, so it declares `fullSyncIsComplete = false`. A CI the CMDB marks `Retired` is closed.
 
 ### Implementing `ItsmConnector` for another tool
 
@@ -250,8 +251,9 @@ connector small, and what stops six connectors each getting provenance slightly 
    run is stamped for you.
 7. **Never invent an identifier.** Return the properties an identity is derived from and let the
    resolver derive the key, or the same thing seen by two connectors becomes two nodes.
-8. **Emit a tombstone** when the source stops reporting something. It closes the fact's validity; it
-   does not delete it. A bad day at the source must not erase history.
+8. **Emit a tombstone** when the source reports that something has ended. It closes the fact's
+   validity; it does not delete it. A bad day at the source must not erase history. Facts the source
+   simply stops mentioning are closed for you by reconciliation, below, if your full sync is complete.
 9. **Implement `verifyWebhook`** if you accept webhooks, using `WebhookSignatureVerifier` for the
    constant-time HMAC compare. It defaults to refusing everything, which is the right default.
 10. **Register configuration** under `connectors.<name>`, with credentials from environment
@@ -402,13 +404,36 @@ The token needs read access to repository metadata and contents, and nothing els
 that CODEOWNERS can be read. A connector with no org or no token reports itself `DOWN` with the
 reason rather than failing at the first sync.
 
-Two things [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) asks for are deliberately not here. **GitHub App authentication**
+One thing [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) asks for is deliberately not here: **GitHub App authentication**
 is not implemented; a fine-grained personal access token is, and the two differ only in how a token
-is obtained. **Repositories that disappear from a full sync** are not tombstoned —
-only archived ones are. Recognising "the source stopped reporting this" needs the sync engine to
-compare a full run against what the connector produced last time, which is a mechanism every
-connector should share rather than six connectors each getting subtly wrong, so it is
-[#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150).
+is obtained. **Repositories that disappear from a full sync** — deleted, transferred, or moved out of
+the token's scope — are closed by reconciliation (below), as is a team or library no repository
+mentions any more. A manifest that cannot be read costs that repository its dependencies for the
+run, so a library only it used is closed until the next full sync reads it again, which reopens it.
+
+### Reconciliation: what a full sync stops reporting
+
+A tombstone covers a source that says something ended. The other way a fact stops being true is that
+the source simply stops mentioning it, and the sync engine handles that once for every connector
+([#150](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/150)).
+
+After a `FULL` run that finishes `SUCCESS`, every node still open whose provenance names the
+connector's `sourceSystem`, and which was last asserted **before the run began**, is closed: its
+`validTo` is set and the count is added to the run's tombstones. Nothing is deleted, and a node that
+is reported again later is reopened by that write.
+
+It does not run:
+
+- after an `INCREMENTAL` run, which only asked what changed;
+- after a `PARTIAL` or `FAILED` run, which cannot tell "gone" from "not read" — a partial run that
+  closed the estate it failed to read would be the most destructive bug this system could have;
+- for a connector whose descriptor says `fullSyncIsComplete = false`, because its full sync is
+  scoped (one account of several, a time window, some tables of many) and would otherwise close
+  everything outside the scope on every run. ServiceNow says so; the fake and GitHub connectors
+  do not.
+
+Selecting by "asserted before the run began", rather than by what the run itself wrote, also spares a
+node that a webhook asserted while the run was going.
 
 ### What a run records
 

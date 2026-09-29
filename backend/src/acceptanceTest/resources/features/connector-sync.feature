@@ -71,3 +71,31 @@ Feature: Connector SPI and sync runs
     Then the response status is 202
     And the sync run finishes with status "SUCCESS"
     And the sync run has mode "WEBHOOK"
+
+  # Reconciliation (#150): the other way a fact stops being true is that the source simply stops
+  # mentioning it. Only a complete, successful full run can tell "gone" from "not looked at".
+
+  Scenario: A fact a full sync stops reporting is closed rather than deleted
+    Given a full sync of the fake connector recorded Repository "github.com/acme/gone"
+    When a later full sync of the fake connector succeeds without mentioning it
+    Then the Repository "github.com/acme/gone" is closed but not deleted
+
+  Scenario: A fact a full sync still reports stays open
+    Given a full sync of the fake connector recorded Repository "github.com/acme/kept"
+    When a later full sync of the fake connector succeeds and reports it again
+    Then the Repository "github.com/acme/kept" is still open
+
+  Scenario: A partial run tombstones nothing
+    Given a full sync of the fake connector recorded Repository "github.com/acme/kept"
+    When a later full sync of the fake connector fails halfway
+    Then the Repository "github.com/acme/kept" is still open
+
+  Scenario: An incremental run tombstones nothing
+    Given a full sync of the fake connector recorded Repository "github.com/acme/kept"
+    When a later incremental sync of the fake connector succeeds without mentioning it
+    Then the Repository "github.com/acme/kept" is still open
+
+  Scenario: A full sync closes only what its own source asserted
+    Given a Team "platform" was created by hand
+    When a later full sync of the fake connector succeeds without mentioning it
+    Then the Team "platform" is still open
