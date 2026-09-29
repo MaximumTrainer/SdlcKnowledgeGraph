@@ -303,6 +303,10 @@ catches what its webhooks missed and may reasonably run nightly.
   a connector whose runs always come back partial goes stale. Webhook runs do not count either: one
   event says nothing about whether the rest of the estate is current.
 
+The **Connectors** screen of the web interface shows each connector's age since its last success, or
+`never`, with a `stale` badge beside a stale one, and its last run's status
+([User guide](USER-GUIDE.md#connectors-and-sync-runs)).
+
 While any enabled connector is stale, the `connectors` component of `/actuator/health` is `DOWN`
 and names them; see [OBSERVABILITY.md](OBSERVABILITY.md#health). It stays out of the readiness
 probe unless `observability.freshness-affects-readiness` is set.
@@ -519,6 +523,10 @@ listing is in key order. Runs finished longer ago than `observability.sync-run-r
 default) are pruned nightly; what they produced stays, still naming the run in its provenance
 ([OBSERVABILITY.md](OBSERVABILITY.md#sync-run-retention)). A read-only deployment serves both
 endpoints, as it does every read.
+
+The **Sync runs** page of the web interface (`/sync-runs`) is this endpoint as a table, with its
+filters and paging, and opens a run from it in full
+([User guide](USER-GUIDE.md#connectors-and-sync-runs)).
 
 ### What a run reports
 

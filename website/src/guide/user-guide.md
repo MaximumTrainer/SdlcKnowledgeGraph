@@ -40,10 +40,10 @@ the registry appears in the interface without a frontend change.
 ### Browsing nodes
 
 Opening the interface shows the **Repository** list. The header of every page has a link per node
-type in the registry, and one to the connectors. The graph's own bookkeeping types (`Ontology`,
-`SyncRun`, `ConnectorState`) are left out of it; their lists are still at `/nodes/<type>`. Each list
-shows the node's key, which links to the node's page, and the first three properties the registry
-declares for that type.
+type in the registry, and links to the connectors and the sync run history. The graph's own
+bookkeeping types (`Ontology`, `SyncRun`, `ConnectorState`) are left out of it; their lists are still
+at `/nodes/<type>`. Each list shows the node's key, which links to the node's page, and the first
+three properties the registry declares for that type.
 
 The footer of every page says which ontology version and which build (the short commit) are
 serving, and `read-only` when the instance refuses writes. An address the interface does not know
@@ -114,6 +114,23 @@ every edge attached to it, in one operation.
 At the foot of a node's page, **Provenance** shows the source system, the confidence, when the fact
 was ingested, and whether it was inferred. Through the interface these are always `manual`, `1`,
 the time of the write, and `no`.
+
+### Connectors and sync runs
+
+**Connectors** lists every connector the backend knows, enabled or not, with its source system, its
+health, its last run's status and how long ago it last succeeded. A connector that has never
+succeeded says `never`. An enabled connector that has gone longer than its freshness threshold
+without a success is marked `stale`; hovering over the age shows the threshold
+([Adapters](/guide/adapters#freshness)). **Sync now** asks an enabled connector for an incremental run.
+
+**Sync runs** (`/sync-runs`) is the history of every connector's runs, newest first, twenty to a
+page: the connector, the mode, a status chip (`RUNNING`, `SUCCESS`, `PARTIAL` or `FAILED`), when it
+started (in UTC), how long it took, the nodes, edges and tombstones it wrote, and the start of its
+error. The list can be narrowed by connector, by status and by when runs started; the times in the
+filters are read as UTC. Choosing a run opens it in a drawer with its whole error, its watermark and
+the connector's `details` as JSON. **Re-run** there asks that connector for another run, in full if
+the run was a full one and incrementally otherwise, and the new run appears at the top of the list.
+On a [read-only instance](#read-only-instances) the button is disabled and says why.
 
 ### What the interface does not do yet
 
@@ -277,7 +294,8 @@ must not change it, such as a public demonstration, would otherwise be an open d
   one that cannot be parsed or is larger than 256 KB.
 - GraphiQL is not served (`/graphiql` returns 404), and WebSocket upgrades are refused.
 
-The web interface still browses; creating, editing and deleting fail with the refusal above. This is
+The web interface still browses; creating, editing and deleting fail with the refusal above, and
+**Re-run** on the sync runs page is disabled. This is
 a posture, not access control: sign-in and permissions are [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3).
 
 ## What an instance is running
