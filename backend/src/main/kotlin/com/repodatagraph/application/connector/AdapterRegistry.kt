@@ -2,8 +2,10 @@ package com.repodatagraph.application.connector
 
 import com.repodatagraph.config.ConnectorsProperties
 import com.repodatagraph.domain.ontology.OntologyRegistry
+import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.SourceConnector
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 /** A connector that was declared twice, or that intends to write a type nobody declared. */
 class ConnectorRegistrationException(
@@ -14,9 +16,29 @@ class ConnectorRegistrationException(
 data class RegisteredConnector(
     val connector: SourceConnector,
     val enabled: Boolean,
+    /** `connectors.settings.<name>.freshness-threshold`, when configuration sets one. */
+    private val configuredFreshnessThreshold: Duration? = null,
 ) {
     val descriptor get() = connector.descriptor()
     val name get() = descriptor.name
+
+    /**
+     * How long after its last success this connector counts as stale (#29, FR4).
+     *
+     * Two hours by default: long enough for a scheduled connector to miss a few runs to a flaky API
+     * without paging anyone, short enough that an answer is never more than a morning out of date.
+     * A connector that takes webhooks gets a day, because its scheduled run only catches what the
+     * webhooks missed and may reasonably be set to run nightly.
+     */
+    val freshnessThreshold: Duration
+        get() =
+            configuredFreshnessThreshold
+                ?: if (Capability.WEBHOOK in descriptor.capabilities) WEBHOOK_FRESHNESS else SCHEDULED_FRESHNESS
+
+    private companion object {
+        val SCHEDULED_FRESHNESS: Duration = Duration.ofHours(2)
+        val WEBHOOK_FRESHNESS: Duration = Duration.ofHours(24)
+    }
 }
 
 /**
@@ -57,7 +79,8 @@ class AdapterRegistry(
         byName =
             connectors.associate { connector ->
                 val name = connector.descriptor().name
-                name to RegisteredConnector(connector, properties.settingsFor(name).enabled)
+                val settings = properties.settingsFor(name)
+                name to RegisteredConnector(connector, settings.enabled, settings.freshnessThreshold)
             }
     }
 

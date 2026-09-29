@@ -8,7 +8,7 @@ thing interactively at `/swagger-ui.html`.
 
 | Method | Path | Summary | Responses |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/connectors` | List every connector, with its state and last run | 200 |
+| `GET` | `/api/v1/connectors` | List every connector, with its state, last run and freshness | 200 |
 | `GET` | `/api/v1/connectors/{name}` | One connector, its descriptor and what the graph remembers about it | 200 |
 | `GET` | `/api/v1/connectors/{name}/health` | Whether the source system is reachable now | 200 |
 | `GET` | `/api/v1/connectors/{name}/runs` | This connector's runs, newest first | 200 |

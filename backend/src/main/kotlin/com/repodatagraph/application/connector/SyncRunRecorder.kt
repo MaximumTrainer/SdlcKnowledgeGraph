@@ -63,6 +63,17 @@ class SyncRunRecorder(
         )
     }
 
+    /**
+     * What the graph remembers about a connector once a scheduled or manual run has finished (#29,
+     * FR3), whatever its status: a state that only heard about successes could not count the
+     * failures since the last one.
+     *
+     * `lastRunId`, `lastStatus`, `lastRunStatus` and `lastFinishedAt` describe that run.
+     * `lastStatus` and `lastRunStatus` always agree; the first is kept because the API and graphs
+     * written before #29 already use it. The watermark and `lastSuccessAt` only move on a success,
+     * and `consecutiveFailures` counts every other ending since then. A PARTIAL run counts as a
+     * failure: it read only part of the estate, so it cannot vouch for the rest being current.
+     */
     fun recordState(
         connector: String,
         runId: String,
@@ -70,7 +81,8 @@ class SyncRunRecorder(
         watermark: Instant?,
     ) {
         val now = Instant.now(clock)
-        val existing = graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))
+        val existing = graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props.orEmpty()
+        val succeeded = status == RunStatus.SUCCESS
         graphStore.upsertNode(
             GraphNode(
                 key = NodeKey(CONNECTOR_STATE, connector),
@@ -78,11 +90,16 @@ class SyncRunRecorder(
                     mapOf(
                         "connector" to connector,
                         // Kept when a run reports none, so a connector that cannot say where it got
-                        // to does not reset every later run to the beginning of time.
-                        "watermark" to (watermark ?: existing?.props?.get("watermark")),
+                        // to does not reset every later run to the beginning of time. And only ever
+                        // moved by a success: moving it past a failed page would skip that page for
+                        // good.
+                        "watermark" to ((if (succeeded) watermark else null) ?: existing["watermark"]),
                         "lastRunId" to runId,
                         "lastStatus" to status.name,
+                        "lastRunStatus" to status.name,
                         "lastFinishedAt" to now,
+                        "lastSuccessAt" to if (succeeded) now else lastSuccessIn(existing),
+                        "consecutiveFailures" to if (succeeded) 0 else failuresIn(existing) + 1,
                     ).filterValues { it != null },
                 provenance = internalProvenance(now, runId),
             ),
@@ -119,16 +136,30 @@ class SyncRunRecorder(
 
     /**
      * When this connector's last successful run finished, which is what its freshness counts from
-     * (#29). [recordState] is only called for a successful run, so its `lastFinishedAt` is exactly
-     * that; null means the connector has never succeeded, or not since the graph was emptied.
+     * (#29). Null means the connector has never succeeded, or not since the graph was emptied.
      */
-    fun lastSuccessAt(connector: String): Instant? = stateInstant(connector, "lastFinishedAt")
+    fun lastSuccessAt(connector: String): Instant? =
+        lastSuccessIn(graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props.orEmpty())
+
+    /**
+     * The last success a state records. A state written before #29 has no `lastSuccessAt`, but it was
+     * only ever written for a success, so its `lastFinishedAt` is one - provided `lastStatus` agrees,
+     * since a state written since then may carry a failure's finish time there.
+     */
+    private fun lastSuccessIn(state: Map<String, Any?>): Instant? =
+        instantOf(state["lastSuccessAt"])
+            ?: instantOf(state["lastFinishedAt"]).takeIf { state["lastStatus"] == RunStatus.SUCCESS.name }
+
+    /** Neo4j hands integers back as Long; anything unreadable counts as none. */
+    private fun failuresIn(state: Map<String, Any?>): Int = (state["consecutiveFailures"] as? Number)?.toInt() ?: 0
 
     private fun stateInstant(
         connector: String,
         property: String,
-    ): Instant? =
-        when (val stored = graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props?.get(property)) {
+    ): Instant? = instantOf(graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props?.get(property))
+
+    private fun instantOf(stored: Any?): Instant? =
+        when (stored) {
             is Instant -> stored
             is ZonedDateTime -> stored.toInstant()
             is OffsetDateTime -> stored.toInstant()

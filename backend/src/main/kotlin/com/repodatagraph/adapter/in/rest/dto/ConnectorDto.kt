@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.repodatagraph.application.connector.ConnectorFreshness
 import com.repodatagraph.application.connector.RegisteredConnector
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.port.out.connector.Capability
@@ -25,6 +26,7 @@ data class ConnectorSummary(
     val syncing: Boolean,
     val health: HealthView,
     val lastRun: LastRunView?,
+    val freshness: FreshnessView,
 ) {
     companion object {
         fun from(
@@ -32,6 +34,7 @@ data class ConnectorSummary(
             health: HealthStatus,
             state: GraphNode?,
             syncing: Boolean,
+            freshness: ConnectorFreshness,
         ) = ConnectorSummary(
             name = registered.name,
             sourceSystem = registered.descriptor.sourceSystem,
@@ -40,6 +43,7 @@ data class ConnectorSummary(
             syncing = syncing,
             health = HealthView(health.status.name, health.detail),
             lastRun = LastRunView.from(state),
+            freshness = FreshnessView.from(freshness),
         )
     }
 }
@@ -48,6 +52,28 @@ data class HealthView(
     val status: String,
     val detail: String?,
 )
+
+/**
+ * How fresh a connector is (#29, FR3). Seconds rather than ISO durations, because what reads this is
+ * mostly a badge or an alert comparing two numbers. `ageSeconds` is null for a connector that has
+ * never succeeded; `stale` is only ever true for an enabled one.
+ */
+data class FreshnessView(
+    val lastSuccessAt: String?,
+    val ageSeconds: Long?,
+    val thresholdSeconds: Long,
+    val stale: Boolean,
+) {
+    companion object {
+        fun from(freshness: ConnectorFreshness) =
+            FreshnessView(
+                lastSuccessAt = freshness.lastSuccessAt?.toString(),
+                ageSeconds = freshness.age?.seconds,
+                thresholdSeconds = freshness.threshold.seconds,
+                stale = freshness.stale,
+            )
+    }
+}
 
 data class LastRunView(
     val id: String?,
@@ -80,6 +106,7 @@ data class ConnectorDetail(
     val syncing: Boolean,
     val health: HealthView,
     val state: ConnectorStateView,
+    val freshness: FreshnessView,
 ) {
     companion object {
         fun from(
@@ -87,6 +114,7 @@ data class ConnectorDetail(
             health: HealthStatus,
             state: GraphNode?,
             syncing: Boolean,
+            freshness: ConnectorFreshness,
         ): ConnectorDetail {
             val descriptor = registered.descriptor
             return ConnectorDetail(
@@ -99,6 +127,7 @@ data class ConnectorDetail(
                 syncing = syncing,
                 health = HealthView(health.status.name, health.detail),
                 state = ConnectorStateView.from(state),
+                freshness = FreshnessView.from(freshness),
             )
         }
     }
@@ -109,6 +138,11 @@ data class ConnectorStateView(
     val lastRunId: String?,
     val lastStatus: String?,
     val lastFinishedAt: String?,
+    /** The same as [lastStatus] for a state written since #29; null for one written before. */
+    val lastRunStatus: String?,
+    val lastSuccessAt: String?,
+    /** Runs that ended other than SUCCESS since the last one that did; PARTIAL counts. */
+    val consecutiveFailures: Int,
 ) {
     companion object {
         fun from(state: GraphNode?): ConnectorStateView {
@@ -118,6 +152,9 @@ data class ConnectorStateView(
                 lastRunId = props["lastRunId"]?.toString(),
                 lastStatus = props["lastStatus"]?.toString(),
                 lastFinishedAt = temporal(props["lastFinishedAt"]),
+                lastRunStatus = props["lastRunStatus"]?.toString(),
+                lastSuccessAt = temporal(props["lastSuccessAt"]),
+                consecutiveFailures = (props["consecutiveFailures"] as? Number)?.toInt() ?: 0,
             )
         }
     }

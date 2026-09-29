@@ -201,7 +201,10 @@ export interface ConnectorState {
   watermark?: string
   lastRunId?: string
   lastStatus?: string
+  lastRunStatus?: string
   lastFinishedAt?: string
+  lastSuccessAt?: string
+  consecutiveFailures?: number
 }
 
 export type NodeType =

@@ -76,6 +76,9 @@
           "enabled" : {
             "type" : "boolean"
           },
+          "freshness" : {
+            "$ref" : "#/components/schemas/FreshnessView"
+          },
           "health" : {
             "$ref" : "#/components/schemas/HealthView"
           },
@@ -99,24 +102,35 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "capabilities", "edgeTypes", "enabled", "health", "name", "nodeTypes", "sourceSystem", "state", "syncing" ],
+        "required" : [ "capabilities", "edgeTypes", "enabled", "freshness", "health", "name", "nodeTypes", "sourceSystem", "state", "syncing" ],
         "type" : "object"
       },
       "ConnectorStateView" : {
         "properties" : {
+          "consecutiveFailures" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "lastFinishedAt" : {
             "type" : [ "string", "null" ]
           },
           "lastRunId" : {
             "type" : [ "string", "null" ]
           },
+          "lastRunStatus" : {
+            "type" : [ "string", "null" ]
+          },
           "lastStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "lastSuccessAt" : {
             "type" : [ "string", "null" ]
           },
           "watermark" : {
             "type" : [ "string", "null" ]
           }
         },
+        "required" : [ "consecutiveFailures" ],
         "type" : "object"
       },
       "ConnectorSummary" : {
@@ -131,6 +145,9 @@
           },
           "enabled" : {
             "type" : "boolean"
+          },
+          "freshness" : {
+            "$ref" : "#/components/schemas/FreshnessView"
           },
           "health" : {
             "$ref" : "#/components/schemas/HealthView"
@@ -152,7 +169,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "capabilities", "enabled", "health", "name", "sourceSystem", "syncing" ],
+        "required" : [ "capabilities", "enabled", "freshness", "health", "name", "sourceSystem", "syncing" ],
         "type" : "object"
       },
       "CreateRepositoryRequest" : {
@@ -335,6 +352,26 @@
           }
         },
         "required" : [ "direction", "displayName", "inverse", "other", "props", "provenance", "type" ],
+        "type" : "object"
+      },
+      "FreshnessView" : {
+        "properties" : {
+          "ageSeconds" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "lastSuccessAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "stale" : {
+            "type" : "boolean"
+          },
+          "thresholdSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "stale", "thresholdSeconds" ],
         "type" : "object"
       },
       "HealthView" : {
@@ -788,7 +825,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "List every connector, with its state and last run",
+        "summary" : "List every connector, with its state, last run and freshness",
         "tags" : [ "Connectors" ]
       }
     },

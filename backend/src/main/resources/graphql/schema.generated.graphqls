@@ -238,7 +238,10 @@ type ConnectorStateNode implements GraphNode {
   watermark: String
   lastRunId: String
   lastStatus: String
+  lastRunStatus: String
   lastFinishedAt: String
+  lastSuccessAt: String
+  consecutiveFailures: Int
   provenance: Provenance!
 }
 

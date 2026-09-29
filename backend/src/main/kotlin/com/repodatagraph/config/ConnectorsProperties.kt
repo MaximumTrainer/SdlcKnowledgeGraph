@@ -2,6 +2,7 @@ package com.repodatagraph.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue
+import java.time.Duration
 
 /**
  * Per-connector configuration, bound from `connectors.<name>.*`.
@@ -29,6 +30,12 @@ data class ConnectorSettings(
      * refuses instead of treating "no secret" as "any signature will do".
      */
     @DefaultValue("") val webhookSecret: String = "",
+    /**
+     * How long after its last successful run the connector counts as stale (#29, FR4). Unset means
+     * the default for what the connector can do, which `RegisteredConnector.freshnessThreshold`
+     * decides: it depends on the connector's capabilities, which configuration cannot see.
+     */
+    val freshnessThreshold: Duration? = null,
 ) {
     private companion object {
         const val DEFAULT_SCHEDULE = "0 */15 * * * *"

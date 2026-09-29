@@ -1,2 +1,3 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-com.repodatagraph.config.Neo4jUriGuard
+com.repodatagraph.config.Neo4jUriGuard,\
+com.repodatagraph.config.observability.FreshnessReadiness

@@ -46,6 +46,8 @@ class ConnectorControllerTest {
     @MockitoBean
     private lateinit var graphStore: GraphStore
 
+    // The controller needs one to exist; nothing here asks for a sync, so nothing is scheduled on it.
+    @Suppress("UnusedPrivateProperty")
     @MockitoBean
     private lateinit var taskScheduler: TaskScheduler
 
@@ -69,6 +71,7 @@ class ConnectorControllerTest {
         val registered = RegisteredConnector(connector, enabled = true)
         whenever(registry.all()).thenReturn(listOf(registered))
         whenever(registry.find("fake")).thenReturn(registered)
+        whenever(syncService.isRunning("fake")).thenReturn(false)
         return registered
     }
 

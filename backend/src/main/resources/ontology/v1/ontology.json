@@ -233,9 +233,12 @@
       "properties": [
         { "name": "connector", "type": "string", "required": true, "description": null },
         { "name": "watermark", "type": "instant", "required": false, "description": "Reported by the last successful run" },
-        { "name": "lastRunId", "type": "string", "required": false, "description": null },
-        { "name": "lastStatus", "type": "string", "required": false, "description": null },
-        { "name": "lastFinishedAt", "type": "instant", "required": false, "description": null }
+        { "name": "lastRunId", "type": "string", "required": false, "description": "The last scheduled or manual run to finish, whatever its status" },
+        { "name": "lastStatus", "type": "string", "required": false, "description": "That run's status; the same as lastRunStatus, kept for states written before it" },
+        { "name": "lastRunStatus", "type": "string", "required": false, "description": "SUCCESS, PARTIAL or FAILED" },
+        { "name": "lastFinishedAt", "type": "instant", "required": false, "description": null },
+        { "name": "lastSuccessAt", "type": "instant", "required": false, "description": "When the last successful run finished" },
+        { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
       ],
       "meta": true
     }
