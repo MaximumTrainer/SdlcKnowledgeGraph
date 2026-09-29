@@ -88,6 +88,13 @@ class ReadOnlyGuardTest {
     }
 
     @Test
+    fun `an HTTP-2 upgrade offer on a read is not mistaken for a WebSocket`() {
+        val read = MockHttpServletRequest("GET", "/api/v1/nodes/Team").apply { addHeader("Upgrade", "h2c") }
+
+        assert(guard().handle(read).passed)
+    }
+
+    @Test
     fun `GraphiQL is not served`() {
         val outcome = guard().handle(MockHttpServletRequest("GET", "/graphiql"))
 
