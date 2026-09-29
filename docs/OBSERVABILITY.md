@@ -116,6 +116,35 @@ cardinality is the number of connectors, and every connector's series exist from
 also logs `sync.started`, one `sync.page` per page applied and `sync.finished`, with the run's id in
 `syncRunId`.
 
+## Sync run retention
+
+Every connector run leaves a `SyncRun` node and a `PRODUCED` edge to each node it wrote
+([ADAPTERS.md](ADAPTERS.md#what-a-run-records)), so the history would grow with every sync for as
+long as the instance ran. `SyncRunRetentionJob` prunes it (#29, FR6):
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `observability.sync-run-retention` (`SYNC_RUN_RETENTION`) | `P30D` | How long a finished run is kept, counted from its `finishedAt`. Must be positive. |
+| `observability.sync-run-retention-cron` (`SYNC_RUN_RETENTION_CRON`) | `0 30 3 * * *` | When the prune runs, in Spring's six-field cron: 03:30 every night by default. |
+
+What it deletes is narrow on purpose:
+
+- Only `SyncRun` nodes that have finished. A `RUNNING` run is never pruned, however old: it may still
+  be going, and if it is stuck the history is where someone will look for it.
+- Their relationships, which are their `PRODUCED` edges. The nodes at the other end stay, and keep
+  the run's id in `prov_syncRunId`, so where a fact came from is not forgotten along with the run.
+
+It deletes a batch of 1000 runs at a time until a batch comes back short, and detaches each batch's
+edges 1000 at a time before deleting the runs. A full sync of a large estate can produce tens of
+thousands of nodes, and one transaction deleting a thousand such runs with all their edges is what
+would outgrow a 512 MB instance's heap.
+
+Each prune logs `sync.runs.pruned` with `deleted` and `olderThan`, even when it deleted nothing, so
+a quiet night still shows the job ran. A failure logs `sync.runs.prune.failed` with the exception and
+how many it had deleted; the next night's run is the retry. The prune is an internal write, not an
+HTTP request, so a read-only deployment (`sdlc.read-only`) prunes too: that posture refuses writes
+arriving over HTTP, and an instance nobody may write to still should not fill up.
+
 ## Health
 
 `/actuator/health` is the API's health as a whole, one component per thing it depends on. Two of
