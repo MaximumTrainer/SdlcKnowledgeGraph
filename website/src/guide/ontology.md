@@ -45,7 +45,9 @@ nodes:
 ```
 
 The registry's version lives in `version.yaml` (semver, currently `1.0.0`), not in `nodes.yaml`.
-There is no `default` or `sensitivity` key; a property the loader does not recognise fails startup.
+A node type may also say `meta: true` (the default is `false`), for a type that records the graph's
+own bookkeeping rather than something in the software estate. There is no `default` or
+`sensitivity` key; a property the loader does not recognise fails startup.
 
 ### A Repository is identified by its git remote
 
@@ -107,8 +109,10 @@ question. These nine are what the two target questions need:
 | CloudResource | An infrastructure object in AWS, Azure or GCP |
 | ConfigurationItem | A CI from a service-management system such as ServiceNow |
 
-`SyncRun` and `Ontology` also exist as nodes, but they describe the graph itself rather than the
-software, so they do not count against the nine.
+`SyncRun`, `ConnectorState` and `Ontology` also exist as nodes, but they describe the graph itself
+rather than the software, so they do not count against the nine. The registry marks them
+`meta: true`. `GET /api/v1/ontology` serves the flag with every node type, and the web interface
+leaves meta types out of its navigation; they can still be opened by their URL.
 
 Person, Policy, Incident, ChangeRequest and Requirement arrive with the M2 and M3 connectors that
 can actually populate them. They are registry additions, not code changes.

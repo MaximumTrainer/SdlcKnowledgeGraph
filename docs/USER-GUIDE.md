@@ -37,9 +37,15 @@ the registry appears in the interface without a frontend change.
 
 ### Browsing nodes
 
-Opening the interface shows the **Repository** list. Across the top of every list is a tab strip
-with one tab per node type in the registry. Each list shows the node's key, which links to the
-node's page, and the first three properties the registry declares for that type.
+Opening the interface shows the **Repository** list. The header of every page has a link per node
+type in the registry, and one to the connectors. The graph's own bookkeeping types (`Ontology`,
+`SyncRun`, `ConnectorState`) are left out of it; their lists are still at `/nodes/<type>`. Each list
+shows the node's key, which links to the node's page, and the first three properties the registry
+declares for that type.
+
+The footer of every page says which ontology version and which build (the short commit) are
+serving, and `read-only` when the instance refuses writes. An address the interface does not know
+shows a "Page not found" page with a link back to the graph.
 
 A list shows the first page of nodes only, fifty by default. There is no search, filtering or
 sorting yet, and no page control; a type with more than fifty nodes shows the first fifty in key
