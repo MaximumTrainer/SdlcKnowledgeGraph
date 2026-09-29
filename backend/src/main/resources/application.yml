@@ -32,11 +32,20 @@ logging:
   pattern:
     correlation: "[%X{requestId:-}] "
 
+# /actuator/prometheus is for a scraper inside the deployment; the web interface's nginx does not
+# proxy it (docs/DEPLOYMENT.md, D9). Request durations are a histogram with a bucket at 500 ms, the
+# latency objective the alert rules measure against (docs/OBSERVABILITY.md).
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 500ms
 
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as

@@ -15,7 +15,9 @@ import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.EdgeUseCase
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
+import com.repodatagraph.observability.WriteOutcome
 import org.springframework.stereotype.Service
 
 /**
@@ -31,17 +33,18 @@ class EdgeService(
     private val registry: OntologyRegistry,
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
+    private val metrics: GraphWriteMetrics,
 ) : EdgeUseCase {
     override fun create(request: EdgeRequest): EdgeWrite {
         val edgeType = declared(request.type)
         val from = NodeKey.parse(request.fromId)
         val to = NodeKey.parse(request.toId)
 
-        if (from == to) throw SelfEdgeException(from.id)
+        if (from == to) refused(edgeType, SelfEdgeException(from.id))
         requireAllowed(edgeType, from.type, to.type)
 
         val errors = validator.validate(edgeType.properties, request.props)
-        if (errors.isNotEmpty()) throw EdgeValidationException(errors)
+        if (errors.isNotEmpty()) refused(edgeType, EdgeValidationException(errors))
 
         // Asking first is what lets the API say 201 or 200 honestly. The write itself is a MERGE, so
         // the answer would be the same either way; the caller is the one who cannot tell.
@@ -60,6 +63,7 @@ class EdgeService(
             )
 
         if (existing == null) LogEvents.edgeCreated(edgeType.name, from.id, to.id)
+        metrics.edge(edgeType.name, if (existing == null) WriteOutcome.CREATED else WriteOutcome.UPDATED)
         return EdgeWrite(written, edgeType.inverse, created = existing == null)
     }
 
@@ -69,7 +73,9 @@ class EdgeService(
         toId: String,
     ): Boolean {
         val edgeType = declared(type)
-        return graphStore.deleteEdge(edgeType.name, NodeKey.parse(fromId), NodeKey.parse(toId))
+        return graphStore.deleteEdge(edgeType.name, NodeKey.parse(fromId), NodeKey.parse(toId)).also { deleted ->
+            if (deleted) metrics.edge(edgeType.name, WriteOutcome.DELETED)
+        }
     }
 
     override fun forNode(
@@ -109,12 +115,24 @@ class EdgeService(
         toType: String,
     ) {
         if (edgeType.connects(fromType, toType)) return
-        throw EdgeNotAllowedException(
-            type = edgeType.name,
-            from = fromType,
-            to = toType,
-            allowed = edgeType.from.flatMap { start -> edgeType.to.map { end -> start to end } },
+        refused(
+            edgeType,
+            EdgeNotAllowedException(
+                type = edgeType.name,
+                from = fromType,
+                to = toType,
+                allowed = edgeType.from.flatMap { start -> edgeType.to.map { end -> start to end } },
+            ),
         )
+    }
+
+    /** The ontology refused the edge: counted as rejected, then thrown. */
+    private fun refused(
+        edgeType: EdgeTypeDef,
+        refusal: RuntimeException,
+    ): Nothing {
+        metrics.edge(edgeType.name, WriteOutcome.REJECTED)
+        throw refusal
     }
 
     /** Accepts either a derived key or a full `Type:key` id, as the node API does. */

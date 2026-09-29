@@ -32,6 +32,13 @@ events:
       - { name: type, type: string }
       - { name: from, type: string }
       - { name: to, type: string }
+  - name: graph.store.failed
+    level: ERROR
+    message: graph store operation failed
+    description: A graph store operation failed for a reason other than the domain refusing it, such as Neo4j being unreachable.
+    throwable: true
+    fields:
+      - { name: operation, type: string }
   - name: http.request.rejected
     level: DEBUG
     message: request rejected as malformed

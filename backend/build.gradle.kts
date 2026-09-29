@@ -41,6 +41,8 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // /actuator/prometheus (#44, FR7). Only the endpoint needs it; the application meters through Micrometer.
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     // One JSON object per log line under the docker profile (#44), so a platform can aggregate the logs.
     implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")

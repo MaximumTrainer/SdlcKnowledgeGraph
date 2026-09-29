@@ -16,7 +16,9 @@ import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
+import com.repodatagraph.observability.WriteOutcome
 import org.springframework.stereotype.Service
 
 /**
@@ -34,6 +36,7 @@ class NodeService(
     private val derivedProperties: DerivedProperties,
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
+    private val metrics: GraphWriteMetrics,
 ) : NodeUseCase {
     override fun create(
         type: String,
@@ -50,6 +53,7 @@ class NodeService(
 
         return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual())).also {
             LogEvents.nodeCreated(type, key.key, props.keys.sorted())
+            metrics.node(type, WriteOutcome.CREATED)
         }
     }
 
@@ -99,7 +103,9 @@ class NodeService(
             throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existingKey))
         }
 
-        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual()))
+        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual())).also {
+            metrics.node(type, WriteOutcome.UPDATED)
+        }
     }
 
     override fun delete(
@@ -116,7 +122,7 @@ class NodeService(
             if (edges > 0) throw NodeHasEdgesException(edges.toInt())
         }
 
-        graphStore.deleteNode(nodeKey, cascade)
+        if (graphStore.deleteNode(nodeKey, cascade)) metrics.node(type, WriteOutcome.DELETED)
     }
 
     private fun declared(type: String): NodeTypeDef = registry.nodeType(type) ?: throw NodeTypeNotFoundException(type)
@@ -128,6 +134,7 @@ class NodeService(
         val errors = validator.validate(nodeType, props)
         if (errors.isNotEmpty()) {
             LogEvents.nodeRejected(nodeType.name, errors.map { it.field }.distinct().sorted())
+            metrics.node(nodeType.name, WriteOutcome.REJECTED)
             throw NodeValidationException(errors)
         }
     }

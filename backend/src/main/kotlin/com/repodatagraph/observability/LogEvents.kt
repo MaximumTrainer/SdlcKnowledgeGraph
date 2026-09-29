@@ -33,6 +33,13 @@ object LogEvents {
     ) =
         EventLog.emit("edge.created", Level.INFO, "edge created", mapOf("type" to type, "from" to from, "to" to to))
 
+    /** A graph store operation failed for a reason other than the domain refusing it, such as Neo4j being unreachable. */
+    fun graphStoreFailed(
+        operation: String,
+        cause: Throwable,
+    ) =
+        EventLog.emit("graph.store.failed", Level.ERROR, "graph store operation failed", mapOf("operation" to operation), cause = cause)
+
     /** A request was refused with 400 because its arguments could not be read. */
     fun httpRequestRejected(
         cause: Throwable,
