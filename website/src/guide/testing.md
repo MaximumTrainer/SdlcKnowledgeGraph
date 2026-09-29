@@ -125,7 +125,7 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the dashboard check when `ops/grafana/` or `docs/OBSERVABILITY.md` is staged, the website drift check when a documentation source is staged, and the guards below |
 | `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the SLO rule drift check and promtool, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
@@ -318,3 +318,16 @@ The same script checks the Alertmanager config with `amtool`, from the pinned `p
 image, and resolves every case in `ops/alertmanager/tests/routes.test.yml` to the receiver the case
 names. `scripts/alertmanager-config.test.mjs`, in the root script tests, checks the inhibit rule and
 that no webhook URL is committed.
+
+## Dashboards
+
+`node scripts/dashboard.mjs` checks the Grafana dashboard under `ops/grafana/dashboards` (#29). Every
+metric a panel's PromQL reads must be listed in the Metrics table of `docs/OBSERVABILITY.md`, every
+panel must query the provisioned Prometheus datasource, and every query is wrapped as a recording
+rule and loaded with `promtool check rules` from the pinned `prom/prometheus` image, so a query that
+does not parse fails. `--static` skips promtool when Docker is not running. It runs in CI (the
+Guards job) and on `pre-commit` when the dashboard, its script or `docs/OBSERVABILITY.md` is staged.
+`scripts/dashboard.test.mjs`, in the root script tests, covers how metric names are read out of a
+query, and checks the committed dashboard, its datasource and the Grafana service in `compose.yaml`.
+The CI end-to-end job proves the rest against running containers: Grafana has provisioned the
+dashboard, its datasource is healthy, and the API's metrics reach it.

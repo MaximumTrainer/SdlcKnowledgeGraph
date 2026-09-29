@@ -1,6 +1,6 @@
 ---
 name: observability-change
-description: Add or change a log event, a metric, a service objective, an alert, a runbook or an Alertmanager route in this repository, and prove it with the checks that hold each one in place. Use whenever a change touches events.yaml, a Micrometer meter, ops/slo.yaml, ops/alerts, ops/alertmanager or docs/runbooks.
+description: Add or change a log event, a metric, a dashboard panel, a service objective, an alert, a runbook or an Alertmanager route in this repository, and prove it with the checks that hold each one in place. Use whenever a change touches events.yaml, a Micrometer meter, ops/grafana, ops/slo.yaml, ops/alerts, ops/alertmanager or docs/runbooks.
 ---
 
 # Change what the service tells its operators
@@ -30,6 +30,11 @@ declaration, regenerating what is generated, and adding the case that proves it.
    first event (see `InstrumentedGraphStore`).
 4. Test it through `/actuator/prometheus` (`metrics.feature`, `PrometheusScrapeIT`) and add a row to
    the Metrics table in `docs/OBSERVABILITY.md`.
+5. If an operator should watch it, add a panel to `ops/grafana/dashboards/sdlc-sync-dashboard.json`
+   that queries the `prometheus` datasource. `node scripts/dashboard.mjs` fails while a panel reads a
+   metric the Metrics table does not list, so renaming or removing a meter means changing the
+   dashboard in the same commit. Check it renders: `docker compose --profile monitoring up -d
+   --build --wait`, then http://localhost:3000.
 
 ## An objective or an alert
 
@@ -53,6 +58,7 @@ Webhooks read their URL from `url_file`; never commit a URL. An inhibit rule is 
 
 ```bash
 node scripts/slo-rules.mjs --check && node scripts/promtool.mjs   # rules, promtool and amtool cases
+node scripts/dashboard.mjs                                       # dashboard reads documented metrics
 npm run test:unit                                               # the alertmanager config test
 node scripts/gradle.mjs check                                   # event drift, runbooks, meters
 ```
