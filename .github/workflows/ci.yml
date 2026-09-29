@@ -167,6 +167,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Start the stack
         run: docker compose up -d --build --wait
+        env:
+          SDLC_COMMIT: ${{ github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -180,6 +182,29 @@ jobs:
         working-directory: e2e
         env:
           CI: "true"
+      # The conformance suite (docs/DEPLOYMENT.md) has to be able to fail, so it is first run against
+      # the writable stack the browser tests need, where D5 must fail; then against the same stack
+      # restarted read-only, where every requirement must pass.
+      - name: Conformance suite refuses a writable deployment
+        working-directory: e2e
+        env:
+          CONFORMANCE_BASE_URL: http://localhost:5173
+        run: |
+          if npx playwright test --config=conformance.config.ts --grep "D5 a POST"; then
+            echo "::error::the conformance suite passed D5 against a writable deployment"
+            exit 1
+          fi
+      - name: Restart the API read-only
+        run: docker compose up -d --wait backend
+        env:
+          SDLC_READ_ONLY: "true"
+      - name: Deployment conformance
+        working-directory: e2e
+        env:
+          CI: "true"
+          CONFORMANCE_BASE_URL: http://localhost:5173
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: npx playwright test --config=conformance.config.ts
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
