@@ -93,14 +93,28 @@ both halves of that.
 | `sdlc_graph_store_errors_total` | `operation` | Graph store operations that failed, such as when Neo4j is unreachable, by port operation (`upsertNode`, `findNode`, ...). Each failure is also logged as `graph.store.failed` with the request's id. Present at zero for every operation from startup, so an alert has a series before the first failure. |
 | `http_server_requests_seconds` | Spring's (`method`, `uri`, `status`, `outcome`, ...) | Every request's duration, as a histogram with a bucket at 0.5 s, the latency objective. |
 | `sdlc_dependency_up` | `dependency` | 1 while the dependency's health check is UP, otherwise 0. Only `neo4j` today. |
+| `sdlc_sync_runs_total` | `connector`, `sourceSystem`, `mode`, `status` | Connector runs that finished. `mode` is `FULL`, `INCREMENTAL` or `WEBHOOK`; `status` is `SUCCESS`, `PARTIAL` (a page failed, the rest were kept) or `FAILED`. Present at zero for every mode a connector supports. |
+| `sdlc_sync_duration_seconds` | `connector`, `sourceSystem`, `mode` | How long runs took, from the first page to the last, as a histogram with buckets at 1, 5, 30, 120 and 600 s. |
+| `sdlc_sync_nodes_upserted_total` | `connector`, `sourceSystem` | Nodes runs wrote, as their `SyncRun` records them. |
+| `sdlc_sync_edges_upserted_total` | `connector`, `sourceSystem` | Edges runs wrote. |
+| `sdlc_sync_tombstones_total` | `connector`, `sourceSystem` | Facts runs closed, whether the connector reported the tombstone or a full sync's reconciliation found the fact gone. |
+| `sdlc_sync_pages_total` | `connector`, `sourceSystem` | Pages read from connectors, including a page read but not written. Webhooks are not pages. |
+| `sdlc_sync_errors_total` | `connector`, `sourceSystem`, `kind` | What went wrong. `page`: a page could not be read or written, so the run is partial. `run`: a run failed as a whole, or a webhook could not be written. `webhook_signature`: a webhook was refused for its signature. There is no `throttle` kind yet, because nothing tells a source's rate limiting apart from other failures. |
+| `sdlc_sync_freshness_seconds` | `connector`, `sourceSystem` | Seconds since the connector's last successful scheduled or manual run finished; `NaN` if it has never succeeded. A webhook run does not reset it. Kept in memory and seeded from `ConnectorState.lastFinishedAt` on the first scrape after a restart. |
+| `sdlc_sync_in_progress` | `connector`, `sourceSystem` | 1 while a run of the connector is going, otherwise 0. |
+| `sdlc_webhook_events_total` | `connector`, `result` | Webhooks by what became of them: `applied` (it became a run, whatever that run's status), `ignored` (the connector found nothing in it, or it was a redelivery of one already applied) or `rejected` (its signature did not check out). |
 
 `type` is always a type the ontology declares, because an undeclared one is refused before anything
 is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed
 to give, such as an edge whose end does not exist, is an answer rather than a failure and is not
 counted as a store error.
 
-Writes that arrive through a connector or an ingest endpoint are not counted here; connector metrics
-are [#29](../../issues/29).
+Writes that arrive through a connector or an ingest endpoint are not counted in the node and edge
+write totals; a connector's writes are counted by the `sdlc_sync_*` meters instead (#29). Their
+`connector` label only ever holds the name of a connector the adapter registry knows, so its
+cardinality is the number of connectors, and every connector's series exist from startup. Each run
+also logs `sync.started`, one `sync.page` per page applied and `sync.finished`, with the run's id in
+`syncRunId`.
 
 ## Service objectives
 
