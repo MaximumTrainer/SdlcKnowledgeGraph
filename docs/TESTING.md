@@ -119,12 +119,12 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
 | `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, the website drift check when a documentation source is staged, and the guards below |
-| `pre-merge-commit` | the three guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
+| `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
 
-Four `pre-commit` jobs are not linters: they refuse a commit rather than report on it, because what
+Five `pre-commit` jobs are not linters: they refuse a commit rather than report on it, because what
 they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.md)).
 
 | Guard | Refuses | Way out |
@@ -132,6 +132,7 @@ they catch cannot be fixed by a later commit ([ADR-0007](adr/0007-commit-guards.
 | `protected-branch` | committing while `main` or `master` is checked out, and any push that would write one | `ALLOW_MAIN=1`, or `PROTECTED_BRANCHES` to change the list |
 | `hygiene` | conflict markers, files over 512 KiB, credential files (`.env`, keys, keystores) | `HYGIENE_MAX_BYTES`, `.hygieneignore` |
 | `secrets` | secretlint's recommended ruleset: tokens, cloud keys, private keys, basic auth in URLs | `.secretlintignore` |
+| `config-secrets` | a credential in deployment configuration (`backend/src/main/resources`, `fly/`, `ops/`, `.github/`) where a reference belongs (a `${...}` placeholder, a GitHub Actions secret, or a `$VAR` shell variable): a literal under a key such as `password` or `client-secret`, a private key block, a known token prefix, or a long encoded run ([#48](../../issues/48), D8) | a `not-a-secret` comment on the line |
 | `lefthook-config` | a `lefthook.yml` that no longer parses | — |
 
 A leaked credential has to be rotated, a large file cannot be removed without rewriting history, and
@@ -146,8 +147,8 @@ way out is a named, visible decision, unlike `LEFTHOOK=0`, which turns off every
 Run them over the whole repository without committing:
 
 ```bash
-npm run guards            # hygiene over every tracked file, secretlint over the working tree, lefthook validate
-node scripts/guards.mjs hygiene   # or secrets, or config, on its own
+npm run guards            # hygiene and config-secrets over every tracked file, secretlint over the working tree, lefthook validate
+node scripts/guards.mjs hygiene   # or secrets, config-secrets, or config, on its own
 npm run test:unit         # the guards' own tests
 ```
 

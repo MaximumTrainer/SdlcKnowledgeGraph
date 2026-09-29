@@ -3,7 +3,7 @@
  * Runs the commit-time guards over the whole repository.
  *
  *   npm run guards                       # all of them
- *   node scripts/guards.mjs config       # only the named ones: hygiene | secrets | config
+ *   node scripts/guards.mjs config       # only the named ones: hygiene | secrets | config-secrets | config
  *
  * The hooks check only what a commit touches, which is what makes them fast. This runs the same
  * checks over every tracked file, for two callers:
@@ -40,6 +40,10 @@ const CHECKS = {
     input: files.join('\n'),
   },
   secrets: { args: [sibling('secretlint.mjs'), '**/*'] },
+  'config-secrets': {
+    args: [sibling('check-no-secrets.mjs'), '--stdin-paths'],
+    input: files.join('\n'),
+  },
   config: { args: [resolveBin('lefthook'), 'validate'] },
 }
 

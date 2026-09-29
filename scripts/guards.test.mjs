@@ -35,7 +35,7 @@ describe('guards', () => {
     assert.equal(status, 1)
     assert.match(stderr, /Unknown guard: hygeine/)
     // Naming the known ones turns a typo into a one-line fix.
-    assert.match(stderr, /Known: hygiene, secrets, config/)
+    assert.match(stderr, /Known: hygiene, secrets, config-secrets, config/)
   })
 
   test('rejects an unknown guard even when a known one is alongside it', () => {
@@ -72,5 +72,15 @@ describe('guards', () => {
 
     assert.equal(status, 1)
     assert.match(stderr, /Guards failed: hygiene, secrets/)
+  })
+
+  test('scans every tracked deployment configuration file for a credential (#48, D8)', () => {
+    repo.stage('fly/fly.api.toml', '[env]\n  API_TOKEN = "' + 'Zq7vR2' + 'mK9xLp4Tn"\n')
+    repo.commit('add a literal token to the platform config (#48)')
+
+    const { status, stderr } = guards(['config-secrets'])
+
+    assert.equal(status, 1)
+    assert.match(stderr, /fly\/fly\.api\.toml:2/)
   })
 })
