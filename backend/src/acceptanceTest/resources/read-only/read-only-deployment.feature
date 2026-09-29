@@ -43,3 +43,8 @@ Feature: A read-only deployment refuses every write
   Scenario: GraphiQL is not served, so nothing invites writes that would be refused
     When I send a GET to "/graphiql"
     Then the response status is 404
+
+  Scenario: The deployment says it is read-only, so a client can tell before it tries to write
+    When I send a GET to "/actuator/info"
+    Then the response status is 200
+    And the deployment info says it is read-only
