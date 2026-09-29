@@ -86,6 +86,12 @@ npx playwright install --with-deps chromium     # once
 npx playwright test         # starts the compose stack itself, then runs the browser tests on :5173
 ```
 
+In CI a failed browser test is retried twice, so that the retry records a trace, but a test that
+fails and then passes on a retry still fails the run (`failOnFlakyTests`). A retry that turns red
+into green hides races like the one in #148, and a real regression would be hidden the same way. A
+browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
+never by reading a locator once straight after the click that loads it.
+
 `npm run verify` does not run `format:check`, but CI does, so run `npm run format:check` (or
 `npm run format`) before pushing a frontend change; the pre-commit hook formats staged files, which
 covers the usual case.
