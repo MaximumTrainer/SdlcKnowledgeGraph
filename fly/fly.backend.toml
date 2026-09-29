@@ -1,0 +1,41 @@
+# The API for the dogfood instance (#47).
+#
+# Private: the service is reachable only at <app>.flycast, fly's private load-balanced address, which
+# the frontend proxies /api/ to. fly/bootstrap.sh allocates that private address before the first
+# deploy, because fly only allocates public addresses to an app that has none; the deploy workflow
+# then fails if a public one ever appears. Swagger UI, GraphQL and the actuator are therefore not
+# reachable from the internet.
+#
+# The app name is a default; the workflow passes --app from FLY_APP_PREFIX, and NEO4J_URI with it.
+app = "sdlc-graph-backend"
+primary_region = "lhr"
+swap_size_mb = 512
+
+[env]
+  SPRING_PROFILES_ACTIVE = "docker"
+  # No authentication yet (#3), so this instance must not accept writes (#48 D4, D5).
+  SDLC_READ_ONLY = "true"
+  NEO4J_USERNAME = "neo4j"
+  NEO4J_URI = "bolt://sdlc-graph-neo4j.internal:7687"
+  # A smaller heap share than the image's default, and C1 only, so a 512 MB machine starts quickly
+  # from cold and stays inside its memory.
+  JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+  # NEO4J_PASSWORD is a secret, set by fly/bootstrap.sh from the dogfood environment.
+
+[http_service]
+  internal_port = 8080
+  force_https = false
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "120s"
+    interval = "30s"
+    method = "GET"
+    path = "/actuator/health/readiness"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

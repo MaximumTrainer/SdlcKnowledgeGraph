@@ -1,0 +1,104 @@
+name: Deploy dogfood
+
+# Deploys the dogfood instance on fly.io (#47) from exactly the commit a green CI run on main tested.
+#
+# Triggered by the CI run rather than by the push, for the same reason the Website workflow is: a red
+# run on main deploys nothing, and a green one deploys its own head_sha rather than whatever main
+# points at by the time this starts. Pull request runs and runs on other branches deploy nothing.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancelled halfway: a cancelled deploy leaves machines half-replaced.
+concurrency:
+  group: deploy-dogfood
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to fly.io and verify
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: dogfood
+      url: https://sdlc-graph.fly.dev
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+      # App names are <prefix>, <prefix>-backend and <prefix>-neo4j, and fly.io names are global. If
+      # these are taken, change them here and in the environment url above.
+      FLY_APP_PREFIX: sdlc-graph
+      FLY_ORG: personal
+      FLY_REGION: lhr
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      # Until the dogfood environment has its secrets there is nothing to deploy to, and that is a
+      # setup step still to do rather than a failure of main, so it is reported without going red.
+      - name: Check the dogfood environment is set up
+        id: setup
+        run: |
+          if [ -z "$FLY_API_TOKEN" ] || [ -z "$NEO4J_PASSWORD" ]; then
+            echo "::warning::Not deployed: FLY_API_TOKEN and NEO4J_PASSWORD are not set on the dogfood environment (fly/README.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.setup.outputs.ready == 'true'
+
+      - name: Create whatever is missing on fly.io
+        if: steps.setup.outputs.ready == 'true'
+        run: fly/bootstrap.sh
+
+      - name: Deploy the graph database
+        if: steps.setup.outputs.ready == 'true'
+        run: >-
+          flyctl deploy --config fly/fly.neo4j.toml --app "$FLY_APP_PREFIX-neo4j"
+          --ha=false --wait-timeout 300
+
+      # Images are built here, from the commit CI tested, and deployed by digest, so what runs is
+      # exactly what was built for this commit and never a tag that has since moved.
+      - name: Log in to fly's registry
+        if: steps.setup.outputs.ready == 'true'
+        run: flyctl auth docker
+
+      - name: Build, push and deploy the API
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          image="registry.fly.io/$FLY_APP_PREFIX-backend:$SHA"
+          docker build --tag "$image" backend
+          docker push "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          flyctl deploy --config fly/fly.backend.toml --app "$FLY_APP_PREFIX-backend" \
+            --image "$digest" \
+            --env "NEO4J_URI=bolt://$FLY_APP_PREFIX-neo4j.internal:7687" \
+            --ha=false --wait-timeout 300
+
+      - name: Build, push and deploy the web interface
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          image="registry.fly.io/$FLY_APP_PREFIX:$SHA"
+          docker build --tag "$image" frontend
+          docker push "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          flyctl deploy --config fly/fly.frontend.toml --app "$FLY_APP_PREFIX" \
+            --image "$digest" \
+            --env "BACKEND_URL=http://$FLY_APP_PREFIX-backend.flycast:8080" \
+            --ha=false --wait-timeout 300
+
+      - name: Verify the live instance
+        if: steps.setup.outputs.ready == 'true'
+        run: fly/verify.sh "$FLY_APP_PREFIX"
