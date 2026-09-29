@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { PROMETHEUS_IMAGE, dockerArgs, plan } from './promtool.mjs'
+import { ALERTMANAGER_IMAGE, PROMETHEUS_IMAGE, dockerArgs, plan, routePlan } from './promtool.mjs'
 
 /**
  * What the promtool wrapper runs (#44, FR11): every rule file checked, every test file run, from the
@@ -42,5 +42,37 @@ describe('promtool', () => {
       'run', '--rm', '-v', '/repo:/w', '-w', '/w', '--entrypoint', 'promtool', PROMETHEUS_IMAGE, 'test', 'rules', 'a.yml',
     ])
     assert.match(PROMETHEUS_IMAGE, /^prom\/prometheus:v\d+\.\d+\.\d+$/)
+  })
+
+  test('checks the Alertmanager config, then resolves every route case to its expected receiver', () => {
+    const root = checkout([])
+    mkdirSync(path.join(root, 'ops/alertmanager/tests'), { recursive: true })
+    writeFileSync(path.join(root, 'ops/alertmanager/alertmanager.yml'), 'route: {}\n')
+    writeFileSync(
+      path.join(root, 'ops/alertmanager/tests/routes.test.yml'),
+      'cases:\n  - name: pages\n    labels: { alertname: A, severity: page }\n    receiver: page\n',
+    )
+
+    assert.deepEqual(routePlan(root), [
+      ['check-config', 'ops/alertmanager/alertmanager.yml'],
+      [
+        'config', 'routes', 'test', '--config.file=ops/alertmanager/alertmanager.yml', '--verify.receivers=page',
+        'alertname=A', 'severity=page',
+      ],
+    ])
+  })
+
+  test('refuses an Alertmanager config with no route cases', () => {
+    const root = checkout([])
+    mkdirSync(path.join(root, 'ops/alertmanager'), { recursive: true })
+    writeFileSync(path.join(root, 'ops/alertmanager/alertmanager.yml'), 'route: {}\n')
+    assert.throws(() => routePlan(root), /no route cases in ops\/alertmanager\/tests\/routes.test.yml/)
+  })
+
+  test('runs amtool from the pinned Alertmanager image', () => {
+    assert.deepEqual(dockerArgs('/repo', ['check-config', 'a.yml'], { image: ALERTMANAGER_IMAGE, tool: 'amtool' }), [
+      'run', '--rm', '-v', '/repo:/w', '-w', '/w', '--entrypoint', 'amtool', ALERTMANAGER_IMAGE, 'check-config', 'a.yml',
+    ])
+    assert.match(ALERTMANAGER_IMAGE, /^prom\/alertmanager:v\d+\.\d+\.\d+$/)
   })
 })
