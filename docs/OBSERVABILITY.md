@@ -1,8 +1,8 @@
 # Observability
 
 What the application says about itself, and how to follow one request through it. This is being
-built in parts under [#44](../../issues/44): request correlation, the log format and the declared
-event registry are here; metrics, service objectives, alerts and runbooks come next.
+built in parts under [#44](../../issues/44): request correlation, the log format, the declared
+event registry and the metrics are here; service objectives, alerts and runbooks come next.
 
 ## Following a request
 
@@ -76,3 +76,26 @@ way out: a field whose name contains `password`, `token`, `secret`, `authorizati
 `api-key`, `api_key`), `cookie` or `credential`, in any case and at any depth of a map, is written
 as `***`. The acceptance suite checks that a secret posted in a node or an ingest token never appears
 in any log line.
+
+## Metrics
+
+The API publishes its meters in Prometheus's text format at `/actuator/prometheus`. That endpoint is
+for a scraper inside the deployment: the web interface's nginx does not proxy it, so it cannot be
+read from the public internet ([DEPLOYMENT.md](DEPLOYMENT.md), D9), and the CI end-to-end job checks
+both halves of that.
+
+| Metric | Labels | What it counts |
+|---|---|---|
+| `sdlc_build_info` | `version`, `ontology_version`, `commit` | Always 1. Join any series to it to see which build produced it. A value that is not known reads `unknown`. |
+| `sdlc_node_writes_total` | `type`, `outcome` | Node writes through the API. `outcome` is `created`, `updated`, `deleted` or `rejected` (refused by the ontology, so nothing was stored). |
+| `sdlc_edge_writes_total` | `type`, `outcome` | The same for edges. Restating an edge that exists counts as `updated`. |
+| `sdlc_graph_store_errors_total` | `operation` | Graph store operations that failed, such as when Neo4j is unreachable, by port operation (`upsertNode`, `findNode`, ...). Each failure is also logged as `graph.store.failed` with the request's id. Present at zero for every operation from startup, so an alert has a series before the first failure. |
+| `http_server_requests_seconds` | Spring's (`method`, `uri`, `status`, `outcome`, ...) | Every request's duration, as a histogram with a bucket at 0.5 s, the latency objective. |
+
+`type` is always a type the ontology declares, because an undeclared one is refused before anything
+is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed
+to give, such as an edge whose end does not exist, is an answer rather than a failure and is not
+counted as a store error.
+
+Writes that arrive through a connector or an ingest endpoint are not counted here; connector metrics
+are [#29](../../issues/29).
