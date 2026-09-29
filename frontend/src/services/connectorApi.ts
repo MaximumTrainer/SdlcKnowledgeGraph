@@ -15,6 +15,17 @@ export interface LastRunView {
   watermark: string | null
 }
 
+/**
+ * How long since a connector last succeeded, against how long it may go (#29, FR3). `ageSeconds` is
+ * null for one that never has; `stale` is only ever true for an enabled connector.
+ */
+export interface FreshnessView {
+  lastSuccessAt: string | null
+  ageSeconds: number | null
+  thresholdSeconds: number
+  stale: boolean
+}
+
 export interface ConnectorSummary {
   name: string
   sourceSystem: string
@@ -22,6 +33,7 @@ export interface ConnectorSummary {
   capabilities: Capability[]
   health: HealthView
   lastRun: LastRunView | null
+  freshness: FreshnessView
 }
 
 export interface SyncRun {

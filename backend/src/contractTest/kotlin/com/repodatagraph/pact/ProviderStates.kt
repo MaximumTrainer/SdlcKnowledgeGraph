@@ -6,6 +6,7 @@ import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.port.out.GraphStore
 import org.springframework.data.neo4j.core.Neo4jClient
+import java.time.Instant
 
 /**
  * The graphs each pact interaction assumes, seeded before it is replayed.
@@ -151,6 +152,36 @@ class ProviderStates(
         )
     }
 
+    /**
+     * One run of the GitHub connector that failed, written the way `SyncRunRecorder` writes one: a
+     * finished run with counts and an error, so the list has a duration and a snippet to render and
+     * the run in full has something to show besides.
+     */
+    fun failedSyncRunExists() {
+        emptyGraph()
+        val startedAt = Instant.parse("2026-09-01T10:00:00Z")
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("SyncRun", SYNC_RUN_ID),
+                props =
+                    mapOf(
+                        "id" to SYNC_RUN_ID,
+                        "connector" to "github",
+                        "sourceSystem" to "github",
+                        "mode" to "FULL",
+                        "status" to "FAILED",
+                        "startedAt" to startedAt,
+                        "finishedAt" to startedAt.plusSeconds(90),
+                        "nodesUpserted" to 3,
+                        "edgesUpserted" to 2,
+                        "tombstones" to 1,
+                        "error" to "page 2 failed: the source answered 502",
+                    ),
+                provenance = Provenance(sourceSystem = "sdlc-knowledge-graph", ingestedAt = startedAt, validFrom = startedAt),
+            ),
+        )
+    }
+
     /** The key is `host/org/name`, so the parts a Repository is identified by come from it. */
     private fun repository(key: String) {
         val (host, org, name) = key.split("/")
@@ -184,12 +215,14 @@ class ProviderStates(
         const val TWO_REPOSITORIES_EXIST = "two repositories exist"
         const val PAYMENTS_DEPENDS_ON_SHARED_LIB = "payments DEPENDS_ON shared-lib"
         const val R1_RELATES_TO_A_CI = "repository R1 is linked to a configuration item"
+        const val FAILED_SYNC_RUN_EXISTS = "a FAILED sync run of github exists"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
         private const val REPOSITORY_KEY_OWNED = "github.com/acme/payments"
         private const val SHARED_LIB_KEY = "github.com/acme/shared-lib"
         private const val CI_KEY = "servicenow:sn.example.test:a1"
+        private const val SYNC_RUN_ID = "pact-run-1"
 
         /** Every state this provider can seed. */
         val ALL =
@@ -201,6 +234,7 @@ class ProviderStates(
                 TWO_REPOSITORIES_EXIST,
                 PAYMENTS_DEPENDS_ON_SHARED_LIB,
                 R1_RELATES_TO_A_CI,
+                FAILED_SYNC_RUN_EXISTS,
             )
     }
 }

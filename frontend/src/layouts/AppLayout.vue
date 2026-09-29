@@ -49,7 +49,10 @@ onMounted(() => {
     <header class="app-header">
       <div class="app-header-row">
         <router-link to="/" class="brand">🕸 RepoDataGraph</router-link>
-        <router-link to="/connectors" class="header-link">Connectors</router-link>
+        <div class="header-links">
+          <router-link to="/connectors" class="header-link">Connectors</router-link>
+          <router-link to="/sync-runs" class="header-link">Sync runs</router-link>
+        </div>
       </div>
       <nav
         aria-label="Node types"
@@ -92,6 +95,10 @@ onMounted(() => {
   text-decoration: none;
   font-size: 1.25rem;
   font-weight: 700;
+}
+.header-links {
+  display: flex;
+  gap: 1.25rem;
 }
 .header-link,
 .type-nav a {
