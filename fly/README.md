@@ -17,7 +17,9 @@ is disposable.
 Nobody runs `flyctl deploy` by hand. `.github/workflows/deploy-dogfood.yml` runs when CI completes,
 and deploys only a green `push` run on `main`, from that run's own commit. In order, it runs
 `bootstrap.sh`, deploys Neo4j, builds and deploys the API and then the web interface by image
-digest, and runs `verify.sh`.
+digest, and runs `verify.sh`. Besides reads, the refused write and the private addresses, that
+checks that the API reports the commit the run built on `/actuator/info` (read over `flyctl ssh`,
+since `/actuator` is not public) and that `/actuator` cannot be reached from the internet.
 
 ## One-time setup
 

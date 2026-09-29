@@ -269,6 +269,27 @@ must not change it, such as a public demonstration, would otherwise be an open d
 The web interface still browses; creating, editing and deleting fail with the refusal above. This is
 a posture, not access control: sign-in and permissions are [#3](../../issues/3).
 
+## What an instance is running
+
+`GET /actuator/info` answers with a `deployment` block, so a person or a pipeline can ask a running
+instance what it is before trusting it:
+
+```json
+{
+  "deployment": {
+    "commit": "0bfe55cc6c3c2ad984aeae0183e5423149acbdd8",
+    "version": "0.0.1-SNAPSHOT",
+    "ontologyVersion": "1.0.0",
+    "profile": "docker",
+    "readOnly": true
+  }
+}
+```
+
+`commit` is the full SHA the image was built from, stamped by the image build (`SDLC_COMMIT`); an
+image built without it says `unknown`. The dogfood deploy compares it with the commit it meant to
+deploy and fails if they differ.
+
 ## The Neo4j browser
 
 The graph lives in Neo4j, and the browser at `http://localhost:7474` (user `neo4j`, password
