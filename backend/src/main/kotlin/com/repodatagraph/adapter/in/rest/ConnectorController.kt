@@ -6,6 +6,7 @@ import com.repodatagraph.adapter.`in`.rest.dto.HealthView
 import com.repodatagraph.adapter.`in`.rest.dto.SyncAccepted
 import com.repodatagraph.adapter.`in`.rest.dto.SyncRunView
 import com.repodatagraph.application.connector.AdapterRegistry
+import com.repodatagraph.application.connector.FreshnessCalculator
 import com.repodatagraph.application.connector.SyncInProgressException
 import com.repodatagraph.application.connector.SyncService
 import com.repodatagraph.application.connector.UnknownConnectorException
@@ -43,9 +44,10 @@ class ConnectorController(
     private val syncService: SyncService,
     private val graphStore: GraphStore,
     private val taskScheduler: TaskScheduler,
+    private val freshness: FreshnessCalculator,
 ) {
     @GetMapping
-    @Operation(summary = "List every connector, with its state and last run")
+    @Operation(summary = "List every connector, with its state, last run and freshness")
     fun list(): List<ConnectorSummary> =
         registry.all().map { registered ->
             ConnectorSummary.from(
@@ -53,6 +55,7 @@ class ConnectorController(
                 registered.connector.healthCheck(),
                 stateOf(registered.name),
                 syncService.isRunning(registered.name),
+                freshness.of(registered),
             )
         }
 
@@ -67,6 +70,7 @@ class ConnectorController(
             registered.connector.healthCheck(),
             stateOf(name),
             syncService.isRunning(name),
+            freshness.of(registered),
         )
     }
 

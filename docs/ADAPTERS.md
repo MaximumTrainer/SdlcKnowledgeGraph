@@ -103,7 +103,8 @@ Operational endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/connectors` | List connectors, capabilities and health |
+| `GET /api/v1/connectors` | List connectors, capabilities, health, last run and [freshness](#freshness) |
+| `GET /api/v1/connectors/{name}` | One connector, with what `ConnectorState` remembers and its freshness |
 | `POST /api/v1/connectors/{name}/sync?mode=full\|incremental` | Trigger a run |
 | `GET /api/v1/connectors/{name}/runs` | Recent `SyncRun` history |
 | `POST /api/v1/connectors/{name}/webhook` | Receive an event, signature verified, 202 Accepted |
@@ -267,10 +268,42 @@ connectors:
       enabled: true
       schedule: "0 */15 * * * *"   # cron; the default is every quarter hour
       webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+      freshness-threshold: PT6H     # stale after this long without a success; see Freshness
 ```
 
 A disabled connector is still listed by `GET /api/v1/connectors` with `enabled: false`, so "why is
 nothing syncing" is answered by looking rather than by guessing which bean failed to load.
+
+### Freshness
+
+An answer built on a week-old snapshot is worse than no answer, so each connector says how long it
+has been since it last succeeded (#29). `freshness-threshold` is an ISO-8601 duration. Left unset it
+is `PT2H`, or `PT24H` for a connector with the `WEBHOOK` capability, whose scheduled run only
+catches what its webhooks missed and may reasonably run nightly.
+
+`GET /api/v1/connectors` and `GET /api/v1/connectors/{name}` carry it as:
+
+```json
+"freshness": {
+  "lastSuccessAt": "2026-09-29T09:00:00Z",
+  "ageSeconds": 10800,
+  "thresholdSeconds": 3600,
+  "stale": true
+}
+```
+
+- `lastSuccessAt` and `ageSeconds` are `null` for a connector that has never succeeded, rather than
+  a made-up age: "never" and "long ago" call for different fixes.
+- `stale` is only ever true for an **enabled** connector whose last success is older than its
+  threshold. A connector that has never succeeded is measured from when the instance started
+  instead, so a new deployment gets one threshold to finish its first run before it is called stale.
+- Only a `SUCCESS` counts. A `PARTIAL` run read part of the estate and cannot vouch for the rest, so
+  a connector whose runs always come back partial goes stale. Webhook runs do not count either: one
+  event says nothing about whether the rest of the estate is current.
+
+While any enabled connector is stale, the `connectors` component of `/actuator/health` is `DOWN`
+and names them; see [OBSERVABILITY.md](OBSERVABILITY.md#health). It stays out of the readiness
+probe unless `observability.freshness-affects-readiness` is set.
 
 ## The GitHub connector
 
@@ -436,8 +469,11 @@ node that a webhook asserted while the run was going.
 ### What a run records
 
 `SyncRun` holds the connector, the mode (`FULL`, `INCREMENTAL`, `WEBHOOK`), the counts, the
-watermark and the error if there was one. `ConnectorState` holds where the last successful run got
-to. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
+watermark and the error if there was one. `ConnectorState` is written after every scheduled or
+manual run, whatever its status: `lastRunId`, `lastRunStatus` (and `lastStatus`, the same value
+under its older name) and `lastFinishedAt` describe that run; `watermark` and `lastSuccessAt` move
+only on a `SUCCESS`; `consecutiveFailures` counts the `PARTIAL` and `FAILED` runs since then and
+goes back to 0 on the next success. A webhook run does not touch it. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
 run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
 than merely auditable.
 
@@ -456,8 +492,9 @@ connector returns:
   and makes the run `PARTIAL`; an exception from `sync` itself, before any page, counts as a `run`
   error and makes it `FAILED`. Throw rather than returning an empty page, or a failure reads as a
   quiet success.
-- **Freshness.** Counts from the last run that succeeded in full. A connector whose full syncs
-  always come back partial is never fresh, which is the point.
+- **Freshness.** Counts from the last run that succeeded in full (`ConnectorState.lastSuccessAt`).
+  A connector whose full syncs always come back partial is never fresh, which is the point; see
+  [Freshness](#freshness).
 - **Webhooks.** `verifyWebhook` returning false counts as `rejected`, `onWebhook` returning null as
   `ignored`, and a `deliveryId` lets a redelivery count as `ignored` rather than a second run.
 

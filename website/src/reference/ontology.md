@@ -259,9 +259,12 @@ Identity: `connector`
 | --- | --- | --- | --- |
 | `connector` | `string` | yes |  |
 | `watermark` | `instant` | no | Reported by the last successful run |
-| `lastRunId` | `string` | no |  |
-| `lastStatus` | `string` | no |  |
+| `lastRunId` | `string` | no | The last scheduled or manual run to finish, whatever its status |
+| `lastStatus` | `string` | no | That run's status; the same as lastRunStatus, kept for states written before it |
+| `lastRunStatus` | `string` | no | SUCCESS, PARTIAL or FAILED |
 | `lastFinishedAt` | `instant` | no |  |
+| `lastSuccessAt` | `instant` | no | When the last successful run finished |
+| `consecutiveFailures` | `int` | no | Runs that ended PARTIAL or FAILED since the last SUCCESS |
 
 ## Relationship types
 

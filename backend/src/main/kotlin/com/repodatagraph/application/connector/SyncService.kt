@@ -154,9 +154,9 @@ class SyncService(
         // because one event says nothing about whether the rest of the estate is current.
         if (outcome.status == RunStatus.SUCCESS) metrics.succeeded(name, Instant.now(clock))
         recorder.recordRun(runId, registered, mode, outcome.status, outcome.totals, outcome.watermark, outcome.error)
-        if (outcome.status == RunStatus.SUCCESS) {
-            recorder.recordState(name, runId, outcome.status, outcome.watermark)
-        }
+        // Whatever the status, so the state can count failures since the last success; the
+        // recorder only moves the watermark and the last success on a success (#29, FR3).
+        recorder.recordState(name, runId, outcome.status, outcome.watermark)
     }
 
     /**

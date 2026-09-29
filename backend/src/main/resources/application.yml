@@ -47,9 +47,20 @@ management:
       slo:
         http.server.requests: 500ms
 
+# Whether a stale connector takes the instance out of readiness as well as turning the connectors
+# health component DOWN (#29, FR4). Off: a stale graph still answers correctly about what it has, and
+# failing readiness for it would take the instance out of service for something a restart cannot fix.
+# FreshnessReadiness reads it before the health groups are built.
+observability:
+  freshness-affects-readiness: ${FRESHNESS_AFFECTS_READINESS:false}
+
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as
 # being allowed to talk to anything (docs/ADAPTERS.md).
+#
+# Each connector is configured under connectors.settings.<name>: enabled, schedule, webhook-secret, and
+# freshness-threshold (#29), how long after its last success it counts as stale. The threshold
+# defaults to PT2H, or PT24H for a connector that takes webhooks.
 connectors:
   settings: {}
   # Where the GitHub connector looks. From the environment rather than from here: a token is a
