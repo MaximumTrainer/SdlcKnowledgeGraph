@@ -7,6 +7,7 @@ import com.repodatagraph.domain.port.out.connector.SyncRequest
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -51,6 +52,7 @@ class SyncService(
     private val registry: AdapterRegistry,
     private val writer: GraphDeltaWriter,
     private val recorder: SyncRunRecorder,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -140,6 +142,8 @@ class SyncService(
         runId: String,
         mode: SyncMode,
     ): RunOutcome {
+        // Before the first page is asked for, so every node this run writes is stamped at or after it.
+        val startedAt = Instant.now(clock)
         val since = if (mode == SyncMode.FULL) null else recorder.watermarkFor(registered.name)
         val pages = registered.connector.sync(SyncRequest(since = since, mode = mode)).iterator()
 
@@ -163,6 +167,13 @@ class SyncService(
                     step.page.watermark?.let { watermark = it }
                 }
             }
+        }
+
+        // Only a complete full run that saw every page can tell "gone" from "not looked at" (#150). An
+        // incremental or partial run that closed what it did not see would erase the estate it failed
+        // to read.
+        if (!partial && mode == SyncMode.FULL && registered.descriptor.fullSyncIsComplete) {
+            totals += DeltaResult(tombstones = writer.reconcile(registered.descriptor, startedAt))
         }
 
         return RunOutcome(
