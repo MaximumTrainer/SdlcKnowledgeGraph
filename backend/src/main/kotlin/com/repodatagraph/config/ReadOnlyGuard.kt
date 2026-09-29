@@ -173,11 +173,15 @@ class ReadOnlyGuard internal constructor(
 
     companion object {
         /**
-         * The writes a read-only instance still accepts: the deployment ingest endpoint (#7), which
-         * keeps its own bearer token (docs/DEPLOYMENT.md, D6), so the pipeline can record what it
-         * deployed to an instance the public cannot write to.
+         * The writes a read-only instance still accepts, each keeping its own bearer token
+         * (docs/DEPLOYMENT.md, D6): the deployment ingest endpoint (#7), so the pipeline can record
+         * what it deployed, and the seed endpoint (#47), so the dogfood seed can record this repository.
          */
-        val ALLOWLIST: Set<AllowedWrite> = setOf(AllowedWrite("POST", "/api/v1/ingest/deployment"))
+        val ALLOWLIST: Set<AllowedWrite> =
+            setOf(
+                AllowedWrite("POST", "/api/v1/ingest/deployment"),
+                AllowedWrite("POST", "/api/v1/ingest/seed"),
+            )
 
         /** A GraphQL request larger than this is refused rather than read into memory to be inspected. */
         const val MAX_INSPECTED_BODY_BYTES = 256 * 1024

@@ -84,14 +84,19 @@ test('D5 a GraphQL mutation is refused', async ({ request }) => {
   }
 })
 
-test('D6 the deployment ingest endpoint still requires its token', async ({ request }) => {
-  const report = { repository: 'github.com/example/conformance', artifacts: [] }
+test('D6 the ingest endpoints still require their token', async ({ request }) => {
+  const bodies: Record<string, object> = {
+    '/api/v1/ingest/deployment': { repository: 'github.com/example/conformance', artifacts: [] },
+    '/api/v1/ingest/seed': { nodes: [] },
+  }
   const attempts: Record<string, string>[] = [{}, { Authorization: 'Bearer not-the-token' }]
-  for (const headers of attempts) {
-    const response = await request.post('/api/v1/ingest/deployment', { data: report, headers })
-    // 401 when the deployment has a token configured; 503 when it has none, which disables the
-    // endpoint. Never 403: the read-only refusal must not be what stands in front of it.
-    expect([401, 503], JSON.stringify(headers)).toContain(response.status())
+  for (const [path, data] of Object.entries(bodies)) {
+    for (const headers of attempts) {
+      const response = await request.post(path, { data, headers })
+      // 401 when the deployment has a token configured; 503 when it has none, which disables the
+      // endpoint. Never 403: the read-only refusal must not be what stands in front of it.
+      expect([401, 503], `${path} ${JSON.stringify(headers)}`).toContain(response.status())
+    }
   }
 })
 
