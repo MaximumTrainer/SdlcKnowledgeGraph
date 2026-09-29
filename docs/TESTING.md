@@ -171,8 +171,10 @@ Tests run on push instead, against the state actually being shared. Intermediate
 a branch are expected and fine, as long as the tip of the branch is green.
 
 CI re-runs all of it and adds what no hook runs: the browser end-to-end job, the website job
-(generator tests, drift, build, site tests) and `format:check`, because a hook can be skipped and a
-CI check cannot. The one hook with no CI counterpart is `protected-branch`; CI cannot stop a direct
+(generator tests, drift, build, site tests), `format:check` and hadolint on both Dockerfiles
+(configured in `.hadolint.yaml`), because a hook can be skipped and a CI check cannot. The
+end-to-end job also writes the two image sizes to its summary, and starts the backend image without
+`NEO4J_URI` to check that it refuses to. The one hook with no CI counterpart is `protected-branch`; CI cannot stop a direct
 push to `main`, it can only turn red afterwards.
 
 Hooks are installed by `npm install` at the repository root, which runs `lefthook install`. If hooks
