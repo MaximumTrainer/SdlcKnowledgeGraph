@@ -1,0 +1,56 @@
+name: Deploy on green
+
+# The one gate every deploy goes through (#48, FR9; docs/DEPLOYMENT.md D12). A deploy workflow is
+# triggered by `workflow_run` on CI and calls this first: it proceeds only when that run was a green
+# push to main, and it hands back that run's own commit, so the deploy builds what CI tested rather
+# than whatever main points at by the time it starts. A called workflow sees its caller's event, so
+# github.event here is the caller's workflow_run. The rule itself is scripts/deploy-gate.mjs.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: The environment the caller deploys to, for the log
+        type: string
+        required: true
+      image_tag_prefix:
+        description: Prepended to the commit sha to form image_tag
+        type: string
+        required: false
+        default: ""
+    outputs:
+      should_deploy:
+        description: "'true' when the triggering CI run may be deployed"
+        value: ${{ jobs.gate.outputs.should_deploy }}
+      sha:
+        description: The commit to deploy, the one CI tested; empty when should_deploy is false
+        value: ${{ jobs.gate.outputs.sha }}
+      image_tag:
+        description: image_tag_prefix followed by sha
+        value: ${{ jobs.gate.outputs.image_tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Decide whether to deploy
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+      sha: ${{ steps.decide.outputs.sha }}
+      image_tag: ${{ steps.decide.outputs.image_tag }}
+    steps:
+      # The gate's own script, from the default branch: the run under decision has not been judged yet.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/deploy-gate.mjs
+          sparse-checkout-cone-mode: false
+      - id: decide
+        env:
+          GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          GATE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GATE_EVENT: ${{ github.event.workflow_run.event }}
+          GATE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GATE_ENVIRONMENT: ${{ inputs.environment }}
+          GATE_IMAGE_TAG_PREFIX: ${{ inputs.image_tag_prefix }}
+        run: node scripts/deploy-gate.mjs

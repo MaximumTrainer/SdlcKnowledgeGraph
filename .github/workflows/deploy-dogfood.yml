@@ -5,6 +5,7 @@ name: Deploy dogfood
 # Triggered by the CI run rather than by the push, for the same reason the Website workflow is: a red
 # run on main deploys nothing, and a green one deploys its own head_sha rather than whatever main
 # points at by the time this starts. Pull request runs and runs on other branches deploy nothing.
+# That rule lives in one place, the deploy-on-green gate (#48, FR9), which the first job calls.
 on:
   workflow_run:
     workflows: [CI]
@@ -19,12 +20,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Whether this CI run may be deployed, and which commit that is: the same gate every deploy uses.
+  gate:
+    uses: ./.github/workflows/deploy-on-green.yml
+    with:
+      environment: dogfood
+
   deploy:
     name: Deploy to fly.io and verify
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.event == 'push'
+    needs: gate
+    if: needs.gate.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: dogfood
@@ -42,7 +47,7 @@ jobs:
       FLY_APP_PREFIX: sdlc-graph
       FLY_ORG: personal
       FLY_REGION: lhr
-      SHA: ${{ github.event.workflow_run.head_sha }}
+      SHA: ${{ needs.gate.outputs.sha }}
     steps:
       # Until the dogfood environment has its secrets there is nothing to deploy to, and that is a
       # setup step still to do rather than a failure of main, so it is reported without going red.
