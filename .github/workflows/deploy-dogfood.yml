@@ -101,4 +101,20 @@ jobs:
 
       - name: Verify the live instance
         if: steps.setup.outputs.ready == 'true'
-        run: EXPECTED_COMMIT="$SHA" fly/verify.sh "$FLY_APP_PREFIX"
+        run: fly/verify.sh "$FLY_APP_PREFIX"
+
+      # A deployment that cannot pass its own contract is not a deployment (docs/DEPLOYMENT.md). Run
+      # from outside, against the public address, the way anyone else reaches it.
+      - uses: actions/setup-node@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Run the deployment conformance suite
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: e2e
+        run: |
+          npm ci
+          CONFORMANCE_BASE_URL="https://$FLY_APP_PREFIX.fly.dev" EXPECTED_COMMIT="$SHA" \
+            npx playwright test --config=conformance.config.ts
