@@ -102,7 +102,7 @@ both halves of that.
 | `sdlc_sync_tombstones_total` | `connector`, `sourceSystem` | Facts runs closed, whether the connector reported the tombstone or a full sync's reconciliation found the fact gone. |
 | `sdlc_sync_pages_total` | `connector`, `sourceSystem` | Pages read from connectors, including a page read but not written. Webhooks are not pages. |
 | `sdlc_sync_errors_total` | `connector`, `sourceSystem`, `kind` | What went wrong. `page`: a page could not be read or written, so the run is partial. `run`: a run failed as a whole, or a webhook could not be written. `webhook_signature`: a webhook was refused for its signature. There is no `throttle` kind yet, because nothing tells a source's rate limiting apart from other failures. |
-| `sdlc_sync_freshness_seconds` | `connector`, `sourceSystem` | Seconds since the connector's last successful scheduled or manual run finished; `NaN` if it has never succeeded. A webhook run does not reset it. Kept in memory and seeded from `ConnectorState.lastFinishedAt` on the first scrape after a restart. |
+| `sdlc_sync_freshness_seconds` | `connector`, `sourceSystem` | Seconds since the connector's last successful scheduled or manual run finished; `NaN` if it has never succeeded. A webhook run does not reset it. Kept in memory and seeded from `ConnectorState.lastSuccessAt` on the first scrape after a restart (from `lastFinishedAt` for a state written before #29 added it). |
 | `sdlc_sync_in_progress` | `connector`, `sourceSystem` | 1 while a run of the connector is going, otherwise 0. |
 | `sdlc_webhook_events_total` | `connector`, `result` | Webhooks by what became of them: `applied` (it became a run, whatever that run's status), `ignored` (the connector found nothing in it, or it was a redelivery of one already applied) or `rejected` (its signature did not check out). |
 
@@ -117,6 +117,28 @@ write totals; a connector's writes are counted by the `sdlc_sync_*` meters inste
 cardinality is the number of connectors, and every connector's series exist from startup. Each run
 also logs `sync.started`, one `sync.page` per page applied and `sync.finished`, with the run's id in
 `syncRunId`.
+
+## Health
+
+`/actuator/health` is the API's health as a whole, one component per thing it depends on. Two of
+them are this application's own:
+
+| Component | UP | DOWN |
+|---|---|---|
+| `neo4j` | The database answers. | It does not; `sdlc_dependency_up{dependency="neo4j"}` is 0 too. |
+| `connectors` | No enabled connector is stale, including when none is enabled at all. | At least one enabled connector has gone longer than its `freshness-threshold` without a successful run; `details.stale` names them ([Adapters](/guide/adapters#freshness)). `UNKNOWN` when freshness cannot be read, usually because `neo4j` is down. |
+
+A component that is DOWN makes the whole of `/actuator/health` DOWN, with status 503. The docker
+profile shows which components there are but not their details, so `details.stale` is only visible
+where `show-details` is turned on; the connectors API says the same thing per connector.
+
+The liveness and readiness probes, `/actuator/health/liveness` and `/actuator/health/readiness`, are
+separate groups, and the only health the web interface proxies ([Deployment](/guide/deployment), D1).
+Neither includes `connectors`: a stale graph still answers correctly about what it has, and a probe
+that failed on it would take the instance out of service for something a restart cannot fix. Set
+`observability.freshness-affects-readiness=true` (`FRESHNESS_AFFECTS_READINESS`) to add it to
+readiness for a deployment that would rather serve nothing than serve stale answers; the probe then
+still answers only a status, never which connector is behind.
 
 ## Service objectives
 
