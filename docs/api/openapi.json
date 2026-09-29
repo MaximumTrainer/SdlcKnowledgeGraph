@@ -742,6 +742,136 @@
         "required" : [ "syncRunId" ],
         "type" : "object"
       },
+      "SyncRunDetail" : {
+        "properties" : {
+          "connector" : {
+            "type" : "string"
+          },
+          "details" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "durationMs" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "edgesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "finishedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sourceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceSystem" : {
+            "type" : [ "string", "null" ]
+          },
+          "startedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "tombstones" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "watermark" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "connector", "details", "edgesUpserted", "id", "nodesUpserted", "tombstones" ],
+        "type" : "object"
+      },
+      "SyncRunPageResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SyncRunSummary"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalElements" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalElements", "totalPages" ],
+        "type" : "object"
+      },
+      "SyncRunSummary" : {
+        "properties" : {
+          "connector" : {
+            "type" : "string"
+          },
+          "durationMs" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "edgesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "finishedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodesUpserted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sourceSystem" : {
+            "type" : [ "string", "null" ]
+          },
+          "startedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "tombstones" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "connector", "edgesUpserted", "id", "nodesUpserted", "tombstones" ],
+        "type" : "object"
+      },
       "SyncRunView" : {
         "properties" : {
           "connector" : {
@@ -2016,6 +2146,104 @@
         "tags" : [ "Repositories (deprecated links)" ]
       }
     },
+    "/api/v1/sync-runs" : {
+      "get" : {
+        "operationId" : "listSyncRuns",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "connector",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "RUNNING, SUCCESS, PARTIAL or FAILED, in any case",
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Runs that started at or after this ISO-8601 instant, e.g. 2026-09-01T00:00:00Z",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Runs that started before this ISO-8601 instant",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page number, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Runs per page, 1 to 100",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncRunPageResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List sync runs, newest first, filtered by connector, status and start time",
+        "tags" : [ "Sync runs" ]
+      }
+    },
+    "/api/v1/sync-runs/{id}" : {
+      "get" : {
+        "operationId" : "getSyncRun",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncRunDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One sync run in full, with its whole error and details",
+        "tags" : [ "Sync runs" ]
+      }
+    },
     "/api/v1/webhooks/{name}" : {
       "post" : {
         "operationId" : "receive",
@@ -2066,6 +2294,9 @@
   }, {
     "description" : "The declared contract for what may exist in the graph",
     "name" : "Ontology"
+  }, {
+    "description" : "What each connector run did, newest first",
+    "name" : "Sync runs"
   }, {
     "description" : "Superseded by /api/v1/edges",
     "name" : "Repositories (deprecated links)"

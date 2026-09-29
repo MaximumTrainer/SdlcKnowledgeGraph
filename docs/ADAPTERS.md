@@ -106,7 +106,9 @@ Operational endpoints:
 | `GET /api/v1/connectors` | List connectors, capabilities, health, last run and [freshness](#freshness) |
 | `GET /api/v1/connectors/{name}` | One connector, with what `ConnectorState` remembers and its freshness |
 | `POST /api/v1/connectors/{name}/sync?mode=full\|incremental` | Trigger a run |
-| `GET /api/v1/connectors/{name}/runs` | Recent `SyncRun` history |
+| `GET /api/v1/connectors/{name}/runs` | Recent `SyncRun` history of one connector |
+| `GET /api/v1/sync-runs?connector=&status=&from=&to=&page=&size=` | Every connector's runs, newest first, a page at a time ([Browsing the run history](#browsing-the-run-history)) |
+| `GET /api/v1/sync-runs/{id}` | One run in full, with its whole error and `details` |
 | `POST /api/v1/connectors/{name}/webhook` | Receive an event, signature verified, 202 Accepted |
 
 Webhook endpoints will be exempt from the bearer authentication that
@@ -476,6 +478,47 @@ only on a `SUCCESS`; `consecutiveFailures` counts the `PARTIAL` and `FAILED` run
 goes back to 0 on the next success. A webhook run does not touch it. Every node a run writes also gets a `PRODUCED` edge from the run, so "show me everything that
 run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
 than merely auditable.
+
+### Browsing the run history
+
+`GET /api/v1/sync-runs` lists the recorded runs of every connector, newest `startedAt` first (#29,
+FR5). Every filter is optional:
+
+| Parameter | Meaning |
+| --- | --- |
+| `connector` | Only this connector's runs. A connector that no longer exists is an empty page, not an error: its runs are history. |
+| `status` | `RUNNING`, `SUCCESS`, `PARTIAL` or `FAILED`, in any case. Anything else is a 400. |
+| `from`, `to` | Runs that started at or after `from` and before `to`, both ISO-8601 instants such as `2026-09-01T00:00:00Z`. The window is half-open, so adjacent windows never count a run twice. Anything that is not an instant, or a `from` that is not before `to`, is a 400. |
+| `page`, `size` | Offset paging: `page` from 0, `size` from 1 to 100, 20 by default. Out of range is a 400. |
+
+```json
+{
+  "items": [
+    {
+      "id": "0b8f…", "connector": "github", "sourceSystem": "github", "mode": "FULL",
+      "status": "PARTIAL", "startedAt": "2026-09-29T09:00:00Z", "finishedAt": "2026-09-29T09:01:30Z",
+      "durationMs": 90000, "nodesUpserted": 3, "edgesUpserted": 2, "tombstones": 0,
+      "error": "page 2 failed: …"
+    }
+  ],
+  "page": 0, "size": 20, "totalElements": 41, "totalPages": 3
+}
+```
+
+`durationMs` and `finishedAt` are null while a run is going. `error` in a summary is cut to 200
+characters, ending in `…` when it was cut; `GET /api/v1/sync-runs/{id}` has the whole of it, plus
+`watermark`, `sourceId` (the delivery behind a webhook run) and `details`, and answers 404
+`{"error": "sync run not found", "id": …}` for a run that was never recorded or has been pruned.
+
+`details` is where a connector's own account of a run belongs - a summary per account or region,
+say. No connector records one yet, so it is always an empty object today; a connector that starts
+recording one needs a declared `SyncRun` property to hold it, and this is where it will appear.
+
+The history is read through its own port, `SyncRunStore`, rather than through `GraphStore`, whose
+listing is in key order. Runs finished longer ago than `observability.sync-run-retention` (30 days by
+default) are pruned nightly; what they produced stays, still naming the run in its provenance
+([OBSERVABILITY.md](OBSERVABILITY.md#sync-run-retention)). A read-only deployment serves both
+endpoints, as it does every read.
 
 ### What a run reports
 

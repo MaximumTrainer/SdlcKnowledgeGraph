@@ -26,6 +26,12 @@ Feature: A read-only deployment refuses every write
     When I send a GET to "/api/v1/nodes/Repository"
     Then the response status is 200
 
+  Scenario: The sync run history can still be read
+    # #29, FR5. A read like any other; the nightly prune of old runs (FR6) is not an HTTP request,
+    # so this posture does not stop it either.
+    When I send a GET to "/api/v1/sync-runs?connector=fake"
+    Then the response status is 200
+
   Scenario: A write endpoint added later is refused without anyone remembering to refuse it
     When I send a POST to "/api/v1/a-write-endpoint-nobody-has-built-yet"
     Then the response status is 403

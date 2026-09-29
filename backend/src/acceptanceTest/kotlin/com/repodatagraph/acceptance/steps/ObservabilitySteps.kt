@@ -88,6 +88,15 @@ class ObservabilitySteps(
         assertThat(fieldsOf(checkNotNull(event))[field]).isEqualTo(value)
     }
 
+    /** A number is logged as a number, so it is compared as one rather than as its text. */
+    @Then("its field {string} is the number {long}")
+    fun itsFieldIsTheNumber(
+        field: String,
+        value: Long,
+    ) {
+        assertThat((fieldsOf(checkNotNull(event))[field] as? Number)?.toLong()).isEqualTo(value)
+    }
+
     @Then("its field {string} lists {string} and {string}")
     fun itsFieldLists(
         field: String,
