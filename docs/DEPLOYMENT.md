@@ -22,7 +22,7 @@ not its definition. A deployment on another platform has the same suite to pass.
 | D7 | The graph database, and the API behind the web interface, are not reachable from the public internet | the deploy workflow: `fly/verify.sh` lists the apps' addresses |
 | D8 | Secrets come from the platform's secret store; no committed configuration file contains one | the `config-secrets` guard, in `pre-commit` and CI ([Testing](TESTING.md#guards)) |
 | D9 | `/actuator/prometheus` and the rest of the actuator are not reachable from the public internet | `D9 the metrics and the rest of the actuator are not public` |
-| D10 | Alerts reach a configured receiver | not yet asserted: the alert rules are [#44](../../issues/44) |
+| D10 | Alerts reach a configured receiver | `deploy-check` in the monitoring image (`ops/monitoring`), run by the deploy workflow inside the dogfood instance's monitoring machine, and by the CI end-to-end job against a stand-in receiver |
 | D11 | An error response never contains a stack trace, a Cypher fragment or a configuration value | `D11 an error response gives nothing away about the internals` |
 | D12 | The deployment tracks `main`: every green CI run on `main` is deployed, and no red one is | the deploy workflow's trigger: `workflow_run` on CI, proceeding only on `success` for a `push` to `main`, deploying that run's own commit |
 

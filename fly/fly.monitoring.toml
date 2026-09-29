@@ -1,0 +1,21 @@
+# Prometheus and Alertmanager for the dogfood instance (#47 FR12), from the image in ops/monitoring.
+#
+# Private, like the database: no services, so fly gives it no public address, and neither the
+# metrics nor the alerts can be read from the internet (#48 D9). It scrapes the API over flycast,
+# evaluates the rules in ops/alerts and posts alerts to the webhook in the ALERTMANAGER_WEBHOOK_URL
+# secret, set by fly/bootstrap.sh. With no service, fly never stops the machine, which is the point.
+#
+# No volume: metrics history starts again at every deploy, and the burn-rate windows refill within
+# their own length. The instance is disposable (ADR-0010), and so is its history.
+#
+# The app name is a default; the workflow passes --app from FLY_APP_PREFIX, and BACKEND_ADDR with it.
+app = "sdlc-graph-monitoring"
+primary_region = "lhr"
+swap_size_mb = 256
+
+[env]
+  BACKEND_ADDR = "sdlc-graph-backend.flycast:8080"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

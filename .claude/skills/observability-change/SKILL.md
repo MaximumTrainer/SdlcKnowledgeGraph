@@ -57,5 +57,9 @@ npm run test:unit                                               # the alertmanag
 node scripts/gradle.mjs check                                   # event drift, runbooks, meters
 ```
 
-promtool and amtool run from pinned images, so Docker must be running. Then update the matching
+promtool and amtool run from pinned images, so Docker must be running. To watch the rules evaluate
+against a running API, `docker compose --profile monitoring up -d --build --wait` and open
+http://localhost:9090/alerts; `docker compose exec monitoring deploy-check` proves delivery. The
+monitoring image copies in `ops/alerts` and `ops/alertmanager` at build time, so a new rule file
+under another directory needs a `COPY` line in `ops/monitoring/Dockerfile`. Then update the matching
 section of `docs/OBSERVABILITY.md`, and run the verify-gate skill before pushing.

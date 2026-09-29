@@ -47,6 +47,12 @@ jobs:
       # them: unresolved conflict markers, oversized files, credential files, leaked secrets, and a
       # lefthook.yml that still parses.
       - run: npm run guards
+      # The image the dogfood instance monitors itself with (#47).
+      - name: Lint the monitoring Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ops/monitoring/Dockerfile
+          config: .hadolint.yaml
       # The alert rules (#44): the generated burn-rate rules match ops/slo.yaml, every rule file is
       # valid, and every promtool case passes. promtool runs from the pinned Prometheus image,
       # and amtool, which checks the Alertmanager routes, from the pinned Alertmanager image.
@@ -227,6 +233,14 @@ jobs:
             echo "::error::/actuator/prometheus is reachable through the web interface"
             exit 1
           fi
+      # What the dogfood instance's monitoring machine checks after every deploy (#47 FR12, D10): it
+      # scrapes the API, has loaded the rules, and delivers an alert to the webhook receiver.
+      # --no-deps: the API is already up, and building it again here would drop its SDLC_COMMIT.
+      - name: Prometheus scrapes the API and an alert reaches the receiver
+        run: |
+          docker compose --profile monitoring up -d --build --no-deps --wait monitoring alert-sink
+          docker compose exec -T monitoring deploy-check
+          docker compose logs alert-sink | grep -q '"POST /alerts'
       # A container without its database setting must refuse to start rather than come up broken.
       - name: The API refuses to start without NEO4J_URI
         run: |

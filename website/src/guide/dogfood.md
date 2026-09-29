@@ -19,6 +19,13 @@ is set up and operated is [fly/README.md](https://github.com/MaximumTrainer/Sdlc
 The seed stands in for the GitHub connector ([#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23)), which replaces it. Both need the
 `INGEST_TOKEN` secret on the `dogfood` environment; without it, neither writes and both say so.
 
+## It watches itself
+
+A private monitoring machine runs Prometheus and Alertmanager with the rules in `ops/alerts`, built
+into its image from the deployed commit ([Observability](/guide/observability#alerts)). It alerts on
+error budget burn, a down API and an unreachable database, and posts to the webhook in the
+`ALERTMANAGER_WEBHOOK_URL` secret. Every deploy proves an alert gets through (D10).
+
 ## It is read-only
 
 There is no sign-in yet ([#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3)), so an instance anyone can reach must not take writes
