@@ -58,6 +58,9 @@ observability:
   freshness-affects-readiness: ${FRESHNESS_AFFECTS_READINESS:false}
   sync-run-retention: ${SYNC_RUN_RETENTION:P30D}
   sync-run-retention-cron: ${SYNC_RUN_RETENTION_CRON:0 30 3 * * *}
+  # How often sdlc_graph_nodes and sdlc_graph_edges are recounted (#29, FR1). A scrape reads the last
+  # count rather than querying Neo4j, so this, not the scrape interval, is how stale they can be.
+  graph-count-interval: ${GRAPH_COUNT_INTERVAL:PT5M}
 
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as

@@ -40,6 +40,12 @@ object LogEvents {
     ) =
         EventLog.emit("graph.store.failed", Level.ERROR, "graph store operation failed", mapOf("operation" to operation), cause = cause)
 
+    /** Counting the graph's nodes and edges by type failed, so sdlc_graph_nodes and sdlc_graph_edges keep their last values. */
+    fun graphCountFailed(
+        cause: Throwable,
+    ) =
+        EventLog.emit("graph.count.failed", Level.WARN, "graph count failed; keeping the last counts", mapOf(), cause = cause)
+
     /** A request was refused with 400 because its arguments could not be read. */
     fun httpRequestRejected(
         cause: Throwable,
