@@ -51,8 +51,13 @@ management:
 # health component DOWN (#29, FR4). Off: a stale graph still answers correctly about what it has, and
 # failing readiness for it would take the instance out of service for something a restart cannot fix.
 # FreshnessReadiness reads it before the health groups are built.
+#
+# Finished SyncRun nodes older than sync-run-retention are pruned nightly, on sync-run-retention-cron
+# (#29, FR6). The nodes a pruned run produced stay, still naming it in their provenance.
 observability:
   freshness-affects-readiness: ${FRESHNESS_AFFECTS_READINESS:false}
+  sync-run-retention: ${SYNC_RUN_RETENTION:P30D}
+  sync-run-retention-cron: ${SYNC_RUN_RETENTION_CRON:0 30 3 * * *}
 
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as

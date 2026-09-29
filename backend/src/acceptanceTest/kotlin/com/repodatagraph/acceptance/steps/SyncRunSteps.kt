@@ -2,6 +2,7 @@ package com.repodatagraph.acceptance.steps
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.repodatagraph.acceptance.support.ApiWorld
+import com.repodatagraph.application.connector.SyncRunRetentionJob
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.springframework.context.ApplicationContext
 import java.time.Duration
 import java.time.Instant
 
@@ -29,7 +29,7 @@ import java.time.Instant
 class SyncRunSteps(
     private val world: ApiWorld,
     private val graphStore: GraphStore,
-    private val context: ApplicationContext,
+    private val retention: SyncRunRetentionJob,
 ) {
     @Given("three SyncRuns exist for {string}")
     fun threeSyncRunsExist(connector: String) {
@@ -113,8 +113,7 @@ class SyncRunSteps(
     fun theRetentionJobRuns() {
         // Called directly rather than waited for: the job is nightly, and what is being proved is what
         // it deletes, not that a cron expression fires.
-        val job = context.getBean("syncRunRetentionJob")
-        job.javaClass.getMethod("prune").invoke(job)
+        retention.prune()
     }
 
     @Then("the response has {int} sync runs sorted by startedAt descending and totalElements {int}")

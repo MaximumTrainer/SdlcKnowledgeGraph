@@ -171,6 +171,20 @@ events:
       - { name: nodesUpserted, type: int }
       - { name: edgesUpserted, type: int }
       - { name: tombstones, type: int }
+  - name: sync.runs.pruned
+    level: INFO
+    message: old sync runs pruned
+    description: The retention job deleted the runs that finished before olderThan (#29, FR6). Logged even when it deleted none, so a quiet night still shows the job ran.
+    fields:
+      - { name: deleted, type: int }
+      - { name: olderThan, type: instant }
+  - name: sync.runs.prune.failed
+    level: WARN
+    message: pruning old sync runs failed
+    description: The retention job could not finish; the runs it had not reached are pruned the next night.
+    throwable: true
+    fields:
+      - { name: deleted, type: int }
 
   # GitHub
   - name: github.unreachable

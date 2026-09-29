@@ -61,7 +61,8 @@ object ProvenanceMapper {
 
     fun isProvenanceProperty(name: String): Boolean = name.startsWith(PREFIX)
 
-    private fun instant(value: Any?): Instant? =
+    /** A stored temporal value as an [Instant], whichever driver type it came back as. */
+    fun instant(value: Any?): Instant? =
         when (value) {
             null -> null
             is Instant -> value

@@ -171,7 +171,7 @@ class Neo4jSyncRunStoreIT {
 
     @Test
     fun `deletes no more than one batch per call`() {
-        (1..3).forEach { run("old-$it", longAgo.plusSeconds(it.toLong())) }
+        for (i in 1..3) run("old-$i", longAgo.plusSeconds(i.toLong()))
 
         assertThat(store.deleteFinishedBefore(cutoff, batchSize = 2)).isEqualTo(2)
         assertThat(store.deleteFinishedBefore(cutoff, batchSize = 2)).isEqualTo(1)

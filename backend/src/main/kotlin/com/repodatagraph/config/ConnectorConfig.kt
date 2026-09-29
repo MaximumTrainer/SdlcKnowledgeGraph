@@ -2,6 +2,7 @@ package com.repodatagraph.config
 
 import com.repodatagraph.adapter.out.github.GitHubProperties
 import com.repodatagraph.adapter.out.servicenow.ServiceNowProperties
+import com.repodatagraph.config.observability.ObservabilityProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -24,6 +25,7 @@ import java.time.Clock
     GitHubProperties::class,
     ServiceNowProperties::class,
     IngestProperties::class,
+    ObservabilityProperties::class,
 )
 class ConnectorConfig {
     @Bean

@@ -164,6 +164,20 @@ object LogEvents {
     ) =
         EventLog.emit("sync.finished", Level.INFO, "sync run finished", mapOf("connector" to connector, "syncRunId" to syncRunId, "mode" to mode, "status" to status, "durationMs" to durationMs, "nodesUpserted" to nodesUpserted, "edgesUpserted" to edgesUpserted, "tombstones" to tombstones))
 
+    /** The retention job deleted the runs that finished before olderThan (#29, FR6). Logged even when it deleted none, so a quiet night still shows the job ran. */
+    fun syncRunsPruned(
+        deleted: Int,
+        olderThan: java.time.Instant,
+    ) =
+        EventLog.emit("sync.runs.pruned", Level.INFO, "old sync runs pruned", mapOf("deleted" to deleted, "olderThan" to olderThan))
+
+    /** The retention job could not finish; the runs it had not reached are pruned the next night. */
+    fun syncRunsPruneFailed(
+        deleted: Int,
+        cause: Throwable,
+    ) =
+        EventLog.emit("sync.runs.prune.failed", Level.WARN, "pruning old sync runs failed", mapOf("deleted" to deleted), cause = cause)
+
     /** The GitHub health check could not reach GitHub. */
     fun githubUnreachable(
         reason: String,
