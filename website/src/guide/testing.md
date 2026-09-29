@@ -125,9 +125,9 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the website drift check when a documentation source is staged, and the guards below |
 | `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
-| `pre-push` | the branch guard, `./gradlew check`, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
+| `pre-push` | the branch guard, `./gradlew check`, the SLO rule drift check and promtool, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
 
@@ -271,3 +271,13 @@ node` is a requirement. `Then upsertEdge throws NodeNotFoundException` is an imp
 that will make the test fail the next time someone refactors correctly.
 
 Keep step definitions thin. They translate Gherkin into HTTP calls and assertions, nothing more.
+
+## Alert rules
+
+The alert rules in `ops/alerts` are tested with promtool (#44). `ops/alerts/tests/*.test.yml` feed
+series into the rules and say which alerts fire and which do not; every alert has a case of each.
+`node scripts/promtool.mjs` checks every rule file and runs every test file, from the pinned
+`prom/prometheus` image, so the only prerequisite is Docker. `node scripts/slo-rules.mjs --check`
+fails while `ops/alerts/generated/slo.rules.yml` differs from what `ops/slo.yaml` renders. Both run in
+CI (the Guards job), on `pre-push`, and on `pre-commit` when `ops/` changes. `AlertRunbookTest`, in
+the backend unit suite, holds every alert to a runbook and every runbook to an alert.
