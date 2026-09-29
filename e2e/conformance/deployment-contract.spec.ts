@@ -84,8 +84,15 @@ test('D5 a GraphQL mutation is refused', async ({ request }) => {
   }
 })
 
-test('D6 the deployment ingest endpoint still requires its token', async () => {
-  test.skip(true, 'The ingest endpoint does not exist yet (#7); this requirement applies once it does')
+test('D6 the deployment ingest endpoint still requires its token', async ({ request }) => {
+  const report = { repository: 'github.com/example/conformance', artifacts: [] }
+  const attempts: Record<string, string>[] = [{}, { Authorization: 'Bearer not-the-token' }]
+  for (const headers of attempts) {
+    const response = await request.post('/api/v1/ingest/deployment', { data: report, headers })
+    // 401 when the deployment has a token configured; 503 when it has none, which disables the
+    // endpoint. Never 403: the read-only refusal must not be what stands in front of it.
+    expect([401, 503], JSON.stringify(headers)).toContain(response.status())
+  }
 })
 
 test('D9 the metrics and the rest of the actuator are not public', async ({ request }) => {
