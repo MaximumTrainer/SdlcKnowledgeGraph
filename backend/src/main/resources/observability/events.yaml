@@ -138,6 +138,40 @@ events:
       - { name: connector, type: string }
       - { name: runId, type: string }
 
+  # Sync runs (#29): one started and one finished per run, webhook runs included, and one line per
+  # page applied. A run's failures have their own connector.* events above.
+  - name: sync.started
+    level: INFO
+    message: sync run started
+    description: A connector began a run, scheduled, manual or from a webhook.
+    fields:
+      - { name: connector, type: string }
+      - { name: syncRunId, type: string }
+      - { name: mode, type: string }
+  - name: sync.page
+    level: INFO
+    message: sync page applied
+    description: A page a connector read was written to the graph. Pages count from 1.
+    fields:
+      - { name: connector, type: string }
+      - { name: syncRunId, type: string }
+      - { name: page, type: int }
+      - { name: nodes, type: int }
+      - { name: edges, type: int }
+  - name: sync.finished
+    level: INFO
+    message: sync run finished
+    description: A run ended, with how it ended, how long it took and what it wrote.
+    fields:
+      - { name: connector, type: string }
+      - { name: syncRunId, type: string }
+      - { name: mode, type: string }
+      - { name: status, type: string }
+      - { name: durationMs, type: int }
+      - { name: nodesUpserted, type: int }
+      - { name: edgesUpserted, type: int }
+      - { name: tombstones, type: int }
+
   # GitHub
   - name: github.unreachable
     level: WARN

@@ -6,6 +6,8 @@ import com.repodatagraph.application.connector.SyncService
 import com.repodatagraph.application.connector.UnknownConnectorException
 import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
+import com.repodatagraph.observability.SyncMetrics
+import com.repodatagraph.observability.WebhookResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
@@ -26,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController
  * payload from the one that was signed.
  *
  * Verification happens before the connector is told anything at all. An unverified payload never
- * reaches `onWebhook`, so a connector cannot act on a forged event even by accident.
+ * reaches `onWebhook`, so a connector cannot act on a forged event even by accident. A refusal is
+ * counted here, where it happens (#29): it never reaches the sync service, which counts the rest.
  */
 @RestController
 @RequestMapping("/api/v1/webhooks")
@@ -34,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController
 class WebhookController(
     private val registry: AdapterRegistry,
     private val syncService: SyncService,
+    private val metrics: SyncMetrics,
 ) {
     /**
      * Three exits for three different refusals: this connector does not take webhooks, the signature
@@ -57,6 +61,7 @@ class WebhookController(
         val payload = body ?: ByteArray(0)
         val headers = headersOf(request)
         if (!registered.connector.verifyWebhook(headers, payload)) {
+            metrics.webhook(name, WebhookResult.REJECTED)
             // Deliberately says nothing about why. A response that distinguished "no signature" from
             // "wrong signature" would help someone guessing at one.
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
