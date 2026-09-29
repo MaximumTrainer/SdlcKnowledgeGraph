@@ -29,6 +29,12 @@ it built as `EXPECTED_COMMIT`. A deploy that fails either is red.
    - `FLY_API_TOKEN`: the token from step 1
    - `NEO4J_PASSWORD`: any random string of 8 characters or more, for example the output of
      `openssl rand -hex 24`
+
+   A third secret is optional:
+   - `INGEST_TOKEN`: another random string. With it, every deploy records itself in the graph it
+     deployed, through `POST /api/v1/ingest/deployment` (docs/ADAPTERS.md, "Self-ingestion"): which
+     images, from which commit, and whether the deploy worked. Without it, each deploy warns that it
+     was not recorded.
 3. If the app names are taken on fly.io, or the organisation or region should differ, change
    `FLY_APP_PREFIX` (default `sdlc-graph`), `FLY_ORG` (`personal`) and `FLY_REGION` (`lhr`) at the
    top of the deploy job in `.github/workflows/deploy-dogfood.yml`.

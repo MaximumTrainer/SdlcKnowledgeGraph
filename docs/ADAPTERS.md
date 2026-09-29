@@ -494,6 +494,10 @@ The token is checked before the body is read, so a caller without it learns noth
 validation errors. The same report posted twice is one delivery: it is named by a hash of its bytes,
 and a retrying workflow step applies it once.
 
+The dogfood deploy is the first reporter. After every deploy, including a failed one, it posts both
+images by digest (`scripts/deployment-report.mjs`), when the `dogfood` environment has an
+`INGEST_TOKEN` (`fly/README.md`).
+
 This is the one write a read-only instance still accepts ([Deployment contract](DEPLOYMENT.md), D6),
 because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions` with
 the same payload and token, which is the generic webhook route that #22 set up.
