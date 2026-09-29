@@ -540,3 +540,10 @@ naming every problem, `401` without the token and `503` on an instance with none
 so seeding again changes properties such as a pipeline's `lastRunStatus` and never adds nodes; the
 same batch twice is one delivery. Every fact has provenance `sourceSystem=dogfood-seed`, so it can be
 told from what the GitHub connector writes once it replaces the seed.
+
+The writer is `scripts/dogfood-seed.mjs`, run daily and on demand by `.github/workflows/dogfood-seed.yml`.
+It reads the repository, `CODEOWNERS`, each workflow file's latest run on the default branch, and the
+dependencies in `frontend/package.json` and `backend/build.gradle.kts` that name a git remote. Registry
+versions and local paths are not repositories, so they are left out. It fails when the instance cannot
+be reached, and when the instance holds more nodes than `SEED_NODE_CEILING` (1000), the cheap sign
+that something else is writing to it.

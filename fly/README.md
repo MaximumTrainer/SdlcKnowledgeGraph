@@ -33,8 +33,9 @@ it built as `EXPECTED_COMMIT`. A deploy that fails either is red.
    A third secret is optional:
    - `INGEST_TOKEN`: another random string. With it, every deploy records itself in the graph it
      deployed, through `POST /api/v1/ingest/deployment` (docs/ADAPTERS.md, "Self-ingestion"): which
-     images, from which commit, and whether the deploy worked. Without it, each deploy warns that it
-     was not recorded.
+     images, from which commit, and whether the deploy worked. It also lets the daily Dogfood seed
+     workflow write this repository's own SDLC (docs/DOGFOOD.md). Without it, each deploy and each
+     seed warns that it wrote nothing.
 3. If the app names are taken on fly.io, or the organisation or region should differ, change
    `FLY_APP_PREFIX` (default `sdlc-graph`), `FLY_ORG` (`personal`) and `FLY_REGION` (`lhr`) at the
    top of the deploy job in `.github/workflows/deploy-dogfood.yml`.
@@ -74,5 +75,6 @@ flyctl volumes list --app sdlc-graph-neo4j
 flyctl volumes destroy <volume-id> --app sdlc-graph-neo4j
 ```
 
-Then re-run the latest Deploy dogfood run from the Actions tab. There is nothing to re-seed yet:
-the seed script is still to come (#47).
+Then re-run the latest Deploy dogfood run from the Actions tab, and once it is green run the Dogfood
+seed workflow, which writes this repository back (docs/DOGFOOD.md). The deployment history starts
+again from that deploy.

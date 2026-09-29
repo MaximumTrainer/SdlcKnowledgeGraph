@@ -18,7 +18,7 @@ CONFORMANCE_BASE_URL=<https://the-deployment> npx playwright test --config=confo
 ```
 
 Set `EXPECTED_COMMIT=<full sha>` to check D3, that the deployment is running the commit you meant to
-deploy; without it D3 is skipped, not passed. D6 is skipped until the ingest endpoint (#7) exists.
+deploy; without it D3 is skipped, not passed.
 
 Against the local stack: `docker compose up -d --build --wait`, then
 `SDLC_READ_ONLY=true docker compose up -d --wait backend`, then run the suite with
