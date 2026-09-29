@@ -18,7 +18,7 @@ not its definition. A deployment on another platform has the same suite to pass.
 | D3 | The running image is the one built from the commit being deployed, deployed by digest; no floating tag is deployed | `D3 the deployment is running the commit that was meant to be deployed`, plus the deploy workflow (digest) |
 | D4 | A deployment without an authentication provider runs read-only | `D4 a deployment without authentication runs read-only` |
 | D5 | In read-only mode every write and every GraphQL mutation is refused with 403, deny-by-default | `D5 a POST/PUT/PATCH/DELETE under /api/v1 is refused`, `D5 a GraphQL mutation is refused` |
-| D6 | The deployment ingest endpoint still requires its bearer token in read-only mode | `D6 the deployment ingest endpoint still requires its token` |
+| D6 | The ingest endpoints (deployment and seed) still require their bearer token in read-only mode | `D6 the ingest endpoints still require their token` |
 | D7 | The graph database, and the API behind the web interface, are not reachable from the public internet | the deploy workflow: `fly/verify.sh` lists the apps' addresses |
 | D8 | Secrets come from the platform's secret store; no committed configuration file contains one | the `config-secrets` guard, in `pre-commit` and CI ([Testing](TESTING.md#guards)) |
 | D9 | `/actuator/prometheus` and the rest of the actuator are not reachable from the public internet | `D9 the metrics and the rest of the actuator are not public` |
