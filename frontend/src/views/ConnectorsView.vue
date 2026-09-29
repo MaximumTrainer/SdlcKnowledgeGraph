@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { connectorApi, type ConnectorSummary } from '@/services/connectorApi'
+import { formatInstant } from '@/lib/time'
+import FreshnessBadge from '@/components/FreshnessBadge.vue'
+import StatusChip from '@/components/StatusChip.vue'
 
 /**
  * What is ingesting, and whether it is working.
  *
  * The screen exists to answer "why does the graph look empty" without reading logs. A connector that
  * is switched off, or whose source system is unreachable, says so here — those are the two causes,
- * and both are invisible everywhere else (#22).
+ * and both are invisible everywhere else (#22). A third is that it runs but has not succeeded for too
+ * long, which is what freshness and its stale badge say (#29).
  */
 const connectors = ref<ConnectorSummary[]>([])
 const error = ref('')
@@ -61,6 +65,7 @@ onMounted(load)
           <th>State</th>
           <th>Health</th>
           <th>Last run</th>
+          <th>Last success</th>
           <th />
         </tr>
       </thead>
@@ -81,10 +86,15 @@ onMounted(load)
           </td>
           <td :data-test="`last-run-${connector.name}`">
             <template v-if="connector.lastRun?.status">
-              {{ connector.lastRun.status }}
-              <small v-if="connector.lastRun.finishedAt">{{ connector.lastRun.finishedAt }}</small>
+              <StatusChip :status="connector.lastRun.status" />
+              <small v-if="connector.lastRun.finishedAt">{{
+                formatInstant(connector.lastRun.finishedAt)
+              }}</small>
             </template>
             <template v-else>never</template>
+          </td>
+          <td :data-test="`freshness-${connector.name}`">
+            <FreshnessBadge :name="connector.name" :freshness="connector.freshness" />
           </td>
           <td>
             <!-- Offered only when it would do something: a disabled connector is never scheduled. -->

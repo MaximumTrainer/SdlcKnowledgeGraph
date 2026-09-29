@@ -4,6 +4,40 @@
   },
   "interactions": [
     {
+      "description": "a request for a sync run that does not exist",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/sync-runs/no-such-run"
+      },
+      "response": {
+        "body": {
+          "error": "sync run not found",
+          "id": "no-such-run"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      }
+    },
+    {
       "description": "a request for all Team nodes",
       "providerStates": [
         {
@@ -61,6 +95,122 @@
         "body": [],
         "headers": {
           "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for one sync run",
+      "providerStates": [
+        {
+          "name": "a FAILED sync run of github exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/sync-runs/pact-run-1"
+      },
+      "response": {
+        "body": {
+          "connector": "github",
+          "details": {},
+          "durationMs": 90000,
+          "edgesUpserted": 2,
+          "error": "page 2 failed",
+          "id": "pact-run-1",
+          "mode": "FULL",
+          "nodesUpserted": 3,
+          "startedAt": "2026-09-01T10:00:00Z",
+          "status": "FAILED",
+          "tombstones": 1
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.connector": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.details": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.durationMs": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.edgesUpserted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.mode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodesUpserted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.startedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.tombstones": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
         },
         "status": 200
       }
@@ -150,6 +300,184 @@
       }
     },
     {
+      "description": "a request for the FAILED runs of github",
+      "providerStates": [
+        {
+          "name": "a FAILED sync run of github exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/sync-runs",
+        "query": {
+          "connector": [
+            "github"
+          ],
+          "page": [
+            "0"
+          ],
+          "size": [
+            "20"
+          ],
+          "status": [
+            "FAILED"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "items": [
+            {
+              "connector": "github",
+              "durationMs": 90000,
+              "edgesUpserted": 2,
+              "error": "page 2 failed",
+              "id": "pact-run-1",
+              "mode": "FULL",
+              "nodesUpserted": 3,
+              "startedAt": "2026-09-01T10:00:00Z",
+              "status": "FAILED",
+              "tombstones": 1
+            }
+          ],
+          "page": 0,
+          "size": 20,
+          "totalElements": 1,
+          "totalPages": 1
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.items[*].connector": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].durationMs": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.items[*].edgesUpserted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.items[*].error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].mode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].nodesUpserted": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.items[*].startedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.items[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].tombstones": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.page": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.size": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalElements": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalPages": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the configuration item of repository R1",
       "providerStates": [
         {
@@ -197,6 +525,99 @@
               ]
             },
             "$.serviceId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the connectors",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/connectors"
+      },
+      "response": {
+        "body": [
+          {
+            "enabled": false,
+            "freshness": {
+              "stale": false,
+              "thresholdSeconds": 7200
+            },
+            "health": {
+              "status": "DOWN"
+            },
+            "name": "github",
+            "sourceSystem": "github"
+          }
+        ],
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].enabled": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].freshness.stale": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].freshness.thresholdSeconds": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$[*].health.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].sourceSystem": {
               "combine": "AND",
               "matchers": [
                 {
@@ -932,6 +1353,44 @@
       },
       "response": {
         "status": 204
+      }
+    },
+    {
+      "description": "a request to sync github in full",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/connectors/github/sync",
+        "query": {
+          "mode": [
+            "full"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "syncRunId": "0b8f2c1e"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.syncRunId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 202
       }
     },
     {

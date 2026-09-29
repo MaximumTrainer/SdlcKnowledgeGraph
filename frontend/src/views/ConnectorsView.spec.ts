@@ -18,7 +18,18 @@ const connectors = [
     enabled: true,
     capabilities: ['FULL', 'INCREMENTAL', 'WEBHOOK'],
     health: { status: 'UP', detail: 'scripted' },
-    lastRun: { id: 'run-1', status: 'SUCCESS', finishedAt: '2026-09-01T10:00:00Z', watermark: null }
+    lastRun: {
+      id: 'run-1',
+      status: 'SUCCESS',
+      finishedAt: '2026-09-01T10:00:00Z',
+      watermark: null
+    },
+    freshness: {
+      lastSuccessAt: '2026-09-01T10:00:00Z',
+      ageSeconds: 10_800,
+      thresholdSeconds: 3600,
+      stale: true
+    }
   },
   {
     name: 'sleeping',
@@ -26,7 +37,8 @@ const connectors = [
     enabled: false,
     capabilities: ['FULL'],
     health: { status: 'DOWN', detail: 'no credentials' },
-    lastRun: null
+    lastRun: null,
+    freshness: { lastSuccessAt: null, ageSeconds: null, thresholdSeconds: 7200, stale: false }
   }
 ]
 
@@ -66,6 +78,24 @@ describe('ConnectorsView', () => {
 
     expect(wrapper.find('[data-test="last-run-fake"]').text()).toContain('SUCCESS')
     expect(wrapper.find('[data-test="last-run-sleeping"]').text()).toContain('never')
+  })
+
+  it('shows the last run status as a chip', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-test="last-run-fake"] [data-test="status-chip"]').text()).toBe(
+      'SUCCESS'
+    )
+  })
+
+  /** An answer built on a stale connector is worse than none, so staleness is flagged in words. */
+  it('shows how old each connector’s last success is, and flags a stale one', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-test="freshness-fake"]').text()).toContain('3 h ago')
+    expect(wrapper.find('[data-test="stale-fake"]').text()).toBe('stale')
+    expect(wrapper.find('[data-test="freshness-sleeping"]').text()).toContain('never')
+    expect(wrapper.find('[data-test="stale-sleeping"]').exists()).toBe(false)
   })
 
   it('asks for a sync and reports the run it started', async () => {

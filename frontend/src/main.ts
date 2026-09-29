@@ -5,6 +5,7 @@ import NodeList from './views/NodeList.vue'
 import NodeDetail from './views/NodeDetail.vue'
 import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
+import SyncRunsView from './views/SyncRunsView.vue'
 import NotFound from './views/NotFound.vue'
 
 /**
@@ -35,6 +36,7 @@ const router = createRouter({
       props: route => ({ type: route.params.type, id: nodeId(route.params.id) })
     },
     { path: '/connectors', component: ConnectorsView },
+    { path: '/sync-runs', component: SyncRunsView },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },
     { path: '/repositories/:id', redirect: to => `/nodes/Repository/${to.params.id}` },

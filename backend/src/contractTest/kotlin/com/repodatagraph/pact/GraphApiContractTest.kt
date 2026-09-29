@@ -74,4 +74,7 @@ class GraphApiContractTest {
 
     @State(ProviderStates.R1_RELATES_TO_A_CI)
     fun repositoryR1RelatesToACi() = states.repositoryR1RelatesToACi()
+
+    @State(ProviderStates.FAILED_SYNC_RUN_EXISTS)
+    fun failedSyncRunExists() = states.failedSyncRunExists()
 }
