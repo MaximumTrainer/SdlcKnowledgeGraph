@@ -463,6 +463,9 @@
             },
             "type" : "array"
           },
+          "meta" : {
+            "type" : "boolean"
+          },
           "name" : {
             "type" : "string"
           },
@@ -473,7 +476,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "identity", "name", "properties" ],
+        "required" : [ "identity", "meta", "name", "properties" ],
         "type" : "object"
       },
       "OntologyResponse" : {

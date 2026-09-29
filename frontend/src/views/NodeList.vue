@@ -3,10 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { nodeApi, ontologyApi, type GraphNode, type OntologyNodeType } from '@/services/api'
 
 /**
- * The list of nodes of one type, with a tab per type the registry declares.
- *
- * The tabs come from `GET /api/v1/ontology` rather than a hand-written list, so a node type added to
- * the registry is reachable here without a frontend release.
+ * The list of nodes of one type. Moving between types is the shell's navigation (#6); the ontology
+ * is read here only for the columns worth showing.
  */
 const props = defineProps<{ type: string }>()
 
@@ -45,18 +43,6 @@ const cell = (node: GraphNode, column: string): string => {
 
 <template>
   <section class="node-list">
-    <nav class="tabs">
-      <router-link
-        v-for="nodeType in nodeTypes"
-        :key="nodeType.name"
-        data-test="type-tab"
-        :class="{ active: nodeType.name === type }"
-        :to="`/nodes/${nodeType.name}`"
-      >
-        {{ nodeType.name }}
-      </router-link>
-    </nav>
-
     <header>
       <h1>{{ type }}</h1>
       <router-link data-test="new-node" class="new" :to="`/nodes/${type}/new`">New</router-link>
@@ -89,25 +75,6 @@ const cell = (node: GraphNode, column: string): string => {
   background: #fff;
   border-radius: 6px;
   padding: 1.5rem;
-}
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 1rem;
-}
-.tabs a {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.85rem;
-  color: #4a5568;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-.tabs a.active {
-  color: #2b6cb0;
-  border-bottom-color: #2b6cb0;
-  font-weight: 600;
 }
 header {
   display: flex;

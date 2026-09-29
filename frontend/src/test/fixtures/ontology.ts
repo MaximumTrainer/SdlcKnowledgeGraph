@@ -14,6 +14,7 @@ export const ontologyFixture: Ontology = {
       name: 'Team',
       description: 'A group that owns things',
       identity: ['name'],
+      meta: false,
       properties: [
         { name: 'name', type: 'string', required: true, description: null },
         { name: 'email', type: 'string', required: false, description: null }
@@ -23,6 +24,7 @@ export const ontologyFixture: Ontology = {
       name: 'Repository',
       description: 'A git repository',
       identity: ['host', 'org', 'name'],
+      meta: false,
       properties: [
         { name: 'url', type: 'string', required: true, description: null },
         { name: 'host', type: 'string', required: true, description: null },
@@ -35,6 +37,7 @@ export const ontologyFixture: Ontology = {
       name: 'Sample',
       description: 'One property of every declared type',
       identity: ['name'],
+      meta: false,
       properties: [
         { name: 'name', type: 'string', required: true, description: null },
         { name: 'count', type: 'int', required: false, description: null },

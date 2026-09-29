@@ -10,7 +10,7 @@ import { expect, test } from '@playwright/test'
 test.describe('connectors', () => {
   test('the screen is reachable from the navigation', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('link', { name: 'Connectors' }).click()
+    await page.getByRole('link', { name: 'Connectors', exact: true }).click()
 
     await expect(page).toHaveURL(/\/connectors$/)
     await expect(page.getByRole('heading', { name: 'Connectors' })).toBeVisible()

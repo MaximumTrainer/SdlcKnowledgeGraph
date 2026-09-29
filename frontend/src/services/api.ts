@@ -245,6 +245,8 @@ export interface OntologyNodeType {
   description: string | null
   identity: string[]
   properties: OntologyProperty[]
+  /** Describes the graph itself (its ontology, its sync runs) rather than the software it models. */
+  meta: boolean
 }
 
 export interface OntologyEdgeType {
@@ -260,6 +262,28 @@ export interface Ontology {
   version: string
   nodeTypes: OntologyNodeType[]
   edgeTypes: OntologyEdgeType[]
+}
+
+/**
+ * The actuator, for the few endpoints a deployment answers publicly (docs/DEPLOYMENT.md). Separate
+ * from `apiClient` because it is not under `/api/v1`.
+ */
+export const actuatorClient = axios.create({ baseURL: '/actuator' })
+
+/** What a deployment says it is running: `/actuator/info`'s `deployment` block. */
+export interface DeploymentInfo {
+  deployment: {
+    commit: string
+    version: string
+    ontologyVersion: string
+    profile: string
+    readOnly: boolean
+  }
+}
+
+export const infoApi = {
+  get: (): Promise<DeploymentInfo> =>
+    actuatorClient.get('/info', { headers: { Accept: 'application/json' } }).then(r => r.data)
 }
 
 export const ontologyApi = {
