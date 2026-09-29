@@ -1,0 +1,164 @@
+# The burn-rate alerts generated from ops/slo.yaml, tested with promtool (#44, FR11). Each alert has a
+# case in which it fires and one in which it does not. The traffic is one API instance answering 100
+# requests a minute, some share of them failing or slow; each case says what share and why that
+# should or should not page.
+#
+# Run with: node scripts/promtool.mjs
+rule_files:
+  - ../generated/slo.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Five clean hours, then 10% of requests fail for an hour: over 14.4x the 0.5% budget in the last
+  # hour and the last 5 minutes, while the 6-hour share is still under 6x. Only the fast pair pages.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+100x300 30090+90x59'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0x300 10+10x59'
+    alert_rule_test:
+      - eval_time: 360m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts:
+          - exp_labels: { severity: page, slo: availability, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The availability error budget is burning fast enough to be gone within days
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+
+  # The same hour of failures, but they stopped 10 minutes ago: the last hour is still over 14.4x, the
+  # last 5 minutes are clean, so the short window says it is over and nothing pages.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+100x300 30090+90x54 35050+100x10'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0x300 10+10x54 550x10'
+    alert_rule_test:
+      - eval_time: 365m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts: []
+
+  # 4% of requests fail for hours: under 14.4x in the last hour, over 6x in the last 6 hours and the
+  # last 30 minutes. Only the slower page pair fires.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+96x400'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0+4x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts:
+          - exp_labels: { severity: page, slo: availability, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The availability error budget is burning fast enough to be gone within days
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+
+  # 2% of requests fail: 4x the budget. Over 3x, so a ticket; under 6x, so no page.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+98x400'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0+2x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts: []
+      - eval_time: 380m
+        alertname: AvailabilityBudgetSlowBurn
+        exp_alerts:
+          - exp_labels: { severity: ticket, slo: availability, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The availability error budget is burning faster than it can last the window
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+
+  # 1.2% of requests fail: 2.4x the budget, under 3x over the last day, so only the 3-day pair opens
+  # the ticket. (The 3x pair is never alone: a day over 3x is always 3 days over 1x, and 2 hours over
+  # 3x always 6 hours over 1x, so there is no case in which only it fires.)
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+988x400'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0+12x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: AvailabilityBudgetSlowBurn
+        exp_alerts:
+          - exp_labels: { severity: ticket, slo: availability, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The availability error budget is burning faster than it can last the window
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+      - eval_time: 380m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts: []
+
+  # 0.4% of requests fail: under the budget itself, so nothing fires.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+996x400'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SERVER_ERROR"}'
+        values: '0+4x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts: []
+      - eval_time: 380m
+        alertname: AvailabilityBudgetSlowBurn
+        exp_alerts: []
+
+  # Actuator traffic is not what users see: a failing health check does not spend the budget.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/ontology",outcome="SUCCESS"}'
+        values: '0+100x120'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/actuator/health/readiness",outcome="SERVER_ERROR"}'
+        values: '0+50x120'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: AvailabilityBudgetFastBurn
+        exp_alerts: []
+
+  # 20% of requests take longer than 500 ms: over 14.4x the 1% budget, so the page fires, and the
+  # ticket with it.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{job="sdlc-graph-backend",uri="/api/v1/graph",outcome="SUCCESS",le="0.5"}'
+        values: '0+80x120'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/graph",outcome="SUCCESS"}'
+        values: '0+100x120'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: LatencyBudgetFastBurn
+        exp_alerts:
+          - exp_labels: { severity: page, slo: latency, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The latency error budget is burning fast enough to be gone within days
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/latency.md
+      - eval_time: 65m
+        alertname: LatencyBudgetSlowBurn
+        exp_alerts:
+          - exp_labels: { severity: ticket, slo: latency, job: sdlc-graph-backend }
+            exp_annotations:
+              summary: The latency error budget is burning faster than it can last the window
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/latency.md
+
+  # 0.5% of requests are slow: half the budget, so nothing fires.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{job="sdlc-graph-backend",uri="/api/v1/graph",outcome="SUCCESS",le="0.5"}'
+        values: '0+995x400'
+      - series: 'http_server_requests_seconds_count{job="sdlc-graph-backend",uri="/api/v1/graph",outcome="SUCCESS"}'
+        values: '0+1000x400'
+    alert_rule_test:
+      - eval_time: 380m
+        alertname: LatencyBudgetFastBurn
+        exp_alerts: []
+      - eval_time: 380m
+        alertname: LatencyBudgetSlowBurn
+        exp_alerts: []

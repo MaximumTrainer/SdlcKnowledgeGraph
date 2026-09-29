@@ -1,0 +1,59 @@
+# The alerts in ops/alerts/app.rules.yml, which are not burn rates, tested with promtool (#44, FR11).
+#
+# Run with: node scripts/promtool.mjs
+rule_files:
+  - ../app.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # The instance stops answering scrapes and stays down past five minutes.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="sdlc-graph-backend",instance="api:8080"}'
+        values: '1 1 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: InstanceDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: InstanceDown
+        exp_alerts:
+          - exp_labels: { severity: page, job: sdlc-graph-backend, instance: "api:8080" }
+            exp_annotations:
+              summary: The API has not answered a scrape for 5 minutes
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/instance-down.md
+
+  # A blip shorter than five minutes is not an outage.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="sdlc-graph-backend",instance="api:8080"}'
+        values: '1 0 0 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: InstanceDown
+        exp_alerts: []
+
+  # The API is up but cannot reach Neo4j, and has not for five minutes.
+  - interval: 1m
+    input_series:
+      - series: 'sdlc_dependency_up{job="sdlc-graph-backend",instance="api:8080",dependency="neo4j"}'
+        values: '1 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: Neo4jUnreachable
+        exp_alerts:
+          - exp_labels: { severity: page, job: sdlc-graph-backend, instance: "api:8080", dependency: neo4j }
+            exp_annotations:
+              summary: The API has not been able to reach Neo4j for 5 minutes
+              runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/neo4j-unreachable.md
+
+  # Neo4j reachable throughout.
+  - interval: 1m
+    input_series:
+      - series: 'sdlc_dependency_up{job="sdlc-graph-backend",instance="api:8080",dependency="neo4j"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: Neo4jUnreachable
+        exp_alerts: []
