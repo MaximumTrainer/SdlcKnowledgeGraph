@@ -105,6 +105,8 @@ both halves of that.
 | `sdlc_sync_freshness_seconds` | `connector`, `sourceSystem` | Seconds since the connector's last successful scheduled or manual run finished; `NaN` if it has never succeeded. A webhook run does not reset it. Kept in memory and seeded from `ConnectorState.lastSuccessAt` on the first scrape after a restart (from `lastFinishedAt` for a state written before #29 added it). |
 | `sdlc_sync_in_progress` | `connector`, `sourceSystem` | 1 while a run of the connector is going, otherwise 0. |
 | `sdlc_webhook_events_total` | `connector`, `result` | Webhooks by what became of them: `applied` (it became a run, whatever that run's status), `ignored` (the connector found nothing in it, or it was a redelivery of one already applied) or `rejected` (its signature did not check out). |
+| `sdlc_graph_nodes` | `type` | Nodes of each type the ontology declares, closed facts included, as last counted. Counted at startup and then every `observability.graph-count-interval` (`GRAPH_COUNT_INTERVAL`, default `PT5M`), never by a scrape; `NaN` until the first count. A count that fails keeps the last values and logs `graph.count.failed`. |
+| `sdlc_graph_edges` | `type` | The same for each relationship type the ontology declares. |
 
 `type` is always a type the ontology declares, because an undeclared one is refused before anything
 is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed

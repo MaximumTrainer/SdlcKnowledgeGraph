@@ -60,6 +60,10 @@ jobs:
         run: |
           node scripts/slo-rules.mjs --check
           node scripts/promtool.mjs
+      # The Grafana dashboard (#29, FR9) reads only the metrics docs/OBSERVABILITY.md lists, and every
+      # panel's query parses, checked by promtool from the same pinned image.
+      - name: The dashboard reads only documented metrics
+        run: node scripts/dashboard.mjs
 
   root-scripts:
     # The guards decide whether a commit is allowed, and their failure mode is silent: one that has

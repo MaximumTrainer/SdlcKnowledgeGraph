@@ -66,6 +66,11 @@ pre-commit:
     - name: alert-rules
       glob: "{ops/**,scripts/slo-rules.mjs,scripts/promtool.mjs}"
       run: node scripts/slo-rules.mjs --check && node scripts/promtool.mjs
+    # The Grafana dashboard reads only the metrics docs/OBSERVABILITY.md lists, and every query
+    # parses (#29). The docs are in the glob because removing a metric there can break the dashboard.
+    - name: dashboard
+      glob: "{ops/grafana/**,docs/OBSERVABILITY.md,scripts/dashboard.mjs,scripts/promtool.mjs}"
+      run: node scripts/dashboard.mjs
     - name: website-drift
       glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"
       run: npm --prefix website run drift

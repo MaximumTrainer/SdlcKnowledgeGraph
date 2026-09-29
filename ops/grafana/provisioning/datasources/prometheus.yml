@@ -1,0 +1,14 @@
+# The Prometheus the dashboards read (#29, FR9): the monitoring service of the compose file, which
+# scrapes the API. The uid is fixed because the dashboard names it; timeInterval is the scrape
+# interval in ops/monitoring/prometheus.yml, so Grafana never asks for a step finer than the data.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://monitoring:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s
