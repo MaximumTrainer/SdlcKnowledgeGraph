@@ -1,10 +1,12 @@
 package com.repodatagraph.acceptance
 
+import com.repodatagraph.acceptance.support.GraphStoreFaults
 import com.repodatagraph.support.Neo4jTestcontainersConfig
 import com.repodatagraph.support.connector.FakeConnectorConfig
 import com.repodatagraph.support.connector.FakeGitHubConfig
 import com.repodatagraph.support.connector.FakeServiceNowConfig
 import io.cucumber.spring.CucumberContextConfiguration
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
@@ -22,8 +24,11 @@ import org.springframework.test.context.DynamicPropertySource
     FakeConnectorConfig::class,
     FakeGitHubConfig::class,
     FakeServiceNowConfig::class,
+    GraphStoreFaults::class,
 )
 @ActiveProfiles("test")
+// Spring Boot turns metric export off in tests unless asked, and metrics.feature scrapes it.
+@AutoConfigureObservability
 // Cucumber instantiates this class to build the context, so it cannot become an object however few
 // members it has - and `@DynamicPropertySource` is only discovered on the context configuration class.
 @Suppress("UtilityClassWithPublicConstructor")
