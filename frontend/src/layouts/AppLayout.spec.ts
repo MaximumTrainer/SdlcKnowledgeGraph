@@ -95,6 +95,14 @@ describe('AppLayout', () => {
     expect(wrapper.find('header a[href="/connectors"]').text()).toBe('Connectors')
   })
 
+  it('links to the sync run history from the header', async () => {
+    serve()
+    const wrapper = await mountLayout()
+    await flushPromises()
+
+    expect(wrapper.find('header a[href="/sync-runs"]').text()).toBe('Sync runs')
+  })
+
   it('says it is loading until the ontology arrives', async () => {
     serve({
       ontologyReply: async () => {
