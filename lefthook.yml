@@ -33,6 +33,10 @@ pre-commit:
     # working copy would pass the gate with the token still going in (#62).
     - name: secrets
       run: node scripts/secretlint.mjs --staged {staged_files}
+    # Deployment configuration must reference the platform's secret store, never hold a credential
+    # (#48, D8). No glob: the script picks its own files, so the scope is defined once.
+    - name: config-secrets
+      run: node scripts/check-no-secrets.mjs {staged_files}
     # Backend jobs run one after the other (piped) so ktlintFormat never rewrites files while detekt
     # is reading them; the group as a whole still runs in parallel with the frontend jobs.
     - name: backend
@@ -84,6 +88,8 @@ pre-merge-commit:
       run: node scripts/hygiene.mjs {staged_files}
     - name: secrets
       run: node scripts/secretlint.mjs --staged {staged_files}
+    - name: config-secrets
+      run: node scripts/check-no-secrets.mjs {staged_files}
 
 pre-push:
   parallel: true
