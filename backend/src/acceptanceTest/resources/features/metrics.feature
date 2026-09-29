@@ -42,3 +42,23 @@ Feature: Metrics a Prometheus server can scrape
     And it carries requestId "store-failed-1"
     And its field "operation" is "findNode"
     And "sdlc_graph_store_errors_total" with operation "findNode" went up by 1
+
+  # #29, FR1: how big the graph is, per declared type, counted on a timer rather than per scrape so
+  # a scrape never waits on Neo4j. The scenario asks for a count instead of waiting for the timer.
+  Scenario: The graph's size is counted per declared type
+    Given the Team "size-platform" is registered
+    And the Team "size-payments" is registered
+    And the Repository "github.com/acme/size-web" is registered
+    And I POST the edge:
+      """
+      {"type": "OWNED_BY",
+       "fromId": "Repository:github.com/acme/size-web",
+       "toId": "Team:size-platform",
+       "props": {"pathPatterns": ["*"]}}
+      """
+    When the graph is counted
+    Then the series 'sdlc_graph_nodes{type="Team"}' is 2
+    And the series 'sdlc_graph_nodes{type="Repository"}' is 1
+    And the series 'sdlc_graph_nodes{type="Incident"}' is 0
+    And the series 'sdlc_graph_edges{type="OWNED_BY"}' is 1
+    And the series 'sdlc_graph_edges{type="DEPENDS_ON"}' is 0

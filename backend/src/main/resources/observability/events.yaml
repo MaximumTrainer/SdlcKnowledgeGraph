@@ -39,6 +39,12 @@ events:
     throwable: true
     fields:
       - { name: operation, type: string }
+  - name: graph.count.failed
+    level: WARN
+    message: graph count failed; keeping the last counts
+    description: Counting the graph's nodes and edges by type failed, so sdlc_graph_nodes and sdlc_graph_edges keep their last values.
+    throwable: true
+    fields: []
   - name: http.request.rejected
     level: DEBUG
     message: request rejected as malformed

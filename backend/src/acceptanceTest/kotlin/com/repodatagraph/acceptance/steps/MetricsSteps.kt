@@ -2,6 +2,7 @@ package com.repodatagraph.acceptance.steps
 
 import com.repodatagraph.acceptance.support.ApiWorld
 import com.repodatagraph.acceptance.support.GraphStoreFaults
+import com.repodatagraph.observability.GraphCountGauges
 import io.cucumber.java.After
 import io.cucumber.java.Before
 import io.cucumber.java.en.Given
@@ -16,6 +17,7 @@ import org.assertj.core.api.Assertions.assertThat
  */
 class MetricsSteps(
     private val world: ApiWorld,
+    private val graphCounts: GraphCountGauges,
 ) {
     private var baseline: List<Sample> = emptyList()
     private var scraped: List<Sample> = emptyList()
@@ -33,6 +35,12 @@ class MetricsSteps(
     @Given("the graph store fails on its next {string}")
     fun theStoreFailsOnItsNext(operation: String) {
         GraphStoreFaults.next = operation
+    }
+
+    /** Counts now rather than waiting up to five minutes for the timer to do it. */
+    @When("the graph is counted")
+    fun theGraphIsCounted() {
+        graphCounts.refresh()
     }
 
     @When("I scrape the metrics")

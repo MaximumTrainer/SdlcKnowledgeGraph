@@ -105,6 +105,8 @@ both halves of that.
 | `sdlc_sync_freshness_seconds` | `connector`, `sourceSystem` | Seconds since the connector's last successful scheduled or manual run finished; `NaN` if it has never succeeded. A webhook run does not reset it. Kept in memory and seeded from `ConnectorState.lastSuccessAt` on the first scrape after a restart (from `lastFinishedAt` for a state written before #29 added it). |
 | `sdlc_sync_in_progress` | `connector`, `sourceSystem` | 1 while a run of the connector is going, otherwise 0. |
 | `sdlc_webhook_events_total` | `connector`, `result` | Webhooks by what became of them: `applied` (it became a run, whatever that run's status), `ignored` (the connector found nothing in it, or it was a redelivery of one already applied) or `rejected` (its signature did not check out). |
+| `sdlc_graph_nodes` | `type` | Nodes of each type the ontology declares, closed facts included, as last counted. Counted at startup and then every `observability.graph-count-interval` (`GRAPH_COUNT_INTERVAL`, default `PT5M`), never by a scrape; `NaN` until the first count. A count that fails keeps the last values and logs `graph.count.failed`. |
+| `sdlc_graph_edges` | `type` | The same for each relationship type the ontology declares. |
 
 `type` is always a type the ontology declares, because an undeclared one is refused before anything
 is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed
@@ -146,6 +148,17 @@ a quiet night still shows the job ran. A failure logs `sync.runs.prune.failed` w
 how many it had deleted; the next night's run is the retry. The prune is an internal write, not an
 HTTP request, so a read-only deployment (`sdlc.read-only`) prunes too: that posture refuses writes
 arriving over HTTP, and an instance nobody may write to still should not fill up.
+
+`sdlc_graph_nodes` and `sdlc_graph_edges` say how big the graph is, which the connectors' own
+counters cannot: a connector that rewrites the same thousand nodes every run and one that adds a
+thousand new ones count the same. `GraphCountGauges` counts every declared type through the
+`GraphCensus` port with one parameter-free Cypher statement per type (`MATCH (n:Team) RETURN
+count(n)`), which Neo4j answers from its count store. A scrape never queries Neo4j: it reads the
+last count, so the values can be as old as `observability.graph-count-interval`. They read `NaN`
+rather than zero until the first count, because zero would claim the graph is empty when nobody has
+looked, and the first count runs at startup, possibly before the application writes its own
+`Ontology` node. A count that fails, because Neo4j is unreachable say, keeps every last value
+rather than half of them and logs `graph.count.failed`.
 
 ## Health
 
@@ -239,3 +252,37 @@ error budget at once, and one page for the cause is more use than three for its 
 rule or tell where a URL came from, so `scripts/alertmanager-config.test.mjs` checks those. Changing
 any of this is covered by the `observability-change` skill.
 
+## Dashboards
+
+The sync dashboard, "SDLC sync", is
+[`ops/grafana/dashboards/sdlc-sync-dashboard.json`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/ops/grafana/dashboards/sdlc-sync-dashboard.json)
+(#29, FR9; the issue asked for `deploy/grafana/`, but this repository keeps its operational
+configuration under `ops/`). It shows connector runs per hour by status, the p95 run duration over
+the past hour, freshness by connector, errors per hour by kind, and the graph's nodes and edges by
+type.
+
+`docker compose --profile monitoring up -d --build --wait` runs Grafana
+(`grafana/grafana:13.2.3`) beside Prometheus, at `http://localhost:3000`. It provisions a Prometheus
+datasource on the `monitoring` service and every dashboard under `ops/grafana/dashboards`, from
+[`ops/grafana/provisioning`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/tree/main/ops/grafana/provisioning).
+Anyone who can reach the port sees the dashboards as a viewer without signing in, which suits a
+laptop and nothing else. Provisioned dashboards cannot be saved from the UI: change the JSON, which
+is the only copy that survives a restart. The same profile runs one Prometheus for both the alerts
+and the dashboards rather than a second one for Grafana, as the issue's `observability` profile
+would have.
+
+Grafana is not deployed to the dogfood instance, to keep it within fly's free tier: its monitoring
+machine is already the one that exists only to watch the others, and Grafana would be another
+always-on machine with a volume for its database, which the cost the fly README sets out does not
+include. To look at the dogfood instance's metrics,
+proxy its Prometheus ([fly/README.md](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/fly/README.md#alerts))
+and query it there.
+
+`node scripts/dashboard.mjs` holds the dashboard to this document: every metric a panel's query
+reads must be in the [Metrics](#metrics) table (a histogram's `_bucket`, `_count` and `_sum` series
+count as the histogram), every panel must query the provisioned datasource, and every query must
+parse, which promtool checks by loading each one as a recording rule. So a meter renamed or removed
+here fails the check until the dashboard follows, and a panel cannot read a metric nobody documented.
+It runs in CI (the Guards job) and on `pre-commit` when the dashboard or this document changes. The
+CI end-to-end job starts Grafana and checks that it has provisioned the dashboard and a healthy
+datasource, and that the API's `sdlc_graph_nodes` reaches it through Prometheus.

@@ -1,0 +1,12 @@
+# Loads every dashboard under ops/grafana/dashboards, which compose.yaml mounts at this path (#29,
+# FR9). The files are the source of truth: an edit made in the UI is refused rather than lost on
+# the next restart, so a change to a dashboard is a change to its JSON, checked by
+# scripts/dashboard.mjs.
+apiVersion: 1
+providers:
+  - name: sdlc
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

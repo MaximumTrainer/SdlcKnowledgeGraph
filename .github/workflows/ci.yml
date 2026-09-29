@@ -60,6 +60,10 @@ jobs:
         run: |
           node scripts/slo-rules.mjs --check
           node scripts/promtool.mjs
+      # The Grafana dashboard (#29, FR9) reads only the metrics docs/OBSERVABILITY.md lists, and every
+      # panel's query parses, checked by promtool from the same pinned image.
+      - name: The dashboard reads only documented metrics
+        run: node scripts/dashboard.mjs
 
   root-scripts:
     # The guards decide whether a commit is allowed, and their failure mode is silent: one that has
@@ -241,6 +245,17 @@ jobs:
           docker compose --profile monitoring up -d --build --no-deps --wait monitoring alert-sink
           docker compose exec -T monitoring deploy-check
           docker compose logs alert-sink | grep -q '"POST /alerts'
+      # The dashboard the sync meters are read on (#29, FR9): Grafana has provisioned it and its
+      # Prometheus datasource, the datasource reaches Prometheus, and what the API reported arrives
+      # through it. --no-deps for the same reason as above; Prometheus is already up.
+      - name: Grafana serves the sync dashboard from Prometheus
+        run: |
+          docker compose --profile monitoring up -d --no-deps --wait grafana
+          curl -sf http://localhost:3000/api/health | jq -e '.database == "ok"'
+          curl -sf 'http://localhost:3000/api/search?query=SDLC%20sync' | jq -e 'any(.uid == "sdlc-sync")'
+          curl -sf http://localhost:3000/api/datasources/uid/prometheus/health | jq -e '.status == "OK"'
+          curl -sf 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query?query=sdlc_graph_nodes' \
+            | jq -e '.data.result | length > 0'
       # A container without its database setting must refuse to start rather than come up broken.
       - name: The API refuses to start without NEO4J_URI
         run: |

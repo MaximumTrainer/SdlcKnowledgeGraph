@@ -82,6 +82,10 @@ flyctl proxy 9093 --app sdlc-graph-monitoring    # Alertmanager: http://localhos
 flyctl ssh console --app sdlc-graph-monitoring --command deploy-check   # prove delivery again
 ```
 
+There is no Grafana here: the sync dashboard runs only in the local `monitoring` compose profile, to
+keep the instance to the machines above ([OBSERVABILITY.md](../docs/OBSERVABILITY.md#dashboards)).
+Query the proxied Prometheus for the same series.
+
 The rules, the routes and the runbooks are in the repository ([OBSERVABILITY.md](../docs/OBSERVABILITY.md#alerts)).
 Metrics history is not kept across deploys: the machine has no volume, and the burn-rate windows
 fill again within their own length.
