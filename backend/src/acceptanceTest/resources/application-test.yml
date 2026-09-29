@@ -4,6 +4,10 @@ management:
     health:
       show-components: always
       show-details: always
+      # The liveness and readiness groups, as the docker profile has them, so connector-freshness can
+      # prove that a stale connector leaves the readiness probe alone.
+      probes:
+        enabled: true
 
 # What the image build would stamp from the commit it was built from (SDLC_COMMIT). Fixed here so the
 # deployment-info scenario can assert its shape without a git checkout.
@@ -25,6 +29,8 @@ connectors:
       # what they asked for rather than a scheduled sync arriving in the middle.
       schedule: "0 0 5 31 2 ?"
       webhook-secret: fake-secret
+      # Shorter than the webhook default of a day, so a success three hours old is stale (#29).
+      freshness-threshold: PT1H
     github:
       enabled: true
       schedule: "0 0 5 31 2 ?"
