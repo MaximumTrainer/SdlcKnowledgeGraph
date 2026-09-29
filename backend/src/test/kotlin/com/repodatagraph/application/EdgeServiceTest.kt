@@ -17,6 +17,8 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.GraphWriteMetrics
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -70,7 +72,7 @@ class EdgeServiceTest {
                 ),
         )
 
-    private val service = EdgeService(registry, PropertyValidator(), graphStore)
+    private val service = EdgeService(registry, PropertyValidator(), graphStore, GraphWriteMetrics(SimpleMeterRegistry()))
 
     private val payments = NodeKey("Repository", "acme/payments")
     private val sharedLib = NodeKey("Repository", "acme/shared-lib")

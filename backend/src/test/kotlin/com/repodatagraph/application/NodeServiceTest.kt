@@ -18,6 +18,8 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.GraphWriteMetrics
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -57,7 +59,14 @@ class NodeServiceTest {
                 listOf(EdgeTypeDef("OWNED_BY", null, listOf("Team"), listOf("Team"), "OWNS")),
         )
     private val service =
-        NodeService(registry, IdentityResolver(), DerivedProperties(GitRemoteParser()), PropertyValidator(), graphStore)
+        NodeService(
+            registry,
+            IdentityResolver(),
+            DerivedProperties(GitRemoteParser()),
+            PropertyValidator(),
+            graphStore,
+            GraphWriteMetrics(SimpleMeterRegistry()),
+        )
 
     private val platformKey = NodeKey("Team", "platform")
     private val platform = GraphNode(platformKey, mapOf("name" to "platform"), Provenance.manual())
