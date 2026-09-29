@@ -26,7 +26,7 @@ not its definition. A deployment on another platform has the same suite to pass.
 | D9 | `/actuator/prometheus` and the rest of the actuator are not reachable from the public internet | `D9 the metrics and the rest of the actuator are not public` |
 | D10 | Alerts reach a configured receiver | `deploy-check` in the monitoring image (`ops/monitoring`), run by the deploy workflow inside the dogfood instance's monitoring machine, and by the CI end-to-end job against a stand-in receiver |
 | D11 | An error response never contains a stack trace, a Cypher fragment or a configuration value | `D11 an error response gives nothing away about the internals` |
-| D12 | The deployment tracks `main`: every green CI run on `main` is deployed, and no red one is | the deploy workflow's trigger: `workflow_run` on CI, proceeding only on `success` for a `push` to `main`, deploying that run's own commit |
+| D12 | The deployment tracks `main`: every green CI run on `main` is deployed, and no red one is | the deploy-on-green gate (`.github/workflows/deploy-on-green.yml`, `scripts/deploy-gate.mjs`), which every deploy workflow calls from its `workflow_run` on CI: it proceeds only on `success` for a `push` to `main`, and hands back that run's own commit to deploy |
 
 ## What a client can see, and what it cannot
 
@@ -63,6 +63,34 @@ CI runs it twice against the compose stack. The first run is against the writabl
 tests use, where D5 has to fail, so a suite that has stopped checking anything is caught. The
 second run is after restarting the API read-only, where every requirement has to pass. The dogfood
 deploy runs it against the live instance after each deploy, and a failure turns the deploy red.
+
+## Deploying on green
+
+A deployment on any platform follows D12 by calling the same gate, rather than restating the rule:
+
+```yaml
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  gate:
+    uses: ./.github/workflows/deploy-on-green.yml
+    with:
+      environment: staging        # for the log
+      image_tag_prefix: ""        # optional; image_tag is this followed by the sha
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.should_deploy == 'true'
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}   # the commit CI tested; check out and build this
+```
+
+The gate lets through only a green CI run of a push to `main`, and its `sha` is that run's own
+commit, never whatever `main` points at by the time the deploy starts. A deploy job then runs the
+conformance suite against what it deployed (FR10). `scripts/deploy-workflows.test.mjs` fails if a
+workflow that deploys does not call the gate, or reads the commit from the event itself.
 
 ## Released images
 

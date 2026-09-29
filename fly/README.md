@@ -16,7 +16,8 @@ is disposable.
 ## How a deploy happens
 
 Nobody runs `flyctl deploy` by hand. `.github/workflows/deploy-dogfood.yml` runs when CI completes,
-and deploys only a green `push` run on `main`, from that run's own commit. In order, it runs
+and deploys only a green `push` run on `main`, from that run's own commit: its first job asks the
+deploy-on-green gate ([docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md#deploying-on-green)) whether to. In order, it runs
 `bootstrap.sh`, deploys Neo4j, builds and deploys the API, the web interface and the monitoring by
 image digest, runs `verify.sh`, and then runs the deployment conformance suite (`e2e/conformance`, the
 contract in [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md)) against the public address, with the commit
