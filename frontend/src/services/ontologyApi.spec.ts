@@ -10,6 +10,7 @@ const ontology: Ontology = {
       name: 'Repository',
       description: 'A git repository',
       identity: ['host', 'org', 'name'],
+      meta: false,
       properties: [
         { name: 'host', type: 'string', required: true, description: 'Host of the remote' },
         { name: 'topics', type: 'string[]', required: false, description: null }

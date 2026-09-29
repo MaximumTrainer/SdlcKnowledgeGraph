@@ -29,6 +29,8 @@ data class NodeTypeResponse(
     val description: String?,
     val identity: List<String>,
     val properties: List<PropertyResponse>,
+    /** True for a type that describes the graph itself, which a client browsing the software leaves out. */
+    val meta: Boolean,
 ) {
     companion object {
         fun from(nodeType: NodeTypeDef): NodeTypeResponse =
@@ -37,6 +39,7 @@ data class NodeTypeResponse(
                 description = nodeType.description,
                 identity = nodeType.identity,
                 properties = nodeType.properties.map(PropertyResponse::from),
+                meta = nodeType.meta,
             )
     }
 }

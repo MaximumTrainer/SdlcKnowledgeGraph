@@ -210,6 +210,83 @@
       }
     },
     {
+      "description": "a request for the deployment info",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Accept": "application/json"
+        },
+        "method": "GET",
+        "path": "/actuator/info"
+      },
+      "response": {
+        "body": {
+          "deployment": {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "ontologyVersion": "1.0.0",
+            "readOnly": false,
+            "version": "0.0.1-SNAPSHOT"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.deployment.commit": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{40}|unknown)$"
+                }
+              ]
+            },
+            "$.deployment.ontologyVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployment.readOnly": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployment.version": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application\\/json.*"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the edges of shared-lib",
       "providerStates": [
         {
@@ -296,6 +373,92 @@
         "matchingRules": {
           "body": {
             "$.repoId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the ontology",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/ontology"
+      },
+      "response": {
+        "body": {
+          "edgeTypes": [
+            {
+              "name": "DEPENDS_ON"
+            }
+          ],
+          "nodeTypes": [
+            {
+              "meta": false,
+              "name": "Repository"
+            }
+          ],
+          "version": "1.0.0"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.edgeTypes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.edgeTypes[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.nodeTypes[*].meta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.version": {
               "combine": "AND",
               "matchers": [
                 {

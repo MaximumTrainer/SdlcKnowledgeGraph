@@ -18,7 +18,8 @@
         { "name": "description", "type": "string", "required": false, "description": null },
         { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] },
         { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Team",
@@ -27,7 +28,8 @@
       "properties": [
         { "name": "name", "type": "string", "required": true, "description": null },
         { "name": "email", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Service",
@@ -37,7 +39,8 @@
         { "name": "name", "type": "string", "required": true, "description": null },
         { "name": "description", "type": "string", "required": false, "description": null },
         { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, e.g. gold" }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Pipeline",
@@ -50,7 +53,8 @@
         { "name": "name", "type": "string", "required": true, "description": null },
         { "name": "repoId", "type": "string", "required": true, "description": null },
         { "name": "lastRunStatus", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Artifact",
@@ -64,7 +68,8 @@
         { "name": "commitSha", "type": "string", "required": false, "description": null },
         { "name": "repoId", "type": "string", "required": false, "description": null },
         { "name": "artifactType", "type": "string", "required": true, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Deployment",
@@ -78,7 +83,8 @@
         { "name": "environmentId", "type": "string", "required": true, "description": null },
         { "name": "deployedBy", "type": "string", "required": false, "description": null },
         { "name": "status", "type": "string", "required": true, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Environment",
@@ -87,7 +93,8 @@
       "properties": [
         { "name": "name", "type": "string", "required": true, "description": null },
         { "name": "type", "type": "string", "required": true, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "CloudResource",
@@ -101,7 +108,8 @@
         { "name": "region", "type": "string", "required": false, "description": null },
         { "name": "accountId", "type": "string", "required": false, "description": null },
         { "name": "repoId", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "ConfigurationItem",
@@ -120,7 +128,8 @@
         { "name": "ownerGroup", "type": "string", "required": false, "description": null },
         { "name": "supportGroup", "type": "string", "required": false, "description": null },
         { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one" }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "ChangeRequest",
@@ -140,7 +149,8 @@
         { "name": "closeCode", "type": "string", "required": false, "description": null },
         { "name": "requestedBy", "type": "string", "required": false, "description": null },
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Incident",
@@ -159,7 +169,8 @@
         { "name": "resolvedAt", "type": "instant", "required": false, "description": null },
         { "name": "closeCode", "type": "string", "required": false, "description": null },
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Library",
@@ -169,7 +180,8 @@
         { "name": "ecosystem", "type": "string", "required": true, "description": "npm, maven, pypi, go or gradle", "enum": ["npm", "maven", "pypi", "go"] },
         { "name": "name", "type": "string", "required": true, "description": "The package name as the manifest spells it" },
         { "name": "description", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "IacFile",
@@ -180,7 +192,8 @@
         { "name": "path", "type": "string", "required": true, "description": "Path within the default branch" },
         { "name": "format", "type": "string", "required": true, "description": null, "enum": ["terraform", "cdk", "bicep", "cloudformation"] },
         { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on" }
-      ]
+      ],
+      "meta": false
     },
     {
       "name": "Ontology",
@@ -189,7 +202,8 @@
       "properties": [
         { "name": "version", "type": "string", "required": true, "description": null },
         { "name": "loadedAt", "type": "instant", "required": false, "description": null }
-      ]
+      ],
+      "meta": true
     },
     {
       "name": "SyncRun",
@@ -209,7 +223,8 @@
         { "name": "tombstones", "type": "int", "required": false, "description": "Facts this run closed because the source stopped reporting them" },
         { "name": "watermark", "type": "instant", "required": false, "description": "Where the next incremental run should start" },
         { "name": "error", "type": "string", "required": false, "description": null }
-      ]
+      ],
+      "meta": true
     },
     {
       "name": "ConnectorState",
@@ -221,7 +236,8 @@
         { "name": "lastRunId", "type": "string", "required": false, "description": null },
         { "name": "lastStatus", "type": "string", "required": false, "description": null },
         { "name": "lastFinishedAt", "type": "instant", "required": false, "description": null }
-      ]
+      ],
+      "meta": true
     }
   ],
   "edgeTypes": [

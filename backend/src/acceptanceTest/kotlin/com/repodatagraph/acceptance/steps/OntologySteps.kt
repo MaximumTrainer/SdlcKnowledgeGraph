@@ -27,6 +27,23 @@ class OntologySteps(
         assertEquals(expectedTypes.sorted(), declared.sorted(), "declared node types")
     }
 
+    @Then("the meta node types are {string}")
+    fun theMetaNodeTypesAre(expected: String) {
+        val meta = nodeTypes().filter { it.path("meta").asBoolean(false) }.map { it.path("name").asText() }
+        assertEquals(expected.split(",").map { it.trim() }.sorted(), meta.sorted(), "meta node types")
+    }
+
+    @Then("every other node type is not meta")
+    fun everyOtherNodeTypeIsNotMeta() {
+        // Explicitly false rather than absent: a client filtering on `!meta` must not be relying on a
+        // missing field reading as false.
+        nodeTypes().filterNot { it.path("meta").asBoolean(false) }.forEach {
+            assertTrue(it.path("meta").isBoolean) { "${it.path("name").asText()} has no boolean meta flag" }
+        }
+    }
+
+    private fun nodeTypes(): List<JsonNode> = world.lastBody().path("nodeTypes").toList()
+
     @Then("every edge type declares a non-empty inverse")
     fun everyEdgeTypeDeclaresANonEmptyInverse() {
         val edges = world.lastBody().path("edgeTypes")

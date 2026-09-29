@@ -5,6 +5,7 @@ import NodeList from './views/NodeList.vue'
 import NodeDetail from './views/NodeDetail.vue'
 import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
+import NotFound from './views/NotFound.vue'
 
 /**
  * One set of routes for every node type, keyed by registry type, so a type added to the ontology is
@@ -36,7 +37,10 @@ const router = createRouter({
     { path: '/connectors', component: ConnectorsView },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },
-    { path: '/repositories/:id', redirect: to => `/nodes/Repository/${to.params.id}` }
+    { path: '/repositories/:id', redirect: to => `/nodes/Repository/${to.params.id}` },
+    // Last, so every route above wins. nginx serves index.html for any path, so this is the page a
+    // mistyped or stale link actually reaches.
+    { path: '/:pathMatch(.*)*', component: NotFound }
   ]
 })
 
