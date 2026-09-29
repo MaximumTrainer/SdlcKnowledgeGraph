@@ -6,6 +6,9 @@ import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.actuate.health.Health
+import org.springframework.boot.actuate.health.HealthContributorRegistry
+import org.springframework.boot.actuate.health.HealthIndicator
 import org.springframework.boot.info.BuildProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -28,4 +31,17 @@ class MetricsConfig {
         registry: OntologyRegistry,
         @Value("\${sdlc.deployment.commit:}") commit: String,
     ) = BuildInfoMetrics(build.ifAvailable?.version, registry.version, commit)
+
+    /** Neo4j's health as a meter, for the Neo4jUnreachable alert (ops/alerts/app.rules.yml). */
+    @Bean
+    fun dependencyHealthMetrics(health: HealthContributorRegistry) =
+        DependencyHealthMetrics(
+            mapOf(
+                // Looked up on every scrape, as the health endpoint does, rather than bound once.
+                "neo4j" to
+                    HealthIndicator {
+                        (health.getContributor("neo4j") as? HealthIndicator)?.health() ?: Health.unknown().build()
+                    },
+            ),
+        )
 }

@@ -1,0 +1,27 @@
+# The service objectives of the API (#44, FR8, FR9; docs/OBSERVABILITY.md).
+#
+# Each objective is the share of requests that must be good over the window, with the query for good
+# requests and the query for all of them. [$window] is where the generator puts each window it needs.
+# Traffic to /actuator is left out: health checks and scrapes are not what users see.
+#
+# After changing this file, run node scripts/slo-rules.mjs and commit ops/alerts/generated/slo.rules.yml;
+# the check fails until you do. Each objective's runbook is docs/runbooks/<runbook>.md, and a promtool
+# case in ops/alerts/tests/slo.test.yml shows each of its alerts firing and not firing.
+objectives:
+  - name: availability
+    description: Requests the API answers without a server error.
+    objective: 0.995
+    window: 30d
+    sli:
+      good: sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[$window]))
+      total: sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[$window]))
+    runbook: availability
+
+  - name: latency
+    description: Requests the API answers within 500 ms.
+    objective: 0.99
+    window: 30d
+    sli:
+      good: sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[$window]))
+      total: sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[$window]))
+    runbook: latency

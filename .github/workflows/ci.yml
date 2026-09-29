@@ -47,6 +47,12 @@ jobs:
       # them: unresolved conflict markers, oversized files, credential files, leaked secrets, and a
       # lefthook.yml that still parses.
       - run: npm run guards
+      # The alert rules (#44): the generated burn-rate rules match ops/slo.yaml, every rule file is
+      # valid, and every promtool case passes. promtool runs from the pinned Prometheus image.
+      - name: Alert rules are current and pass their tests
+        run: |
+          node scripts/slo-rules.mjs --check
+          node scripts/promtool.mjs
 
   root-scripts:
     # The guards decide whether a commit is allowed, and their failure mode is silent: one that has
