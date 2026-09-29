@@ -9,6 +9,7 @@ is disposable.
 | `fly.frontend.toml` | The web interface: the only public app |
 | `fly.backend.toml` | The API, private (`.flycast`), read-only |
 | `fly.neo4j.toml` | Neo4j on a volume, private (`.internal`), no services |
+| `fly.monitoring.toml` | Prometheus and Alertmanager (`ops/monitoring`), private, no services |
 | `bootstrap.sh` | Creates whatever is missing: apps, volume, the backend's private address, secrets |
 | `verify.sh` | Checks the live instance from outside, and fails the deploy if it is wrong |
 
@@ -16,10 +17,12 @@ is disposable.
 
 Nobody runs `flyctl deploy` by hand. `.github/workflows/deploy-dogfood.yml` runs when CI completes,
 and deploys only a green `push` run on `main`, from that run's own commit. In order, it runs
-`bootstrap.sh`, deploys Neo4j, builds and deploys the API and then the web interface by image
-digest, runs `verify.sh`, and then runs the deployment conformance suite (`e2e/conformance`, the
+`bootstrap.sh`, deploys Neo4j, builds and deploys the API, the web interface and the monitoring by
+image digest, runs `verify.sh`, and then runs the deployment conformance suite (`e2e/conformance`, the
 contract in [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md)) against the public address, with the commit
-it built as `EXPECTED_COMMIT`. A deploy that fails either is red.
+it built as `EXPECTED_COMMIT`. Last, when alerts have a receiver, it runs `deploy-check` inside
+the monitoring machine, which proves an alert reaches it (D10). A deploy that fails any of these is
+red.
 
 ## One-time setup
 
@@ -36,6 +39,10 @@ it built as `EXPECTED_COMMIT`. A deploy that fails either is red.
      images, from which commit, and whether the deploy worked. It also lets the daily Dogfood seed
      workflow write this repository's own SDLC (docs/DOGFOOD.md). Without it, each deploy and each
      seed warns that it wrote nothing.
+   - `ALERTMANAGER_WEBHOOK_URL`: where alerts are posted, as Alertmanager's webhook JSON. Any
+     endpoint that accepts a POST will do, such as an [ntfy](https://ntfy.sh) topic URL. Without it
+     alerts are evaluated but go nowhere, and each deploy warns so. With it, every deploy sends one
+     `DeployCheck` alert, severity ticket, to prove delivery works.
 3. If the app names are taken on fly.io, or the organisation or region should differ, change
    `FLY_APP_PREFIX` (default `sdlc-graph`), `FLY_ORG` (`personal`) and `FLY_REGION` (`lhr`) at the
    top of the deploy job in `.github/workflows/deploy-dogfood.yml`.
@@ -47,20 +54,37 @@ The next green run on `main` creates everything else.
 | App | Machine | Running |
 | --- | --- | --- |
 | `sdlc-graph` | shared-cpu-1x, 256 MB | When visited; stops when idle |
-| `sdlc-graph-backend` | shared-cpu-1x, 512 MB | When visited; stops when idle |
+| `sdlc-graph-backend` | shared-cpu-1x, 512 MB | Always: Prometheus scrapes it |
 | `sdlc-graph-neo4j` | shared-cpu-1x, 512 MB, 1 GB volume | Always |
+| `sdlc-graph-monitoring` | shared-cpu-1x, 256 MB, no volume | Always |
 
-fly.io no longer gives new organisations a free allowance. On a legacy allowance, this fits. Otherwise
-the cost is mostly the always-on database machine and its volume, a few dollars a month. The first
+fly.io no longer gives new organisations a free allowance. On a legacy allowance, the three always-on
+machines are what it covers. Otherwise the cost is the always-on machines and the volume, several
+dollars a month. The API stays up because an API that stopped when idle would page as InstanceDown
+every time nobody was using it. The first
 visit after an idle period waits for the web and API machines to start.
 
 ## Operating it
 
 ```bash
-flyctl logs --app sdlc-graph-backend       # or sdlc-graph, sdlc-graph-neo4j
+flyctl logs --app sdlc-graph-backend       # or sdlc-graph, sdlc-graph-neo4j, sdlc-graph-monitoring
 flyctl status --app sdlc-graph-backend
 FLY_APP_PREFIX=sdlc-graph fly/verify.sh    # the post-deploy checks, run by hand
 ```
+
+### Alerts
+
+Prometheus and Alertmanager are private. To look at them, forward their ports to your machine:
+
+```bash
+flyctl proxy 9090 --app sdlc-graph-monitoring    # Prometheus: http://localhost:9090/alerts
+flyctl proxy 9093 --app sdlc-graph-monitoring    # Alertmanager: http://localhost:9093
+flyctl ssh console --app sdlc-graph-monitoring --command deploy-check   # prove delivery again
+```
+
+The rules, the routes and the runbooks are in the repository ([OBSERVABILITY.md](../docs/OBSERVABILITY.md#alerts)).
+Metrics history is not kept across deploys: the machine has no volume, and the burn-rate windows
+fill again within their own length.
 
 ### Recovery: destroy and re-derive
 

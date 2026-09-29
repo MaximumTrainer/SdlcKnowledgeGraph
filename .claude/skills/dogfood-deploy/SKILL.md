@@ -16,18 +16,26 @@ run of CI on `main`, from that run's commit, building the images and deploying t
 (`--image registry.fly.io/<app>@sha256:...`), so what runs is exactly what CI tested. To redeploy,
 re-run the latest Deploy dogfood run from the Actions tab. A red run on `main` deploys nothing.
 
-A deploy is only done when `fly/verify.sh` and the conformance suite pass against the public address.
+A deploy is only done when `fly/verify.sh` and the conformance suite pass against the public address,
+and, when `ALERTMANAGER_WEBHOOK_URL` is set, `deploy-check` passes inside the monitoring machine.
 
 ## Reading what it runs and logs
 
 ```bash
 curl -s https://sdlc-graph.fly.dev/actuator/info | jq .deployment   # commit, read-only, ontology
-flyctl logs --app sdlc-graph-backend                                 # or sdlc-graph, sdlc-graph-neo4j
+flyctl logs --app sdlc-graph-backend                  # or sdlc-graph, sdlc-graph-neo4j, sdlc-graph-monitoring
 flyctl status --app sdlc-graph-backend
 ```
 
 The container cannot reach fly.io or `*.fly.dev`; from a cloud session, read the workflow runs
 instead (`actions/runs?branch=main` on the GitHub API) and their logs.
+
+## When an alert fires
+
+The alert names its runbook (`docs/runbooks/`). Prometheus and Alertmanager are private; reach them
+with `flyctl proxy 9090 --app sdlc-graph-monitoring` (or 9093). If `deploy-check` fails, read which
+line failed: not scraping means the API or its flycast address; no rules means the image; no
+delivery means the webhook URL or the receiver.
 
 ## Checking it against the contract
 

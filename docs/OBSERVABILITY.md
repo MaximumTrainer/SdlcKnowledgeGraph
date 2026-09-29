@@ -154,6 +154,13 @@ fires; everything else, `ticket` and any alert that forgot its severity, goes to
 repeated every 4 hours. Both receivers post to the same webhook today; they are kept apart so a pager
 can be attached to `page` alone.
 
+Both run from one image, `ops/monitoring`, with the rules and routes of the commit it was built
+from. `docker compose --profile monitoring up -d --build --wait` runs it locally against the API,
+with a stand-in receiver (`alert-sink`) that logs every delivery. On the dogfood instance it is a
+private machine ([fly/README.md](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/fly/README.md#alerts)).
+`deploy-check`, inside the container, proves the whole path: Prometheus scrapes the API and has the
+rules, and a synthetic alert is accepted by the webhook (DEPLOYMENT.md D10).
+
 The webhook URL is a secret and is not in the repository. Each receiver reads it from
 `/etc/alertmanager/webhook-url`, which the runtime writes from `$ALERTMANAGER_WEBHOOK_URL`.
 
