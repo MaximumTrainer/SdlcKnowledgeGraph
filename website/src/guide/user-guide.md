@@ -254,6 +254,23 @@ neighbours only; the generic node and edge operations, and provenance, are avail
 The generated `<Type>Node` types in `schema.generated.graphqls` exist for the registry-driven
 schema that will replace this, and no query returns them yet.
 
+## Read-only instances
+
+An instance started with `sdlc.read-only=true` (environment variable `SDLC_READ_ONLY=true`) refuses
+every write. It exists because there is no authentication yet: an instance reachable by people who
+must not change it, such as a public demonstration, would otherwise be an open database.
+
+- Every request other than `GET`, `HEAD` and `OPTIONS` is refused with
+  `403 {"error": "this instance is read-only"}`, on every path. The refusal is deny-by-default: a
+  write endpoint added later is refused until it is deliberately allowed, and none is allowed today.
+- `POST /graphql` is answered only when the document can be parsed and contains no mutation. A
+  document that carries a mutation anywhere, whichever operation it names, is refused, and so is
+  one that cannot be parsed or is larger than 256 KB.
+- GraphiQL is not served (`/graphiql` returns 404), and WebSocket upgrades are refused.
+
+The web interface still browses; creating, editing and deleting fail with the refusal above. This is
+a posture, not access control: sign-in and permissions are [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3).
+
 ## The Neo4j browser
 
 The graph lives in Neo4j, and the browser at `http://localhost:7474` (user `neo4j`, password

@@ -51,3 +51,8 @@ connectors:
       password: ${SERVICENOW_PASSWORD:}
       client-id: ${SERVICENOW_CLIENT_ID:}
       client-secret: ${SERVICENOW_CLIENT_SECRET:}
+
+# Deployment posture (#48). Read-only refuses every write, deny-by-default, so an instance reachable
+# by people who must not change it is not an open database while there is no authentication (#3).
+sdlc:
+  read-only: ${SDLC_READ_ONLY:false}
