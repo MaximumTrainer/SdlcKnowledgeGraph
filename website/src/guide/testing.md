@@ -272,6 +272,38 @@ that will make the test fail the next time someone refactors correctly.
 
 Keep step definitions thin. They translate Gherkin into HTTP calls and assertions, nothing more.
 
+## Asserting on meters
+
+In a unit test, give the class a `SimpleMeterRegistry` and read the meter back by name and tags, in
+Micrometer's dotted form (`SyncMetricsTest`, `InstrumentedGraphStoreTest`):
+
+```kotlin
+val meters = SimpleMeterRegistry()
+val metrics = SyncMetrics(meters, clock)
+// ... drive the code ...
+val runs = meters.find("sdlc.sync.runs").tags("connector", "fake", "status", "SUCCESS").counter()
+assertThat(runs?.count()).isEqualTo(1.0)
+```
+
+A gauge is read with `.gauge()?.value()`, and a timer's buckets with
+`timer.takeSnapshot().histogramCounts()`. Pass a clock the test controls wherever time is measured,
+so a duration or an age is an exact number rather than a range.
+
+An acceptance test reads `/actuator/prometheus`, as a scraper would, so it sees the Prometheus names
+(`sdlc_sync_runs_total`). The suite shares one application across scenarios, so a counter's absolute
+value depends on which scenarios ran first: tag the feature `@metrics`, which scrapes once before the
+scenario, and assert how far a series moved (`MetricsSteps`):
+
+```gherkin
+Then the series 'sdlc_sync_runs_total{connector="fake",status="SUCCESS"}' went up by 1
+And the series 'sdlc_sync_freshness_seconds{connector="fake"}' is less than 60
+```
+
+Only the labels named are matched, and every series carrying them is summed. A gauge says what is
+true now, so `is` and `is less than` read it as it stands. A Spring Boot test outside the acceptance
+suite that scrapes the endpoint needs `@AutoConfigureObservability`, or the test context has no
+Prometheus registry (`PrometheusScrapeIT`).
+
 ## Alert rules
 
 The alert rules in `ops/alerts` are tested with promtool (#44). `ops/alerts/tests/*.test.yml` feed

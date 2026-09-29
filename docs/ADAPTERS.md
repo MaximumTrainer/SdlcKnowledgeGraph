@@ -441,6 +441,26 @@ to. Every node a run writes also gets a `PRODUCED` edge from the run, so "show m
 run wrote" is one traversal rather than a scan — which is what makes a bad sync reversible rather
 than merely auditable.
 
+### What a run reports
+
+A connector reports nothing to the metrics itself. `SyncService` counts what the connector hands it,
+so the meters in [OBSERVABILITY.md](OBSERVABILITY.md#metrics) are only as complete as what the
+connector returns:
+
+- **Pages.** Each `GraphDelta` returned from `sync` counts as a page in `sdlc_sync_pages_total`
+  and is logged as `sync.page`. A connector that returns its whole estate as one page reports one
+  page, however long it took; one that returns a page per request lets an operator see progress.
+- **Nodes, edges and tombstones.** Counted as the delta writer applied them, so a connector reports
+  them by returning them, never by counting them itself.
+- **Failures.** A page that throws while it is read, or cannot be written, counts as a `page` error
+  and makes the run `PARTIAL`; an exception from `sync` itself, before any page, counts as a `run`
+  error and makes it `FAILED`. Throw rather than returning an empty page, or a failure reads as a
+  quiet success.
+- **Freshness.** Counts from the last run that succeeded in full. A connector whose full syncs
+  always come back partial is never fresh, which is the point.
+- **Webhooks.** `verifyWebhook` returning false counts as `rejected`, `onWebhook` returning null as
+  `ignored`, and a `deliveryId` lets a redelivery count as `ignored` rather than a second run.
+
 ## Self-ingestion: deployments from the pipeline
 
 "Why did the deployment fail" has no answer in a graph that never hears about deployments. So the

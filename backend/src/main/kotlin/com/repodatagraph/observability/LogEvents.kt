@@ -133,6 +133,37 @@ object LogEvents {
     ) =
         EventLog.emit("connector.webhook.failed", Level.ERROR, "webhook failed to apply", mapOf("connector" to connector, "runId" to runId), cause = cause)
 
+    /** A connector began a run, scheduled, manual or from a webhook. */
+    fun syncStarted(
+        connector: String,
+        syncRunId: String,
+        mode: String,
+    ) =
+        EventLog.emit("sync.started", Level.INFO, "sync run started", mapOf("connector" to connector, "syncRunId" to syncRunId, "mode" to mode))
+
+    /** A page a connector read was written to the graph. Pages count from 1. */
+    fun syncPage(
+        connector: String,
+        syncRunId: String,
+        page: Int,
+        nodes: Int,
+        edges: Int,
+    ) =
+        EventLog.emit("sync.page", Level.INFO, "sync page applied", mapOf("connector" to connector, "syncRunId" to syncRunId, "page" to page, "nodes" to nodes, "edges" to edges))
+
+    /** A run ended, with how it ended, how long it took and what it wrote. */
+    fun syncFinished(
+        connector: String,
+        syncRunId: String,
+        mode: String,
+        status: String,
+        durationMs: Int,
+        nodesUpserted: Int,
+        edgesUpserted: Int,
+        tombstones: Int,
+    ) =
+        EventLog.emit("sync.finished", Level.INFO, "sync run finished", mapOf("connector" to connector, "syncRunId" to syncRunId, "mode" to mode, "status" to status, "durationMs" to durationMs, "nodesUpserted" to nodesUpserted, "edgesUpserted" to edgesUpserted, "tombstones" to tombstones))
+
     /** The GitHub health check could not reach GitHub. */
     fun githubUnreachable(
         reason: String,

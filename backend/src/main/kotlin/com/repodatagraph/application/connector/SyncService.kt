@@ -6,8 +6,12 @@ import com.repodatagraph.domain.port.out.connector.SyncMode
 import com.repodatagraph.domain.port.out.connector.SyncRequest
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
 import com.repodatagraph.observability.LogEvents
+import com.repodatagraph.observability.SyncErrorKind
+import com.repodatagraph.observability.SyncMetrics
+import com.repodatagraph.observability.WebhookResult
 import org.springframework.stereotype.Service
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -46,16 +50,36 @@ enum class RunStatus {
  *
  * A watermark is only advanced on a wholly successful run. Advancing it after a partial one would
  * silently skip whatever the failed page contained, and nothing would ever notice.
+ *
+ * Every run is reported to [SyncMetrics] and logged as `sync.started` and `sync.finished` (#29), and
+ * both happen before the run's final status is written: whoever sees a run finished in the graph can
+ * already see it in the meters, rather than racing them.
  */
 @Service
 class SyncService(
     private val registry: AdapterRegistry,
     private val writer: GraphDeltaWriter,
     private val recorder: SyncRunRecorder,
+    private val metrics: SyncMetrics,
     private val clock: Clock,
 ) {
     /** Connectors with a run in flight. In-process because the scheduler is in-process. */
     private val running = ConcurrentHashMap.newKeySet<String>()
+
+    init {
+        // Every connector the registry knows, so their series exist before their first run. The
+        // gauges read the running set and the graph, so they cannot disagree with either.
+        registry.all().forEach { registered ->
+            val name = registered.name
+            metrics.register(
+                connector = name,
+                sourceSystem = registered.descriptor.sourceSystem,
+                modes = SyncMode.entries.filter { it.capability in registered.descriptor.capabilities }.toSet(),
+                running = { isRunning(name) },
+                lastSuccess = { recorder.lastSuccessAt(name) },
+            )
+        }
+    }
 
     fun isRunning(connector: String): Boolean = connector in running
 
@@ -106,6 +130,8 @@ class SyncService(
         mode: SyncMode,
     ) {
         val registered = registry.find(name) ?: throw UnknownConnectorException(name)
+        val startedAt = Instant.now(clock)
+        LogEvents.syncStarted(name, runId, mode.name)
 
         val outcome =
             try {
@@ -117,11 +143,16 @@ class SyncService(
                 @Suppress("TooGenericExceptionCaught") failure: Exception,
             ) {
                 LogEvents.connectorRunFailed(name, runId, failure)
+                metrics.error(name, SyncErrorKind.RUN)
                 RunOutcome(RunStatus.FAILED, error = failure.message)
             } finally {
                 running.remove(name)
             }
 
+        report(name, runId, mode, outcome, startedAt)
+        // Freshness counts from here, as ConnectorState does; a webhook run does not reset it,
+        // because one event says nothing about whether the rest of the estate is current.
+        if (outcome.status == RunStatus.SUCCESS) metrics.succeeded(name, Instant.now(clock))
         recorder.recordRun(runId, registered, mode, outcome.status, outcome.totals, outcome.watermark, outcome.error)
         if (outcome.status == RunStatus.SUCCESS) {
             recorder.recordState(name, runId, outcome.status, outcome.watermark)
@@ -150,6 +181,7 @@ class SyncService(
         var partial = false
         var error: String? = null
         var finished = false
+        var pageIndex = 0
 
         while (!finished) {
             when (val step = nextPage(pages, registered.name, runId)) {
@@ -160,8 +192,15 @@ class SyncService(
                     finished = true
                 }
                 is PageStep.Next -> {
+                    metrics.page(registered.name)
                     val applied = applyPage(step.page, registered.name, runId, registered)
-                    if (applied == null) partial = true else totals += applied
+                    pageIndex++
+                    if (applied == null) {
+                        partial = true
+                    } else {
+                        LogEvents.syncPage(registered.name, runId, pageIndex, applied.nodesUpserted, applied.edgesUpserted)
+                        totals += applied
+                    }
                     step.page.watermark?.let { watermark = it }
                 }
             }
@@ -195,6 +234,7 @@ class SyncService(
             @Suppress("TooGenericExceptionCaught") failure: Exception,
         ) {
             LogEvents.connectorPageFailed(name, runId, failure)
+            metrics.error(name, SyncErrorKind.PAGE)
             PageStep.Failed(failure.message)
         }
 
@@ -219,12 +259,20 @@ class SyncService(
         deliveryId?.let { id ->
             recorder.runForDelivery(name, id)?.let { existing ->
                 LogEvents.connectorDeliveryDuplicate(name, id, existing)
+                metrics.webhook(name, WebhookResult.IGNORED)
                 return existing
             }
         }
 
-        val delta = registered.connector.onWebhook(event) ?: return null
+        val delta = registered.connector.onWebhook(event)
+        if (delta == null) {
+            metrics.webhook(name, WebhookResult.IGNORED)
+            return null
+        }
+        metrics.webhook(name, WebhookResult.APPLIED)
         val runId = newRunId()
+        val startedAt = Instant.now(clock)
+        LogEvents.syncStarted(name, runId, SyncMode.WEBHOOK.name)
         recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.RUNNING, DeltaResult(), null, null, deliveryId)
 
         val totals =
@@ -234,6 +282,8 @@ class SyncService(
                 @Suppress("TooGenericExceptionCaught") failure: Exception,
             ) {
                 LogEvents.connectorWebhookFailed(name, runId, failure)
+                metrics.error(name, SyncErrorKind.RUN)
+                report(name, runId, SyncMode.WEBHOOK, RunOutcome(RunStatus.FAILED), startedAt)
                 recorder.recordRun(
                     runId,
                     registered,
@@ -247,8 +297,40 @@ class SyncService(
                 return runId
             }
 
+        report(name, runId, SyncMode.WEBHOOK, RunOutcome(RunStatus.SUCCESS, totals), startedAt)
         recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.SUCCESS, totals, delta.watermark, null, deliveryId)
         return runId
+    }
+
+    /** How a run ended, as meters and as the `sync.finished` event. */
+    private fun report(
+        name: String,
+        runId: String,
+        mode: SyncMode,
+        outcome: RunOutcome,
+        startedAt: Instant,
+    ) {
+        val took = Duration.between(startedAt, Instant.now(clock))
+        val totals = outcome.totals
+        metrics.runFinished(
+            name,
+            mode,
+            outcome.status.name,
+            took,
+            totals.nodesUpserted,
+            totals.edgesUpserted,
+            totals.tombstones,
+        )
+        LogEvents.syncFinished(
+            name,
+            runId,
+            mode.name,
+            outcome.status.name,
+            took.toMillis().toInt(),
+            totals.nodesUpserted,
+            totals.edgesUpserted,
+            totals.tombstones,
+        )
     }
 
     /** One page, in its own try, so one bad page does not take the run with it. */
@@ -265,6 +347,7 @@ class SyncService(
             @Suppress("TooGenericExceptionCaught") failure: Exception,
         ) {
             LogEvents.connectorPageUnapplied(name, runId, failure)
+            metrics.error(name, SyncErrorKind.PAGE)
             null
         }
 
@@ -273,14 +356,18 @@ class SyncService(
         capabilities: Set<Capability>,
         mode: SyncMode,
     ) {
-        val needed =
-            when (mode) {
-                SyncMode.FULL -> Capability.FULL
-                SyncMode.INCREMENTAL -> Capability.INCREMENTAL
-                SyncMode.WEBHOOK -> Capability.WEBHOOK
-            }
+        val needed = mode.capability
         if (needed !in capabilities) throw UnsupportedCapabilityException(name, needed)
     }
 
     private fun newRunId(): String = UUID.randomUUID().toString()
 }
+
+/** What a connector has to be able to do to run in this mode. */
+private val SyncMode.capability: Capability
+    get() =
+        when (this) {
+            SyncMode.FULL -> Capability.FULL
+            SyncMode.INCREMENTAL -> Capability.INCREMENTAL
+            SyncMode.WEBHOOK -> Capability.WEBHOOK
+        }

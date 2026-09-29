@@ -81,6 +81,51 @@ class MetricsSteps(
         assertIncrease(name, mapOf("operation" to operation), by)
     }
 
+    /**
+     * A series written as Prometheus writes it, `name{label="value",...}`, naming only the labels
+     * that matter: every series that carries them counts, so a claim about `connector="fake"` holds
+     * whatever the other labels say.
+     */
+    @Then("the series {string} went up by {int}")
+    fun theSeriesWentUpBy(
+        series: String,
+        by: Int,
+    ) {
+        val (name, labels) = selector(series)
+        assertIncrease(name, labels, by)
+    }
+
+    /** For a gauge, which says what is true now rather than counting, so it is read as it stands. */
+    @Then("the series {string} is {int}")
+    fun theSeriesIs(
+        series: String,
+        value: Int,
+    ) {
+        assertThat(current(series)).describedAs(series).isEqualTo(value.toDouble())
+    }
+
+    @Then("the series {string} is less than {int}")
+    fun theSeriesIsLessThan(
+        series: String,
+        bound: Int,
+    ) {
+        // NaN, a connector that never succeeded, is not less than anything, so it fails here too.
+        assertThat(current(series)).describedAs(series).isLessThan(bound.toDouble())
+    }
+
+    private fun current(series: String): Double {
+        val (name, labels) = selector(series)
+        val matching = scrape().filter { it.name == name && labels.all { (k, v) -> it.labels[k] == v } }
+        assertThat(matching).describedAs("$series in the scrape").hasSize(1)
+        return matching.single().value
+    }
+
+    private fun selector(series: String): Pair<String, Map<String, String>> {
+        val sample = Sample.parse("$series 0")
+        assertThat(sample).describedAs("'$series' is not written as a Prometheus series").isNotNull
+        return checkNotNull(sample).name to sample.labels
+    }
+
     private fun assertIncrease(
         name: String,
         labels: Map<String, String>,

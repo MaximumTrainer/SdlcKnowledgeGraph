@@ -5,6 +5,8 @@ import com.repodatagraph.domain.port.out.connector.ConnectorDescriptor
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.SourceConnector
 import com.repodatagraph.domain.port.out.connector.SyncMode
+import com.repodatagraph.observability.SyncMetrics
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -51,7 +53,7 @@ class SyncServiceReconciliationTest {
         val registry: AdapterRegistry = mock()
         whenever(registry.find("scripted")).thenReturn(RegisteredConnector(connector, enabled = true))
         whenever(writer.apply(any(), any(), any())).thenReturn(DeltaResult(nodesUpserted = 1))
-        return SyncService(registry, writer, recorder, clock) to descriptor
+        return SyncService(registry, writer, recorder, SyncMetrics(SimpleMeterRegistry(), clock), clock) to descriptor
     }
 
     private val onePage: List<() -> GraphDelta> = listOf({ GraphDelta() })

@@ -115,8 +115,20 @@ class SyncRunRecorder(
      * silently become null, and every incremental run would quietly become a full one - working,
      * slowly, for ever, with nothing failing to say so.
      */
-    fun watermarkFor(connector: String): Instant? =
-        when (val stored = graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props?.get("watermark")) {
+    fun watermarkFor(connector: String): Instant? = stateInstant(connector, "watermark")
+
+    /**
+     * When this connector's last successful run finished, which is what its freshness counts from
+     * (#29). [recordState] is only called for a successful run, so its `lastFinishedAt` is exactly
+     * that; null means the connector has never succeeded, or not since the graph was emptied.
+     */
+    fun lastSuccessAt(connector: String): Instant? = stateInstant(connector, "lastFinishedAt")
+
+    private fun stateInstant(
+        connector: String,
+        property: String,
+    ): Instant? =
+        when (val stored = graphStore.findNode(NodeKey(CONNECTOR_STATE, connector))?.props?.get(property)) {
             is Instant -> stored
             is ZonedDateTime -> stored.toInstant()
             is OffsetDateTime -> stored.toInstant()
