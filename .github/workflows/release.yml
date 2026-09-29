@@ -1,0 +1,92 @@
+name: Release
+
+# Publishes the two images for a version tag (#7, FR1), so that a deployment anywhere can run exactly
+# what was released rather than rebuilding it:
+#
+#   ghcr.io/<owner>/sdlc-graph-backend:<tag> and :<sha>
+#   ghcr.io/<owner>/sdlc-graph-frontend:<tag> and :<sha>
+#
+# with an SPDX SBOM per image, kept as a workflow artifact, and a signed build provenance attestation
+# pushed next to each image. Nothing is published unless the whole of CI passes on the tagged commit.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: CI on the tagged commit
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  build-push:
+    name: Publish ${{ matrix.image }}
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        image: [backend, frontend]
+    env:
+      # Registry paths must be lower case, and the owner's name need not be.
+      IMAGE: ghcr.io/${{ github.repository_owner }}/sdlc-graph-${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lower-case the image name
+        run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.IMAGE }}:${{ github.sha }}
+          # Only the backend reads it: /actuator/info reports the commit an image was built from.
+          build-args: SDLC_COMMIT=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          artifact-name: sbom-${{ matrix.image }}.spdx.json
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - name: Summary
+        run: |
+          {
+            echo "### ${{ matrix.image }}"
+            echo
+            echo "\`${IMAGE}:${GITHUB_REF_NAME}\`"
+            echo
+            echo "digest \`${{ steps.push.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

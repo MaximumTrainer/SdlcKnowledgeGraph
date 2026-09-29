@@ -35,10 +35,23 @@ const problemsIn = (source, file) => {
   }
 }
 
+/**
+ * Findings that are wrong because the linter is older than the feature.
+ *
+ * The npm package is a 2022 WebAssembly build, and it has had no release since. Each entry here is a
+ * real GitHub feature it does not know, matched exactly, so the rest of the same check still runs.
+ */
+const OUTDATED = [
+  // `attestations: write`, which actions/attest-build-provenance needs (release.yml), dates from 2024.
+  { kind: 'permissions', message: /^unknown permission scope "attestations"\./ },
+]
+
+const outdated = problem => OUTDATED.some(({ kind, message }) => problem.kind === kind && message.test(problem.message))
+
 let failed = false
 
 for (const file of files) {
-  for (const problem of problemsIn(await readFile(file, 'utf8'), file)) {
+  for (const problem of problemsIn(await readFile(file, 'utf8'), file).filter(problem => !outdated(problem))) {
     failed = true
     console.error(`${file}:${problem.line}:${problem.column}: ${problem.message} [${problem.kind}]`)
   }
