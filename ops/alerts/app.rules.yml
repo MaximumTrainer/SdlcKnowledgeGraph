@@ -1,0 +1,25 @@
+# Alerts that are not burn rates (#44, FR9). The burn-rate alerts are generated from ops/slo.yaml into
+# ops/alerts/generated/. Every alert names its runbook (AlertRunbookTest) and has promtool cases in
+# ops/alerts/tests/app.test.yml.
+groups:
+  - name: app
+    rules:
+      # Nothing is being measured while the instance is down, so no objective can say so; this does.
+      - alert: InstanceDown
+        expr: up{job="sdlc-graph-backend"} == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The API has not answered a scrape for 5 minutes
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/instance-down.md
+
+      # The API is answering, but every graph read and write is failing behind it.
+      - alert: Neo4jUnreachable
+        expr: sdlc_dependency_up{job="sdlc-graph-backend",dependency="neo4j"} == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The API has not been able to reach Neo4j for 5 minutes
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/neo4j-unreachable.md

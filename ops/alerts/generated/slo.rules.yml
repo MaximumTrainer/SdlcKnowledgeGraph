@@ -1,0 +1,178 @@
+# GENERATED FROM ops/slo.yaml - DO NOT EDIT. Run node scripts/slo-rules.mjs.
+#
+# Multi-window, multi-burn-rate alerts for each service objective (docs/OBSERVABILITY.md).
+groups:
+  - name: slo-availability
+    rules:
+      - record: sdlc:slo_errors:ratio_rate5m
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[5m]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[5m]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate30m
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[30m]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[30m]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate1h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[1h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1h]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate2h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[2h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[2h]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate6h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[6h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[6h]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate1d
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[1d]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1d]))
+          )
+        labels:
+          slo: availability
+      - record: sdlc:slo_errors:ratio_rate3d
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*",outcome!="SERVER_ERROR"}[3d]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[3d]))
+          )
+        labels:
+          slo: availability
+      - alert: AvailabilityBudgetFastBurn
+        expr: |-
+          (sdlc:slo_errors:ratio_rate1h{slo="availability"} > 0.072 and sdlc:slo_errors:ratio_rate5m{slo="availability"} > 0.072)
+          or
+          (sdlc:slo_errors:ratio_rate6h{slo="availability"} > 0.03 and sdlc:slo_errors:ratio_rate30m{slo="availability"} > 0.03)
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: The availability error budget is burning fast enough to be gone within days
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+      - alert: AvailabilityBudgetSlowBurn
+        expr: |-
+          (sdlc:slo_errors:ratio_rate1d{slo="availability"} > 0.015 and sdlc:slo_errors:ratio_rate2h{slo="availability"} > 0.015)
+          or
+          (sdlc:slo_errors:ratio_rate3d{slo="availability"} > 0.005 and sdlc:slo_errors:ratio_rate6h{slo="availability"} > 0.005)
+        labels:
+          severity: ticket
+          slo: availability
+        annotations:
+          summary: The availability error budget is burning faster than it can last the window
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/availability.md
+  - name: slo-latency
+    rules:
+      - record: sdlc:slo_errors:ratio_rate5m
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[5m]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[5m]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate30m
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[30m]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[30m]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate1h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[1h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1h]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate2h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[2h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[2h]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate6h
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[6h]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[6h]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate1d
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[1d]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1d]))
+          )
+        labels:
+          slo: latency
+      - record: sdlc:slo_errors:ratio_rate3d
+        expr: |-
+          1 - (
+            sum by (job) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*",le="0.5"}[3d]))
+          /
+            sum by (job) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[3d]))
+          )
+        labels:
+          slo: latency
+      - alert: LatencyBudgetFastBurn
+        expr: |-
+          (sdlc:slo_errors:ratio_rate1h{slo="latency"} > 0.144 and sdlc:slo_errors:ratio_rate5m{slo="latency"} > 0.144)
+          or
+          (sdlc:slo_errors:ratio_rate6h{slo="latency"} > 0.06 and sdlc:slo_errors:ratio_rate30m{slo="latency"} > 0.06)
+        labels:
+          severity: page
+          slo: latency
+        annotations:
+          summary: The latency error budget is burning fast enough to be gone within days
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/latency.md
+      - alert: LatencyBudgetSlowBurn
+        expr: |-
+          (sdlc:slo_errors:ratio_rate1d{slo="latency"} > 0.03 and sdlc:slo_errors:ratio_rate2h{slo="latency"} > 0.03)
+          or
+          (sdlc:slo_errors:ratio_rate3d{slo="latency"} > 0.01 and sdlc:slo_errors:ratio_rate6h{slo="latency"} > 0.01)
+        labels:
+          severity: ticket
+          slo: latency
+        annotations:
+          summary: The latency error budget is burning faster than it can last the window
+          runbook_url: https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/docs/runbooks/latency.md

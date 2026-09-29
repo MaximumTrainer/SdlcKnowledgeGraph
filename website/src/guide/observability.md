@@ -4,7 +4,8 @@
 
 What the application says about itself, and how to follow one request through it. This is being
 built in parts under [#44](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/44): request correlation, the log format, the declared
-event registry and the metrics are here; service objectives, alerts and runbooks come next.
+event registry, the metrics, the service objectives and their alerts are here; routing alerts to a
+receiver comes next.
 
 ## Following a request
 
@@ -93,6 +94,7 @@ both halves of that.
 | `sdlc_edge_writes_total` | `type`, `outcome` | The same for edges. Restating an edge that exists counts as `updated`. |
 | `sdlc_graph_store_errors_total` | `operation` | Graph store operations that failed, such as when Neo4j is unreachable, by port operation (`upsertNode`, `findNode`, ...). Each failure is also logged as `graph.store.failed` with the request's id. Present at zero for every operation from startup, so an alert has a series before the first failure. |
 | `http_server_requests_seconds` | Spring's (`method`, `uri`, `status`, `outcome`, ...) | Every request's duration, as a histogram with a bucket at 0.5 s, the latency objective. |
+| `sdlc_dependency_up` | `dependency` | 1 while the dependency's health check is UP, otherwise 0. Only `neo4j` today. |
 
 `type` is always a type the ontology declares, because an undeclared one is refused before anything
 is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed
@@ -101,3 +103,44 @@ counted as a store error.
 
 Writes that arrive through a connector or an ingest endpoint are not counted here; connector metrics
 are [#29](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/29).
+
+## Service objectives
+
+[`ops/slo.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/ops/slo.yaml) declares
+what the API promises, over 30 days and leaving out `/actuator` traffic:
+
+| Objective | Good request | Target |
+|---|---|---|
+| `availability` | answered without a server error | 99.5% |
+| `latency` | answered within 500 ms | 99% |
+
+The share of requests allowed to be bad is the error budget. `node scripts/slo-rules.mjs` turns each
+objective into rules in `ops/alerts/generated/slo.rules.yml`: the error ratio recorded over 5m, 30m,
+1h, 2h, 6h, 1d and 3d, and two alerts that fire on how fast the budget is burning, each confirmed by a
+shorter window so an alert clears soon after the problem does:
+
+| Alert | Severity | Fires when the budget burns at |
+|---|---|---|
+| `<Objective>BudgetFastBurn` | page | 14.4x over 1h and 5m, or 6x over 6h and 30m |
+| `<Objective>BudgetSlowBurn` | ticket | 3x over 1d and 2h, or 1x over 3d and 6h |
+
+At 14.4x, a month's budget is gone in about two days; at 1x, exactly at the end of the window.
+
+## Alerts
+
+Every alert lives in `ops/alerts`: the generated burn-rate rules, and
+[`app.rules.yml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/ops/alerts/app.rules.yml)
+for the two that are not burn rates. `InstanceDown` fires when the API has not answered a scrape for
+5 minutes (nothing else can be measured then), and `Neo4jUnreachable` when `sdlc_dependency_up` for
+Neo4j has been 0 for 5 minutes. The rules assume Prometheus scrapes the API as job
+`sdlc-graph-backend`.
+
+Every alert carries a `runbook_url` to its page under [runbooks](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/tree/main/docs/runbooks). An alert and its
+runbook cannot drift apart: `AlertRunbookTest` fails the build if an alert names a runbook that does
+not exist, or a runbook is named by no alert. And every alert has promtool cases in
+`ops/alerts/tests` showing it firing and not firing ([Testing](/guide/testing#alert-rules)).
+
+To add an objective: declare it in `ops/slo.yaml`, run `node scripts/slo-rules.mjs`, write
+`docs/runbooks/<runbook>.md`, and add cases to `ops/alerts/tests/slo.test.yml`. To add another alert:
+write it in `app.rules.yml` with a `runbook_url`, write the runbook, and add its cases to
+`ops/alerts/tests/app.test.yml`. `node scripts/promtool.mjs` runs the cases.

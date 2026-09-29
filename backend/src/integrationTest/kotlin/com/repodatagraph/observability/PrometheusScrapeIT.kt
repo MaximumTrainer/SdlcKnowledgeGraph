@@ -66,4 +66,12 @@ class PrometheusScrapeIT {
         assertThat(errors.map { Regex("""operation="(\w+)"""").find(it)?.groupValues?.get(1) })
             .contains("upsertNode", "upsertEdge", "findNode", "findNodes", "deleteNode", "neighbourhood")
     }
+
+    @Test
+    fun `whether Neo4j is reachable is a series the Neo4jUnreachable alert can read`() {
+        val line = scrape().lines().single { it.startsWith("sdlc_dependency_up{") }
+
+        assertThat(line).contains("""dependency="neo4j"""")
+        assertThat(line).containsPattern(""" 1(\.0)?$""")
+    }
 }
