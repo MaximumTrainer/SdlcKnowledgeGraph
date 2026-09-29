@@ -1,0 +1,33 @@
+# Where alerts go (#44, FR12). Prometheus labels every alert with a severity (ops/alerts): a page
+# needs someone now, a ticket can wait for working hours. Both reach the same webhook today, split
+# into two receivers so a pager can be attached to one without touching the rules.
+#
+# The webhook URL is a secret: the runtime writes $ALERTMANAGER_WEBHOOK_URL into the file below, and
+# nothing in this repository holds it. The routes are checked by ops/alertmanager/tests/routes.test.yml
+# and the inhibit rule by scripts/alertmanager-config.test.mjs.
+route:
+  receiver: ticket
+  group_by: [alertname, job]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="page"']
+      receiver: page
+      repeat_interval: 1h
+
+# A down instance burns every error budget at once. Page for the cause, not for each symptom.
+inhibit_rules:
+  - source_matchers: ['alertname="InstanceDown"']
+    target_matchers: ['slo=~".+"']
+    equal: [job]
+
+receivers:
+  - name: page
+    webhook_configs:
+      - url_file: /etc/alertmanager/webhook-url
+        send_resolved: true
+  - name: ticket
+    webhook_configs:
+      - url_file: /etc/alertmanager/webhook-url
+        send_resolved: true
