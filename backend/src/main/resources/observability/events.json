@@ -1,0 +1,395 @@
+{
+  "source" : "backend/src/main/resources/observability/events.yaml",
+  "events" : [ {
+    "name" : "node.created",
+    "level" : "INFO",
+    "message" : "node created",
+    "description" : "A node was created through the API. Names the properties supplied, never their values.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "type",
+      "type" : "string"
+    }, {
+      "name" : "key",
+      "type" : "string"
+    }, {
+      "name" : "properties",
+      "type" : "string[]"
+    } ]
+  }, {
+    "name" : "node.rejected",
+    "level" : "INFO",
+    "message" : "node rejected",
+    "description" : "A node write was refused by the ontology. Names the fields at fault, never their values.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "type",
+      "type" : "string"
+    }, {
+      "name" : "fields",
+      "type" : "string[]"
+    } ]
+  }, {
+    "name" : "edge.created",
+    "level" : "INFO",
+    "message" : "edge created",
+    "description" : "An edge was created through the API.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "type",
+      "type" : "string"
+    }, {
+      "name" : "from",
+      "type" : "string"
+    }, {
+      "name" : "to",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "http.request.rejected",
+    "level" : "DEBUG",
+    "message" : "request rejected as malformed",
+    "description" : "A request was refused with 400 because its arguments could not be read.",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ ]
+  }, {
+    "name" : "ingest.deployment.received",
+    "level" : "INFO",
+    "message" : "deployment report received",
+    "description" : "The deploy pipeline reported a deployment, which was applied.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "deployments",
+      "type" : "int"
+    }, {
+      "name" : "created",
+      "type" : "boolean"
+    } ]
+  }, {
+    "name" : "ingest.seed.received",
+    "level" : "INFO",
+    "message" : "seed batch received",
+    "description" : "The dogfood seed posted a batch, which was applied.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "nodes",
+      "type" : "int"
+    }, {
+      "name" : "edges",
+      "type" : "int"
+    }, {
+      "name" : "created",
+      "type" : "boolean"
+    } ]
+  }, {
+    "name" : "ingest.unauthorized",
+    "level" : "WARN",
+    "message" : "ingest refused without a valid token",
+    "description" : "Someone posted to an ingest endpoint without the ingest token.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "endpoint",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "ontology.constraints.ensured",
+    "level" : "INFO",
+    "message" : "key constraints ensured",
+    "description" : "The store has a uniqueness constraint on the key of every node type.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "nodeTypes",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "ontology.version.recorded",
+    "level" : "INFO",
+    "message" : "ontology version recorded",
+    "description" : "The ontology version this instance runs was written to the graph.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "version",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.scheduled",
+    "level" : "INFO",
+    "message" : "connector scheduled",
+    "description" : "A connector will sync on a schedule.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "cron",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.schedule.skipped",
+    "level" : "INFO",
+    "message" : "scheduled sync skipped",
+    "description" : "A scheduled sync did not start, and why.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.run.failed",
+    "level" : "ERROR",
+    "message" : "connector run failed",
+    "description" : "A sync run failed as a whole.",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "runId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.page.failed",
+    "level" : "WARN",
+    "message" : "connector page failed; the run is partial",
+    "description" : "A connector failed to read one page, so its run is partial.",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "runId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.page.unapplied",
+    "level" : "WARN",
+    "message" : "connector page could not be applied",
+    "description" : "A page a connector read could not be written to the graph.",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "runId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.delivery.duplicate",
+    "level" : "INFO",
+    "message" : "webhook delivery already applied",
+    "description" : "A webhook delivery had already been applied by an earlier run, so nothing changed.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "deliveryId",
+      "type" : "string"
+    }, {
+      "name" : "runId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "connector.webhook.failed",
+    "level" : "ERROR",
+    "message" : "webhook failed to apply",
+    "description" : "A verified webhook could not be applied.",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "connector",
+      "type" : "string"
+    }, {
+      "name" : "runId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "github.unreachable",
+    "level" : "WARN",
+    "message" : "GitHub is not reachable",
+    "description" : "The GitHub health check could not reach GitHub.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "github.retrying",
+    "level" : "INFO",
+    "message" : "GitHub request failed; retrying",
+    "description" : "A GitHub request failed in a way worth retrying.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    }, {
+      "name" : "attempt",
+      "type" : "int"
+    }, {
+      "name" : "maxAttempts",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "github.rate.limited",
+    "level" : "INFO",
+    "message" : "waiting for the GitHub rate limit to reset",
+    "description" : "GitHub's rate limit was reached; the connector waits for it rather than failing.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "waitSeconds",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "github.webhook.ignored",
+    "level" : "DEBUG",
+    "message" : "GitHub webhook ignored",
+    "description" : "A GitHub webhook of a type the connector does not use.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "eventType",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "github.webhook.malformed",
+    "level" : "WARN",
+    "message" : "verified GitHub webhook was not JSON",
+    "description" : "A GitHub webhook passed its signature check but its body could not be read.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "github.dependencies.deferred",
+    "level" : "DEBUG",
+    "message" : "internal dependencies deferred",
+    "description" : "Dependencies on repositories not yet known were deferred to a later sync.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "count",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "github.file.unreadable",
+    "level" : "WARN",
+    "message" : "could not read a file",
+    "description" : "A manifest or IaC file could not be read; the repository is still recorded.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "path",
+      "type" : "string"
+    }, {
+      "name" : "repository",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "github.file.skipped",
+    "level" : "INFO",
+    "message" : "file skipped as too large",
+    "description" : "A file was too large to read.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "path",
+      "type" : "string"
+    }, {
+      "name" : "repository",
+      "type" : "string"
+    }, {
+      "name" : "bytes",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "servicenow.unreachable",
+    "level" : "WARN",
+    "message" : "ServiceNow is not reachable",
+    "description" : "The ServiceNow health check could not reach ServiceNow.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "servicenow.health.refused",
+    "level" : "WARN",
+    "message" : "ServiceNow refused the health check",
+    "description" : "ServiceNow answered the health check with a refusal, usually of the credentials.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "servicenow.retrying",
+    "level" : "INFO",
+    "message" : "ServiceNow request failed; retrying",
+    "description" : "A ServiceNow request failed in a way worth retrying.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "reason",
+      "type" : "string"
+    }, {
+      "name" : "attempt",
+      "type" : "int"
+    }, {
+      "name" : "maxAttempts",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "servicenow.remote.invalid",
+    "level" : "INFO",
+    "message" : "CI names something that is not a git remote",
+    "description" : "A configuration item's repository field is not a git remote, so no link is written.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "value",
+      "type" : "string"
+    }, {
+      "name" : "field",
+      "type" : "string"
+    }, {
+      "name" : "ci",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "servicenow.link.unresolved",
+    "level" : "INFO",
+    "message" : "no repository for the CI's link",
+    "description" : "A configuration item names a repository the graph does not hold, so no link is written.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "repository",
+      "type" : "string"
+    } ]
+  } ]
+}

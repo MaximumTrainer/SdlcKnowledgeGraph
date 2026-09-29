@@ -58,6 +58,10 @@ pre-commit:
     - name: ontology-drift
       glob: "backend/src/main/resources/ontology/**"
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
+    # The event registry and the LogEvents it generates are committed together or not at all (#44).
+    - name: log-event-drift
+      glob: "backend/src/main/resources/observability/**"
+      run: node scripts/gradle.mjs logEventDriftCheck --quiet
     - name: website-drift
       glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"
       run: npm --prefix website run drift

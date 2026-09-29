@@ -62,6 +62,9 @@ dependencies {
 ktlint {
     version.set("1.3.1")
     android.set(false)
+    // Generated from the event registry and drift-checked byte for byte (#44): formatting it would
+    // make it differ from what the generator writes.
+    filter { exclude("**/observability/LogEvents.kt") }
     reporters {
         // PLAIN for a readable console failure, CHECKSTYLE for CI to render as annotations.
         reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
@@ -87,6 +90,10 @@ detekt {
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(files("src"))
 }
+
+// The generated event functions are one-liners by construction, and checked against the registry
+// rather than against style rules.
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach { exclude("**/observability/LogEvents.kt") }
 
 // detekt runs its own embedded Kotlin compiler and refuses to start when the Kotlin on *its*
 // classpath is not the one it was built against:
@@ -147,6 +154,33 @@ val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
 }
 
 tasks.named("check") { dependsOn(ontologyDriftCheck) }
+
+/**
+ * The log event registry (#44) is the single declaration of what the application may log; these
+ * render it into the only way to log (`LogEvents.kt`) and the JSON the website shows. Committed and
+ * drift-checked like the ontology's outputs.
+ */
+val eventRegistry = layout.projectDirectory.file("src/main/resources/observability/events.yaml")
+val generatedLogEvents = layout.projectDirectory.file("src/main/kotlin/com/repodatagraph/observability/LogEvents.kt")
+val generatedEventsJson = layout.projectDirectory.file("src/main/resources/observability/events.json")
+
+val generateLogEvents by tasks.registering(LogEventCodegenTask::class) {
+    group = "observability"
+    description = "Generates LogEvents.kt and events.json from the log event registry"
+    registryFile.set(eventRegistry)
+    kotlinOutput.set(generatedLogEvents)
+    jsonOutput.set(generatedEventsJson)
+}
+
+val logEventDriftCheck by tasks.registering(LogEventDriftCheckTask::class) {
+    group = "verification"
+    description = "Fails when the committed LogEvents.kt or events.json no longer match the registry"
+    registryFile.set(eventRegistry)
+    kotlinOutput.set(generatedLogEvents)
+    jsonOutput.set(generatedEventsJson)
+}
+
+tasks.named("check") { dependsOn(logEventDriftCheck) }
 
 // `src/testSupport/kotlin` holds helpers shared by more than one suite (currently the Testcontainers
 // Neo4j configuration used by both integrationTest and acceptanceTest). The Kotlin plugin compiles

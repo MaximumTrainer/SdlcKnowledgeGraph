@@ -6,6 +6,7 @@ import com.repodatagraph.config.IngestProperties
 import com.repodatagraph.domain.port.`in`.DeploymentIngestOutcome
 import com.repodatagraph.domain.port.`in`.DeploymentIngestUseCase
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Service
 
 /**
@@ -30,7 +31,8 @@ class DeploymentIngestService(
     ): DeploymentIngestOutcome =
         when {
             !properties.enabled -> DeploymentIngestOutcome.Disabled
-            !DeploymentReports.bearerMatches(authorization, properties.token) -> DeploymentIngestOutcome.Unauthorized
+            !DeploymentReports.bearerMatches(authorization, properties.token) ->
+                DeploymentIngestOutcome.Unauthorized.also { LogEvents.ingestUnauthorized(ENDPOINT) }
             else ->
                 when (val parsed = parser.parse(body)) {
                     is ParsedReport.Invalid -> DeploymentIngestOutcome.Invalid(parsed.errors)
@@ -48,6 +50,7 @@ class DeploymentIngestService(
         val alreadyApplied = recorder.runForDelivery(name, DeploymentReports.deliveryIdOf(body)) != null
         syncService.applyWebhook(name, WebhookEvent(name, mapOf(AUTHORIZATION to authorization), body))
 
+        LogEvents.ingestDeploymentReceived(mapped.deploymentKeys.size, created = !alreadyApplied)
         return DeploymentIngestOutcome.Accepted(
             deploymentIds = mapped.deploymentKeys.map { it.id },
             created = !alreadyApplied,
@@ -58,5 +61,6 @@ class DeploymentIngestService(
 
     private companion object {
         const val AUTHORIZATION = "Authorization"
+        const val ENDPOINT = "/api/v1/ingest/deployment"
     }
 }

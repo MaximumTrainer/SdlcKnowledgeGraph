@@ -5,7 +5,7 @@ import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.SyncMode
 import com.repodatagraph.domain.port.out.connector.SyncRequest
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.Instant
@@ -54,8 +54,6 @@ class SyncService(
     private val recorder: SyncRunRecorder,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     /** Connectors with a run in flight. In-process because the scheduler is in-process. */
     private val running = ConcurrentHashMap.newKeySet<String>()
 
@@ -118,7 +116,7 @@ class SyncService(
                 // leaves a node saying RUNNING for ever with nothing to say why.
                 @Suppress("TooGenericExceptionCaught") failure: Exception,
             ) {
-                log.error("connector {} run {} failed", name, runId, failure)
+                LogEvents.connectorRunFailed(name, runId, failure)
                 RunOutcome(RunStatus.FAILED, error = failure.message)
             } finally {
                 running.remove(name)
@@ -196,7 +194,7 @@ class SyncService(
         } catch (
             @Suppress("TooGenericExceptionCaught") failure: Exception,
         ) {
-            log.warn("connector {} failed on a page; run {} is partial", name, runId, failure)
+            LogEvents.connectorPageFailed(name, runId, failure)
             PageStep.Failed(failure.message)
         }
 
@@ -220,7 +218,7 @@ class SyncService(
         val deliveryId = registered.connector.deliveryId(event)
         deliveryId?.let { id ->
             recorder.runForDelivery(name, id)?.let { existing ->
-                log.info("delivery {} for {} was already applied by run {}", id, name, existing)
+                LogEvents.connectorDeliveryDuplicate(name, id, existing)
                 return existing
             }
         }
@@ -235,7 +233,7 @@ class SyncService(
             } catch (
                 @Suppress("TooGenericExceptionCaught") failure: Exception,
             ) {
-                log.error("webhook for {} failed to apply in run {}", name, runId, failure)
+                LogEvents.connectorWebhookFailed(name, runId, failure)
                 recorder.recordRun(
                     runId,
                     registered,
@@ -266,7 +264,7 @@ class SyncService(
             // Writing a page can fail on one bad node in it. That is a partial run, not a crash.
             @Suppress("TooGenericExceptionCaught") failure: Exception,
         ) {
-            log.warn("connector {} produced a page that could not be applied in run {}", name, runId, failure)
+            LogEvents.connectorPageUnapplied(name, runId, failure)
             null
         }
 

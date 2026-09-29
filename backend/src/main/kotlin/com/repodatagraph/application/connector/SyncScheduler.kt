@@ -3,7 +3,7 @@ package com.repodatagraph.application.connector
 import com.repodatagraph.config.ConnectorsProperties
 import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.SyncMode
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
@@ -29,20 +29,18 @@ class SyncScheduler(
     private val properties: ConnectorsProperties,
     private val taskScheduler: TaskScheduler,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @EventListener(ApplicationReadyEvent::class)
     fun scheduleEnabledConnectors() {
         registry.enabled().forEach { registered ->
             val schedule = properties.settingsFor(registered.name).schedule
             taskScheduler.schedule({ runIfIdle(registered.name) }, CronTrigger(schedule))
-            log.info("scheduled connector {} with cron {}", registered.name, schedule)
+            LogEvents.connectorScheduled(registered.name, schedule)
         }
     }
 
     private fun runIfIdle(name: String) {
         if (syncService.isRunning(name)) {
-            log.info("skipping scheduled sync of {}: the previous run has not finished", name)
+            LogEvents.connectorScheduleSkipped(name, "the previous run has not finished")
             return
         }
         val registered = registry.find(name) ?: return
@@ -54,7 +52,7 @@ class SyncScheduler(
             val runId = syncService.start(name, mode)
             syncService.execute(name, runId, mode)
         } catch (refused: SyncInProgressException) {
-            log.info("skipping scheduled sync of {}: {}", name, refused.message)
+            LogEvents.connectorScheduleSkipped(name, refused.message.orEmpty())
         }
     }
 }

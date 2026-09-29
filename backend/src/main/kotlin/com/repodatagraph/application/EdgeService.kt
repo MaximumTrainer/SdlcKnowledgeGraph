@@ -15,6 +15,7 @@ import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.EdgeUseCase
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Service
 
 /**
@@ -58,6 +59,7 @@ class EdgeService(
                 ),
             )
 
+        if (existing == null) LogEvents.edgeCreated(edgeType.name, from.id, to.id)
         return EdgeWrite(written, edgeType.inverse, created = existing == null)
     }
 

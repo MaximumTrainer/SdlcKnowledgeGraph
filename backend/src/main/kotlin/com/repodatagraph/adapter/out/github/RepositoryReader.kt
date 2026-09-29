@@ -3,7 +3,7 @@ package com.repodatagraph.adapter.out.github
 import com.repodatagraph.adapter.out.github.manifest.UnreadableManifestException
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.plus
-import org.slf4j.LoggerFactory
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
 
 /** Everything one repository has to say, and the two things a caller has to decide about. */
@@ -32,8 +32,6 @@ class RepositoryReader(
     private val contentsMapper: RepositoryContentsMapper,
     private val properties: GitHubProperties,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     /**
      * An archived repository is read no further: ownership and dependencies of something retired are
      * not worth requests against the rate limit, and the tombstone closes its edges along with it.
@@ -58,7 +56,7 @@ class RepositoryReader(
                 },
                 onFailure = { failure ->
                     val unreadable = failure as? UnreadableManifestException ?: throw failure
-                    log.warn("could not read {} in {}", unreadable.path, repo.fullName)
+                    LogEvents.githubFileUnreadable(unreadable.path, repo.fullName)
                     // The repository itself is still recorded. One with a malformed manifest is a
                     // repository we know about whose dependencies we do not, which is more useful
                     // for the graph to say than the repository being absent altogether.
@@ -88,7 +86,7 @@ class RepositoryReader(
                 // A manifest is kilobytes. A file of megabytes with a manifest's name is something
                 // else, and reading it costs the run more than it is worth.
                 val small = entry.size <= properties.manifests.maxFileBytes
-                if (!small) log.info("skipping {} in {}: {} bytes", entry.path, repo.fullName, entry.size)
+                if (!small) LogEvents.githubFileSkipped(entry.path, repo.fullName, entry.size.toInt())
                 small
             }.mapNotNull { entry -> client.file(org, repo.name, entry.path)?.let { entry.path to it } }
             .toMap()
