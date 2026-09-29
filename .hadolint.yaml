@@ -1,4 +1,4 @@
-# hadolint, run on both Dockerfiles in CI (#6).
+# hadolint, run on every Dockerfile in CI (#6, #47).
 ignored:
   # Pinning apk package versions breaks the build whenever Alpine drops the pinned version from its
   # repository. The base images are pinned instead, which fixes what those packages resolve to.

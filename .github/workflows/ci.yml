@@ -47,6 +47,12 @@ jobs:
       # them: unresolved conflict markers, oversized files, credential files, leaked secrets, and a
       # lefthook.yml that still parses.
       - run: npm run guards
+      # The image the dogfood instance monitors itself with (#47).
+      - name: Lint the monitoring Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ops/monitoring/Dockerfile
+          config: .hadolint.yaml
       # The alert rules (#44): the generated burn-rate rules match ops/slo.yaml, every rule file is
       # valid, and every promtool case passes. promtool runs from the pinned Prometheus image,
       # and amtool, which checks the Alertmanager routes, from the pinned Alertmanager image.
