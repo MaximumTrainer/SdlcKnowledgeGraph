@@ -34,7 +34,10 @@ jobs:
       NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
       # Optional. With it, the deploy reports itself to the graph it just deployed (#7).
       INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
-      # App names are <prefix>, <prefix>-backend and <prefix>-neo4j, and fly.io names are global. If
+      # Optional. With it, alerts are delivered, and each deploy proves one arrives (#47, D10).
+      ALERTMANAGER_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_WEBHOOK_URL }}
+      # App names are <prefix>, <prefix>-backend, <prefix>-neo4j and <prefix>-monitoring, and fly.io
+      # names are global. If
       # these are taken, change them here and in the environment url above.
       FLY_APP_PREFIX: sdlc-graph
       FLY_ORG: personal
@@ -54,6 +57,9 @@ jobs:
           fi
           if [ -z "$INGEST_TOKEN" ]; then
             echo "::warning::This deploy will not be recorded in the graph: INGEST_TOKEN is not set on the dogfood environment (fly/README.md)"
+          fi
+          if [ -z "$ALERTMANAGER_WEBHOOK_URL" ]; then
+            echo "::warning::Alerts will not be delivered: ALERTMANAGER_WEBHOOK_URL is not set on the dogfood environment (fly/README.md)"
           fi
 
       - uses: actions/checkout@v7
@@ -108,6 +114,18 @@ jobs:
             --env "BACKEND_URL=http://$FLY_APP_PREFIX-backend.flycast:8080" \
             --ha=false --wait-timeout 300
 
+      - name: Build, push and deploy the monitoring
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          image="registry.fly.io/$FLY_APP_PREFIX-monitoring:$SHA"
+          docker build --tag "$image" --file ops/monitoring/Dockerfile ops
+          docker push "$image"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+          flyctl deploy --config fly/fly.monitoring.toml --app "$FLY_APP_PREFIX-monitoring" \
+            --image "$digest" \
+            --env "BACKEND_ADDR=$FLY_APP_PREFIX-backend.flycast:8080" \
+            --ha=false --wait-timeout 300
+
       - name: Verify the live instance
         if: steps.setup.outputs.ready == 'true'
         run: fly/verify.sh "$FLY_APP_PREFIX"
@@ -127,6 +145,13 @@ jobs:
           npm ci
           CONFORMANCE_BASE_URL="https://$FLY_APP_PREFIX.fly.dev" EXPECTED_COMMIT="$SHA" \
             npx playwright test --config=conformance.config.ts
+
+      # Alerts reach a configured receiver (docs/DEPLOYMENT.md D10). Runs inside the monitoring
+      # machine, since nothing of it is public: Prometheus scrapes the API and has the rules, and a
+      # synthetic DeployCheck alert (severity ticket) is accepted by the webhook.
+      - name: Check that alerts reach the receiver
+        if: steps.setup.outputs.ready == 'true' && env.ALERTMANAGER_WEBHOOK_URL != ''
+        run: flyctl ssh console --app "$FLY_APP_PREFIX-monitoring" --command deploy-check
 
       # The graph records its own deployments (#7): what was deployed, from which commit, and whether
       # it worked. Runs after a failure too, because a failed deploy is the one worth recording. A

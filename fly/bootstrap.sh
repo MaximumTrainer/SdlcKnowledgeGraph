@@ -5,7 +5,9 @@
 #   FLY_API_TOKEN   fly.io token for the organisation (dogfood environment secret)
 #   NEO4J_PASSWORD  the graph database password, at least 8 characters (dogfood environment secret)
 #   INGEST_TOKEN    optional: the token the deploy reports deployments with (dogfood environment secret)
-#   FLY_APP_PREFIX  app names: <prefix> (web), <prefix>-backend, <prefix>-neo4j. Default sdlc-graph
+#   ALERTMANAGER_WEBHOOK_URL  optional: where alerts are posted (dogfood environment secret)
+#   FLY_APP_PREFIX  app names: <prefix> (web), <prefix>-backend, <prefix>-neo4j, <prefix>-monitoring.
+#                   Default sdlc-graph
 #   FLY_ORG         fly.io organisation slug. Default personal
 #   FLY_REGION      fly.io region. Default lhr
 set -euo pipefail
@@ -21,7 +23,7 @@ fi
 
 app_exists() { flyctl status --app "$1" >/dev/null 2>&1; }
 
-for app in "$prefix-neo4j" "$prefix-backend" "$prefix"; do
+for app in "$prefix-neo4j" "$prefix-backend" "$prefix" "$prefix-monitoring"; do
   if app_exists "$app"; then
     echo "app $app exists"
   else
@@ -54,5 +56,9 @@ flyctl secrets set --stage --app "$prefix-backend" "NEO4J_PASSWORD=$NEO4J_PASSWO
 # Without it the backend answers the ingest endpoint with 503, and the deploy reports nothing (#7).
 if [ -n "${INGEST_TOKEN:-}" ]; then
   flyctl secrets set --stage --app "$prefix-backend" "INGEST_TOKEN=$INGEST_TOKEN" >/dev/null
+fi
+# Without it Alertmanager has nowhere to send alerts, and the deploy skips its delivery check (#47).
+if [ -n "${ALERTMANAGER_WEBHOOK_URL:-}" ]; then
+  flyctl secrets set --stage --app "$prefix-monitoring" "ALERTMANAGER_WEBHOOK_URL=$ALERTMANAGER_WEBHOOK_URL" >/dev/null
 fi
 echo "secrets staged"

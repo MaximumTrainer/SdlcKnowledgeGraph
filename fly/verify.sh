@@ -36,8 +36,9 @@ if wait_for_200 "$base/api/v1/nodes/Repository"; then pass "the API reads the gr
 write=$(status_of -X POST -H 'Content-Type: application/json' -d '{"props":{"name":"verify"}}' "$base/api/v1/nodes/Team")
 if [ "$write" = 403 ]; then pass "a write from the internet is refused"; else fail "a write from the internet answered $write, not 403"; fi
 
-# The database and the API have no public address (#48 D7): only private ones may be listed.
-for app in "$prefix-neo4j" "$prefix-backend"; do
+# The database, the API and the monitoring have no public address (#48 D7, D9): only private ones
+# may be listed.
+for app in "$prefix-neo4j" "$prefix-backend" "$prefix-monitoring"; do
   public=$(flyctl ips list --app "$app" --json | jq '[.[] | select(((.Type // .type) | ascii_downcase) != "private_v6")] | length')
   if [ "$public" = 0 ]; then pass "$app has no public address"; else fail "$app has $public public address(es)"; fi
 done
