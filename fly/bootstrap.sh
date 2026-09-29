@@ -4,6 +4,7 @@
 #
 #   FLY_API_TOKEN   fly.io token for the organisation (dogfood environment secret)
 #   NEO4J_PASSWORD  the graph database password, at least 8 characters (dogfood environment secret)
+#   INGEST_TOKEN    optional: the token the deploy reports deployments with (dogfood environment secret)
 #   FLY_APP_PREFIX  app names: <prefix> (web), <prefix>-backend, <prefix>-neo4j. Default sdlc-graph
 #   FLY_ORG         fly.io organisation slug. Default personal
 #   FLY_REGION      fly.io region. Default lhr
@@ -50,4 +51,8 @@ fi
 # does not change the password of an existing graph (fly/README.md, "Changing the password").
 flyctl secrets set --stage --app "$prefix-neo4j" "NEO4J_AUTH=neo4j/$NEO4J_PASSWORD" >/dev/null
 flyctl secrets set --stage --app "$prefix-backend" "NEO4J_PASSWORD=$NEO4J_PASSWORD" >/dev/null
+# Without it the backend answers the ingest endpoint with 503, and the deploy reports nothing (#7).
+if [ -n "${INGEST_TOKEN:-}" ]; then
+  flyctl secrets set --stage --app "$prefix-backend" "INGEST_TOKEN=$INGEST_TOKEN" >/dev/null
+fi
 echo "secrets staged"
