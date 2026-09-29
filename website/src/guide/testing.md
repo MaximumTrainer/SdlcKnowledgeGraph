@@ -92,6 +92,11 @@ into green hides races like the one in #148, and a real regression would be hidd
 browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
 never by reading a locator once straight after the click that loads it.
 
+`e2e/conformance` is a separate Playwright suite with its own config: the deployment contract in
+[Deployment](/guide/deployment), run against any base URL with no browser. CI runs it against the
+compose stack, once writable where D5 must fail and once read-only where everything must pass, and
+the dogfood deploy runs it against the live instance.
+
 `npm run verify` does not run `format:check`, but CI does, so run `npm run format:check` (or
 `npm run format`) before pushing a frontend change; the pre-commit hook formats staged files, which
 covers the usual case.
