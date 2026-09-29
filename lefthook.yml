@@ -64,7 +64,7 @@ pre-commit:
       run: node scripts/gradle.mjs logEventDriftCheck --quiet
     # The generated burn-rate rules match ops/slo.yaml, and every alert passes its promtool cases (#44).
     - name: alert-rules
-      glob: "{ops/**,scripts/slo-rules.mjs}"
+      glob: "{ops/**,scripts/slo-rules.mjs,scripts/promtool.mjs}"
       run: node scripts/slo-rules.mjs --check && node scripts/promtool.mjs
     - name: website-drift
       glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"

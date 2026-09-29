@@ -281,3 +281,8 @@ series into the rules and say which alerts fire and which do not; every alert ha
 fails while `ops/alerts/generated/slo.rules.yml` differs from what `ops/slo.yaml` renders. Both run in
 CI (the Guards job), on `pre-push`, and on `pre-commit` when `ops/` changes. `AlertRunbookTest`, in
 the backend unit suite, holds every alert to a runbook and every runbook to an alert.
+
+The same script checks the Alertmanager config with `amtool`, from the pinned `prom/alertmanager`
+image, and resolves every case in `ops/alertmanager/tests/routes.test.yml` to the receiver the case
+names. `scripts/alertmanager-config.test.mjs`, in the root script tests, checks the inhibit rule and
+that no webhook URL is committed.

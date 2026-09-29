@@ -144,3 +144,26 @@ To add an objective: declare it in `ops/slo.yaml`, run `node scripts/slo-rules.m
 `docs/runbooks/<runbook>.md`, and add cases to `ops/alerts/tests/slo.test.yml`. To add another alert:
 write it in `app.rules.yml` with a `runbook_url`, write the runbook, and add its cases to
 `ops/alerts/tests/app.test.yml`. `node scripts/promtool.mjs` runs the cases.
+Every new alert also needs a case in `ops/alertmanager/tests/routes.test.yml` saying which receiver it
+reaches ([Routing](#routing)).
+
+## Routing
+
+Alertmanager delivers what Prometheus fires, configured by
+[`ops/alertmanager/alertmanager.yml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/ops/alertmanager/alertmanager.yml).
+It routes on the `severity` label: `page` goes to the `page` receiver and is repeated hourly while it
+fires; everything else, `ticket` and any alert that forgot its severity, goes to `ticket` and is
+repeated every 4 hours. Both receivers post to the same webhook today; they are kept apart so a pager
+can be attached to `page` alone.
+
+The webhook URL is a secret and is not in the repository. Each receiver reads it from
+`/etc/alertmanager/webhook-url`, which the runtime writes from `$ALERTMANAGER_WEBHOOK_URL`.
+
+`InstanceDown` inhibits every alert with an `slo` label from the same job: a down instance burns each
+error budget at once, and one page for the cause is more use than three for its symptoms.
+
+`node scripts/promtool.mjs` checks the config with `amtool` and resolves every case in
+`ops/alertmanager/tests/routes.test.yml` to the receiver it names. amtool cannot evaluate an inhibit
+rule or tell where a URL came from, so `scripts/alertmanager-config.test.mjs` checks those. Changing
+any of this is covered by the `observability-change` skill.
+
