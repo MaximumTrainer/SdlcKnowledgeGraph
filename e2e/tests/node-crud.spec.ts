@@ -85,16 +85,15 @@ test.describe('ontology-driven node CRUD', () => {
     const name = unique('perf')
     await page.goto('/nodes/Environment/new')
 
-    const type = page.getByLabel('type', { exact: true })
+    // The label reads "type *" for a required field, so it is matched from its start.
+    const type = page.getByRole('combobox', { name: /^type\b/ })
+    const nameField = page.getByRole('textbox', { name: /^name\b/ })
     await expect(type).toHaveJSProperty('tagName', 'SELECT')
     await expect(type.locator('option', { hasText: 'staging' })).toHaveCount(1)
     await expect(page.getByText('What kind of environment this is')).toBeVisible()
-    await expect(page.getByLabel('name', { exact: true })).toHaveAttribute(
-      'placeholder',
-      'production'
-    )
+    await expect(nameField).toHaveAttribute('placeholder', 'production')
 
-    await page.getByLabel('name', { exact: true }).fill(name)
+    await nameField.fill(name)
     await type.selectOption('staging')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page).toHaveURL(new RegExp(`/nodes/Environment/${name}$`))
