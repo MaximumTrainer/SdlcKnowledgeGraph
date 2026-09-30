@@ -21,9 +21,11 @@ Set `EXPECTED_COMMIT=<full sha>` to check D3, that the deployment is running the
 deploy; without it D3 is skipped, not passed.
 
 Against the local stack: `docker compose up -d --build --wait`, then
-`SDLC_READ_ONLY=true docker compose up -d --wait backend`, then run the suite with
-`CONFORMANCE_BASE_URL=http://localhost:5173`. Against the writable stack D5 fails, which is correct:
-a deployment without authentication has to be read-only (D4).
+`AUTH_ISSUER_URI= SDLC_READ_ONLY=true docker compose up -d --wait backend` (the anonymous read-only
+mode the dogfood instance runs), then run the suite with `CONFORMANCE_BASE_URL=http://localhost:5173`.
+Against the default stack, writable behind the login, D5 fails, which is correct: D5 is about
+read-only deployments. D13 (no identity provider and not read-only refuses to start) cannot be seen
+from outside; the API's startup check and the CI end-to-end job assert it.
 
 ## Read a failure
 

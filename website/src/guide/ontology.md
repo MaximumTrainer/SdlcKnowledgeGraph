@@ -164,7 +164,7 @@ data class Provenance(
     val validFrom: Instant,
     val validTo: Instant? = null,   // null means current
     val syncRunId: String?,
-    val writtenBy: String?,      // the principal's subject, "anonymous" under the bypass (#114)
+    val writtenBy: String?,      // the principal's subject or service principal's name (#114, #115)
     val principalType: String?,  // "user", or "service" for a connector or agent (#115)
     val onBehalfOfTeam: String?, // the Team key a service principal acts for (#115)
 )

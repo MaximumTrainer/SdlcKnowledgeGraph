@@ -38,15 +38,25 @@ while the slow ones are left to push and CI.
 | `contractTest` | `backend/src/contractTest` | yes | pre-push, CI |
 
 `acceptanceTest` runs three Cucumber suites, each with its own Spring context, because what they
-differ in is fixed when the context starts: the main suite (`features/`) with the development
-authentication bypass, the read-only suite (`read-only/`), and the authentication suite (`auth/`),
-which turns authentication on against a Keycloak in Testcontainers loaded from the development realm
-in `backend/src/acceptanceTest/resources/keycloak/`, the same realm the compose `auth` profile
-imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does, and
+differ in is fixed when the context starts: the main suite (`features/`), which calls the API as a
+fixed test principal, the read-only suite (`read-only/`), which runs the anonymous read-only mode
+with no identity provider and no token, and the authentication suite (`auth/`), which trusts a
+Keycloak in Testcontainers loaded from the development realm in
+`backend/src/acceptanceTest/resources/keycloak/`, the same realm the default compose stack imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does, and
 get machine tokens with the client-credentials grant for the realm's confidential clients
 (`service-principals.feature`), some of them asking for fewer scopes than the client may hold
-(`scopes.feature`). The other backend suites run with the bypass too; `AuthGateWebTest` covers the
-401 and the 403 for an unregistered client, and `ScopeGateWebTest` the 403 for a missing scope.
+(`scopes.feature`).
+
+There is no switch in the application that turns authentication off (#118), so the suites that
+exercise the graph rather than the login get a principal from the test source set instead:
+`TestPrincipalConfig` (`backend/src/testSupport`) replaces only the JWT decoder, with one that
+accepts a single token as a user holding every graph scope, and has `TestRestTemplate` send it. The
+real security chain runs unchanged. The main acceptance suite and the Pact provider verification
+import it; the integration suite reads only public paths and needs no token, only an issuer name that
+is never fetched. The controller slices under `backend/src/test` leave Spring Security out, except
+the gate's own: `AuthGateWebTest` covers the 401 and the 403 for an unregistered client,
+`ScopeGateWebTest` the 403 for a missing scope, and `AnonymousReadOnlyWebTest` the anonymous
+read-only mode.
 `ScopePolicyCoverageTest` reads every controller's mappings and fails while a route has no declared
 scope requirement.
 
@@ -105,17 +115,19 @@ into green hides races like the one in #148, and a real regression would be hidd
 browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
 never by reading a locator once straight after the click that loads it.
 
-`e2e/auth` is the login journey, a registered connector's write and a read-only user (#116), with
-its own config for the
-stack behind Keycloak: CI restarts the
-compose stack with `compose.auth.yaml` and the `auth` profile after the conformance runs, then runs
-`npx playwright test --config=auth.config.ts`. The main browser suite runs against the default stack,
-which has no login.
+The browser suite runs against the default stack, which is behind the Keycloak login (#118). Its
+`setup` project (`e2e/tests/auth.setup.ts`) signs `dan` in through the real login page and keeps the
+session; every test then starts from that session, renewed with its refresh token, through the
+fixture in `e2e/tests/fixtures.ts`, and its `request` carries his token. A test that must start
+signed out says `test.use({ signedIn: false })`: the smoke test does, signing in through Keycloak,
+creating a node and reading `dan` as its writer. The scope and service-principal specs sign their
+own users in, with Playwright's plain `test`.
 
 `e2e/conformance` is a separate Playwright suite with its own config: the deployment contract in
 [Deployment](/guide/deployment), run against any base URL with no browser. CI runs it against the
-compose stack, once writable where D5 must fail and once read-only where everything must pass, and
-the dogfood deploy runs it against the live instance.
+compose stack, once writable and behind the login where D5 must fail, and once in the anonymous
+read-only mode, the dogfood instance's, where everything must pass; the dogfood deploy runs it
+against the live instance.
 
 `npm run verify` does not run `format:check`, but CI does, so run `npm run format:check` (or
 `npm run format`) before pushing a frontend change; the pre-commit hook formats staged files, which

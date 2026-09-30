@@ -115,17 +115,19 @@ At the foot of a node's page, **Provenance** shows the source system, the confid
 was ingested, whether it was inferred, who wrote it and what kind of principal they were. Through the
 interface these are always `manual`, `1`, the time of the write, `no`, your account's subject, and
 `user`. A fact a registered connector or agent wrote through the API names it, says `service`, and
-adds **on behalf of team** with the team that owns it. On an instance running without a login, the
-writer is `anonymous`; a fact a scheduled connector run wrote, or one written before writers were
-recorded, says `not recorded`.
+adds **on behalf of team** with the team that owns it. A fact a scheduled connector run or an ingest
+endpoint wrote, or one written before writers were recorded, says `not recorded`. Nothing new is ever
+written by `anonymous`: an instance without a login accepts no writes (#118).
 
 ### Signing in
 
 An instance with an identity provider sends you to its login page before showing anything, and back
 to the page you asked for afterwards. The header then shows who you are signed in as, with
 **Sign out** beside it. Your session is renewed in the background while the tab is open; if it
-cannot be, the next request takes you back to the login page rather than failing. An instance
-without an identity provider (the default compose stack, the dogfood instance) has no login.
+cannot be, the next request takes you back to the login page rather than failing. The default
+compose stack signs you in with its Keycloak: `dan`, password `dan`. An instance without an identity
+provider, such as the dogfood instance, has no login and can only be read: it shows no way to create,
+edit or delete anything ([Read-only instances](#read-only-instances)).
 
 ### Connectors and sync runs
 
@@ -157,8 +159,9 @@ The API is served at `http://localhost:8080/api/v1` by default, documented inter
 [API reference](/reference/api). Requests and responses are JSON.
 
 Every request under `/api` and `/graphql` needs a bearer JWT from the instance's identity provider
-(`Authorization: Bearer <token>`), unless the instance runs its development bypass
-(`AUTH_DISABLED=true`). Without a valid token the answer is
+(`Authorization: Bearer <token>`; [Authentication](/guide/auth#getting-a-token) says how to get one),
+unless the instance has none and runs read-only, when reads need no token and every write is
+refused ([Read-only instances](#read-only-instances)). Without a valid token the answer is
 `401 {"error": "authentication required"}` with a `WWW-Authenticate: Bearer` challenge; why a token
 was refused is not said. What a token may do is set by its scopes: `graph:read` for every `GET` and
 GraphQL query, `graph:write` for every `POST`, `PUT`, `PATCH`, `DELETE` and GraphQL mutation. A token
@@ -312,9 +315,9 @@ schema that will replace this, and no query returns them yet.
 ## Read-only instances
 
 An instance started with `sdlc.read-only=true` (environment variable `SDLC_READ_ONLY=true`) refuses
-every write. It exists for an instance that has no identity provider and runs the development
-bypass (`AUTH_DISABLED=true`): reachable by people who must not change it, such as a public
-demonstration, it would otherwise be an open database.
+every write, whoever signs in. An instance with no identity provider must run this way, and does not
+start otherwise: that is the anonymous read-only mode ([Authentication](/guide/auth#without-an-identity-provider-the-anonymous-read-only-mode)),
+where every read needs no token and nothing can be written by nobody. The dogfood instance runs it.
 
 - Every request other than `GET`, `HEAD` and `OPTIONS` is refused with
   `403 {"error": "this instance is read-only"}`, on every path. The refusal is deny-by-default: a
@@ -327,9 +330,10 @@ demonstration, it would otherwise be an open database.
   one that cannot be parsed or is larger than 256 KB.
 - GraphiQL is not served (`/graphiql` returns 404), and WebSocket upgrades are refused.
 
-The web interface still browses; creating, editing and deleting fail with the refusal above, and
-**Re-run** on the sync runs page is disabled. This is
-a posture, not access control: sign-in and permissions are [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3).
+The web interface still browses. Without a login it offers no way to create, edit or delete; signed
+in to a read-only instance, those fail with the refusal above. **Re-run** on the sync runs page is
+disabled either way. This is a posture, not access control: who may do what is decided by
+[scopes](/guide/auth#scopes).
 
 ## What an instance is running
 

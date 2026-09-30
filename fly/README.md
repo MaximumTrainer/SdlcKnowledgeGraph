@@ -7,7 +7,7 @@ is disposable.
 | File | What |
 | --- | --- |
 | `fly.frontend.toml` | The web interface: the only public app |
-| `fly.backend.toml` | The API, private (`.flycast`), read-only |
+| `fly.backend.toml` | The API, private (`.flycast`), in the anonymous read-only mode: no identity provider, reads for anyone, no writes but the ingest endpoints' ([docs/AUTH.md](../docs/AUTH.md#without-an-identity-provider-the-anonymous-read-only-mode)) |
 | `fly.neo4j.toml` | Neo4j on a volume, private (`.internal`), no services |
 | `fly.monitoring.toml` | Prometheus and Alertmanager (`ops/monitoring`), private, no services |
 | `bootstrap.sh` | Creates whatever is missing: apps, volume, the backend's private address, secrets |
