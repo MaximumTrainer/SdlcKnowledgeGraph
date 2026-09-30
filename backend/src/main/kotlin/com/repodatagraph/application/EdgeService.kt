@@ -18,6 +18,7 @@ import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
 import com.repodatagraph.observability.WriteOutcome
 import org.springframework.stereotype.Service
+import java.time.Instant
 
 /**
  * Stating and reading relationships of any registry type.
@@ -85,12 +86,20 @@ class EdgeService(
         key: String,
         direction: Direction,
         edgeType: String?,
+        asOf: Instant?,
     ): List<EdgeView> {
         edgeType?.let { declared(it) }
         val node = nodeKey(type, key)
+        val incident =
+            if (asOf ==
+                null
+            ) {
+                graphStore.findEdges(node, direction, edgeType)
+            } else {
+                graphStore.findEdges(node, direction, edgeType, asOf)
+            }
 
-        return graphStore
-            .findEdges(node, direction, edgeType)
+        return incident
             .map { incident ->
                 val declaredEdge = registry.edgeType(incident.edge.type)
                 val inverse = declaredEdge?.inverse ?: incident.edge.type

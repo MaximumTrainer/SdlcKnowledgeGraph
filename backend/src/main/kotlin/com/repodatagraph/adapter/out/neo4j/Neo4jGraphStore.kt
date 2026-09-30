@@ -11,6 +11,7 @@ import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.GraphStore
 import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.stereotype.Repository
+import java.time.Instant
 
 /**
  * The one adapter that talks to Neo4j.
@@ -41,7 +42,9 @@ class Neo4jGraphStore(
             .query(
                 """
                 MERGE (n:$label { key: ${'$'}key })
+                WITH n, ${ValidityCypher.began("n")}
                 SET n += ${'$'}props, n.id = ${'$'}id
+                ${ValidityCypher.keepBegan("n")}
                 """.trimIndent(),
             ).bindAll(mapOf("key" to node.key.key, "id" to node.id, "props" to properties))
             .run()
@@ -65,7 +68,9 @@ class Neo4jGraphStore(
                     MATCH (a:$fromLabel { key: ${'$'}fromKey })
                     MATCH (b:$toLabel { key: ${'$'}toKey })
                     MERGE (a)-[r:$relationship]->(b)
+                    WITH r, ${ValidityCypher.began("r")}
                     SET r += ${'$'}props
+                    ${ValidityCypher.keepBegan("r")}
                     RETURN count(r) AS written
                     """.trimIndent(),
                 ).bindAll(mapOf("fromKey" to edge.from.key, "toKey" to edge.to.key, "props" to properties))
@@ -85,6 +90,20 @@ class Neo4jGraphStore(
         return neo4jClient
             .query("MATCH (n:$label { key: ${'$'}key }) RETURN n { .* } AS n")
             .bindAll(mapOf("key" to key.key))
+            .fetch()
+            .one()
+            .map { GraphRowMapper.toNode(key.type, it["n"]) }
+            .orElse(null)
+    }
+
+    override fun findNode(
+        key: NodeKey,
+        asOf: Instant,
+    ): GraphNode? {
+        val label = cypher.nodeLabel(key.type)
+        return neo4jClient
+            .query("MATCH (n:$label { key: ${'$'}key }) WHERE ${ValidityCypher.holds("n")} RETURN n { .* } AS n")
+            .bindAll(mapOf("key" to key.key, ValidityCypher.AS_OF to ProvenanceMapper.storable(asOf)))
             .fetch()
             .one()
             .map { GraphRowMapper.toNode(key.type, it["n"]) }
@@ -274,21 +293,37 @@ class Neo4jGraphStore(
         key: NodeKey,
         direction: Direction,
         edgeType: String?,
+    ): List<IncidentEdge> = incidentEdges(key, direction, edgeType, asOf = null)
+
+    override fun findEdges(
+        key: NodeKey,
+        direction: Direction,
+        edgeType: String?,
+        asOf: Instant,
+    ): List<IncidentEdge> = incidentEdges(key, direction, edgeType, asOf)
+
+    private fun incidentEdges(
+        key: NodeKey,
+        direction: Direction,
+        edgeType: String?,
+        asOf: Instant?,
     ): List<IncidentEdge> {
         val label = cypher.nodeLabel(key.type)
         val filter = edgeType?.let { ":" + cypher.edgeType(it) }.orEmpty()
+        // Both the edge and the node at its far end, for the reason findEdges(asOf) gives.
+        val valid = if (asOf == null) "" else "WHERE ${ValidityCypher.holds("r")} AND ${ValidityCypher.holds("o")}"
 
         val outgoing =
             if (direction == Direction.INCOMING) {
                 emptyList()
             } else {
-                incident(key, "MATCH (n:$label { key: ${'$'}key })-[r$filter]->(o)", Direction.OUTGOING)
+                incident(key, "MATCH (n:$label { key: ${'$'}key })-[r$filter]->(o) $valid", Direction.OUTGOING, asOf)
             }
         val incoming =
             if (direction == Direction.OUTGOING) {
                 emptyList()
             } else {
-                incident(key, "MATCH (n:$label { key: ${'$'}key })<-[r$filter]-(o)", Direction.INCOMING)
+                incident(key, "MATCH (n:$label { key: ${'$'}key })<-[r$filter]-(o) $valid", Direction.INCOMING, asOf)
             }
 
         return outgoing + incoming
@@ -298,6 +333,7 @@ class Neo4jGraphStore(
         key: NodeKey,
         match: String,
         direction: Direction,
+        asOf: Instant?,
     ): List<IncidentEdge> =
         neo4jClient
             .query(
@@ -305,7 +341,7 @@ class Neo4jGraphStore(
                 $match
                 RETURN type(r) AS type, r { .* } AS edge, labels(o)[0] AS otherType, o { .* } AS other
                 """.trimIndent(),
-            ).bindAll(mapOf("key" to key.key))
+            ).bindAll(mapOf("key" to key.key, ValidityCypher.AS_OF to ProvenanceMapper.storable(asOf)))
             .fetch()
             .all()
             .mapNotNull { row ->

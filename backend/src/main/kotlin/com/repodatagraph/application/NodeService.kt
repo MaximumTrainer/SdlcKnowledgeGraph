@@ -7,10 +7,12 @@ import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
 import com.repodatagraph.domain.exception.NodeValidationException
+import com.repodatagraph.domain.exception.PropertyError
 import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
+import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.ontology.NodeTypeDef
@@ -21,6 +23,7 @@ import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
 import com.repodatagraph.observability.WriteOutcome
 import org.springframework.stereotype.Service
+import java.time.Instant
 
 /**
  * Maintaining nodes of any registry type by hand.
@@ -71,9 +74,11 @@ class NodeService(
     override fun get(
         type: String,
         key: String,
+        asOf: Instant?,
     ): GraphNode? {
         declared(type)
-        return graphStore.findNode(nodeKey(type, key))
+        val node = nodeKey(type, key)
+        return if (asOf == null) graphStore.findNode(node) else graphStore.findNode(node, asOf)
     }
 
     override fun list(
@@ -102,9 +107,10 @@ class NodeService(
         key: String,
         props: Map<String, Any?>,
         sourceSystem: String,
+        validTo: Instant?,
     ): GraphNode {
         val nodeType = writable(type)
-        val provenance = statedProvenance.forWrite(sourceSystem)
+        val stated = statedProvenance.forWrite(sourceSystem)
         val addressed = nodeKey(type, key)
         val expanded = derivedProperties.expand(type, props)
         validate(nodeType, expanded)
@@ -115,6 +121,8 @@ class NodeService(
         val holder = alias?.let { graphStore.findNodeByAlias(type, it) }
         val existing = graphStore.findNode(addressed) ?: holder ?: throw NodeNotFoundException(listOf(addressed))
         if (holder != null && holder.key != existing.key) throw NodeExistsException(holder.id, alias)
+
+        val provenance = restating(existing, stated, validTo)
 
         val stored = identityResolver.aliasFor(nodeType, existing.props)
         if (alias != null && stored != null && alias != stored) {
@@ -134,6 +142,25 @@ class NodeService(
             throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existing.key))
         }
         return rename(existing, GraphNode(derived, expanded, provenance.afterRename(existing.provenance, existing.key.key, derived.key)))
+    }
+
+    /**
+     * [stated], restating [existing] (#93): it keeps the validFrom the node began with while it holds,
+     * or while this write closes it at [validTo], and a validTo before that is refused, naming the
+     * field, before anything is written.
+     */
+    private fun restating(
+        existing: GraphNode,
+        stated: Provenance,
+        validTo: Instant?,
+    ): Provenance {
+        val validFrom = Provenance.validFromFor(existing.provenance, stated.validFrom, closes = validTo != null)
+        if (validTo != null && validTo.isBefore(validFrom)) {
+            LogEvents.nodeRejected(existing.type, listOf(VALID_TO))
+            metrics.node(existing.type, WriteOutcome.REJECTED)
+            throw NodeValidationException(listOf(PropertyError(VALID_TO, "validTo must not be before validFrom, $validFrom")))
+        }
+        return stated.copy(validFrom = validFrom, validTo = validTo)
     }
 
     /** Moves [existing] to [renamed]'s key, unless another node holds that key already (#88). */
@@ -218,4 +245,9 @@ class NodeService(
         type: String,
         keyOrId: String,
     ): NodeKey = NodeKey(type, keyOrId.removePrefix("$type:"))
+
+    private companion object {
+        /** Where a refused validTo is reported, as the request body names it. */
+        const val VALID_TO = "provenance.validTo"
+    }
 }

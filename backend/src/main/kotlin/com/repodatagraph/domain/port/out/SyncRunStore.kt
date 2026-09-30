@@ -21,6 +21,15 @@ interface SyncRunStore {
     fun findById(id: String): SyncRun?
 
     /**
+     * When a run of each source system last succeeded (#93, FR-3): the latest `finishedAt` of its
+     * `SUCCESS` runs, of any mode, keyed by the source the runs stamped. A webhook delivery counts,
+     * unlike for a connector's own freshness (#29): the question is when the source's facts were last
+     * refreshed, and a push refreshes them as a pull does. A source with no successful run, or whose
+     * runs have all been pruned, is absent.
+     */
+    fun lastSuccessBySource(): Map<String, Instant>
+
+    /**
      * Deletes up to [batchSize] runs that finished before [cutoff], with every relationship they
      * have, and returns how many runs went. A run that has not finished is never deleted, however
      * old: it may still be going, and the history is where someone would look for it.

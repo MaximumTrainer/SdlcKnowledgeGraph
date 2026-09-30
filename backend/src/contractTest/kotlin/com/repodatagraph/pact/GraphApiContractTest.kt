@@ -108,4 +108,7 @@ class GraphApiContractTest {
 
     @State(ProviderStates.PAYMENTS_WAS_RENAMED)
     fun paymentsWasRenamed() = states.paymentsWasRenamed()
+
+    @State(ProviderStates.GITHUB_SYNCED_THIRTY_HOURS_AGO)
+    fun githubSyncedThirtyHoursAgo() = states.githubSyncedThirtyHoursAgo()
 }

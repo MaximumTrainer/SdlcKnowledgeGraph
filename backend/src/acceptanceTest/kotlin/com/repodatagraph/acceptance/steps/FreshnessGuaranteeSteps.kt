@@ -205,16 +205,10 @@ class FreshnessGuaranteeSteps(
         assertEquals(listOf(deployments.getValue(first), deployments.getValue(second)).sorted(), listedDeployments().sorted())
     }
 
+    // A Deployment's key holds the slashes of its artifact's image name, which the firewall refuses in
+    // a path, so it is read by key; the Team scenario below reads as of an instant by path.
     @When("Deployment {word} is read asOf {word}")
     fun aDeploymentIsReadAsOf(
-        name: String,
-        time: String,
-    ) {
-        world.getExpanding("/api/v1/nodes/Deployment/{key}?asOf={asOf}", deployments.getValue(name), at(time).toString())
-    }
-
-    @When("Deployment {word} is read by key asOf {word}")
-    fun aDeploymentIsReadByKeyAsOf(
         name: String,
         time: String,
     ) {

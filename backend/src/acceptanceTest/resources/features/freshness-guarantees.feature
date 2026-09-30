@@ -52,8 +52,6 @@ Feature: Agents can tell how current a fact is
     Then the response status is 200
     When Deployment A is read asOf 02:30
     Then the response status is 404
-    When Deployment A is read by key asOf 02:30
-    Then the response status is 404
     When Deployment A is read without asOf
     Then the response status is 200
 

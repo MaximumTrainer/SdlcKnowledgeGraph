@@ -4,6 +4,7 @@ import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.EdgeRequest
 import com.repodatagraph.domain.model.EdgeView
 import com.repodatagraph.domain.model.EdgeWrite
+import java.time.Instant
 
 /**
  * Stating and removing relationships of any registry type.
@@ -30,11 +31,15 @@ interface EdgeUseCase {
         toId: String,
     ): Boolean
 
-    /** Every edge touching a node, each rendered under the name this end sees. */
+    /**
+     * Every edge touching a node, each rendered under the name this end sees. With [asOf] (#93, FR-4),
+     * only the edges valid then, to a node valid then; without, the current view.
+     */
     fun forNode(
         type: String,
         key: String,
         direction: Direction,
         edgeType: String?,
+        asOf: Instant? = null,
     ): List<EdgeView>
 }

@@ -27,7 +27,9 @@ import java.util.UUID
  *
  * So the `freshness` component answers WARN, a status Spring's aggregation does not order: the
  * overall status stays what the other components say, every endpoint answers 200, and neither probe
- * group includes the component. Configured as the docker profile is, with components shown.
+ * group includes the component. Configured as the docker profile is: components shown, probes on,
+ * and no group configured by name, since naming one (even only to show its components) would define
+ * it afresh with every component in it.
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -35,8 +37,6 @@ import java.util.UUID
         "management.endpoint.health.show-components=always",
         "management.endpoint.health.show-details=always",
         "management.endpoint.health.probes.enabled=true",
-        "management.endpoint.health.group.readiness.show-components=always",
-        "management.endpoint.health.group.liveness.show-components=always",
     ],
 )
 @Import(Neo4jTestcontainersConfig::class)
@@ -102,6 +102,8 @@ class FreshnessHealthIT {
     @Test
     fun `neither probe includes it`() {
         listOf("/actuator/health/readiness", "/actuator/health/liveness").forEach { probe ->
+            // The probes show no components as the docker profile configures them, so what proves the
+            // component is left out is the status: UP, and 200, while the component warns.
             val group = health(probe)
             assertThat(group.path("status").asText()).describedAs(probe).isEqualTo("UP")
             assertThat(group.path("components").has("freshness")).describedAs(probe).isFalse()

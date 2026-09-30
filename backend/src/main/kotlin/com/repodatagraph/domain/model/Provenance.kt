@@ -64,6 +64,22 @@ data class Provenance(
         const val MANUAL = "manual"
 
         /**
+         * The validFrom of a write, written at [writtenAt], that restates a fact whose provenance was
+         * [previous] (#93). A fact that goes on holding keeps the instant it began, so an as-of read
+         * still finds it however often its source re-states it; so does one this write closes, or
+         * keeps closed, since closing says when it ended, not when it began. A closed fact stated
+         * again as current begins again now, and a fact never stated before begins now.
+         *
+         * The store applies the same rule to every write it takes (`Neo4jGraphStore`), so a connector
+         * re-stating a fact on every run keeps its validFrom as a person's edit does.
+         */
+        fun validFromFor(
+            previous: Provenance?,
+            writtenAt: Instant,
+            closes: Boolean,
+        ): Instant = if (previous != null && (previous.current || closes)) previous.validFrom else writtenAt
+
+        /**
          * A fact stated directly through the API by a person or a service principal: fully trusted and not inferred, and
          * recording who stated it when [by] is known.
          */

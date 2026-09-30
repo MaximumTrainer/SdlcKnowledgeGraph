@@ -4,8 +4,13 @@ import com.repodatagraph.adapter.`in`.rest.dto.NodePageResponse
 import com.repodatagraph.adapter.`in`.rest.dto.NodeRequest
 import com.repodatagraph.adapter.`in`.rest.dto.NodeResponse
 import com.repodatagraph.adapter.`in`.rest.dto.ProvenanceRequest
+import com.repodatagraph.application.freshness.FactFreshness
+import com.repodatagraph.domain.exception.NodeValidationException
+import com.repodatagraph.domain.exception.PropertyError
+import com.repodatagraph.domain.model.asOfParameter
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -40,6 +45,7 @@ import java.net.URI
 @Tag(name = "Nodes", description = "Ontology-driven CRUD for every declared node type")
 class NodeController(
     private val nodeUseCase: NodeUseCase,
+    private val freshness: FactFreshness,
 ) {
     @PostMapping("/{type}")
     @Operation(summary = "Create a node of a declared type, with a server-derived identity, as manual or a permitted source")
@@ -47,10 +53,13 @@ class NodeController(
         @PathVariable type: String,
         @RequestBody request: NodeRequest,
     ): ResponseEntity<NodeResponse> {
+        if (request.provenance?.validTo != null) {
+            throw NodeValidationException(listOf(PropertyError(ProvenanceRequest.VALID_TO_FIELD, ProvenanceRequest.VALID_TO_ON_CREATE)))
+        }
         val created = nodeUseCase.create(type, request.props, ProvenanceRequest.sourceOf(request.provenance))
         return ResponseEntity
             .created(location(type, created.key.key))
-            .body(NodeResponse.from(created))
+            .body(NodeResponse.from(created, freshness))
     }
 
     @GetMapping("/{type}")
@@ -60,14 +69,17 @@ class NodeController(
         @RequestParam(defaultValue = "$DEFAULT_LIMIT") limit: Int,
         @RequestParam(required = false) cursor: String?,
     ): ResponseEntity<NodePageResponse> =
-        ResponseEntity.ok(NodePageResponse.from(nodeUseCase.list(type, limit.coerceIn(1, MAX_LIMIT), cursor)))
+        ResponseEntity.ok(NodePageResponse.from(nodeUseCase.list(type, limit.coerceIn(1, MAX_LIMIT), cursor), freshness))
 
     @GetMapping("/{type}/$BY_KEY")
     @Operation(summary = "Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85)")
     fun getByKey(
         @PathVariable type: String,
         @RequestParam key: String,
-    ): ResponseEntity<NodeResponse> = get(type, key)
+        @Parameter(description = AS_OF_DESCRIPTION)
+        @RequestParam(required = false)
+        asOf: String?,
+    ): ResponseEntity<NodeResponse> = get(type, key, asOf)
 
     @PutMapping("/{type}/$BY_KEY")
     @Operation(summary = "Replace the properties of a node addressed by its key as a query parameter (#85)")
@@ -86,24 +98,38 @@ class NodeController(
     ): ResponseEntity<Void> = delete(type, key, cascade)
 
     @GetMapping("/{type}/{*key}")
-    @Operation(summary = "Get one node by its derived key or its full id")
+    @Operation(summary = "Get one node by its derived key or its full id, now or as of an instant (#93)")
     fun get(
         @PathVariable type: String,
         @PathVariable key: String,
+        @Parameter(description = AS_OF_DESCRIPTION)
+        @RequestParam(required = false)
+        asOf: String?,
     ): ResponseEntity<NodeResponse> {
-        val node = nodeUseCase.get(type, trimmed(key)) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(NodeResponse.from(node))
+        // Parsed before anything is read, so a malformed instant is a 400 whether or not the node exists.
+        val instant = asOfParameter(asOf)
+        val node = nodeUseCase.get(type, trimmed(key), instant) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(NodeResponse.from(node, freshness))
     }
 
     @PutMapping("/{type}/{*key}")
-    @Operation(summary = "Replace a node's properties, keeping its identity")
+    @Operation(summary = "Replace a node's properties, keeping its identity; provenance.validTo closes it (#93)")
     fun update(
         @PathVariable type: String,
         @PathVariable key: String,
         @RequestBody request: NodeRequest,
     ): ResponseEntity<NodeResponse> =
         ResponseEntity.ok(
-            NodeResponse.from(nodeUseCase.update(type, trimmed(key), request.props, ProvenanceRequest.sourceOf(request.provenance))),
+            NodeResponse.from(
+                nodeUseCase.update(
+                    type,
+                    trimmed(key),
+                    request.props,
+                    ProvenanceRequest.sourceOf(request.provenance),
+                    request.provenance?.validTo,
+                ),
+                freshness,
+            ),
         )
 
     @DeleteMapping("/{type}/{*key}")
@@ -125,6 +151,9 @@ class NodeController(
         const val MAX_LIMIT = 500
         const val BY_KEY = "by-key"
         const val DOUBLE_SLASH = "//"
+        const val AS_OF_DESCRIPTION =
+            "An ISO-8601 instant, such as 2026-09-30T01:30:00Z: the node as the graph held it then, " +
+                "found only while its [validFrom, validTo) contains the instant (#93). Left out, the current view."
     }
 
     /**

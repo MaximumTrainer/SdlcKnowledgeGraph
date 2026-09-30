@@ -66,6 +66,15 @@ observability:
   # count rather than querying Neo4j, so this, not the scrape interval, is how stale they can be.
   graph-count-interval: ${GRAPH_COUNT_INTERVAL:PT5M}
 
+# How long each source system's facts stay fresh once it has stated them (#93, docs/ONTOLOGY.md). A
+# current fact older than its source's window is read back with provenance.stale true, and a source
+# whose last successful sync is older than its window turns the freshness health component WARN -
+# never DOWN, so it cannot fail a probe. A day unless a source is named under windows, by its name in
+# sources.yaml: FRESHNESS_WINDOWS_AWS=PT6H, say. Published by GET /api/v1/ontology under freshness.
+freshness:
+  default-window: ${FRESHNESS_DEFAULT_WINDOW:PT24H}
+  windows: {}
+
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as
 # being allowed to talk to anything (docs/ADAPTERS.md).

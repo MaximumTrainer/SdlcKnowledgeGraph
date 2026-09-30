@@ -4,6 +4,7 @@ import com.repodatagraph.adapter.`in`.rest.dto.NodeTypeResponse
 import com.repodatagraph.adapter.`in`.rest.dto.OntologyResponse
 import com.repodatagraph.adapter.`in`.rest.dto.UnknownFormatResponse
 import com.repodatagraph.adapter.`in`.rest.dto.UnknownTypeResponse
+import com.repodatagraph.domain.model.FreshnessPolicy
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -33,10 +34,13 @@ import java.util.concurrent.TimeUnit
 @Tag(name = "Ontology", description = "The declared contract for what may exist in the graph")
 class OntologyController(
     registry: OntologyRegistry,
+    freshness: FreshnessPolicy,
 ) {
-    // The ontology is immutable for the lifetime of the process, so the response and its ETag are
-    // computed once rather than on every request.
-    private val response = OntologyResponse.from(registry)
+    // The ontology is immutable for the lifetime of the process, and so is the freshness policy it
+    // publishes (#93), so the response and its ETag are computed once rather than on every request.
+    // The Markdown is the registry's alone: the windows are configuration, and an agent reads them
+    // from the JSON.
+    private val response = OntologyResponse.from(registry, freshness)
     private val nodeTypesByName = response.nodeTypes.associateBy { it.name }
     private val etag = "\"${response.hashCode().toUInt().toString(radix = 16)}\""
     private val markdown = OntologyMarkdown.render(registry)

@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.repodatagraph.domain.model.FreshnessPolicy
 import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
@@ -20,15 +21,25 @@ data class OntologyResponse(
     val provenance: ProvenanceEnvelopeResponse,
     /** The source systems a write may name (#117), so a connector author can see which to stamp. */
     val sources: List<SourceSystemResponse>,
+    /**
+     * How long each source's facts stay fresh (#93, FR-2), so an agent can read the policy a `stale`
+     * flag was judged by. Null only where no policy was given, which the snapshot is rendered without.
+     */
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val freshness: FreshnessPolicyResponse? = null,
 ) {
     companion object {
-        fun from(registry: OntologyRegistry): OntologyResponse =
+        fun from(
+            registry: OntologyRegistry,
+            freshness: FreshnessPolicy? = null,
+        ): OntologyResponse =
             OntologyResponse(
                 version = registry.version,
                 nodeTypes = registry.allNodeTypes().map(NodeTypeResponse::from),
                 edgeTypes = registry.allEdgeTypes().map(EdgeTypeResponse::from),
                 provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
                 sources = registry.sources.map(SourceSystemResponse::from),
+                freshness = freshness?.let(FreshnessPolicyResponse::from),
             )
     }
 }

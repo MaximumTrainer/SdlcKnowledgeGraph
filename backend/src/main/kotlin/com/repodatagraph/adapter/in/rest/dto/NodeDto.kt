@@ -1,8 +1,11 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.fasterxml.jackson.annotation.JsonUnwrapped
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.model.Provenance
+import java.time.Instant
 
 /**
  * What a client may send: properties, and optionally the source system it states them as.
@@ -24,9 +27,35 @@ data class NodeRequest(
  */
 data class ProvenanceRequest(
     val sourceSystem: String? = null,
+    /**
+     * When the fact stopped holding (#93, FR-5), on a `PUT` only: it closes the node at that instant,
+     * or keeps it closed. A `POST` may not name one; a fact is stated as holding before it can end.
+     */
+    val validTo: Instant? = null,
 ) {
     companion object {
         fun sourceOf(provenance: ProvenanceRequest?): String = provenance?.sourceSystem ?: Provenance.MANUAL
+
+        /** Where a validTo a request may not carry is reported, as the body names it. */
+        const val VALID_TO_FIELD = "provenance.validTo"
+        const val VALID_TO_ON_CREATE = "validTo can only be set on an existing fact, through PUT"
+    }
+}
+
+/**
+ * A fact's provenance as the API renders it: the envelope as stored, and whether the fact is stale
+ * now (#93, FR-1) - current, and not stated by its source within the source's freshness window.
+ * Computed on each read, never stored.
+ */
+data class ProvenanceResponse(
+    @get:JsonUnwrapped val envelope: Provenance,
+    val stale: Boolean,
+) {
+    companion object {
+        fun of(
+            provenance: Provenance,
+            freshness: FactFreshness,
+        ) = ProvenanceResponse(provenance, freshness.stale(provenance))
     }
 }
 
@@ -36,17 +65,19 @@ data class NodeResponse(
     val type: String,
     val key: String,
     val props: Map<String, Any?>,
-    val provenance: Provenance,
+    val provenance: ProvenanceResponse,
 ) {
     companion object {
-        fun from(node: GraphNode) =
-            NodeResponse(
-                id = node.id,
-                type = node.type,
-                key = node.key.key,
-                props = node.props,
-                provenance = node.provenance,
-            )
+        fun from(
+            node: GraphNode,
+            freshness: FactFreshness,
+        ) = NodeResponse(
+            id = node.id,
+            type = node.type,
+            key = node.key.key,
+            props = node.props,
+            provenance = ProvenanceResponse.of(node.provenance, freshness),
+        )
     }
 }
 
@@ -56,6 +87,9 @@ data class NodePageResponse(
     val nextCursor: String?,
 ) {
     companion object {
-        fun from(page: NodePage) = NodePageResponse(page.items.map { NodeResponse.from(it) }, page.nextCursor)
+        fun from(
+            page: NodePage,
+            freshness: FactFreshness,
+        ) = NodePageResponse(page.items.map { NodeResponse.from(it, freshness) }, page.nextCursor)
     }
 }
