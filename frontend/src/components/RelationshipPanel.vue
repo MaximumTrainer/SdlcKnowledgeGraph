@@ -64,11 +64,19 @@ const grouped = computed(() => {
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
 })
 
+/**
+ * Each load is numbered, and only the latest one may write. When the node changes before an earlier
+ * answer arrives, that answer describes a node this panel is no longer beside and is dropped.
+ */
+let latestLoad = 0
+
 const load = async () => {
+  const thisLoad = ++latestLoad
   const [ontology, found] = await Promise.all([
     ontologyApi.get(),
     edgeApi.forNode(props.type, props.nodeKey)
   ])
+  if (thisLoad !== latestLoad) return
   edgeTypes.value = ontology.edgeTypes
   edges.value = found
 }

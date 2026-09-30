@@ -125,7 +125,7 @@ const remove = async (cascade: boolean) => {
         </template>
       </dl>
 
-      <RelationshipPanel :type="type" :node-key="node.key" />
+      <RelationshipPanel :type="node.type" :node-key="node.key" />
 
       <h2>Provenance</h2>
       <dl data-test="provenance">
