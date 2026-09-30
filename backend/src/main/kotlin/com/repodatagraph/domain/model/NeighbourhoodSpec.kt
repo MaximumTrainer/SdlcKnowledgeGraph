@@ -1,6 +1,7 @@
 package com.repodatagraph.domain.model
 
 import com.repodatagraph.domain.exception.InvalidQueryParameterException
+import java.time.Instant
 
 /**
  * What the graph view asks for (#9, FR1 and FR2): the nodes around [nodeId] within [depth] hops,
@@ -75,6 +76,10 @@ data class NeighbourhoodSpec(
  * One hop of a neighbourhood walk, as the store takes it: from every node of a frontier, along
  * [edgeTypes] (any when empty) in [direction], to nodes of [nodeTypes] (any when empty), and when
  * [within] is given only to the nodes it names. At most [limit] rows.
+ *
+ * A context pack's template (#96) narrows a step further: [where] keeps only the edges whose
+ * properties hold those values, and [asOf] reads the edges and far nodes that held at that instant,
+ * each far node with the values it had then, rather than the current ones.
  */
 data class NeighbourStep(
     val edgeTypes: Set<String>,
@@ -82,6 +87,8 @@ data class NeighbourStep(
     val direction: Direction,
     val limit: Int,
     val within: Set<String>? = null,
+    val where: Map<String, Any?> = emptyMap(),
+    val asOf: Instant? = null,
 )
 
 /**

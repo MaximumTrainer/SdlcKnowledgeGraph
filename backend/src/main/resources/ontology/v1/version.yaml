@@ -22,4 +22,7 @@
 # PROVIDES path of a monorepo's service; and merged among NodeVersion's retired reasons. A minor
 # bump: nothing was renamed or removed, and no data needs a migration, since identityQuality is
 # derived again on every write and a node written before it still reads.
-version: 1.5.0
+# 1.6.0 (#96) added templates.yaml, the traversal templates of context packs, and let DEPENDS_ON reach
+# a CloudResource, so a repository reading a data store (kind: data) is one edge from it. A minor
+# bump: nothing was renamed or removed, and no data needs a migration.
+version: 1.6.0

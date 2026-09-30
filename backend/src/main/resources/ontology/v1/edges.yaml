@@ -40,9 +40,9 @@ edges:
       - { name: rule, type: string, required: false, description: "What the ownership rests on: stated by hand, or the link rule that proposed it", enum: [manual, tag, deployment, iac, naming], examples: [tag] }
 
   DEPENDS_ON:
-    description: A dependency between repositories, services or third-party libraries.
+    description: A dependency between repositories, services or third-party libraries, or on a data store.
     from: [Repository, Service, ConfigurationItem]
-    to: [Repository, Service, Library, ConfigurationItem]
+    to: [Repository, Service, Library, ConfigurationItem, CloudResource]
     inverse: DEPENDED_ON_BY
     impact: propagates
     downstream: inverse

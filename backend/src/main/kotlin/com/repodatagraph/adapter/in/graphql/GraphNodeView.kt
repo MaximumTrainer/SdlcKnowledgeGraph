@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.graphql
 
 import com.repodatagraph.domain.model.GraphNode
+import com.repodatagraph.domain.model.ImpactScoring
 import com.repodatagraph.domain.model.Provenance
 import graphql.schema.TypeResolver
 import org.springframework.context.annotation.Bean
@@ -29,6 +30,18 @@ object GraphNodeView {
                 "provenance" to provenance(node.provenance),
                 TYPE_NAME to "${node.type}Node",
             )
+
+    /** The formula impact scores come from (#87), as `ImpactScoring` reads it: shared by changeImpact and contextPack (#96). */
+    fun scoring(): Map<String, Any?> =
+        mapOf(
+            "version" to ImpactScoring.VERSION,
+            "formula" to ImpactScoring.FORMULA,
+            "tierWeights" to
+                ImpactScoring.TIER_WEIGHTS.entries
+                    .sortedBy { it.key.wire }
+                    .map { (tier, weight) -> mapOf("tier" to tier.wire, "weight" to weight) },
+            "pathMatchBoost" to ImpactScoring.PATH_MATCH_BOOST,
+        )
 
     /** Provenance as the generated `Provenance` type reads it; also what a change-impact citation cites (#87). */
     fun provenance(provenance: Provenance): Map<String, Any?> =

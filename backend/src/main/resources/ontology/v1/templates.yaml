@@ -1,0 +1,57 @@
+# Context pack templates (#96, FR-1): the shapes of task an agent asks the graph about, each a
+# bounded walk from one node. POST /api/v1/context-pack (and GraphQL contextPack) names a template, a
+# start node and a budget; the walk is the template's, so a caller cannot ask for an unbounded one.
+#
+# A template names the node types it `start`s from, whether the start and every node reached bring
+# their `owners` (the teams their `ownership: owner` edges name), and its `steps`. A step walks one
+# `edge` - an edge type's own name as stored, or its inverse against it - optionally narrowed by
+# `where` to the edges holding those property values, `min` to `max` times (a min of 0 lets the steps
+# under `then` start from where this one started too). `current` keeps, of the deployments a step
+# reaches, only the latest successful one per environment: what is running now, or at `asOf`.
+#
+# The application refuses to start, and `./gradlew ontologyLint` fails (ONT014), when a template names
+# an edge that does not exist, walks one from a type it cannot stand on, filters on a property or
+# value the edge does not declare, repeats a step outside 0 to 5 times or marks current a step that
+# reaches anything but deployments. The templates are served at GET /api/v1/ontology under `templates`.
+templates:
+  change-impact:
+    description: What a change to a repository or service reaches, where that is running now, and who owns it
+    start: [Repository, Service]
+    owners: true
+    steps:
+      - edge: DEPENDED_ON_BY
+        min: 0
+        max: 4
+        then:
+          - edge: BUILDS
+            then:
+              - edge: DEPLOYED_TO
+                current: true
+                then:
+                  - { edge: TO_ENVIRONMENT }
+
+  incident-triage:
+    description: What stands behind a failing cloud resource - the code that owns it, its pipelines, service records, what is deployed and the APIs it calls
+    start: [CloudResource]
+    steps:
+      - edge: OWNED_BY_REPO
+        then:
+          - { edge: HAS_PIPELINE }
+          - { edge: RELATES_TO_CI }
+          - edge: BUILDS
+            then:
+              - { edge: DEPLOYED_TO, current: true }
+          - edge: DEPENDS_ON
+            where: { kind: api }
+            then:
+              - edge: BUILDS
+                then:
+                  - { edge: DEPLOYED_TO, current: true }
+
+  data-consumers:
+    description: Who reads a data store, and the teams that own them
+    start: [CloudResource]
+    owners: true
+    steps:
+      - edge: DEPENDED_ON_BY
+        where: { kind: data }

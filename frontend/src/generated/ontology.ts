@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.5.0'
+export const ONTOLOGY_VERSION = '1.6.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -1024,4 +1024,12 @@ export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'IMPLEMENTS',
   'TRACKED_IN',
   'PRODUCED'
+]
+
+export type ContextPackTemplate = 'change-impact' | 'incident-triage' | 'data-consumers'
+
+export const CONTEXT_PACK_TEMPLATES: readonly ContextPackTemplate[] = [
+  'change-impact',
+  'incident-triage',
+  'data-consumers'
 ]

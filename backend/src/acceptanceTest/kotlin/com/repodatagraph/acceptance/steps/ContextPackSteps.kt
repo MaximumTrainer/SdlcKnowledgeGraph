@@ -305,7 +305,8 @@ class ContextPackSteps(
 
     @Then("every node in the pack carries a provenance summary")
     fun everyNodeCarriesAProvenanceSummary() {
-        (nodes() + world.lastBody().path("start")).forEach { node ->
+        // listOf: a JsonNode is itself Iterable, and adding it would add its fields rather than the start.
+        (nodes() + listOf(world.lastBody().path("start"))).forEach { node ->
             val provenance = node.path("provenance")
             assertTrue(provenance.path("source").isTextual) { "${node.path("id")}: $provenance" }
             assertTrue(provenance.path("confidence").isNumber) { "${node.path("id")}: $provenance" }

@@ -170,7 +170,7 @@ class ContextPackControllerTest {
         assertEquals(ContextPackQuery(settlement.key, "change-impact", 20), queries.firstValue)
         assertEquals(
             ContextPackQuery(
-                NodeKey("CloudResource", "aws:arn:aws:s3:::ledger"),
+                NodeKey("CloudResource", "aws:arn:aws:s3:::l"),
                 "data-consumers",
                 500,
                 Instant.parse("2026-09-10T00:00:00Z"),

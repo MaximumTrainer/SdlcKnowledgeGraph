@@ -13,6 +13,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/connectors/{name}/health` | Whether the source system is reachable now | 200 |
 | `GET` | `/api/v1/connectors/{name}/runs` | This connector's runs, newest first | 200 |
 | `POST` | `/api/v1/connectors/{name}/sync` | Ask a connector to sync now | 200 |
+| `POST` | `/api/v1/context-pack` | Context pack: the bounded subgraph a task needs, walked by a registry template from one node | 200 |
 | `GET` | `/api/v1/deployments/work-items` | What a deployment carries: the changes its artifacts contain and the work items they implement | 200 |
 | `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
 | `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees, now or as of an instant (#93) | 200 |

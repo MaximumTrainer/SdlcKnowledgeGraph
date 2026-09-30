@@ -485,9 +485,13 @@ class Neo4jGraphStore(
                     "nodeTypes" to step.nodeTypes.map { cypher.nodeLabel(it) },
                     "restricted" to (step.within != null),
                     "within" to step.within.orEmpty().toList(),
+                    "where" to step.where,
                     "limit" to step.limit.toLong() + 1,
+                    ValidityCypher.AS_OF to ProvenanceMapper.storable(step.asOf),
                 )
-
+        // An edge property a template narrows by (#96) is compared by name and value, both bound, so no
+        // template value reaches the query text.
+        val valid = neighbourValidity(step.asOf)
         val rows =
             neo4jClient
                 .query(
@@ -496,12 +500,14 @@ class Neo4jGraphStore(
                     $starts
                     }
                     MATCH $pattern
-                    WHERE r.prov_validTo IS NULL AND o.prov_validTo IS NULL
-                      AND (size(${'$'}nodeTypes) = 0 OR labels(o)[0] IN ${'$'}nodeTypes)
-                      AND (NOT ${'$'}restricted OR o.id IN ${'$'}within)
+                    $valid
+                    WHERE other IS NOT NULL
+                      AND (size(${'$'}nodeTypes) = 0 OR otherType IN ${'$'}nodeTypes)
+                      AND (NOT ${'$'}restricted OR other.id IN ${'$'}within)
+                      AND all(name IN keys(${'$'}where) WHERE r[name] = ${'$'}where[name])
                     RETURN labels(n)[0] AS startType, n.key AS startKey, type(r) AS type, startNode(r) = n AS outgoing,
-                           r { .* } AS edge, labels(o)[0] AS otherType, o { .* } AS other
-                    ORDER BY o.id, type, n.id
+                           r { .* } AS edge, otherType, other
+                    ORDER BY other.id, type, n.id
                     LIMIT ${'$'}limit
                     """.trimIndent(),
                 ).bindAll(parameters)
@@ -512,6 +518,19 @@ class Neo4jGraphStore(
         val hops = rows.take(step.limit).map(::hop)
         return Neighbours(hops, truncated = rows.size > step.limit)
     }
+
+    /**
+     * Which edges and far nodes a neighbourhood step reads: now, the current ones; as of an instant
+     * (#96), those that held then, each far node with the values it held then (#33).
+     */
+    private fun neighbourValidity(asOf: Instant?): String =
+        if (asOf == null) {
+            "WHERE r.prov_validTo IS NULL AND o.prov_validTo IS NULL\n" +
+                "WITH n, r, labels(o)[0] AS otherType, o { .* } AS other"
+        } else {
+            "WHERE ${ValidityCypher.holds("r")}\nWITH n, r, o, labels(o)[0] AS otherType\n" +
+                NodeVersions.heldAt("o", "other", carry = "n, r, otherType")
+        }
 
     private fun hop(row: Map<String, Any?>): IncidentEdge {
         val start = NodeKey(row["startType"].toString(), row["startKey"].toString())

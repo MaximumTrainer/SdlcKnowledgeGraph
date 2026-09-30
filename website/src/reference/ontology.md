@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.5.0**. It is generated, so a type added to the registry appears here without
+**v1.6.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -697,7 +697,7 @@ second relationship.
 | --- | --- | --- | --- | --- |
 | `OWNED_BY` | Repository, Service, CloudResource | Team | `OWNS` | Ownership of a repository, service or cloud resource by a team. |
 | `OWNS_RESOURCE` | Repository, Service | CloudResource | `OWNED_BY_REPO` | A repository or service is responsible for a piece of infrastructure. |
-| `DEPENDS_ON` | Repository, Service, ConfigurationItem | Repository, Service, Library, ConfigurationItem | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries. |
+| `DEPENDS_ON` | Repository, Service, ConfigurationItem | Repository, Service, Library, ConfigurationItem, CloudResource | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries, or on a data store. |
 | `CONTAINS_IAC` | Repository | IacFile | `IAC_IN` | A repository holds an infrastructure-as-code file. |
 | `HAS_PIPELINE` | Repository | Pipeline | `PIPELINE_OF` | A repository defines a CI/CD pipeline. |
 | `RELATES_TO_CI` | Repository, Service | ConfigurationItem | `CI_OF` | A repository or service corresponds to a configuration item in service management. |
@@ -742,3 +742,16 @@ What `provenance.sourceSystem` may name. A write through the API naming any sour
 | `aws` | `graph:write:aws` | Cloud resources read from AWS. Declared for the AWS connector; none ships yet |
 | `dogfood-seed` | `graph:write:dogfood-seed` | What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed) |
 | `sdlc-knowledge-graph` | `graph:write:sdlc-knowledge-graph` | The graph's record of itself: the sync runs and connector states it keeps |
+
+## Context pack templates
+
+What `POST /api/v1/context-pack` may name as its `template`. A step walks an edge by its name or
+its inverse; `{min..max}` marks one repeated that many times (a min of 0 may skip it), `[current]`
+one that keeps only the deployments still running, and `{key: value}` one narrowed to edges holding
+that value.
+
+| Template | Starts from | Owners | Walks | Description |
+| --- | --- | --- | --- | --- |
+| `change-impact` | Repository, Service | yes | `DEPENDED_ON_BY{0..4} > BUILDS > DEPLOYED_TO [current] > TO_ENVIRONMENT` | What a change to a repository or service reaches, where that is running now, and who owns it |
+| `incident-triage` | CloudResource | no | `OWNED_BY_REPO > HAS_PIPELINE`<br>`OWNED_BY_REPO > RELATES_TO_CI`<br>`OWNED_BY_REPO > BUILDS > DEPLOYED_TO [current]`<br>`OWNED_BY_REPO > DEPENDS_ON {kind: api} > BUILDS > DEPLOYED_TO [current]` | What stands behind a failing cloud resource - the code that owns it, its pipelines, service records, what is deployed and the APIs it calls |
+| `data-consumers` | CloudResource | yes | `DEPENDED_ON_BY {kind: data}` | Who reads a data store, and the teams that own them |

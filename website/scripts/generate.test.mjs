@@ -190,6 +190,44 @@ describe('ontologyPage', () => {
     assert.ok(withSources.includes('| `github` | `graph:write:github` |  |'))
     assert.ok(!page.includes('## Source systems'))
   })
+
+  test('documents every context pack template, each branch of its walk as a path (#96)', () => {
+    const withTemplates = ontologyPage({
+      ...ontology,
+      templates: [
+        {
+          name: 'change-impact',
+          description: 'What a change reaches',
+          start: ['Repository', 'Service'],
+          owners: true,
+          steps: [
+            {
+              edge: 'DEPENDED_ON_BY',
+              where: {},
+              min: 0,
+              max: 4,
+              current: false,
+              then: [
+                { edge: 'BUILDS', where: {}, min: 1, max: 1, current: false, then: [{ edge: 'DEPLOYED_TO', where: {}, min: 1, max: 1, current: true, then: [] }] },
+                { edge: 'DEPENDS_ON', where: { kind: 'api' }, min: 1, max: 1, current: false, then: [] }
+              ]
+            }
+          ]
+        }
+      ]
+    })
+
+    assert.ok(withTemplates.includes('## Context pack templates'))
+    assert.ok(
+      withTemplates.includes(
+        '| `change-impact` | Repository, Service | yes | ' +
+          '`DEPENDED_ON_BY{0..4} > BUILDS > DEPLOYED_TO [current]`<br>`DEPENDED_ON_BY{0..4} > DEPENDS_ON {kind: api}` | ' +
+          'What a change reaches |'
+      ),
+      withTemplates
+    )
+    assert.ok(!page.includes('## Context pack templates'))
+  })
 })
 
 describe('adrIndexPage', () => {

@@ -398,6 +398,164 @@
         "required" : [ "capabilities", "enabled", "freshness", "health", "name", "sourceSystem", "syncing" ],
         "type" : "object"
       },
+      "ContextPackEdgeResponse" : {
+        "properties" : {
+          "commitSha" : {
+            "type" : [ "string", "null" ]
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inverse" : {
+            "type" : "string"
+          },
+          "manifest" : {
+            "type" : [ "string", "null" ]
+          },
+          "props" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/ProvenanceSummaryResponse"
+          },
+          "rule" : {
+            "type" : [ "string", "null" ]
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "from", "id", "inverse", "props", "provenance", "to", "type" ],
+        "type" : "object"
+      },
+      "ContextPackNodeResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "distance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/ProvenanceSummaryResponse"
+          },
+          "score" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "tier" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "via" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PathStepResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "confidence", "distance", "id", "inferred", "key", "label", "props", "provenance", "score", "tier", "type", "via" ],
+        "type" : "object"
+      },
+      "ContextPackRequest" : {
+        "properties" : {
+          "asOf" : {
+            "description" : "Read the graph as it was at this instant (ISO-8601), rather than now",
+            "example" : "2026-09-10T00:00:00Z",
+            "type" : [ "string", "null" ]
+          },
+          "budget" : {
+            "description" : "The most nodes the pack may hold, the start left out: 1 to 500",
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "startId" : {
+            "description" : "The node to start from, as Type:key",
+            "example" : "Repository:github.com/acme/payments",
+            "type" : [ "string", "null" ]
+          },
+          "template" : {
+            "description" : "The traversal template to walk, one of those GET /api/v1/ontology lists under templates",
+            "example" : "change-impact",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ContextPackResponse" : {
+        "properties" : {
+          "asOf" : {
+            "type" : [ "string", "null" ]
+          },
+          "budget" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "cut" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "edges" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ContextPackEdgeResponse"
+            },
+            "type" : "array"
+          },
+          "nodes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ContextPackNodeResponse"
+            },
+            "type" : "array"
+          },
+          "reached" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "scoring" : {
+            "$ref" : "#/components/schemas/ScoringResponse"
+          },
+          "start" : {
+            "$ref" : "#/components/schemas/ContextPackNodeResponse"
+          },
+          "template" : {
+            "type" : "string"
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "budget", "cut", "edges", "nodes", "reached", "scoring", "start", "template", "truncated" ],
+        "type" : "object"
+      },
       "CreateRepositoryRequest" : {
         "properties" : {
           "codeowners" : {
@@ -1279,11 +1437,17 @@
             },
             "type" : "array"
           },
+          "templates" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateResponse"
+            },
+            "type" : "array"
+          },
           "version" : {
             "type" : "string"
           }
         },
-        "required" : [ "edgeTypes", "environments", "nodeTypes", "provenance", "sources", "version" ],
+        "required" : [ "edgeTypes", "environments", "nodeTypes", "provenance", "sources", "templates", "version" ],
         "type" : "object"
       },
       "OwnerResponse" : {
@@ -1556,6 +1720,28 @@
           }
         },
         "required" : [ "confidence", "current", "inferred", "ingestedAt", "previousKeys", "sourceSystem", "stale", "validFrom" ],
+        "type" : "object"
+      },
+      "ProvenanceSummaryResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "observedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "stale" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "confidence", "inferred", "source", "stale" ],
         "type" : "object"
       },
       "Repository" : {
@@ -2079,6 +2265,65 @@
         "required" : [ "id", "key" ],
         "type" : "object"
       },
+      "TemplateResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "owners" : {
+            "type" : "boolean"
+          },
+          "start" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "steps" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateStepResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "name", "owners", "start", "steps" ],
+        "type" : "object"
+      },
+      "TemplateStepResponse" : {
+        "properties" : {
+          "current" : {
+            "type" : "boolean"
+          },
+          "edge" : {
+            "type" : "string"
+          },
+          "max" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "min" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "then" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateStepResponse"
+            },
+            "type" : "array"
+          },
+          "where" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [ "current", "edge", "max", "min", "then", "where" ],
+        "type" : "object"
+      },
       "UnknownFormatResponse" : {
         "properties" : {
           "error" : {
@@ -2354,6 +2599,36 @@
         },
         "summary" : "Ask a connector to sync now",
         "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/context-pack" : {
+      "post" : {
+        "description" : "Walks the named template (templates.yaml; listed by GET /api/v1/ontology) from startId, adds owners where the template asks, and ranks what it reached by distance ascending, path confidence descending, impact score (scoring version 1) descending and id ascending. At most `budget` (1..500) nodes are returned; `truncated` and `cut` say how many were left out. Each node and edge carries a provenance summary, and each edge its manifest, rule or commitSha where it has one. `asOf` reads the graph as it was then.",
+        "operationId" : "contextPack",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContextPackRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContextPackResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Context pack: the bounded subgraph a task needs, walked by a registry template from one node",
+        "tags" : [ "Graph Queries" ]
       }
     },
     "/api/v1/deployments/work-items" : {

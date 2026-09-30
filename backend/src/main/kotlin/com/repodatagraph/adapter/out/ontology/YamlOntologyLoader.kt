@@ -16,6 +16,8 @@ import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyFormat
 import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.ontology.SourceSystemDef
+import com.repodatagraph.domain.ontology.TemplateDef
+import com.repodatagraph.domain.ontology.TemplateStepDef
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Component
 
@@ -42,8 +44,47 @@ class YamlOntologyLoader(
             provenance = readProvenance("$basePath/provenance.yaml"),
             sources = readSources("$basePath/sources.yaml"),
             environments = readEnvironments("$basePath/environments.yaml"),
+            templates = readTemplates("$basePath/templates.yaml"),
         )
     }
+
+    /**
+     * The traversal templates of context packs (#96, FR-1). Optional like the environment table: a
+     * registry without the file has no templates, and one with it is validated against the edges as
+     * the registry is built.
+     */
+    private fun readTemplates(path: String): List<TemplateDef> {
+        if (!resourceLoader.getResource("classpath:$path").exists()) return emptyList()
+        val templates = read(path).path("templates")
+        if (!templates.isObject) throw InvalidOntologyException("$path declares no 'templates' mapping")
+        return templates.properties().map { (name, definition) ->
+            definition.requireOnly(TEMPLATE_KEYS, "$path template '$name'")
+            TemplateDef(
+                name = name,
+                description = definition.path("description").asTextOrNull(),
+                start = definition.path("start").map { it.asText() },
+                owners = definition.path("owners").asBoolean(false),
+                steps = readSteps(definition.path("steps"), "$path template '$name'"),
+            )
+        }
+    }
+
+    private fun readSteps(
+        steps: JsonNode,
+        owner: String,
+    ): List<TemplateStepDef> =
+        steps.map { step ->
+            step.requireOnly(STEP_KEYS, "$owner step")
+            val edge = step.path("edge").asTextOrNull() ?: throw InvalidOntologyException("$owner declares a step with no edge")
+            TemplateStepDef(
+                edge = edge,
+                where = step.path("where").properties().associate { (key, value) -> key to value.asText() },
+                min = step.path("min").asInt(1),
+                max = step.path("max").asInt(1),
+                current = step.path("current").asBoolean(false),
+                then = readSteps(step.path("then"), "$owner step '$edge'"),
+            )
+        }
 
     /**
      * The environment alias table (#98, FR-3). Optional like the source list: a registry without the
@@ -198,5 +239,7 @@ class YamlOntologyLoader(
             setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
         private val DEPRECATED_KEYS = setOf("since", "replacedBy")
         private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
+        private val TEMPLATE_KEYS = setOf("description", "start", "owners", "steps")
+        private val STEP_KEYS = setOf("edge", "where", "min", "max", "current", "then")
     }
 }

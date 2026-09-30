@@ -5,7 +5,6 @@ import com.repodatagraph.domain.model.ChangeImpactQuery
 import com.repodatagraph.domain.model.DeploymentRecord
 import com.repodatagraph.domain.model.ImpactDirection
 import com.repodatagraph.domain.model.ImpactHit
-import com.repodatagraph.domain.model.ImpactScoring
 import com.repodatagraph.domain.model.ImpactSpec
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.nodeIdParameter
@@ -149,16 +148,7 @@ class GraphQLResolver(
             "repository" to GraphNodeView.of(result.repository),
             "depth" to result.depth,
             "limit" to result.limit,
-            "scoring" to
-                mapOf(
-                    "version" to ImpactScoring.VERSION,
-                    "formula" to ImpactScoring.FORMULA,
-                    "tierWeights" to
-                        ImpactScoring.TIER_WEIGHTS.entries
-                            .sortedBy { it.key.wire }
-                            .map { (tier, weight) -> mapOf("tier" to tier.wire, "weight" to weight) },
-                    "pathMatchBoost" to ImpactScoring.PATH_MATCH_BOOST,
-                ),
+            "scoring" to GraphNodeView.scoring(),
             "pathFilter" to result.pathFilter.wire,
             "matchedPaths" to result.matchedPaths,
             "changeScope" to result.changeScope.wire,

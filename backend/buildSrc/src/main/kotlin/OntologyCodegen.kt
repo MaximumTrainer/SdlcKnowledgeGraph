@@ -123,7 +123,27 @@ object OntologyCodegen {
             appendLine("export const EDGE_TYPES: readonly EdgeTypeName[] = [")
             appendLine(ontology.edgeTypes.joinToString(separator = ",\n") { "  '${it.name}'" })
             appendLine("]")
+            appendLine()
+            // The templates POST /api/v1/context-pack may name (#96).
+            val templates = ontology.templates.map { it.name }
+            appendLine(if (templates.isEmpty()) "export type ContextPackTemplate = never" else typescriptUnion("ContextPackTemplate", templates))
+            appendLine()
+            appendLine(typescriptArray("CONTEXT_PACK_TEMPLATES", "ContextPackTemplate", templates))
         }
+
+    /** Broken as Prettier breaks it: one line when it fits, else a value per line. */
+    private fun typescriptArray(
+        name: String,
+        type: String,
+        values: List<String>,
+    ): String {
+        val oneLine = "export const $name: readonly $type[] = [${values.joinToString { "'$it'" }}]"
+        return if (oneLine.length <= PRINT_WIDTH) {
+            oneLine
+        } else {
+            "export const $name: readonly $type[] = [\n" + values.joinToString(",\n") { "  '$it'" } + "\n]"
+        }
+    }
 
     /** The exact payload `GET /api/v1/ontology` returns, usable as a test fixture. */
     fun json(ontology: GenOntology): String =
@@ -186,9 +206,30 @@ object OntologyCodegen {
                         """"aliases": [${environment.aliases.joinToString { jsonString(it) }}] }$comma""",
                 )
             }
+            appendLine("  ],")
+            appendLine("""  "templates": [""")
+            ontology.templates.forEachIndexed { index, template ->
+                val comma = if (index == ontology.templates.lastIndex) "" else ","
+                appendLine(
+                    """    { "name": ${jsonString(template.name)}, "description": ${jsonString(template.description)}, """ +
+                        """"start": [${template.start.joinToString { jsonString(it) }}], "owners": ${template.owners}, """ +
+                        """"steps": ${compact(template.steps.map(::stepJson))} }$comma""",
+                )
+            }
             appendLine("  ]")
             appendLine("}")
         }
+
+    /** A template step with every field, defaults too, in the order the ontology endpoint writes them. */
+    private fun stepJson(step: GenTemplateStep): Map<String, Any?> =
+        linkedMapOf(
+            "edge" to step.edge,
+            "where" to step.where,
+            "min" to step.min,
+            "max" to step.max,
+            "current" to step.current,
+            "then" to step.then.map(::stepJson),
+        )
 
     private fun StringBuilder.appendProperties(
         properties: List<GenProperty>,

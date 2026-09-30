@@ -39,7 +39,7 @@ class ContextPackQueryTest {
     }
 
     @Test
-    fun `the budget is required: a pack an agent did not size is not one it can fit`() {
+    fun `the budget is required, since a pack an agent did not size is not one it can fit`() {
         val error = assertThrows<InvalidQueryParameterException> { ContextPackQuery.of("Team:platform", "t", null, null) }
 
         assertEquals("budget", error.field)

@@ -37,7 +37,7 @@ class PrometheusScrapeIT {
         val line = scrape().lines().single { it.startsWith("sdlc_build_info{") }
 
         assertThat(line).contains("""commit="0123abc"""")
-        assertThat(line).contains("""ontology_version="1.5.0"""")
+        assertThat(line).contains("""ontology_version="1.6.0"""")
         assertThat(line).containsPattern("""version="[^"]+"""")
         assertThat(line).containsPattern(""" 1(\.0)?$""")
     }

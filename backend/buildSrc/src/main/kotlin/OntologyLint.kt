@@ -115,6 +115,11 @@ object OntologyLint {
         setOf("Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem")
 
     private const val WARNING = "ONT009"
+    private const val TEMPLATE = "ONT014"
+
+    /** As the runtime's TemplateStepDef: the most times a template step repeats, and what `current` narrows. */
+    private const val MAX_REPEAT = 5
+    private const val CURRENT_TYPE = "Deployment"
     private const val MIN_DESCRIPTION = 20
     private val JSON = ObjectMapper()
 
@@ -143,7 +148,67 @@ object OntologyLint {
                     type.properties.flatMap { propertyFindings(it, "$path.properties.${it.name}", type.name, type.properties, edgeNames) } +
                     type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
             }
-        return nodes + edges + environmentFindings(ontology.environments)
+        return nodes + edges + environmentFindings(ontology.environments) + ontology.templates.flatMap { templateFindings(it, ontology) }
+    }
+
+    /**
+     * ONT014: a context pack's template (#96) walks only edges that exist, from the types it stands on,
+     * filters only on what an edge declares, repeats within bounds and asks `current` only of a step
+     * reaching deployments alone. The application refuses the same templates at startup; the lint says
+     * so at build time, every problem at once.
+     */
+    private fun templateFindings(
+        template: GenTemplate,
+        ontology: GenOntology,
+    ): List<LintFinding> {
+        val path = "templates.${template.name}"
+        val nodeNames = ontology.nodeTypes.map { it.name }.toSet()
+        val own =
+            listOfNotNull(
+                LintFinding(path, "name is not lower-case words joined by hyphens", TEMPLATE).takeUnless { KEBAB.matches(template.name) },
+                LintFinding(path, "missing description", TEMPLATE).takeIf { template.description.isNullOrBlank() },
+                LintFinding(path, "declares no start type", TEMPLATE).takeIf { template.start.isEmpty() },
+            ) +
+                template.start
+                    .filterNot { it in nodeNames }
+                    .map { LintFinding(path, "starts from undeclared node type '$it'", TEMPLATE) } +
+                listOfNotNull(LintFinding(path, "declares no steps", TEMPLATE).takeIf { template.steps.isEmpty() })
+        val from = template.start.filter { it in nodeNames }.toSet()
+        return own + template.steps.flatMapIndexed { index, step -> stepFindings(step, "$path.steps[$index]", from, ontology) }
+    }
+
+    private fun stepFindings(
+        step: GenTemplateStep,
+        path: String,
+        from: Set<String>,
+        ontology: GenOntology,
+    ): List<LintFinding> {
+        val forward = ontology.edgeTypes.firstOrNull { it.name == step.edge }
+        val edge =
+            forward ?: ontology.edgeTypes.firstOrNull { it.inverse == step.edge }
+                ?: return listOf(LintFinding(path, "walks '${step.edge}', which is neither an edge type nor an edge's inverse", TEMPLATE))
+        val (sources, targets) = if (forward != null) edge.from to edge.to else edge.to to edge.from
+        val findings = mutableListOf<LintFinding>()
+        if (from.isNotEmpty() && from.none { it in sources }) {
+            findings += LintFinding(path, "cannot walk '${step.edge}' from ${from.sorted().joinToString(" or ")}", TEMPLATE)
+        }
+        step.where.forEach { (name, value) ->
+            val property = edge.properties.firstOrNull { it.name == name }
+            when {
+                property == null -> findings += LintFinding(path, "filters on '$name', which ${edge.name} does not declare", TEMPLATE)
+                property.enum != null && value !in property.enum ->
+                    findings += LintFinding(path, "filters $name on '$value', which is not one of ${property.enum.joinToString()}", TEMPLATE)
+            }
+        }
+        if (step.min < 0 || step.max < 1 || step.max > MAX_REPEAT || step.min > step.max) {
+            findings +=
+                LintFinding(path, "repeats ${step.min} to ${step.max} times; a repeat is 0 to $MAX_REPEAT times, at least once at most", TEMPLATE)
+        }
+        if (step.current && targets != listOf(CURRENT_TYPE)) {
+            findings += LintFinding(path, "marks current a step that reaches ${targets.joinToString()}, not $CURRENT_TYPE alone", TEMPLATE)
+        }
+        val reached = targets.toSet() + if (step.min == 0) from else emptySet()
+        return findings + step.then.flatMapIndexed { index, next -> stepFindings(next, "$path.then[$index]", reached, ontology) }
     }
 
     /** ONT013: a merge scope (#98) names only properties the type declares. */
