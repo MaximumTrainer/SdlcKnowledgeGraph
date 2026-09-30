@@ -36,6 +36,12 @@ Feature: A read-only deployment refuses every write
     When I send a GET to "/api/v1/sync-runs?connector=fake"
     Then the response status is 200
 
+  Scenario: The graph view's neighbourhood is a read, answered for anyone
+    # #9. The graph view works on an instance nobody signs in to, so its one new request is a GET
+    # under /api/v1 like every other read: answered here, with a 400 for a depth outside 1 to 3.
+    When I send a GET to "/api/v1/graph/neighbourhood?nodeId=Repository:github.com/acme/nothing&depth=4"
+    Then the response status is 400
+
   Scenario: A write endpoint added later is refused without anyone remembering to refuse it
     When I send a POST to "/api/v1/a-write-endpoint-nobody-has-built-yet"
     Then the response status is 403
