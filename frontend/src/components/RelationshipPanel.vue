@@ -9,6 +9,8 @@ import {
   type OntologyEdgeType,
   type PropertyError
 } from '@/services/api'
+import { useCanWrite } from '@/auth/canWrite'
+import { refusalReason } from '@/auth/scopes'
 
 /**
  * The relationships of one node, from that node's point of view.
@@ -21,6 +23,9 @@ import {
  * at the other end sees `OWNED_BY`, and that is the same stored edge read from the other side.
  */
 const props = defineProps<{ type: string; nodeKey: string }>()
+
+// Adding and removing relationships writes to the graph, so needs graph:write (#116).
+const canWrite = useCanWrite()
 
 const edges = ref<EdgeView[]>([])
 const edgeTypes = ref<OntologyEdgeType[]>([])
@@ -86,6 +91,8 @@ const searchTargets = async () => {
 
 const describe = (data: { error?: string; errors?: PropertyError[] }) => {
   if (data?.errors) return data.errors.map(e => e.message).join('; ')
+  const refused = refusalReason(data)
+  if (refused) return refused
   if (data?.error === 'edge not allowed') return 'The ontology does not allow that relationship.'
   if (data?.error === 'node not found') return 'One end of that relationship does not exist.'
   if (data?.error === 'self edge') return 'A node cannot be related to itself.'
@@ -136,7 +143,7 @@ const remove = async (edge: EdgeView) => {
   <section class="relationships" data-test="relationship-panel">
     <header>
       <h2>Relationships</h2>
-      <button type="button" @click="adding = !adding">
+      <button v-if="canWrite" type="button" data-test="add-relationship" @click="adding = !adding">
         {{ adding ? 'Cancel' : 'Add relationship' }}
       </button>
     </header>
@@ -212,6 +219,7 @@ const remove = async (edge: EdgeView) => {
               }}
             </span>
             <button
+              v-if="canWrite"
               type="button"
               class="remove"
               :aria-label="`Remove ${displayName} to ${edge.other.key}`"

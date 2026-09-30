@@ -7,6 +7,7 @@ import {
   type UserManagerSettings
 } from 'oidc-client-ts'
 import type { AuthConfig } from './config'
+import { graphScopesOf } from './scopes'
 
 /** Where the identity provider sends the browser back to after sign-in. */
 export const CALLBACK_PATH = '/auth/callback'
@@ -21,6 +22,8 @@ export const CALLBACK_PATH = '/auth/callback'
 export interface AuthSession {
   /** Who is signed in, for display. Null until a session loads. */
   readonly username: Ref<string | null>
+  /** The graph scopes the signed-in user's access token holds (#116). Empty until a session loads. */
+  readonly scopes: Ref<string[]>
   /** A current access token, or null when there is none and the user has to sign in. */
   accessToken(): Promise<string | null>
   /** Hands over to the identity provider, coming back to [returnTo] afterwards. */
@@ -78,19 +81,21 @@ export const createAuthSession = (
   manager: SignInManager = new UserManager(settings(config))
 ): AuthSession => {
   const username = ref<string | null>(null)
-  manager.events.addUserLoaded(user => {
+  const scopes = ref<string[]>([])
+  const remember = (user: User | null) => {
     username.value = displayName(user)
-  })
-  manager.events.addUserUnloaded(() => {
-    username.value = null
-  })
+    scopes.value = graphScopesOf(user?.access_token)
+  }
+  manager.events.addUserLoaded(remember)
+  manager.events.addUserUnloaded(() => remember(null))
 
   return {
     username,
+    scopes,
     async accessToken() {
       const user = await manager.getUser()
       if (!user || user.expired) return null
-      username.value = displayName(user)
+      remember(user)
       return user.access_token
     },
     async signIn(target: string) {
@@ -98,7 +103,7 @@ export const createAuthSession = (
     },
     async completeSignIn(url?: string) {
       const user = await manager.signinRedirectCallback(url)
-      username.value = displayName(user)
+      remember(user)
       return returnTo(user.state)
     },
     async signOut() {

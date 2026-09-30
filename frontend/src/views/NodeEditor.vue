@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TagInput from '@/components/fields/TagInput.vue'
 import { InvalidGitRemoteError, parseGitRemote } from '@/lib/gitRemote'
+import { refusalReason } from '@/auth/scopes'
 import {
   nodeApi,
   ontologyApi,
@@ -127,6 +128,8 @@ const describe = (data: { error?: string; errors?: PropertyError[]; existingId?:
     fieldErrors.value = Object.fromEntries(data.errors.map(e => [e.field, e.message]))
     return ''
   }
+  const refused = refusalReason(data)
+  if (refused) return refused
   if (data?.error === 'node exists') return 'A node with this identity already exists.'
   if (data?.error === 'identity properties are immutable') {
     return 'Identity properties cannot be changed; create a new node instead.'

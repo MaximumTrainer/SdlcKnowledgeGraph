@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { nodeApi, ontologyApi, type GraphNode, type OntologyNodeType } from '@/services/api'
+import { useCanWrite } from '@/auth/canWrite'
 
 /**
  * The list of nodes of one type. Moving between types is the shell's navigation (#6); the ontology
  * is read here only for the columns worth showing.
  */
 const props = defineProps<{ type: string }>()
+
+// A user who may only read is not offered a form the API would refuse (#116).
+const canWrite = useCanWrite()
 
 const nodeTypes = ref<OntologyNodeType[]>([])
 const nodes = ref<GraphNode[]>([])
@@ -45,7 +49,9 @@ const cell = (node: GraphNode, column: string): string => {
   <section class="node-list">
     <header>
       <h1>{{ type }}</h1>
-      <router-link data-test="new-node" class="new" :to="`/nodes/${type}/new`">New</router-link>
+      <router-link v-if="canWrite" data-test="new-node" class="new" :to="`/nodes/${type}/new`"
+        >New</router-link
+      >
     </header>
 
     <p v-if="loading">Loading…</p>

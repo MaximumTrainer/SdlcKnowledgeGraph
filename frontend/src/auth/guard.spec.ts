@@ -7,6 +7,7 @@ import { CALLBACK_PATH, type AuthSession } from './session'
 /** An unauthenticated user is sent to the identity provider before any page loads (#114, FR-2). */
 const session = (token: string | null): AuthSession => ({
   username: ref(null),
+  scopes: ref([]),
   accessToken: vi.fn(async () => token),
   signIn: vi.fn(async () => undefined),
   completeSignIn: vi.fn(async () => '/'),

@@ -151,6 +151,7 @@ describe('AppLayout', () => {
     const signOut = vi.fn(async () => undefined)
     const session: AuthSession = {
       username: ref('dan'),
+      scopes: ref(['graph:read', 'graph:write']),
       accessToken: async () => 'access-token',
       signIn: async () => undefined,
       completeSignIn: async () => '/',

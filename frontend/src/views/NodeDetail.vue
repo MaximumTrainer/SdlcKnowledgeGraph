@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import RelationshipPanel from '@/components/RelationshipPanel.vue'
 import { nodeApi, type GraphNode } from '@/services/api'
 import { parseGitRemote } from '@/lib/gitRemote'
+import { useCanWrite } from '@/auth/canWrite'
+import { refusalReason } from '@/auth/scopes'
 
 /**
  * One node: what it says, and who said it.
@@ -15,6 +17,8 @@ import { parseGitRemote } from '@/lib/gitRemote'
 const props = defineProps<{ type: string; id: string }>()
 
 const router = useRouter()
+// A user who may only read is offered no edit, delete or relationship controls (#116).
+const canWrite = useCanWrite()
 const node = ref<GraphNode | null>(null)
 const error = ref('')
 const confirming = ref(false)
@@ -69,7 +73,7 @@ const remove = async (cascade: boolean) => {
       confirming.value = true
       return
     }
-    error.value = data?.error ?? 'That node could not be deleted.'
+    error.value = refusalReason(data) ?? data?.error ?? 'That node could not be deleted.'
   }
 }
 </script>
@@ -84,9 +88,11 @@ const remove = async (cascade: boolean) => {
           <p class="type">{{ node.type }}</p>
           <h1>{{ node.key }}</h1>
         </div>
-        <div class="actions">
-          <router-link :to="`/nodes/${type}/${id}/edit`">Edit</router-link>
-          <button type="button" class="danger" @click="remove(false)">Delete</button>
+        <div v-if="canWrite" class="actions">
+          <router-link data-test="edit-node" :to="`/nodes/${type}/${id}/edit`">Edit</router-link>
+          <button type="button" class="danger" data-test="delete-node" @click="remove(false)">
+            Delete
+          </button>
         </div>
       </header>
 

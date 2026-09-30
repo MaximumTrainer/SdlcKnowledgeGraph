@@ -4,6 +4,8 @@ import { connectorApi, type ConnectorSummary } from '@/services/connectorApi'
 import { formatInstant } from '@/lib/time'
 import FreshnessBadge from '@/components/FreshnessBadge.vue'
 import StatusChip from '@/components/StatusChip.vue'
+import { useCanWrite } from '@/auth/canWrite'
+import { refusalReason } from '@/auth/scopes'
 
 /**
  * What is ingesting, and whether it is working.
@@ -17,6 +19,8 @@ const connectors = ref<ConnectorSummary[]>([])
 const error = ref('')
 const syncResult = ref('')
 const syncing = ref<string | null>(null)
+// Starting a sync writes to the graph, so a user who may only read is not offered one (#116).
+const canWrite = useCanWrite()
 
 const load = async () => {
   try {
@@ -37,8 +41,10 @@ const sync = async (name: string) => {
     const { syncRunId } = await connectorApi.sync(name, 'incremental')
     syncResult.value = `Started run ${syncRunId} for ${name}.`
     await load()
-  } catch {
-    syncResult.value = `${name} refused the sync. A run may already be in progress.`
+  } catch (caught) {
+    syncResult.value =
+      refusalReason((caught as { response?: { data?: unknown } }).response?.data) ??
+      `${name} refused the sync. A run may already be in progress.`
   } finally {
     syncing.value = null
   }
@@ -97,9 +103,10 @@ onMounted(load)
             <FreshnessBadge :name="connector.name" :freshness="connector.freshness" />
           </td>
           <td>
-            <!-- Offered only when it would do something: a disabled connector is never scheduled. -->
+            <!-- Offered only when it would do something: a disabled connector is never scheduled,
+                 and a user without graph:write would be refused. -->
             <button
-              v-if="connector.enabled"
+              v-if="connector.enabled && canWrite"
               type="button"
               :data-test="`sync-${connector.name}`"
               :disabled="syncing === connector.name"
