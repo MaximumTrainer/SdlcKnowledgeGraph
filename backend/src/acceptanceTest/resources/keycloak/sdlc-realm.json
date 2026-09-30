@@ -1,0 +1,42 @@
+{
+  "realm": "sdlc",
+  "displayName": "SDLC Knowledge Graph (development)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "sdlc-ui",
+      "name": "SDLC Knowledge Graph web interface",
+      "description": "The Vue single-page application. Public, so it holds no secret; PKCE protects the code exchange.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": "dan",
+      "username": "dan",
+      "enabled": true,
+      "email": "dan@example.test",
+      "emailVerified": true,
+      "firstName": "Dan",
+      "lastName": "Developer",
+      "credentials": [{ "type": "password", "value": "dan", "temporary": false }]
+    }
+  ]
+}
