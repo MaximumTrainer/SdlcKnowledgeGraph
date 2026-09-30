@@ -61,8 +61,11 @@ class ScopePolicyTest {
     @CsvSource(
         "POST, /api/v1/lifecycle/archive",
         "POST, /api/v1/lifecycle/migrations/apply",
+        // #98: a merge retires one node and moves every edge it has onto another.
+        "POST, /api/v1/nodes/Repository/github.com/acme/payments/merge",
+        "POST, /api/v1/nodes/ExternalWorkItem/by-key/merge",
     )
-    fun `archiving and migrating the graph need graph admin as well as graph write`(
+    fun `archiving, migrating and merging need graph admin as well as graph write`(
         method: String,
         path: String,
     ) {

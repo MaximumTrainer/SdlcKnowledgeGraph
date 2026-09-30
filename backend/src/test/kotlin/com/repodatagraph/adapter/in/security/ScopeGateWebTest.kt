@@ -165,6 +165,17 @@ class ScopeGateWebTest {
     }
 
     @Test
+    fun `merging two nodes with a write token that is not an admin's is refused, naming graph admin (#98)`() {
+        mockMvc
+            .perform(
+                post("/api/v1/nodes/Team/platform/merge")
+                    .header("Authorization", userToken("scope" to "graph:read graph:write"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"into":"platform-eng"}"""),
+            ).refusedFor(required = listOf("graph:admin", "graph:write"), held = listOf("graph:read", "graph:write"))
+    }
+
+    @Test
     fun `PUT and DELETE need graph write too`() {
         val bearer = userToken("scope" to "graph:read")
 
