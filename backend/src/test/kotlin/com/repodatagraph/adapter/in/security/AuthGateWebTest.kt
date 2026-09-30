@@ -4,13 +4,16 @@ import com.repodatagraph.adapter.`in`.rest.NodeController
 import com.repodatagraph.adapter.`in`.rest.NodeRestExceptionHandler
 import com.repodatagraph.adapter.`in`.rest.SeedIngestController
 import com.repodatagraph.domain.model.NodePage
+import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.SeedIngestOutcome
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
+import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,6 +40,9 @@ import java.time.Instant
  * `WWW-Authenticate: Bearer` challenge, so the web interface can tell "sign in again" from any other
  * failure. The token itself is decoded by a mock; that the real decoder trusts only the issuer's keys
  * is the acceptance suite's job, against a real Keycloak.
+ *
+ * A client-credentials token passes the same gate, and then one more (#115): its client must be a
+ * registered, current service principal, or the answer is a 403 naming the client.
  */
 @WebMvcTest(
     controllers = [NodeController::class, SeedIngestController::class],
@@ -59,11 +65,27 @@ class AuthGateWebTest {
     @MockitoBean
     private lateinit var seedIngestUseCase: SeedIngestUseCase
 
+    @MockitoBean
+    private lateinit var servicePrincipals: ServicePrincipalUseCase
+
     private fun jwt(subject: String) =
         Jwt
             .withTokenValue("good")
             .header("alg", "RS256")
             .subject(subject)
+            .issuer("https://issuer.example.test/realms/sdlc")
+            .issuedAt(Instant.parse("2026-01-01T00:00:00Z"))
+            .expiresAt(Instant.parse("2099-01-01T00:00:00Z"))
+            .build()
+
+    /** What Keycloak issues a confidential client for the client-credentials grant. */
+    private fun serviceJwt(clientId: String) =
+        Jwt
+            .withTokenValue("service")
+            .header("alg", "RS256")
+            .subject("0b6f3c1e-service-account")
+            .claim("azp", clientId)
+            .claim("preferred_username", "service-account-$clientId")
             .issuer("https://issuer.example.test/realms/sdlc")
             .issuedAt(Instant.parse("2026-01-01T00:00:00Z"))
             .expiresAt(Instant.parse("2099-01-01T00:00:00Z"))
@@ -121,5 +143,43 @@ class AuthGateWebTest {
             ).andExpect(status().isAccepted)
 
         verify(seedIngestUseCase).seed(eq("Bearer ingest-token"), any())
+    }
+
+    @Test
+    fun `a registered service principal's token reaches the API`() {
+        whenever(jwtDecoder.decode("service")).thenReturn(serviceJwt("triage-agent"))
+        whenever(servicePrincipals.resolve("triage-agent"))
+            .thenReturn(ServicePrincipal("triage-agent", "team-payments", null, "dan", Instant.parse("2026-01-01T00:00:00Z")))
+        whenever(nodeUseCase.list(eq("Repository"), any(), anyOrNull())).thenReturn(NodePage(emptyList(), null))
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Repository").header("Authorization", "Bearer service"))
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `a client with no current registration is refused with 403, naming the client`() {
+        whenever(jwtDecoder.decode("service")).thenReturn(serviceJwt("rogue-agent"))
+        whenever(servicePrincipals.resolve("rogue-agent")).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Repository").header("Authorization", "Bearer service"))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error").value("unregistered service principal"))
+            .andExpect(jsonPath("$.clientId").value("rogue-agent"))
+
+        verify(nodeUseCase, never()).list(any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a user's token is never looked up in the registry`() {
+        whenever(jwtDecoder.decode("good")).thenReturn(jwt("dan"))
+        whenever(nodeUseCase.list(eq("Repository"), any(), anyOrNull())).thenReturn(NodePage(emptyList(), null))
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Repository").header("Authorization", "Bearer good"))
+            .andExpect(status().isOk)
+
+        verify(servicePrincipals, never()).resolve(any())
     }
 }

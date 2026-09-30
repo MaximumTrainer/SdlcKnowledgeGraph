@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.domain.exception.ImmutableIdentityException
+import com.repodatagraph.domain.exception.ManagedNodeTypeException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
@@ -67,6 +68,36 @@ class NodeControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.provenance.writtenBy").value("dan"))
             .andExpect(jsonPath("$.provenance.principalType").value("user"))
+    }
+
+    @Test
+    fun `a node a service principal wrote names the team it acted for`() {
+        val written =
+            platform.copy(
+                provenance =
+                    platform.provenance.copy(writtenBy = "triage-agent", principalType = "service", onBehalfOfTeam = "team-payments"),
+            )
+        whenever(nodeUseCase.get("Team", "platform")).thenReturn(written)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.provenance.writtenBy").value("triage-agent"))
+            .andExpect(jsonPath("$.provenance.principalType").value("service"))
+            .andExpect(jsonPath("$.provenance.onBehalfOfTeam").value("team-payments"))
+    }
+
+    @Test
+    fun `a type with an API of its own is not written through the generic one`() {
+        whenever(nodeUseCase.create(eq("ServicePrincipal"), any()))
+            .thenThrow(ManagedNodeTypeException("ServicePrincipal", "/api/v1/service-principals"))
+
+        mockMvc
+            .perform(body(post("/api/v1/nodes/ServicePrincipal"), mapOf("props" to mapOf("name" to "rogue-agent"))))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error").value("managed node type"))
+            .andExpect(jsonPath("$.type").value("ServicePrincipal"))
+            .andExpect(jsonPath("$.managedAt").value("/api/v1/service-principals"))
     }
 
     @Test
