@@ -91,6 +91,18 @@ class EdgeControllerTest {
     }
 
     @Test
+    fun `an edge's provenance says who wrote it`() {
+        val written = edge.copy(provenance = provenance.copy(writtenBy = "dan", principalType = "user"))
+        whenever(edgeUseCase.create(any())).thenReturn(EdgeWrite(written, "DEPENDED_ON_BY", created = true))
+
+        mockMvc
+            .perform(post("/api/v1/edges").contentType(MediaType.APPLICATION_JSON).content(body(createRequest)))
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.provenance.writtenBy").value("dan"))
+            .andExpect(jsonPath("$.provenance.principalType").value("user"))
+    }
+
+    @Test
     fun `POSTing the same edge again returns 200, not a second edge`() {
         whenever(edgeUseCase.create(any())).thenReturn(EdgeWrite(edge, "DEPENDED_ON_BY", created = false))
 

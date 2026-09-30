@@ -53,7 +53,15 @@ describe('edge API contract', () => {
           from: like({ id: PAYMENTS, type: 'Repository', key: 'github.com/acme/payments' }),
           to: like({ id: SHARED, type: 'Repository', key: 'github.com/acme/shared-lib' }),
           props: like({ kind: 'library' }),
-          provenance: like({ sourceSystem: 'manual', confidence: 1.0, inferred: false })
+          // Who made the write (#114): the token's subject, or anonymous through the development
+          // bypass the provider is verified with.
+          provenance: like({
+            sourceSystem: 'manual',
+            confidence: 1.0,
+            inferred: false,
+            writtenBy: 'anonymous',
+            principalType: 'user'
+          })
         }
       })
 
@@ -68,6 +76,7 @@ describe('edge API contract', () => {
       )
 
       expect(created.inverse).toBe('DEPENDED_ON_BY')
+      expect(created.provenance).toMatchObject({ writtenBy: 'anonymous', principalType: 'user' })
     })
   })
 

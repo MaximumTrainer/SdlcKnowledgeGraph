@@ -58,6 +58,18 @@ class NodeControllerTest {
         )
 
     @Test
+    fun `a node's provenance says who wrote it`() {
+        val written = platform.copy(provenance = platform.provenance.copy(writtenBy = "dan", principalType = "user"))
+        whenever(nodeUseCase.get("Team", "platform")).thenReturn(written)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.provenance.writtenBy").value("dan"))
+            .andExpect(jsonPath("$.provenance.principalType").value("user"))
+    }
+
+    @Test
     fun `POST returns 201, the derived identity and a Location header`() {
         whenever(nodeUseCase.create(eq("Team"), any())).thenReturn(platform)
 

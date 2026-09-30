@@ -928,7 +928,9 @@
           "provenance": {
             "confidence": 1,
             "inferred": false,
-            "sourceSystem": "manual"
+            "principalType": "user",
+            "sourceSystem": "manual",
+            "writtenBy": "anonymous"
           },
           "to": {
             "id": "Repository:github.com/acme/shared-lib",
@@ -1024,7 +1026,9 @@
           "provenance": {
             "confidence": 1,
             "inferred": false,
-            "sourceSystem": "manual"
+            "principalType": "user",
+            "sourceSystem": "manual",
+            "writtenBy": "anonymous"
           },
           "type": "Team"
         },
