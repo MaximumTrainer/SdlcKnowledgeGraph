@@ -41,6 +41,8 @@ formula it used.
 - **What the answer cannot do, it says.** A `paths` filter with no index to read it against answers
   `pathFilter: "not_applied"` and the unfiltered hits, and a `sha` answers `changeScope: "unknown"`
   until Change nodes exist ([#85](../../../issues/85)). Neither pretends to have narrowed anything.
+  Since #85, a `sha` that names a Change answers `applied` and keeps only the deployments whose
+  artifact contains it. A `sha` that names none still answers `unknown`, unnarrowed.
 
 ## Consequences
 

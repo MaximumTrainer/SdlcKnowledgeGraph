@@ -19,3 +19,4 @@ record, not an edit to the old one.
 | [0009](./0009-branch-protection) | `main` is protected on the server, and the rule applies to everyone | Accepted |
 | [0010](./0010-dogfood-on-fly-io) | The dogfood instance runs on fly.io | Accepted |
 | [0011](./0011-impact-scoring-versioned-and-deterministic) | Impact scoring is versioned and deterministic | Accepted |
+| [0012](./0012-external-work-items-are-references-not-copies) | External work items are references, not copies | Accepted |
