@@ -123,6 +123,16 @@ signed out says `test.use({ signedIn: false })`: the smoke test does, signing in
 creating a node and reading `dan` as its writer. The scope and service-principal specs sign their
 own users in, with Playwright's plain `test`.
 
+The graph view ([#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9)) draws on a canvas, which has no DOM for a locator to read. In
+test mode, and in the browser whenever the page is opened with `?e2e=1`, the view hands its
+Cytoscape instance to the page as `window.__cy` and sets `window.__cyReady` once a layout has
+stopped, so `e2e/tests/graph-view.spec.ts` waits for that and then asks Cytoscape what it drew.
+That spec seeds its own nodes under unique names through the API, and marks an edge inferred through
+`e2e/support/neo4j.ts`, which talks to Neo4j's HTTP endpoint (`NEO4J_HTTP_URL`, `NEO4J_USERNAME`,
+`NEO4J_PASSWORD`), since no API writes an inferred fact. In the unit tests jsdom has no canvas
+either, so `frontend/src/test/fakeCytoscape.ts` stands in for Cytoscape: it records the elements,
+layouts and classes the view asks for, and lets a test tap a node.
+
 `e2e/conformance` is a separate Playwright suite with its own config: the deployment contract in
 [Deployment](/guide/deployment), run against any base URL with no browser. CI runs it against the
 compose stack, once writable and behind the login where D5 must fail, and once in the anonymous
