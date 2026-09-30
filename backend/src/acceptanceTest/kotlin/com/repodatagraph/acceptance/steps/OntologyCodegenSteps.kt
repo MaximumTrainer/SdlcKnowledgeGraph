@@ -1,6 +1,8 @@
 package com.repodatagraph.acceptance.steps
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.repodatagraph.acceptance.support.ApiWorld
 import io.cucumber.java.en.Then
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,10 +24,13 @@ class OntologyCodegenSteps(
     @Then("the response body equals the committed ontology snapshot")
     fun theResponseBodyEqualsTheCommittedSnapshot() {
         val snapshot = objectMapper.readTree(read(SNAPSHOT))
+        // The freshness windows are the deployment's configuration, not the registry's (#93), so the
+        // snapshot, which is rendered from the registry alone, does not hold them.
+        val served = world.lastBody().deepCopy<JsonNode>().also { (it as ObjectNode).remove(FRESHNESS) }
 
         assertEquals(
             snapshot,
-            world.lastBody(),
+            served,
             "GET /api/v1/ontology and $SNAPSHOT disagree. Run ./gradlew generateOntology and commit the result.",
         )
     }
@@ -86,6 +91,7 @@ class OntologyCodegenSteps(
     private fun read(path: String): String = File(path).readText()
 
     private companion object {
+        const val FRESHNESS = "freshness"
         const val SNAPSHOT = "src/main/resources/ontology/v1/ontology.json"
         const val SDL = "src/main/resources/graphql/schema.generated.graphqls"
         const val TYPESCRIPT = "../frontend/src/generated/ontology.ts"

@@ -13,6 +13,7 @@ import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
@@ -158,7 +159,7 @@ class RepositoryControllerTest {
      */
     @Test
     fun `GET by-key returns the repository for its canonical key`() {
-        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(storedRepository())
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"), anyOrNull())).thenReturn(storedRepository())
 
         mockMvc
             .perform(get("/api/v1/repositories/by-key").param("key", "github.com/acme/payments"))
@@ -168,7 +169,7 @@ class RepositoryControllerTest {
 
     @Test
     fun `GET by-key normalises the key it is given`() {
-        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(storedRepository())
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"), anyOrNull())).thenReturn(storedRepository())
 
         mockMvc
             .perform(get("/api/v1/repositories/by-key").param("key", "git@github.com:Acme/Payments.git"))
@@ -177,7 +178,7 @@ class RepositoryControllerTest {
 
     @Test
     fun `GET by-key returns 404 when nothing holds that key`() {
-        whenever(nodeUseCase.get(eq("Repository"), any())).thenReturn(null)
+        whenever(nodeUseCase.get(eq("Repository"), any(), anyOrNull())).thenReturn(null)
 
         mockMvc
             .perform(get("/api/v1/repositories/by-key").param("key", "github.com/acme/nothing-here"))
@@ -237,7 +238,7 @@ class RepositoryControllerTest {
      */
     @Test
     fun `GET by-key falls back to a key the repository had before a rename (#88)`() {
-        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(null)
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"), anyOrNull())).thenReturn(null)
         whenever(repositoryUseCase.findByPreviousKey("github.com/acme/payments")).thenReturn(renamedRepository())
 
         mockMvc
@@ -249,9 +250,11 @@ class RepositoryControllerTest {
 
     @Test
     fun `GET repositories with a url answers the one repository it resolves to, old or new (#88)`() {
-        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(null)
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"), anyOrNull())).thenReturn(null)
         whenever(repositoryUseCase.findByPreviousKey("github.com/acme/payments")).thenReturn(renamedRepository())
-        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme-platform/payments-service"))).thenReturn(renamedRepository())
+        whenever(
+            nodeUseCase.get(eq("Repository"), eq("github.com/acme-platform/payments-service"), anyOrNull()),
+        ).thenReturn(renamedRepository())
 
         listOf("https://github.com/acme/payments", "https://github.com/acme-platform/payments-service").forEach { url ->
             mockMvc
@@ -265,7 +268,7 @@ class RepositoryControllerTest {
 
     @Test
     fun `GET repositories with a url nothing resolves to answers an empty list (#88)`() {
-        whenever(nodeUseCase.get(eq("Repository"), any())).thenReturn(null)
+        whenever(nodeUseCase.get(eq("Repository"), any(), anyOrNull())).thenReturn(null)
 
         mockMvc
             .perform(get("/api/v1/repositories").param("url", "https://github.com/acme/nothing"))

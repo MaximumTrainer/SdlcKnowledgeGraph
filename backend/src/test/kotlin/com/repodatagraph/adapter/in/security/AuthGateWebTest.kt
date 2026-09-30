@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender
 import com.repodatagraph.adapter.`in`.rest.NodeController
 import com.repodatagraph.adapter.`in`.rest.NodeRestExceptionHandler
 import com.repodatagraph.adapter.`in`.rest.SeedIngestController
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.port.`in`.NodeUseCase
@@ -67,6 +68,11 @@ class AuthGateWebTest {
 
     @MockitoBean
     private lateinit var nodeUseCase: NodeUseCase
+
+    /** Whether a fact read back is stale (#93); never, unless a test says otherwise. */
+    @MockitoBean
+    @Suppress("UnusedPrivateProperty")
+    private lateinit var factFreshness: FactFreshness
 
     @MockitoBean
     private lateinit var seedIngestUseCase: SeedIngestUseCase

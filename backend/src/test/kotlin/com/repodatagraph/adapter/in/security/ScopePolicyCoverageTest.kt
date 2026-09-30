@@ -110,6 +110,22 @@ class ScopePolicyCoverageTest {
     }
 
     @Test
+    fun `how far behind each source is is mapped, and is a read (#93)`() {
+        assertTrue(Route("GET", "/api/v1/freshness") in routes, "routes found: $routes")
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("GET", "/api/v1/freshness"))
+    }
+
+    @Test
+    fun `the GraphQL reads as of an instant are query fields, so reads (#93)`() {
+        val queries =
+            controllers
+                .flatMap { it.methods.toList() }
+                .filter { it.isAnnotationPresent(QueryMapping::class.java) }
+                .map { it.name }
+        assertTrue(queries.containsAll(listOf("node", "edges")), "query fields: $queries")
+    }
+
+    @Test
     fun `every mapped route has a scope requirement or is on the public allowlist`() {
         val undeclared = routes.filter { ScopePolicy.requirementFor(it.method, it.samplePath) == null }
 

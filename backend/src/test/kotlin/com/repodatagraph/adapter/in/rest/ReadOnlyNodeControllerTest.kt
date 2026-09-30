@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.rest
 
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import org.junit.jupiter.api.Test
@@ -31,6 +32,11 @@ class ReadOnlyNodeControllerTest {
 
     @MockitoBean
     private lateinit var nodeUseCase: NodeUseCase
+
+    /** Whether a fact read back is stale (#93); never, unless a test says otherwise. */
+    @MockitoBean
+    @Suppress("UnusedPrivateProperty")
+    private lateinit var factFreshness: FactFreshness
 
     @ParameterizedTest
     @CsvSource(
