@@ -263,6 +263,8 @@ rule is a fact about the registry, not a matter of taste.
 | ONT009 | A description under 20 characters, or one that only repeats the property's name (a warning with `--warn-only`) |
 | ONT010 | An edge type without a description, or naming an undeclared node type at either end |
 | ONT011 | A deprecated identity property |
+| ONT012 | In `environments.yaml`: an alias that already names another environment, an alias that is another environment's own name, or an environment without a description |
+| ONT013 | A `mergeScope` naming a property the type does not declare |
 
 ```text
 Ontology lint: 1 errors, 0 warnings
@@ -410,9 +412,12 @@ This table is a copy of `edges.yaml`. The website's
 [ontology reference](https://maximumtrainer.github.io/SdlcKnowledgeGraph/reference/ontology) is
 rendered from the registry itself, so it is the one to trust if the two ever differ.
 
-Three relationships carry properties of their own. `DEPENDS_ON` requires `kind` (`library`, `api`,
-`event` or `data`) and accepts `manifest`, the file the dependency was read from, so an inferred
-dependency can be traced back to its evidence. `OWNS_RESOURCE` accepts `rule`, which link rule
+Four relationships carry properties of their own. `DEPENDS_ON` requires `kind` (`library`, `api`,
+`event` or `data`) and accepts `manifest`, the file the dependency was read from, with its path from
+the repository root in a monorepo, so an inferred dependency can be traced back to its evidence.
+`PROVIDES` accepts `path`, the directory a monorepo builds the service from, so one repository can
+provide several services, each from a directory of its own
+([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). `OWNS_RESOURCE` accepts `rule`, which link rule
 proposed it, and `BUILT_FROM` accepts `commitSha`.
 
 A `CANDIDATE_LINK` relationship, for connections the planned link resolution engine is not confident
@@ -588,6 +593,7 @@ History panel on a node's page.
 | `source-retired` | The source said it was retired or archived |
 | `missing-from-sync` | Reconciliation: a complete full sync stopped reporting it |
 | `manual` | A `PUT` that carried `provenance.validTo` |
+| `merged` | A merge into another node ([Merging two nodes](#merging-two-nodes)); its history names that node and who merged it |
 
 Retiring a node through a tombstone or reconciliation also closes its current edges at the same
 instant (an edge that began later is closed at the instant it began, never before). A `PUT` that closes a node leaves its edges as
@@ -893,9 +899,9 @@ seen by two different connectors has to land on one node.
 | CloudResource | `<provider>:<resourceId>`, e.g. `aws:<arn>`, `azure:<resource id>`, `gcp:<asset name>` |
 | ConfigurationItem | `<sourceSystem>:<instance>:<sysId>`, e.g. `servicenow:acme:abc123` |
 | Pipeline | `<provider>:<repoKey>:<workflowPath>` |
-| Artifact | `<registry>/<name>@<digest>`, falling back to `<name>:<version>` |
+| Artifact | `<registry>/<name>@<digest>`, falling back to `<name>:<version>`; `identityQuality` says which ([below](#a-digest-less-artifact-is-folded-into-its-digest)) |
 | Deployment | `<artifactKey>#<environmentKey>#<deployedAt as epoch seconds>` |
-| Environment | lowercased name, with an alias table so `prod`, `prd` and `live` all mean `production` |
+| Environment | lowercased name, folded through `environments.yaml` so `prod`, `prd` and `live` all mean `production` ([below](#environment-aliases)) |
 | Team, Service | lowercased, trimmed `name` |
 | Change | `<repositoryKey>@<sha>`, the repository key resolved from any remote form and the sha lowercased |
 | PullRequest | `<repositoryKey>/pull/<number>` |
@@ -908,9 +914,86 @@ all resolve to `github.com/acme/payments`. A uniqueness constraint on `key` is c
 every registry type at startup, and one over the alias's properties for every type that declares an
 alias. A Repository's alias, its provider and provider id, is the one way a node's key changes: a
 rename through it moves the node and records the key it left
-([above](#a-repository-s-provider-id-survives-a-rename)). Merging two existing nodes that turn out to be the same thing, with
-an `aliases` list recording the keys folded in, is not implemented; today the derivation rules are
-what stop the duplicate being created in the first place.
+([above](#a-repository-s-provider-id-survives-a-rename)). Two existing nodes that turn out to be
+one thing are merged ([below](#merging-two-nodes)).
+
+### Environment aliases
+
+`environments.yaml`, beside the rest of the registry, lists each canonical environment, what it is,
+and the spellings folded into it
+([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). It ships with the table
+that used to be written into the code: `prod`, `prd` and `live` fold into `production`, `stg` and
+`stage` into `staging`, `dev` into `development`, and `test` into `testing`.
+
+- It is validated as the registry loads: an alias that names two environments, or that is another
+  environment's own name, stops the application, and the lint reports it as ONT012.
+- `GET /api/v1/ontology` serves it as `environments: [{name, description, aliases}]`, and the Markdown
+  rendering lists it in one line under Environment.
+- Changing it moves no node already keyed by an old spelling. Merge those nodes once the new table is
+  in force.
+
+### A digest-less artifact is folded into its digest
+
+An Artifact reported without a digest is keyed `<name>:<version>`. The server derives its
+`identityQuality`: `digest` when a digest keys it, and `version-only` when it does not.
+
+When a writer later stores an Artifact with a digest, the graph looks for the current `version-only`
+node with the same name and version, and folds it into the digest node. A fold happens only when the
+digest node is the only current one with that name and version, and when the two differ in nothing
+but the digest. Two images tagged alike, or one built from another commit, are left as they are.
+
+A fold is a merge, as below, recorded as the write that caused it. Its edges move and its key keeps
+resolving. It is idempotent: a folded node is retired, and is never folded again.
+
+### Merging two nodes
+
+`POST /api/v1/nodes/{type}/{key}/merge` with `{into, dryRun?}` merges the node at `{key}` into the
+node `into` names ([ADR-0015](/adr/0015-merging-nodes-retires-with-a-pointer)). `into` is a key of
+the same type or a full `Type:key` id. `/{type}/by-key/merge?key=` merges a node no path can carry.
+Merging needs `graph:admin` as well as `graph:write`.
+
+In one transaction:
+
+- every edge of the merged node moves to the node merged into, with its properties and provenance;
+- an edge the target already has to the same node is collapsed into the target's own;
+- an edge between the two is dropped;
+- the merged key, and every key it had, is added to the target's `previousKeys`;
+- the merged node is retired with the reason `merged`, pointing at the target and naming who merged
+  it. It is not deleted.
+
+The target keeps every value it holds, and takes from the other only what it lacks, never a value
+that would move its key. `dryRun: true` answers the same response and changes nothing:
+
+```json
+{ "dryRun": false, "from": "Repository:github.com/acme/payments",
+  "into": "Repository:github.com/acme/payments-service", "node": { "...": "the target" },
+  "gained": ["description"], "kept": ["defaultBranch"],
+  "edges": { "moved": 3, "collapsed": 1, "dropped": 0 },
+  "previousKeys": ["github.com/acme/payments"], "redirected": 0 }
+```
+
+Each type's `mergeScope` in `nodes.yaml` names the properties two nodes must not disagree on to be
+one thing: a Repository's `host`, and an Artifact's `registry`, `name`, `version` and `digest`. A
+merge where both nodes hold one of them, or part of the type's alias, with different values is
+refused with `409 {error: "identity conflict", fields, conflicts: [{field, from, into}]}`.
+
+A merge is also refused in these cases:
+
+| Case | Status | Error |
+| --- | --- | --- |
+| Into itself, or across types | `400` | `invalid merge` |
+| The graph's own records | `400` | `invalid merge` |
+| Into a retired node | `409` | `merge into a retired node` |
+| A node already merged | `409` | `node already merged` |
+| A node that does not exist | `404` | `node not found` |
+
+After a merge, the old key still finds the node:
+
+- `GET` of it answers with the node it went into, as of any instant after the merge too;
+- a create of it is refused, naming that node;
+- an update addressed at it is refused with `node already merged`;
+- a connector that still writes it changes nothing, and an edge written to it lands on the target;
+- merging the target again points every earlier merge at the new target.
 
 ## Maintaining nodes by hand
 
@@ -926,6 +1009,7 @@ labels that reach Cypher are declared ones.
 | `GET /api/v1/nodes/{type}/{key}` | `200` or `404` |
 | `PUT /api/v1/nodes/{type}/{key}` with `{props, provenance?}` | `200`, same id and same key |
 | `DELETE /api/v1/nodes/{type}/{key}?cascade=` | `204`, or `409` while edges remain |
+| `POST /api/v1/nodes/{type}/{key}/merge` with `{into, dryRun?}` | `200` with what moved; needs `graph:admin` ([Merging two nodes](#merging-two-nodes)) |
 
 The segment after the type is the derived key, which contains slashes for most types
 (`/api/v1/nodes/Repository/github.com/acme/payments`). A full `Type:key` id is accepted there too.
@@ -1056,6 +1140,12 @@ frontend.
 1.4.0 ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) added the meta types
 `NodeVersion` and `OntologyMigration`. It is a minor bump; no data needed migrating, so it ships no
 migration.
+
+1.5.0 ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)) hardened identity:
+`environments.yaml`, `mergeScope` on node types, Artifact's derived `identityQuality`, the `path` of
+`PROVIDES`, and `merged` among the retired reasons. It is a minor bump and ships no migration. An
+artifact written before it has no `identityQuality` until it is written again, and the fold finds a
+version-only node by its key, not by that property.
 
 ### Migrations
 

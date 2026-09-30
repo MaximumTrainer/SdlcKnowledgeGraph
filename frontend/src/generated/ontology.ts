@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.4.0'
+export const ONTOLOGY_VERSION = '1.5.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -187,6 +187,8 @@ export type ArtifactArtifactType =
   | 'binary'
   | 'other'
 
+export type ArtifactIdentityQuality = 'digest' | 'version-only'
+
 /** A built, addressable output such as a container image. */
 export interface Artifact {
   id: string
@@ -226,6 +228,11 @@ export interface Artifact {
    * @example "container-image"
    */
   artifactType: ArtifactArtifactType
+  /**
+   * How sure its key is: digest, or version-only when it is keyed name:version for want of one. Derived
+   * @example "digest"
+   */
+  identityQuality?: ArtifactIdentityQuality
 }
 
 export type DeploymentStatus =
@@ -842,7 +849,7 @@ export interface ConnectorState {
 }
 
 export type NodeVersionRetiredReason =
-  'source-deleted' | 'source-retired' | 'missing-from-sync' | 'manual'
+  'source-deleted' | 'source-retired' | 'missing-from-sync' | 'manual' | 'merged'
 
 /** The values a node held for an interval before they were replaced. */
 export interface NodeVersion {

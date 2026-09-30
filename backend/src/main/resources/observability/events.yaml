@@ -25,6 +25,26 @@ events:
       - { name: type, type: string }
       - { name: from, type: string }
       - { name: to, type: string }
+  - name: node.merged
+    level: INFO
+    message: node merged
+    description: One node was merged into another of its type (#98), by a person through the API or automatically when an artifact's digest was seen. Names both keys, how many edges moved, and who merged it.
+    fields:
+      - { name: type, type: string }
+      - { name: from, type: string }
+      - { name: into, type: string }
+      - { name: edgesMoved, type: int }
+      - { name: automatic, type: boolean }
+      - { name: by, type: string }
+  - name: node.merge.skipped
+    level: WARN
+    message: node merge skipped
+    description: An automatic merge found when an artifact's digest was seen was not made, because the graph changed under it (#98). Names both keys and the refusal; the write that found it stands.
+    fields:
+      - { name: type, type: string }
+      - { name: from, type: string }
+      - { name: into, type: string }
+      - { name: reason, type: string }
   - name: node.rejected
     level: INFO
     message: node rejected

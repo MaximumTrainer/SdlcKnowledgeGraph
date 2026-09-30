@@ -2,6 +2,7 @@ package com.repodatagraph.application
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
 import com.repodatagraph.domain.exception.ManagedNodeTypeException
+import com.repodatagraph.domain.exception.NodeAlreadyMergedException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
@@ -43,6 +44,8 @@ class NodeService(
     private val graphStore: GraphStore,
     private val metrics: GraphWriteMetrics,
     private val statedProvenance: StatedProvenance,
+    /** Offered every node written, to fold a digest-less artifact into its digest's node (#98, FR-2). */
+    private val folding: IdentityFolding = IdentityFolding.NONE,
 ) : NodeUseCase {
     override fun create(
         type: String,
@@ -63,11 +66,14 @@ class NodeService(
         identityResolver.aliasFor(nodeType, expanded)?.let { alias ->
             graphStore.findNodeByAlias(type, alias)?.let { throw NodeExistsException(it.id, alias) }
         }
-        graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
+        // A key a merge left names the node it went into (#98): writing it again would bring back the
+        // duplicate the merge removed.
+        graphStore.findNode(key)?.let { throw NodeExistsException(mergedInto(it)?.id ?: it.id) }
 
         return graphStore.upsertNode(GraphNode(key, expanded, provenance)).also {
             LogEvents.nodeCreated(type, key.key, props.keys.sorted())
             metrics.node(type, WriteOutcome.CREATED)
+            folding.afterWrite(it)
         }
     }
 
@@ -78,8 +84,29 @@ class NodeService(
     ): GraphNode? {
         declared(type)
         val node = nodeKey(type, key)
-        return if (asOf == null) graphStore.findNode(node) else graphStore.findNode(node, asOf)
+        return if (asOf == null) current(node) else heldAt(node, asOf)
     }
+
+    /**
+     * The node at [node], or the node that took its key over (#98, FR-4): the one it was merged into,
+     * or the one that held it before a rename (#88). A node merely retired still reads as itself.
+     */
+    private fun current(node: NodeKey): GraphNode? {
+        val found = graphStore.findNode(node) ?: return graphStore.findNodeByPreviousKey(node)
+        return mergedInto(found)?.let { graphStore.findNode(it) } ?: found
+    }
+
+    /** [current] as the graph held it at [at]: a key merged by then reads as the node it went into, then. */
+    private fun heldAt(
+        node: NodeKey,
+        at: Instant,
+    ): GraphNode? =
+        graphStore.findNode(node, at)
+            ?: graphStore.mergedInto(node)?.let { graphStore.findNode(it, at) }
+            ?: graphStore.findNodeByPreviousKey(node)?.let { graphStore.findNode(it.key, at) }
+
+    /** Where a retired node was merged into, if a merge retired it; a current node was never merged. */
+    private fun mergedInto(node: GraphNode): NodeKey? = if (node.provenance.current) null else graphStore.mergedInto(node.key)
 
     override fun list(
         type: String,
@@ -121,6 +148,8 @@ class NodeService(
         val holder = alias?.let { graphStore.findNodeByAlias(type, it) }
         val existing = graphStore.findNode(addressed) ?: holder ?: throw NodeNotFoundException(listOf(addressed))
         if (holder != null && holder.key != existing.key) throw NodeExistsException(holder.id, alias)
+        // Not brought back as a duplicate of the node it was merged into (#98).
+        mergedInto(existing)?.let { throw NodeAlreadyMergedException(existing.key, it) }
 
         val provenance = restating(existing, stated, validTo)
 
@@ -133,6 +162,7 @@ class NodeService(
         if (derived == existing.key) {
             return graphStore.upsertNode(GraphNode(existing.key, expanded, provenance)).also {
                 metrics.node(type, WriteOutcome.UPDATED)
+                folding.afterWrite(it)
             }
         }
         // A changed key renames the node only when the write carries the alias the node already

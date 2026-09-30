@@ -108,4 +108,18 @@ class OntologyReaderTest {
             .forEach { assertTrue(it in names, "$it is missing from $names") }
         ontology.sources.forEach { assertTrue(!it.description.isNullOrBlank(), "${it.name} has no description") }
     }
+
+    @Test
+    fun `the environment alias table is read beside the registry, each name described (#98)`() {
+        val production = ontology.environments.single { it.name == "production" }
+
+        assertEquals(listOf("prod", "prd", "live"), production.aliases)
+        ontology.environments.forEach { assertTrue(!it.description.isNullOrBlank(), "${it.name} has no description") }
+    }
+
+    @Test
+    fun `a node type's merge scope is read, empty where it names none (#98)`() {
+        assertEquals(listOf("host"), ontology.nodeTypes.single { it.name == "Repository" }.mergeScope)
+        assertEquals(emptyList<String>(), ontology.nodeTypes.single { it.name == "Team" }.mergeScope)
+    }
 }

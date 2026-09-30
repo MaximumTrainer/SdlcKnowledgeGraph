@@ -1,0 +1,18 @@
+# The environment alias table (#98, FR-3): each canonical environment name, what it is, and the
+# other spellings teams use for it. An Environment's key, and a Deployment's, is derived through it,
+# so a deployment reported to `prd` lands on the same Environment node as one reported to
+# `production`. It used to be a map in IdentityResolver; it is data now, so a team's own spelling
+# needs a registry change and a restart rather than a release.
+#
+# Names and aliases are lower case, as a key is. The application refuses to start, and
+# `./gradlew ontologyLint` fails (ONT012), when an alias names two environments or is another
+# environment's own name: either would split one environment's deployments between two nodes. The
+# table is served at GET /api/v1/ontology under `environments`.
+#
+# Changing an alias here does not move Environment nodes already keyed by it: merge them
+# (POST /api/v1/nodes/Environment/{key}/merge) once the new table is in force.
+environments:
+  - { name: production, description: "What customers use; a change reaching it matters most", aliases: [prod, prd, live] }
+  - { name: staging, description: "The last stop before production, run like it", aliases: [stg, stage] }
+  - { name: development, description: "Where changes are first deployed and tried", aliases: [dev] }
+  - { name: testing, description: "Where automated and manual tests run against a deployment", aliases: [test] }

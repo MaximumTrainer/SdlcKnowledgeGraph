@@ -31,8 +31,19 @@ class DerivedProperties(
             "Repository" -> repository(props)
             "Change" -> repositoryKeyed(props) + sha(props)
             "PullRequest" -> repositoryKeyed(props)
+            "Artifact" -> artifact(props)
             else -> props
         }
+
+    /**
+     * How sure an Artifact's key is (#98, FR-2): `digest` when it is keyed by its content digest, and
+     * `version-only` when it fell back to `<name>:<version>` and may yet be folded into the node its
+     * digest keys. The server's to say from what the key was built from, whatever a caller sent.
+     */
+    private fun artifact(props: Map<String, Any?>): Map<String, Any?> {
+        val digest = props[DIGEST]?.toString()?.trim()
+        return props + (IDENTITY_QUALITY to if (digest.isNullOrEmpty()) VERSION_ONLY else DIGEST)
+    }
 
     /**
      * A Change or a PullRequest names its repository by key (#85). Stored as the repository's own
@@ -57,6 +68,11 @@ class DerivedProperties(
         private const val SHA = "sha"
         private const val PROVIDER = "provider"
         private const val PROVIDER_ID = "providerId"
+        private const val DIGEST = "digest"
+        private const val VERSION_ONLY = "version-only"
+
+        /** An Artifact's `digest` or `version-only` (#98). */
+        const val IDENTITY_QUALITY = "identityQuality"
 
         /** The hosts that are one provider each, whose repositories' provider ids that provider assigns. */
         private val PROVIDER_OF_HOST = mapOf("github.com" to "github", "gitlab.com" to "gitlab")
@@ -67,6 +83,19 @@ class DerivedProperties(
          * now, emitted on output for compatibility and refused on input (#88).
          */
         fun derivedOnly(type: String): Map<String, String> = if (type == "Repository") mapOf("orgRepo" to "url") else emptyMap()
+
+        /**
+         * Properties of [type] that are not its identity but follow from what its key is built from
+         * (#98): a Repository's url names the host, org and name its key is, and an Artifact's
+         * identityQuality says whether a digest keys it. Two nodes of one type always differ in these
+         * when their keys differ, so a merge neither copies them across nor reports them as kept.
+         */
+        fun identityBound(type: String): Set<String> =
+            when (type) {
+                "Repository" -> setOf("url")
+                "Artifact" -> setOf(IDENTITY_QUALITY)
+                else -> emptySet()
+            }
     }
 
     /**

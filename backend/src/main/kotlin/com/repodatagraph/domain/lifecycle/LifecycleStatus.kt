@@ -38,6 +38,10 @@ data class CurrentValidity(
     val props: Map<String, Any?>,
     val retiredReason: RetiredReason?,
     val resurrectedAt: Instant?,
+    /** The node this one was merged into, when it was retired by a merge (#98). */
+    val mergedInto: NodeKey? = null,
+    /** Who merged it: the subject of the principal that asked, or the source whose write folded it. */
+    val mergedBy: String? = null,
 ) {
     val retired: Boolean get() = validTo != null
 }

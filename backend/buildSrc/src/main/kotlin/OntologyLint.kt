@@ -133,7 +133,8 @@ object OntologyLint {
                     type.properties
                         .filter { it.name in type.identity && it.deprecated != null }
                         .map { LintFinding("$path.properties.${it.name}", "identity property is deprecated", "ONT011") } +
-                    type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
+                    type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) } +
+                    mergeScopeFindings(type, path)
             }
         val edges =
             ontology.edgeTypes.flatMap { type ->
@@ -142,7 +143,39 @@ object OntologyLint {
                     type.properties.flatMap { propertyFindings(it, "$path.properties.${it.name}", type.name, type.properties, edgeNames) } +
                     type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
             }
-        return nodes + edges
+        return nodes + edges + environmentFindings(ontology.environments)
+    }
+
+    /** ONT013: a merge scope (#98) names only properties the type declares. */
+    private fun mergeScopeFindings(
+        type: GenNodeType,
+        path: String,
+    ): List<LintFinding> =
+        type.mergeScope
+            .filter { name -> type.properties.none { it.name == name } }
+            .map { LintFinding(path, "mergeScope names '$it', which the type does not declare", "ONT013") }
+
+    /**
+     * ONT012: the environment alias table (#98, FR-3) folds each spelling into one environment, never
+     * into another environment's own name, and says what each environment is.
+     */
+    private fun environmentFindings(environments: List<GenEnvironment>): List<LintFinding> {
+        val names = environments.map { it.name }.toSet()
+        val claimed = mutableMapOf<String, String>()
+        return environments.flatMap { environment ->
+            val path = "environments.${environment.name}"
+            val aliases =
+                environment.aliases.mapNotNull { alias ->
+                    val earlier = claimed.putIfAbsent(alias, environment.name)
+                    when {
+                        alias in names -> LintFinding(path, "alias '$alias' is the name of another environment", "ONT012")
+                        earlier != null && earlier != environment.name -> LintFinding(path, "alias '$alias' already names $earlier", "ONT012")
+                        earlier != null -> LintFinding(path, "alias '$alias' is listed twice", "ONT012")
+                        else -> null
+                    }
+                }
+            aliases + listOfNotNull(LintFinding(path, "missing description", "ONT012").takeIf { environment.description.isNullOrBlank() })
+        }
     }
 
     fun errors(

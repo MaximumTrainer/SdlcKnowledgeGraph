@@ -83,6 +83,17 @@ data class SourceSystemDef(
     val description: String? = null,
 )
 
+/**
+ * A canonical environment name and the other spellings teams use for it (#98, FR-3), declared in
+ * environments.yaml: `prod`, `prd` and `live` all name `production`, so a deployment reported to any
+ * of them lands on one Environment node.
+ */
+data class EnvironmentDef(
+    val name: String,
+    val description: String? = null,
+    val aliases: List<String> = emptyList(),
+)
+
 data class NodeTypeDef(
     val name: String,
     val description: String?,
@@ -106,6 +117,13 @@ data class NodeTypeDef(
     val examples: List<Map<String, Any?>> = emptyList(),
     /** Questions a reader answers with this type, so an agent knows when to reach for it (#81). */
     val questions: List<String> = emptyList(),
+    /**
+     * Properties two nodes of this type must not disagree on to be merged into one (#98): a
+     * repository on github.com is never one on gitlab.com, whatever its name. A merge is refused
+     * where both nodes hold one of these, or a part of the [alias], with different values. Empty
+     * for a type whose nodes may be merged whatever they hold.
+     */
+    val mergeScope: List<String> = emptyList(),
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 

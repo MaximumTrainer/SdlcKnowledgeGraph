@@ -51,6 +51,8 @@ class InstrumentedGraphStore(
 
     override fun findNodeByPreviousKey(key: NodeKey) = observe("findNodeByPreviousKey") { delegate.findNodeByPreviousKey(key) }
 
+    override fun mergedInto(key: NodeKey) = observe("mergedInto") { delegate.mergedInto(key) }
+
     override fun renameNode(
         from: NodeKey,
         node: GraphNode,

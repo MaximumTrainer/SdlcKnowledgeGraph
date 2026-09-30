@@ -140,11 +140,11 @@ class ScopePolicyCoverageTest {
             routes.filter { it.pattern.startsWith("/api/v1/") }.mapNotNull { route ->
                 val requirement = ScopePolicy.requirementFor(route.method, route.samplePath)
                 val read = route.method in READ_METHODS || (route.method == "POST" && route.pattern in ReadsOverPost.PATHS)
-                val administrative = !read && route.pattern.startsWith(LIFECYCLE)
+                val administrative = !read && (route.pattern.startsWith(LIFECYCLE) || route in MERGES)
                 val expected =
                     when {
                         read -> setOf(GraphScope.READ)
-                        // Archiving and migrating (#33) are writes that need graph:admin as well.
+                        // Archiving and migrating (#33), and merging (#98), are writes that need graph:admin as well.
                         administrative -> setOf(GraphScope.WRITE, GraphScope.ADMIN)
                         else -> setOf(GraphScope.WRITE)
                     }
@@ -156,6 +156,17 @@ class ScopePolicyCoverageTest {
             }
 
         assertEquals(emptyList<String>(), wrong)
+    }
+
+    @Test
+    fun `merging two nodes is mapped, and needs graph admin as well as graph write (#98)`() {
+        MERGES.forEach { assertTrue(it in routes, "$it is mapped: $routes") }
+        assertEquals(
+            RouteRequirement.Scopes(setOf(GraphScope.WRITE, GraphScope.ADMIN)),
+            ScopePolicy.requirementFor("POST", "/api/v1/nodes/Repository/github.com/acme/payments/merge"),
+        )
+        // Creating a node is still a plain write.
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.WRITE)), ScopePolicy.requirementFor("POST", "/api/v1/nodes/Team"))
     }
 
     @Test
@@ -176,6 +187,9 @@ class ScopePolicyCoverageTest {
 
     private companion object {
         const val LIFECYCLE = "/api/v1/lifecycle/"
+
+        /** The merge routes (#98): a node by its path, and one no path can carry by its key. */
+        val MERGES = setOf(Route("POST", "/api/v1/nodes/{type}/{*key}"), Route("POST", "/api/v1/nodes/{type}/by-key/merge"))
         val ANY_METHOD = listOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
         val READ_METHODS = setOf("GET", "HEAD")
         val VARIABLE = Regex("\\{\\*?[^}]+}")

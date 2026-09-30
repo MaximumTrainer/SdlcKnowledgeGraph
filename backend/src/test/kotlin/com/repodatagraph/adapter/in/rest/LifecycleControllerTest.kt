@@ -320,6 +320,38 @@ class LifecycleControllerTest {
     }
 
     @Test
+    fun `a merged node's history names the node it was merged into and who merged it (#98)`() {
+        val key = NodeKey("Repository", "github.com/acme/payments")
+        val into = NodeKey("Repository", "github.com/acme/payments-service")
+        val began = Instant.parse("2026-01-01T00:00:00Z")
+        whenever(lifecycle.history(key)).thenReturn(
+            NodeHistory(
+                key = key,
+                current =
+                    CurrentValidity(
+                        validFrom = began,
+                        validTo = now,
+                        propsFrom = began,
+                        props = mapOf("name" to "payments"),
+                        retiredReason = RetiredReason.MERGED,
+                        resurrectedAt = null,
+                        mergedInto = into,
+                        mergedBy = "dan",
+                    ),
+                versions = emptyList(),
+            ),
+        )
+
+        mockMvc
+            .perform(get("/api/v1/lifecycle/history").param("nodeId", key.id))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.current.retired").value(true))
+            .andExpect(jsonPath("$.current.retiredReason").value("merged"))
+            .andExpect(jsonPath("$.current.mergedInto").value(into.id))
+            .andExpect(jsonPath("$.current.mergedBy").value("dan"))
+    }
+
+    @Test
     fun `the history of a node that does not exist is not found`() {
         whenever(lifecycle.history(any())).thenReturn(null)
 

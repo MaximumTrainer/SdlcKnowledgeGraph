@@ -2,7 +2,11 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
 import com.repodatagraph.domain.exception.InvalidGitRemoteException
+import com.repodatagraph.domain.exception.InvalidMergeException
 import com.repodatagraph.domain.exception.ManagedNodeTypeException
+import com.repodatagraph.domain.exception.MergeConflictException
+import com.repodatagraph.domain.exception.MergeIntoRetiredException
+import com.repodatagraph.domain.exception.NodeAlreadyMergedException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  * with it. Messages name the input that was wrong and nothing about the internals.
  */
 @RestControllerAdvice
+@Suppress("TooManyFunctions") // One handler per refusal, each with the body its caller acts on.
 class NodeRestExceptionHandler {
     /**
      * A type in the path that the registry does not declare addresses a resource that does not
@@ -80,5 +85,35 @@ class NodeRestExceptionHandler {
     fun onManagedNodeType(exception: ManagedNodeTypeException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.status(HttpStatus.FORBIDDEN).body(
             mapOf("error" to "managed node type", "type" to exception.type, "managedAt" to exception.managedAt),
+        )
+
+    /**
+     * Two nodes the registry says differ (#98): every conflicting field with both values, since which
+     * is wrong is the caller's to find out. `fields` names them alone, for a form.
+     */
+    @ExceptionHandler(MergeConflictException::class)
+    fun onMergeConflict(exception: MergeConflictException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            mapOf(
+                "error" to "identity conflict",
+                "fields" to exception.conflicts.map { it.field },
+                "conflicts" to exception.conflicts.map { mapOf("field" to it.field, "from" to it.from, "into" to it.into) },
+            ),
+        )
+
+    /** A merge that could never make sense, into itself or across types (#98). */
+    @ExceptionHandler(InvalidMergeException::class)
+    fun onInvalidMerge(exception: InvalidMergeException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.badRequest().body(mapOf("error" to "invalid merge", "reason" to exception.reason))
+
+    @ExceptionHandler(MergeIntoRetiredException::class)
+    fun onMergeIntoRetired(exception: MergeIntoRetiredException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(mapOf("error" to "merge into a retired node", "into" to exception.into.id))
+
+    /** A node merged already, merged again or written again: named with where it went (#98). */
+    @ExceptionHandler(NodeAlreadyMergedException::class)
+    fun onNodeAlreadyMerged(exception: NodeAlreadyMergedException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            mapOf("error" to "node already merged", "nodeId" to exception.node.id, "mergedInto" to exception.mergedInto.id),
         )
 }

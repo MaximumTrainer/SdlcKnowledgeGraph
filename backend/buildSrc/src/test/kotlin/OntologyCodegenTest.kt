@@ -56,6 +56,11 @@ class OntologyCodegenTest {
                     GenSource("manual", "Stated through the API"),
                     GenSource("github", null),
                 ),
+            environments =
+                listOf(
+                    GenEnvironment("production", "Serves customers", listOf("prod", "live")),
+                    GenEnvironment("dogfood", null, emptyList()),
+                ),
         )
 
     private val sdl = OntologyCodegen.graphqlSdl(ontology)
@@ -181,6 +186,24 @@ class OntologyCodegenTest {
         val aliased = ontology.nodeTypes.single().copy(alias = listOf("provider", "providerId"))
         val json = OntologyCodegen.json(ontology.copy(nodeTypes = listOf(aliased)))
         assertTrue(json.contains("\"alias\": [\"provider\", \"providerId\"],\n"), json)
+    }
+
+    @Test
+    fun `the JSON snapshot names each node type's merge scope, and an empty one for a type with none (#98)`() {
+        assertTrue(json.contains("\"mergeScope\": [],\n"), json)
+        val scoped = ontology.nodeTypes.single().copy(mergeScope = listOf("host"))
+        val json = OntologyCodegen.json(ontology.copy(nodeTypes = listOf(scoped)))
+        assertTrue(json.contains("\"mergeScope\": [\"host\"],\n"), json)
+    }
+
+    @Test
+    fun `the JSON snapshot lists the environments and their aliases, as the ontology endpoint does (#98)`() {
+        assertTrue(json.contains("  \"environments\": [\n"), json)
+        assertTrue(
+            json.contains("""    { "name": "production", "description": "Serves customers", "aliases": ["prod", "live"] },"""),
+            json,
+        )
+        assertTrue(json.contains("""    { "name": "dogfood", "description": null, "aliases": [] }"""), json)
     }
 
     @Test

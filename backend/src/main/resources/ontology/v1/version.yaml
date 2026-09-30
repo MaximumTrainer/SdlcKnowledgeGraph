@@ -17,4 +17,9 @@
 # write replaced them, and OntologyMigration, each versioned migration the graph has had. A minor
 # bump: nothing was renamed or removed. From here a rename or removal ships with a migration under
 # ontology/migrations/, applied as the application starts (docs/ONTOLOGY.md).
-version: 1.4.0
+# 1.5.0 (#98) hardened identity for real estates: environments.yaml, the environment alias table
+# IdentityResolver used to hold; mergeScope on node types; Artifact's derived identityQuality; the
+# PROVIDES path of a monorepo's service; and merged among NodeVersion's retired reasons. A minor
+# bump: nothing was renamed or removed, and no data needs a migration, since identityQuality is
+# derived again on every write and a node written before it still reads.
+version: 1.5.0

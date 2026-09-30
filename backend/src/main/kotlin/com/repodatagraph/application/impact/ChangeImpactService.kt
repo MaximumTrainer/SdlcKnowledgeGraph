@@ -71,12 +71,13 @@ class ChangeImpactService(
 
     /**
      * The repository asked about (#88, FR5): by its provider id first, since that survives a rename,
-     * then by its key, then by a key it had before a rename. Not found names what was asked for.
+     * then by its key, then by a key it had before a rename. A key a merge retired reads as the
+     * repository it was merged into (#98). Not found names what was asked for.
      */
     private fun repositoryOf(query: ChangeImpactQuery): GraphNode {
         query.alias?.let { alias -> graphStore.findNodeByAlias(REPOSITORY, alias)?.let { return it } }
         val key = query.repository
-        return key?.let { graphStore.findNode(it) ?: graphStore.findNodeByPreviousKey(it) }
+        return key?.let { resolved(it) }
             ?: throw NodeNotFoundException(
                 listOf(
                     key ?: NodeKey(
@@ -190,6 +191,12 @@ class ChangeImpactService(
         val matched: List<String> = emptyList(),
         val named: Set<String> = emptySet(),
     )
+
+    private fun resolved(key: NodeKey): GraphNode? {
+        val found = graphStore.findNode(key) ?: return graphStore.findNodeByPreviousKey(key)
+        val merged = if (found.provenance.current) null else graphStore.mergedInto(key)?.let { graphStore.findNode(it) }
+        return merged ?: found
+    }
 
     private companion object {
         const val ENVIRONMENT = "Environment"

@@ -47,6 +47,8 @@ data class GenNodeType(
     val examples: List<Map<String, Any?>> = emptyList(),
     /** Questions a reader answers with this type, so an agent knows when to reach for it. */
     val questions: List<String> = emptyList(),
+    /** Properties two nodes of this type must not disagree on to be merged (#98). */
+    val mergeScope: List<String> = emptyList(),
 )
 
 data class GenEdgeType(
@@ -67,6 +69,13 @@ data class GenEdgeType(
     val questions: List<String> = emptyList(),
 )
 
+/** A canonical environment name and the spellings folded into it (environments.yaml, #98). */
+data class GenEnvironment(
+    val name: String,
+    val description: String?,
+    val aliases: List<String>,
+)
+
 /** A source system a fact's provenance may name (sources.yaml, #117). */
 data class GenSource(
     val name: String,
@@ -81,6 +90,8 @@ data class GenOntology(
     val provenance: List<GenProperty> = emptyList(),
     /** The source systems a write may name (sources.yaml, #117), in declaration order. */
     val sources: List<GenSource> = emptyList(),
+    /** The environment alias table (environments.yaml, #98), in declaration order. */
+    val environments: List<GenEnvironment> = emptyList(),
 )
 
 object OntologyReader {
@@ -89,7 +100,7 @@ object OntologyReader {
     // A key outside these is a typo or a feature that does not exist; either way it must fail the
     // build rather than be dropped, or the registry says something nothing reads (#81).
     private val NODE_KEYS =
-        setOf("description", "identity", "alias", "displayProperty", "meta", "properties", "examples", "questions")
+        setOf("description", "identity", "alias", "mergeScope", "displayProperty", "meta", "properties", "examples", "questions")
     private val EDGE_KEYS =
         setOf(
             "description",
@@ -106,6 +117,7 @@ object OntologyReader {
     private val PROPERTY_KEYS =
         setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
     private val DEPRECATED_KEYS = setOf("since", "replacedBy")
+    private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
 
     fun read(baseDir: File): GenOntology {
         val version =
@@ -133,6 +145,7 @@ object OntologyReader {
                         alias = definition.path("alias").map { it.asText() },
                         examples = definition.readExamples(),
                         questions = definition.path("questions").map { it.asText() },
+                        mergeScope = definition.path("mergeScope").map { it.asText() },
                     )
                 }.toList()
 
@@ -171,7 +184,20 @@ object OntologyReader {
                 emptyList()
             }
 
-        return GenOntology(version, nodes, edges, provenance, sources)
+        val environmentsFile = baseDir.resolve("environments.yaml")
+        val environments =
+            if (environmentsFile.exists()) {
+                val list = yaml.readTree(environmentsFile).path("environments")
+                require(list.isArray) { "environments.yaml declares no 'environments' list" }
+                list.map {
+                    it.requireOnly(ENVIRONMENT_KEYS, "environments.${it.path("name").asText()}")
+                    GenEnvironment(it.path("name").asText(), it.text("description"), it.path("aliases").map { alias -> alias.asText() })
+                }
+            } else {
+                emptyList()
+            }
+
+        return GenOntology(version, nodes, edges, provenance, sources, environments)
     }
 
     private fun JsonNode.readProperties(owner: String): List<GenProperty> =

@@ -561,6 +561,24 @@
         "required" : [ "items" ],
         "type" : "object"
       },
+      "EdgeMovesResponse" : {
+        "properties" : {
+          "collapsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "dropped" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "moved" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "collapsed", "dropped", "moved" ],
+        "type" : "object"
+      },
       "EdgeRequestBody" : {
         "properties" : {
           "fromId" : {
@@ -708,6 +726,24 @@
           }
         },
         "required" : [ "id", "key", "tier" ],
+        "type" : "object"
+      },
+      "EnvironmentResponse" : {
+        "properties" : {
+          "aliases" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "aliases", "name" ],
         "type" : "object"
       },
       "FailureReasonResponse" : {
@@ -976,6 +1012,70 @@
         "required" : [ "artifacts", "changes", "id" ],
         "type" : "object"
       },
+      "MergeRequest" : {
+        "properties" : {
+          "dryRun" : {
+            "description" : "Preview the merge: everything is done and then rolled back, so nothing changes",
+            "type" : "boolean"
+          },
+          "into" : {
+            "description" : "The node to merge into: a key of the same type, or a full Type:key id",
+            "example" : "github.com/acme/payments-service",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "dryRun" ],
+        "type" : "object"
+      },
+      "MergeResponse" : {
+        "properties" : {
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "edges" : {
+            "$ref" : "#/components/schemas/EdgeMovesResponse"
+          },
+          "from" : {
+            "description" : "The id of the node merged, which is retired as merged and whose key now resolves to the node merged into",
+            "type" : "string"
+          },
+          "gained" : {
+            "description" : "Properties the node merged into took from the merged node, which it lacked",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "into" : {
+            "description" : "The id of the node merged into, which stays",
+            "type" : "string"
+          },
+          "kept" : {
+            "description" : "Properties both held with different values, where the value of the node merged into stays",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "node" : {
+            "$ref" : "#/components/schemas/NodeResponse"
+          },
+          "previousKeys" : {
+            "description" : "Every key the node merged into has been known by, now including the merged node's",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "redirected" : {
+            "description" : "Nodes merged earlier into the merged node, now pointing at the node merged into",
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "dryRun", "edges", "from", "gained", "into", "kept", "node", "previousKeys", "redirected" ],
+        "type" : "object"
+      },
       "NeighbourhoodResponse" : {
         "properties" : {
           "edges" : {
@@ -1115,6 +1215,12 @@
             },
             "type" : "array"
           },
+          "mergeScope" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "meta" : {
             "type" : "boolean"
           },
@@ -1134,7 +1240,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "alias", "examples", "identity", "meta", "name", "properties", "questions" ],
+        "required" : [ "alias", "examples", "identity", "mergeScope", "meta", "name", "properties", "questions" ],
         "type" : "object"
       },
       "OntologyResponse" : {
@@ -1142,6 +1248,12 @@
           "edgeTypes" : {
             "items" : {
               "$ref" : "#/components/schemas/EdgeTypeResponse"
+            },
+            "type" : "array"
+          },
+          "environments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EnvironmentResponse"
             },
             "type" : "array"
           },
@@ -1171,7 +1283,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "edgeTypes", "nodeTypes", "provenance", "sources", "version" ],
+        "required" : [ "edgeTypes", "environments", "nodeTypes", "provenance", "sources", "version" ],
         "type" : "object"
       },
       "OwnerResponse" : {
@@ -3359,6 +3471,50 @@
         "tags" : [ "Nodes" ]
       }
     },
+    "/api/v1/nodes/{type}/by-key/merge" : {
+      "post" : {
+        "operationId" : "mergeByKey",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MergeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MergeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Merge the node at a key no path can carry into another of its type (#98); needs graph:admin",
+        "tags" : [ "Nodes" ]
+      }
+    },
     "/api/v1/nodes/{type}/{key}" : {
       "delete" : {
         "operationId" : "delete",
@@ -3431,6 +3587,49 @@
           }
         },
         "summary" : "Get one node by its derived key or its full id, now or as of an instant (#93)",
+        "tags" : [ "Nodes" ]
+      },
+      "post" : {
+        "description" : "Moves every edge to the node merged into, records the merged key in its previousKeys, and retires the merged node as merged, pointing at it. Refused with 409 where the two disagree on their merge scope or alias. dryRun previews the merge and changes nothing.",
+        "operationId" : "merge",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MergeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MergeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Merge a node into another of its type: POST /{type}/{key}/merge (#98); needs graph:admin",
         "tags" : [ "Nodes" ]
       },
       "put" : {

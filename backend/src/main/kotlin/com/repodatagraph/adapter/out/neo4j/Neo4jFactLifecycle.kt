@@ -120,6 +120,8 @@ class Neo4jFactLifecycle(
                     props = node.props,
                     retiredReason = RetiredReason.fromWire(stored[RETIRED_REASON]?.toString()),
                     resurrectedAt = ProvenanceMapper.instant(stored[RESURRECTED_AT]),
+                    mergedInto = stored[Neo4jNodeMergeStore.MERGED_INTO]?.let { NodeKey(key.type, it.toString()) },
+                    mergedBy = stored[Neo4jNodeMergeStore.MERGED_BY]?.toString(),
                 ),
             versions = versions.map { version -> versionOf(key, version) },
         )

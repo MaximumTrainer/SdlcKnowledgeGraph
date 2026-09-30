@@ -44,7 +44,8 @@ class ReadOnlyNodeControllerTest {
             POST,   /api/v1/nodes/Team
             PUT,    /api/v1/nodes/Team/platform
             PATCH,  /api/v1/nodes/Team/platform
-            DELETE, /api/v1/nodes/Team/platform""",
+            DELETE, /api/v1/nodes/Team/platform
+            POST,   /api/v1/nodes/Team/platform/merge""",
     )
     fun `every write verb is refused before it reaches the use case`(
         verb: String,

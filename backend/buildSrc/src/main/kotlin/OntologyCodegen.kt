@@ -142,6 +142,7 @@ object OntologyCodegen {
                 appendLine("""      "meta": ${nodeType.meta},""")
                 appendLine("""      "displayProperty": ${jsonString(nodeType.displayProperty)},""")
                 appendLine("""      "alias": [${nodeType.alias.joinToString { "\"$it\"" }}],""")
+                appendLine("""      "mergeScope": [${nodeType.mergeScope.joinToString { "\"$it\"" }}],""")
                 appendLine("""      "questions": [${nodeType.questions.joinToString { jsonString(it) }}],""")
                 appendLine("""      "examples": [${nodeType.examples.joinToString { compact(it) }}]""")
                 appendLine("    }${if (index == ontology.nodeTypes.lastIndex) "" else ","}")
@@ -175,6 +176,15 @@ object OntologyCodegen {
             ontology.sources.forEachIndexed { index, source ->
                 val comma = if (index == ontology.sources.lastIndex) "" else ","
                 appendLine("""    { "name": ${jsonString(source.name)}, "description": ${jsonString(source.description)} }$comma""")
+            }
+            appendLine("  ],")
+            appendLine("""  "environments": [""")
+            ontology.environments.forEachIndexed { index, environment ->
+                val comma = if (index == ontology.environments.lastIndex) "" else ","
+                appendLine(
+                    """    { "name": ${jsonString(environment.name)}, "description": ${jsonString(environment.description)}, """ +
+                        """"aliases": [${environment.aliases.joinToString { jsonString(it) }}] }$comma""",
+                )
             }
             appendLine("  ]")
             appendLine("}")

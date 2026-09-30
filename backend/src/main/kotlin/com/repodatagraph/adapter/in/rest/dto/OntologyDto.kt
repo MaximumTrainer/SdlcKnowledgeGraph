@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.repodatagraph.domain.model.FreshnessPolicy
 import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeTypeDef
+import com.repodatagraph.domain.ontology.EnvironmentDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
@@ -22,6 +23,11 @@ data class OntologyResponse(
     /** The source systems a write may name (#117), so a connector author can see which to stamp. */
     val sources: List<SourceSystemResponse>,
     /**
+     * The canonical environment names and the spellings folded into each (#98, FR-3), so a writer can
+     * see that `prd` lands on `production` before it reports a deployment.
+     */
+    val environments: List<EnvironmentResponse> = emptyList(),
+    /**
      * How long each source's facts stay fresh (#93, FR-2), so an agent can read the policy a `stale`
      * flag was judged by. Null only where no policy was given, which the snapshot is rendered without.
      */
@@ -39,6 +45,7 @@ data class OntologyResponse(
                 edgeTypes = registry.allEdgeTypes().map(EdgeTypeResponse::from),
                 provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
                 sources = registry.sources.map(SourceSystemResponse::from),
+                environments = registry.environments.map(EnvironmentResponse::from),
                 freshness = freshness?.let(FreshnessPolicyResponse::from),
             )
     }
@@ -55,6 +62,8 @@ data class NodeTypeResponse(
     val displayProperty: String?,
     /** Properties that together find a node beside its key, unique where all are present (#88); empty for none. */
     val alias: List<String>,
+    /** Properties two nodes of this type must not disagree on to be merged (#98); empty for none. */
+    val mergeScope: List<String>,
     /** Questions a reader answers with this type (#81), so an agent knows when to reach for it. */
     val questions: List<String>,
     /** Whole example nodes, each one the API accepts (#81). */
@@ -70,6 +79,7 @@ data class NodeTypeResponse(
                 meta = nodeType.meta,
                 displayProperty = nodeType.displayProperty,
                 alias = nodeType.alias,
+                mergeScope = nodeType.mergeScope,
                 questions = nodeType.questions,
                 examples = nodeType.examples,
             )
@@ -108,6 +118,18 @@ data class EdgeTypeResponse(
                 questions = edgeType.questions,
                 examples = edgeType.examples,
             )
+    }
+}
+
+/** An environment's canonical name, what it is, and the other spellings that name it (#98). */
+data class EnvironmentResponse(
+    val name: String,
+    val description: String?,
+    val aliases: List<String>,
+) {
+    companion object {
+        fun from(environment: EnvironmentDef): EnvironmentResponse =
+            EnvironmentResponse(environment.name, environment.description, environment.aliases)
     }
 }
 

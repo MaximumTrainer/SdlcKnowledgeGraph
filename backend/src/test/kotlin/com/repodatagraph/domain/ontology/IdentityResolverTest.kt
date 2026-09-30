@@ -1,11 +1,13 @@
 package com.repodatagraph.domain.ontology
 
+import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
 import com.repodatagraph.domain.exception.InvalidGitRemoteException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.springframework.core.io.DefaultResourceLoader
 import java.time.Instant
 
 /**
@@ -13,7 +15,8 @@ import java.time.Instant
  * report it. They are derived from properties, never generated.
  */
 class IdentityResolverTest {
-    private val resolver = IdentityResolver()
+    /** With the shipped environment table (#98), which is what the application runs with. */
+    private val resolver = IdentityResolver(environmentAliases = YamlOntologyLoader(DefaultResourceLoader()).load().environmentAliases)
 
     @ParameterizedTest(name = "{0} resolves to github.com/acme/payments")
     @CsvSource(
@@ -129,6 +132,9 @@ class IdentityResolverTest {
         "stage, staging",
         "staging, staging",
         "dev, development",
+        "test, testing",
+        "prd, production",
+        "live, production",
         "qa, qa",
     )
     fun `environment aliases collapse to one name`(
@@ -187,6 +193,27 @@ class IdentityResolverTest {
             )
 
         assertEquals("github.com/acme/payments:infra/main.tf", key.key)
+    }
+
+    @Test
+    fun `the environment aliases are the table's, not the resolver's own (#98)`() {
+        val bare = IdentityResolver()
+        val custom = IdentityResolver(environmentAliases = EnvironmentAliases(listOf(EnvironmentDef("production", "Live", listOf("prd")))))
+
+        assertEquals("prod", bare.keyFor("Environment", mapOf("name" to "prod")).key)
+        assertEquals("production", custom.keyFor("Environment", mapOf("name" to "PRD")).key)
+        assertEquals(
+            "a@sha256:1#production#0",
+            custom
+                .keyFor(
+                    "Deployment",
+                    mapOf(
+                        "artifactKey" to "a@sha256:1",
+                        "environmentKey" to "prd",
+                        "deployedAt" to "1970-01-01T00:00:00Z",
+                    ),
+                ).key,
+        )
     }
 
     @Test
