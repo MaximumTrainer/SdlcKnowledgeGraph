@@ -81,6 +81,7 @@ export default defineConfig({
         items: [
           { text: 'Getting started', link: '/guide/getting-started' },
           { text: 'User guide', link: '/guide/user-guide' },
+          { text: 'Authentication', link: '/guide/auth' },
           { text: 'Ontology', link: '/guide/ontology' },
           { text: 'Adapters (planned)', link: '/guide/adapters' },
           { text: 'Testing and gates', link: '/guide/testing' },

@@ -266,6 +266,18 @@ Identity: `connector`
 | `lastSuccessAt` | `instant` | no | When the last successful run finished |
 | `consecutiveFailures` | `int` | no | Runs that ended PARTIAL or FAILED since the last SUCCESS |
 
+### ServicePrincipal
+
+A connector or agent registered as a principal of its own, owned by a team.
+
+Identity: `name`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | yes | The client id its tokens carry (azp, or client_id) |
+| `ownedBy` | `string` | yes | Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam |
+| `description` | `string` | no |  |
+
 ## Relationship types
 
 An edge is stored once and read in both directions: the inverse is a traversal name, not a

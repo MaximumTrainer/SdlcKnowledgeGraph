@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.util.UriComponentsBuilder
 import java.net.URI
 
 /**
@@ -45,7 +46,7 @@ class NodeController(
     ): ResponseEntity<NodeResponse> {
         val created = nodeUseCase.create(type, request.props)
         return ResponseEntity
-            .created(URI.create("/api/v1/nodes/$type/${created.key.key}"))
+            .created(location(type, created.key.key))
             .body(NodeResponse.from(created))
     }
 
@@ -94,4 +95,19 @@ class NodeController(
         const val DEFAULT_LIMIT = 50
         const val MAX_LIMIT = 500
     }
+
+    /**
+     * Where the node lives, with its key encoded as a path: a key may hold characters a URI gives
+     * another meaning, like the `#` between a Deployment's parts, which would otherwise make the
+     * Location unbuildable and the create answer 400 after the node was written.
+     */
+    private fun location(
+        type: String,
+        key: String,
+    ): URI =
+        UriComponentsBuilder
+            .fromPath("/api/v1/nodes/$type/$key")
+            .build()
+            .encode()
+            .toUri()
 }

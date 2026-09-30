@@ -109,7 +109,8 @@ question. These nine are what the two target questions need:
 | CloudResource | An infrastructure object in AWS, Azure or GCP |
 | ConfigurationItem | A CI from a service-management system such as ServiceNow |
 
-`SyncRun`, `ConnectorState` and `Ontology` also exist as nodes, but they describe the graph itself
+`SyncRun`, `ConnectorState`, `Ontology` and `ServicePrincipal` (a connector or agent registered as
+a principal of its own, [AUTH](/guide/auth)) also exist as nodes, but they describe the graph itself
 rather than the software, so they do not count against the nine. The registry marks them
 `meta: true`. `GET /api/v1/ontology` serves the flag with every node type, and the web interface
 leaves meta types out of its navigation; they can still be opened by their URL.
@@ -163,8 +164,9 @@ data class Provenance(
     val validFrom: Instant,
     val validTo: Instant? = null,   // null means current
     val syncRunId: String?,
-    val writtenBy: String?,     // the principal's subject, "anonymous" under the bypass (#114)
-    val principalType: String?, // "user"; service and agent principals arrive with AUTH-2
+    val writtenBy: String?,      // the principal's subject, "anonymous" under the bypass (#114)
+    val principalType: String?,  // "user", or "service" for a connector or agent (#115)
+    val onBehalfOfTeam: String?, // the Team key a service principal acts for (#115)
 )
 ```
 
@@ -173,10 +175,11 @@ The envelope is declared in the registry like the types are, in
 so the `Provenance` GraphQL type, the `Provenance` TypeScript interface and the `provenance` section
 of `ontology.json` are generated from it. `confidence` is the registry's one `float` property.
 
-`writtenBy` and `principalType` say who made a write through the API: the subject of the bearer
-token, which does not change when a username does, and the kind of principal. A connector's facts
-carry neither until connectors are principals of their own; nor do facts written before they
-existed.
+`writtenBy` and `principalType` say who made a write through the API: for a person, the subject of
+the bearer token, which does not change when a username does, and `user`; for a registered
+connector or agent, its registered name and `service`, with `onBehalfOfTeam` naming the team that
+owns it ([AUTH](/guide/auth)). A scheduled connector run's facts carry none of them, and nor do facts
+written before they existed.
 
 Neo4j does not store nested maps, so these are flattened to `prov_` prefixed properties, and an
 index on `prov_sourceSystem` is created for every type. Re-stating a node replaces its provenance

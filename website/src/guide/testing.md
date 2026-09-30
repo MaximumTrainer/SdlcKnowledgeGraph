@@ -42,8 +42,10 @@ differ in is fixed when the context starts: the main suite (`features/`) with th
 authentication bypass, the read-only suite (`read-only/`), and the authentication suite (`auth/`),
 which turns authentication on against a Keycloak in Testcontainers loaded from the development realm
 in `backend/src/acceptanceTest/resources/keycloak/`, the same realm the compose `auth` profile
-imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does. The
-other backend suites run with the bypass too; `AuthGateWebTest` covers the 401.
+imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does, and
+get machine tokens with the client-credentials grant for the realm's confidential clients
+(`service-principals.feature`). The other backend suites run with the bypass too; `AuthGateWebTest`
+covers the 401 and the 403 for an unregistered client.
 
 `backend/src/testSupport/kotlin` holds helpers shared by more than one suite, currently the
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
@@ -100,7 +102,8 @@ into green hides races like the one in #148, and a real regression would be hidd
 browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
 never by reading a locator once straight after the click that loads it.
 
-`e2e/auth` is the login journey, with its own config for the stack behind Keycloak: CI restarts the
+`e2e/auth` is the login journey and a registered connector's write, with its own config for the
+stack behind Keycloak: CI restarts the
 compose stack with `compose.auth.yaml` and the `auth` profile after the conformance runs, then runs
 `npx playwright test --config=auth.config.ts`. The main browser suite runs against the default stack,
 which has no login.

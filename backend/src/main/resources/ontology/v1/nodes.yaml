@@ -228,3 +228,15 @@ nodes:
       # estate and cannot vouch for the rest.
       - { name: lastSuccessAt, type: instant, required: false, description: "When the last successful run finished" }
       - { name: consecutiveFailures, type: int, required: false, description: "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
+
+  # A connector or an agent the graph knows as a principal of its own (#115, ADR-0005). Written only
+  # through /api/v1/service-principals, which only a user may call; the generic node API refuses it.
+  # Who registered it and for how long it held are its provenance: writtenBy, validFrom and validTo.
+  ServicePrincipal:
+    description: A connector or agent registered as a principal of its own, owned by a team.
+    meta: true
+    identity: [name]
+    properties:
+      - { name: name, type: string, required: true, description: "The client id its tokens carry (azp, or client_id)" }
+      - { name: ownedBy, type: string, required: true, description: "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" }
+      - { name: description, type: string, required: false }

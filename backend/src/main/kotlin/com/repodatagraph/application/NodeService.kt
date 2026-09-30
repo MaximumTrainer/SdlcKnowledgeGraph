@@ -1,6 +1,7 @@
 package com.repodatagraph.application
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
+import com.repodatagraph.domain.exception.ManagedNodeTypeException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
@@ -11,6 +12,7 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.model.Provenance
+import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
@@ -44,7 +46,7 @@ class NodeService(
         type: String,
         props: Map<String, Any?>,
     ): GraphNode {
-        val nodeType = declared(type)
+        val nodeType = writable(type)
         // Before validation, so the registry can require the identity properties honestly: a caller
         // supplies a Repository's remote and gets host, org and name filled in from it (#8).
         val expanded = derivedProperties.expand(type, props)
@@ -93,7 +95,7 @@ class NodeService(
         key: String,
         props: Map<String, Any?>,
     ): GraphNode {
-        val nodeType = declared(type)
+        val nodeType = writable(type)
         val existingKey = nodeKey(type, key)
         val existing = graphStore.findNode(existingKey) ?: throw NodeNotFoundException(listOf(existingKey))
 
@@ -115,7 +117,7 @@ class NodeService(
         key: String,
         cascade: Boolean,
     ) {
-        declared(type)
+        writable(type)
         val nodeKey = nodeKey(type, key)
         graphStore.findNode(nodeKey) ?: throw NodeNotFoundException(listOf(nodeKey))
 
@@ -128,6 +130,17 @@ class NodeService(
     }
 
     private fun declared(type: String): NodeTypeDef = registry.nodeType(type) ?: throw NodeTypeNotFoundException(type)
+
+    /**
+     * A declared type this API may write. A ServicePrincipal may not be: only a user may register one,
+     * and only against a team the graph holds, which is its own API's rule (#115). Reading one here is
+     * fine; it is a node like any other.
+     */
+    private fun writable(type: String): NodeTypeDef {
+        val nodeType = declared(type)
+        if (type == ServicePrincipal.NODE_TYPE) throw ManagedNodeTypeException(type, ServicePrincipal.API_PATH)
+        return nodeType
+    }
 
     private fun validate(
         nodeType: NodeTypeDef,

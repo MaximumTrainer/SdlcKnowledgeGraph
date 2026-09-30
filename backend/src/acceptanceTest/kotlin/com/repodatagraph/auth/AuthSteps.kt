@@ -9,29 +9,28 @@ import io.cucumber.java.en.When
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.data.neo4j.core.Neo4jClient
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
-import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 
 /**
  * Steps for the authentication suite. Self-contained, like the read-only suite's, because the main
  * suite's step classes carry dependencies this context does not start.
  *
- * Cucumber creates a new instance of this class per scenario, so the token and the last response are
- * scenario state.
+ * The tokens and the last response live in [AuthWorld], scenario state shared with the service
+ * principal steps (#115).
  */
 class AuthSteps(
-    private val restTemplate: TestRestTemplate,
+    private val world: AuthWorld,
     private val objectMapper: ObjectMapper,
     private val neo4jClient: Neo4jClient,
     @Value("\${ingest.token}") private val ingestToken: String,
 ) {
-    private var token: String? = null
-    private var response: ResponseEntity<String>? = null
+    private var response: ResponseEntity<String>?
+        get() = world.response
+        set(value) {
+            world.response = value
+        }
 
     @Before
     fun cleanGraph() {
@@ -46,7 +45,7 @@ class AuthSteps(
     @Given("{string} has signed in through the UI")
     fun hasSignedIn(username: String) {
         // The development realm gives each user a password equal to their name.
-        token = PkceSignIn(DevRealmKeycloak.issuer, objectMapper).accessToken(username, username)
+        world.hold(username, PkceSignIn(DevRealmKeycloak.issuer, objectMapper).accessToken(username, username))
     }
 
     @When("GET {word} is called without a token")
@@ -156,14 +155,9 @@ class AuthSteps(
         path: String,
         bearer: String?,
         body: Any? = null,
-    ): ResponseEntity<String> {
-        val headers = HttpHeaders()
-        if (body != null) headers.contentType = MediaType.APPLICATION_JSON
-        bearer?.let { headers.setBearerAuth(it) }
-        return restTemplate.exchange(path, method, HttpEntity(body, headers), String::class.java)
-    }
+    ): ResponseEntity<String> = world.send(method, path, bearer, body)
 
-    private fun signedIn(): String = checkNotNull(token) { "No one has signed in yet" }
+    private fun signedIn(): String = world.actorToken()
 
     private fun last(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 

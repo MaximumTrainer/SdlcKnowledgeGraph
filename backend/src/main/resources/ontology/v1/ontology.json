@@ -241,6 +241,17 @@
         { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
       ],
       "meta": true
+    },
+    {
+      "name": "ServicePrincipal",
+      "description": "A connector or agent registered as a principal of its own, owned by a team.",
+      "identity": ["name"],
+      "properties": [
+        { "name": "name", "type": "string", "required": true, "description": "The client id its tokens carry (azp, or client_id)" },
+        { "name": "ownedBy", "type": "string", "required": true, "description": "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" },
+        { "name": "description", "type": "string", "required": false, "description": null }
+      ],
+      "meta": true
     }
   ],
   "edgeTypes": [
@@ -381,8 +392,9 @@
       { "name": "validFrom", "type": "instant", "required": true, "description": null },
       { "name": "validTo", "type": "instant", "required": false, "description": "Set when the fact is superseded" },
       { "name": "syncRunId", "type": "string", "required": false, "description": null },
-      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write; anonymous under AUTH_DISABLED" },
-      { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user"] }
+      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name; anonymous under AUTH_DISABLED" },
+      { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"] },
+      { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" }
     ]
   }
 }

@@ -39,6 +39,22 @@ const team = {
   }
 }
 
+/** A team a registered agent created (#115): a service, acting for the team that owns it. */
+const byAgent = {
+  id: 'Team:incident-review',
+  type: 'Team',
+  key: 'incident-review',
+  props: { name: 'incident-review' },
+  provenance: {
+    sourceSystem: 'manual',
+    confidence: 1,
+    inferred: false,
+    writtenBy: 'triage-agent',
+    principalType: 'service',
+    onBehalfOfTeam: 'team-payments'
+  }
+}
+
 const router = (): Router =>
   createRouter({
     history: createMemoryHistory(),
@@ -68,6 +84,7 @@ describe('NodeDetail', () => {
         HttpResponse.json(repository('gitlab.com'))
       ),
       http.get('/api/v1/nodes/Team/platform', () => HttpResponse.json(team)),
+      http.get('/api/v1/nodes/Team/incident-review', () => HttpResponse.json(byAgent)),
       // RelationshipPanel loads both of these for every node it is shown beside.
       http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
       http.get('/api/v1/edges', () => HttpResponse.json({ items: [] }))
@@ -109,6 +126,21 @@ describe('NodeDetail', () => {
 
     expect(wrapper.find('[data-test="provenance-written-by"]').text()).toBe('dan')
     expect(wrapper.find('[data-test="provenance-principal-type"]').text()).toBe('user')
+  })
+
+  /** A service principal writes for a team, and says which (#115, FR-3). */
+  it('names the team a service principal wrote for', async () => {
+    const wrapper = await mountDetail('Team', 'incident-review')
+
+    expect(wrapper.find('[data-test="provenance-written-by"]').text()).toBe('triage-agent')
+    expect(wrapper.find('[data-test="provenance-principal-type"]').text()).toBe('service')
+    expect(wrapper.find('[data-test="provenance-on-behalf-of-team"]').text()).toBe('team-payments')
+  })
+
+  it('shows no team for a user, who writes for themselves', async () => {
+    const wrapper = await mountDetail('Team', 'platform')
+
+    expect(wrapper.find('[data-test="provenance-on-behalf-of-team"]').exists()).toBe(false)
   })
 
   it('says so when a fact predates recording who wrote it', async () => {

@@ -25,6 +25,7 @@ Feature: Ontology registry
       | Ontology          |
       | SyncRun           |
       | ConnectorState    |
+      | ServicePrincipal  |
     And every edge type declares a non-empty inverse
 
   Scenario: An edge type states what it connects and how to traverse it backwards
@@ -35,7 +36,7 @@ Feature: Ontology registry
 
   Scenario: Types that describe the graph itself are marked, so a client can leave them out
     When I GET "/api/v1/ontology"
-    Then the meta node types are "Ontology, SyncRun, ConnectorState"
+    Then the meta node types are "Ontology, SyncRun, ConnectorState, ServicePrincipal"
     And every other node type is not meta
 
   Scenario: A known node type can be fetched on its own

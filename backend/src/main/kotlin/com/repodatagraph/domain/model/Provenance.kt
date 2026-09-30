@@ -16,9 +16,10 @@ import java.time.Instant
  * @param confidence 1.0 when reported by the system of record, lower when derived by a rule
  * @param inferred true when a rule produced this rather than a system reporting it
  * @param validTo null while the fact is current; set when it is superseded
- * @param writtenBy the subject of the principal that made the write (#114); null for a fact a
- *   connector wrote, until connectors are principals of their own (AUTH-2)
- * @param principalType the kind of that principal, as its wire name ("user")
+ * @param writtenBy the subject of the principal that made the write (#114): a user's token subject,
+ *   or a service principal's registered name (#115); null for a fact a scheduled connector run wrote
+ * @param principalType the kind of that principal, as its wire name ("user" or "service")
+ * @param onBehalfOfTeam the key of the Team a service principal acted for (#115); null for a user
  */
 data class Provenance(
     val sourceSystem: String,
@@ -32,6 +33,7 @@ data class Provenance(
     val syncRunId: String? = null,
     val writtenBy: String? = null,
     val principalType: String? = null,
+    val onBehalfOfTeam: String? = null,
 ) {
     init {
         require(sourceSystem.isNotBlank()) { "provenance requires a sourceSystem" }
@@ -47,7 +49,7 @@ data class Provenance(
         const val MANUAL = "manual"
 
         /**
-         * A fact stated directly through the API by a person: fully trusted and not inferred, and
+         * A fact stated directly through the API by a person or a service principal: fully trusted and not inferred, and
          * recording who stated it when [by] is known.
          */
         fun manual(
@@ -60,6 +62,7 @@ data class Provenance(
                 validFrom = now,
                 writtenBy = by?.subject,
                 principalType = by?.type?.wireName,
+                onBehalfOfTeam = by?.onBehalfOfTeam,
             )
     }
 }

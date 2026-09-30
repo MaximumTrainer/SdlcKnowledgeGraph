@@ -26,6 +26,7 @@ object ProvenanceMapper {
     private const val SYNC_RUN_ID = "${PREFIX}syncRunId"
     private const val WRITTEN_BY = "${PREFIX}writtenBy"
     private const val PRINCIPAL_TYPE = "${PREFIX}principalType"
+    private const val ON_BEHALF_OF_TEAM = "${PREFIX}onBehalfOfTeam"
 
     fun toProperties(provenance: Provenance): Map<String, Any?> =
         mapOf(
@@ -40,6 +41,7 @@ object ProvenanceMapper {
             SYNC_RUN_ID to provenance.syncRunId,
             WRITTEN_BY to provenance.writtenBy,
             PRINCIPAL_TYPE to provenance.principalType,
+            ON_BEHALF_OF_TEAM to provenance.onBehalfOfTeam,
         )
 
     /**
@@ -63,6 +65,7 @@ object ProvenanceMapper {
             syncRunId = properties[SYNC_RUN_ID]?.toString(),
             writtenBy = properties[WRITTEN_BY]?.toString(),
             principalType = properties[PRINCIPAL_TYPE]?.toString(),
+            onBehalfOfTeam = properties[ON_BEHALF_OF_TEAM]?.toString(),
         )
 
     fun isProvenanceProperty(name: String): Boolean = name.startsWith(PREFIX)

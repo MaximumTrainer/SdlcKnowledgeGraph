@@ -118,6 +118,48 @@
       "type" : "string"
     } ]
   }, {
+    "name" : "principal.registered",
+    "level" : "INFO",
+    "message" : "service principal registered",
+    "description" : "A user registered an identity provider client as a service principal, owned by a team. From now on the client's tokens are let in and its writes are attributed to it.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string"
+    }, {
+      "name" : "ownedBy",
+      "type" : "string"
+    }, {
+      "name" : "registeredBy",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "principal.deregistered",
+    "level" : "INFO",
+    "message" : "service principal deregistered",
+    "description" : "A user ended a service principal's registration. The record is kept with a validTo, and the client's tokens are refused from now on.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string"
+    }, {
+      "name" : "deregisteredBy",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "principal.refused",
+    "level" : "WARN",
+    "message" : "token from an unregistered client refused",
+    "description" : "A token the identity provider signed for a client, with no user in it, was refused with 403 because no current service principal registration names the client. Either a client nobody registered, or one since deregistered, is calling the API.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "clientId",
+      "type" : "string"
+    } ]
+  }, {
     "name" : "auth.disabled",
     "level" : "WARN",
     "message" : "authentication is disabled; every request is anonymous",

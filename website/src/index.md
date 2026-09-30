@@ -102,7 +102,8 @@ Useful endpoints once the backend is up:
 
 The default stack has no login: the API runs its development bypass (`AUTH_DISABLED=true`). To put
 it behind Keycloak, run `docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d
---build --wait` and sign in as `dan` / `dan` ([Getting started](/guide/getting-started)).
+--build --wait` and sign in as `dan` / `dan` ([Getting started](/guide/getting-started)); connectors
+and agents sign in as registered service principals ([Authentication](/guide/auth)).
 `--profile governance` adds Open Policy Agent, which nothing uses yet.
 
 ## Tests

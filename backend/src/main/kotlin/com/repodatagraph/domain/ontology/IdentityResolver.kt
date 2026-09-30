@@ -34,8 +34,7 @@ class IdentityResolver(
             "Team", "Service" -> NodeKey(type, required(props, "name", type).lowercase().trim())
             "Library" -> NodeKey(type, libraryKey(props))
             "IacFile" -> NodeKey(type, iacFileKey(props))
-            "Ontology" -> NodeKey(type, required(props, "version", type))
-            "SyncRun" -> NodeKey(type, required(props, "id", type))
+            in KEYED_BY_ONE_PROPERTY -> NodeKey(type, required(props, KEYED_BY_ONE_PROPERTY.getValue(type), type).trim())
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
         }
 
@@ -139,5 +138,11 @@ class IdentityResolver(
                 "dev" to "development",
                 "test" to "testing",
             )
+
+        /**
+         * Types whose key is one property's value exactly as given, case and all. A ServicePrincipal's
+         * name is the client id its tokens carry, and Keycloak's client ids are case-sensitive (#115).
+         */
+        val KEYED_BY_ONE_PROPERTY = mapOf("Ontology" to "version", "SyncRun" to "id", "ServicePrincipal" to "name")
     }
 }

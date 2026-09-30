@@ -1,6 +1,7 @@
 package com.repodatagraph.application
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
+import com.repodatagraph.domain.exception.ManagedNodeTypeException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
@@ -122,6 +123,72 @@ class NodeServiceTest {
 
         assertThat(created.provenance.writtenBy).isEqualTo("dan")
         assertThat(created.provenance.principalType).isEqualTo("user")
+    }
+
+    @Test
+    fun `a service principal's write records its name, its kind and the team it acts for (#115)`() {
+        val acting =
+            NodeService(
+                registry,
+                IdentityResolver(),
+                DerivedProperties(GitRemoteParser()),
+                PropertyValidator(),
+                graphStore,
+                GraphWriteMetrics(SimpleMeterRegistry()),
+                { Principal("triage-agent", PrincipalType.SERVICE, onBehalfOfTeam = "team-payments") },
+            )
+        whenever(graphStore.findNode(platformKey)).thenReturn(null)
+        whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
+
+        val created = acting.create("Team", mapOf("name" to "platform"))
+
+        assertThat(created.provenance.writtenBy).isEqualTo("triage-agent")
+        assertThat(created.provenance.principalType).isEqualTo("service")
+        assertThat(created.provenance.onBehalfOfTeam).isEqualTo("team-payments")
+    }
+
+    @Test
+    fun `a service principal is written through its own API, never the generic one (#115)`() {
+        val withRegistry =
+            NodeService(
+                OntologyRegistry(
+                    version = "1.0.0",
+                    nodeTypes =
+                        registry.allNodeTypes() +
+                            NodeTypeDef(
+                                name = "ServicePrincipal",
+                                description = null,
+                                identity = listOf("name"),
+                                properties =
+                                    listOf(
+                                        PropertyDef("name", PropertyType.STRING, required = true),
+                                        PropertyDef("ownedBy", PropertyType.STRING, required = true),
+                                    ),
+                                meta = true,
+                            ),
+                    edgeTypes = registry.allEdgeTypes(),
+                ),
+                IdentityResolver(),
+                DerivedProperties(GitRemoteParser()),
+                PropertyValidator(),
+                graphStore,
+                GraphWriteMetrics(SimpleMeterRegistry()),
+                { Principal("dan", PrincipalType.USER) },
+            )
+        val props = mapOf("name" to "rogue-agent", "ownedBy" to "team-payments")
+
+        listOf(
+            { withRegistry.create("ServicePrincipal", props) },
+            { withRegistry.update("ServicePrincipal", "rogue-agent", props) },
+            { withRegistry.delete("ServicePrincipal", "rogue-agent", cascade = true) },
+        ).forEach { write ->
+            assertThatThrownBy { write() }
+                .isInstanceOf(ManagedNodeTypeException::class.java)
+                .extracting("managedAt")
+                .isEqualTo("/api/v1/service-principals")
+        }
+        verify(graphStore, never()).upsertNode(any())
+        verify(graphStore, never()).deleteNode(any(), any())
     }
 
     @Test
