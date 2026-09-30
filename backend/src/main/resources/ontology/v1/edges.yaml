@@ -13,6 +13,9 @@
 # `ownership: owner` marks an edge that names an owner. `ownership: inherits` passes ownership on
 # against the direction a change travels: a thing with no owner of its own is owned by whoever owns
 # what its changes come from. Only a propagating edge can inherit, since only it has that direction.
+#
+# An edge's properties describe themselves like a node's (#81; nodes.yaml): a description and an
+# example each, and an enum where the values are closed. `ontologyLint` holds them to it.
 
 edges:
   OWNED_BY:
@@ -24,7 +27,7 @@ edges:
     properties:
       # What the claim rests on. A CODEOWNERS line names a team against a path, and "owns everything"
       # and "owns /docs/" are both recorded as ownership - only the pattern says which was declared.
-      - { name: pathPatterns, type: "string[]", required: false, description: "CODEOWNERS patterns the owner was named against, where ownership came from a file" }
+      - { name: pathPatterns, type: "string[]", required: false, description: "CODEOWNERS patterns the owner was named against, where ownership came from a file", examples: [["*", "/docs/"]] }
 
   OWNS_RESOURCE:
     description: A repository or service is responsible for a piece of infrastructure.
@@ -34,7 +37,7 @@ edges:
     impact: propagates
     ownership: inherits
     properties:
-      - { name: rule, type: string, required: false, description: "Which link rule proposed this, e.g. tag or iac" }
+      - { name: rule, type: string, required: false, description: "What the ownership rests on: stated by hand, or the link rule that proposed it", enum: [manual, tag, deployment, iac, naming], examples: [tag] }
 
   DEPENDS_ON:
     description: A dependency between repositories, services or third-party libraries.
@@ -49,10 +52,11 @@ edges:
         required: true
         description: "What sort of dependency this is"
         enum: [library, api, event, data, cmdb]
-      - { name: manifest, type: string, required: false, description: "File the dependency was read from, e.g. build.gradle.kts" }
-      - { name: version, type: string, required: false, description: "The version the manifest asks for, as written" }
-      - { name: scope, type: string, required: false, description: "Whether the dependency is needed to run or only to build", enum: [runtime, dev] }
-      - { name: relType, type: string, required: false, description: "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'" }
+        examples: [library]
+      - { name: manifest, type: string, required: false, description: "File the dependency was read from, e.g. build.gradle.kts", examples: [frontend/package.json] }
+      - { name: version, type: string, required: false, description: "The version the manifest asks for, as written", examples: [^3.5.0] }
+      - { name: scope, type: string, required: false, description: "Whether the dependency is needed to run or only to build", enum: [runtime, dev], examples: [runtime] }
+      - { name: relType, type: string, required: false, description: "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'", examples: ["Depends on::Used by"] }
 
   CONTAINS_IAC:
     description: A repository holds an infrastructure-as-code file.
@@ -99,7 +103,7 @@ edges:
     downstream: inverse
     ownership: inherits
     properties:
-      - { name: commitSha, type: string, required: false }
+      - { name: commitSha, type: string, required: false, description: "The commit the artifact was built from", examples: [9fceb02d0ae598e95dc970b74767f19372d61af8] }
 
   DEPLOYED_TO:
     description: An artifact was the subject of a deployment.

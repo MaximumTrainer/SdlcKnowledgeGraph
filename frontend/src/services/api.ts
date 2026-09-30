@@ -451,6 +451,14 @@ export interface OntologyProperty {
   description: string | null
   /** Present when the registry constrains the value, so a form can offer a choice rather than a box. */
   enum?: string[]
+  /** Values the property accepts (#81); the first is what a form shows as its placeholder. */
+  examples?: unknown[]
+  /** The shape a string value takes, such as `url` or `email`, checked by the server on write. */
+  format?: string
+  /** The sibling values under which the format applies, such as `{ provider: 'aws' }`. */
+  formatWhen?: Record<string, string>
+  /** Set when the property is kept for old writers but should no longer be relied on. */
+  deprecated?: { since: string; replacedBy: string | null }
 }
 
 export interface OntologyNodeType {
@@ -464,6 +472,10 @@ export interface OntologyNodeType {
   displayProperty?: string | null
   /** Properties that together find a node beside its key, unique where all are present (#88). */
   alias?: string[]
+  /** Questions a reader answers with this type (#81). */
+  questions?: string[]
+  /** Whole example nodes, each one the API accepts (#81). */
+  examples?: Record<string, unknown>[]
 }
 
 export interface OntologyEdgeType {

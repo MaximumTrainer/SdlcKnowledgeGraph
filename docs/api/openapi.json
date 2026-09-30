@@ -537,6 +537,18 @@
         "required" : [ "changes", "deployment", "lineage", "workItems" ],
         "type" : "object"
       },
+      "DeprecationResponse" : {
+        "properties" : {
+          "replacedBy" : {
+            "type" : [ "string", "null" ]
+          },
+          "since" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "since" ],
+        "type" : "object"
+      },
       "EdgeListResponse" : {
         "properties" : {
           "items" : {
@@ -608,6 +620,13 @@
           "downstream" : {
             "type" : "string"
           },
+          "examples" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
           "from" : {
             "items" : {
               "type" : "string"
@@ -632,6 +651,12 @@
             },
             "type" : "array"
           },
+          "questions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "to" : {
             "items" : {
               "type" : "string"
@@ -639,7 +664,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "downstream", "from", "impact", "inverse", "name", "ownership", "properties", "to" ],
+        "required" : [ "downstream", "examples", "from", "impact", "inverse", "name", "ownership", "properties", "questions", "to" ],
         "type" : "object"
       },
       "EdgeViewResponse" : {
@@ -1062,6 +1087,13 @@
           "displayProperty" : {
             "type" : [ "string", "null" ]
           },
+          "examples" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
           "identity" : {
             "items" : {
               "type" : "string"
@@ -1079,9 +1111,15 @@
               "$ref" : "#/components/schemas/PropertyResponse"
             },
             "type" : "array"
+          },
+          "questions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           }
         },
-        "required" : [ "alias", "identity", "meta", "name", "properties" ],
+        "required" : [ "alias", "examples", "identity", "meta", "name", "properties", "questions" ],
         "type" : "object"
       },
       "OntologyResponse" : {
@@ -1205,6 +1243,13 @@
       },
       "PropertyResponse" : {
         "properties" : {
+          "deprecated" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/DeprecationResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "description" : {
             "type" : [ "string", "null" ]
           },
@@ -1213,6 +1258,19 @@
               "type" : "string"
             },
             "type" : [ "array", "null" ]
+          },
+          "examples" : {
+            "items" : { },
+            "type" : "array"
+          },
+          "format" : {
+            "type" : [ "string", "null" ]
+          },
+          "formatWhen" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : [ "object", "null" ]
           },
           "name" : {
             "type" : "string"
@@ -1224,7 +1282,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "name", "required", "type" ],
+        "required" : [ "examples", "name", "required", "type" ],
         "type" : "object"
       },
       "Provenance" : {
@@ -1784,6 +1842,24 @@
           }
         },
         "required" : [ "id", "key" ],
+        "type" : "object"
+      },
+      "UnknownFormatResponse" : {
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "format" : {
+            "type" : "string"
+          },
+          "supported" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "error", "format", "supported" ],
         "type" : "object"
       },
       "WhyFailedResponse" : {
@@ -3117,17 +3193,42 @@
     },
     "/api/v1/ontology" : {
       "get" : {
+        "description" : "format=markdown returns the same registry as prompt-sized Markdown (#81): software types only, no deprecated properties, identical bytes on every call.",
         "operationId" : "ontology",
+        "parameters" : [ {
+          "description" : "json (the default) or markdown",
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "responses" : {
           "200" : {
             "content" : {
-              "*/*" : {
+              "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OntologyResponse"
                 }
+              },
+              "text/markdown" : {
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
-            "description" : "OK"
+            "description" : "The ontology, as JSON or as Markdown"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UnknownFormatResponse"
+                }
+              }
+            },
+            "description" : "A format other than json or markdown"
           }
         },
         "summary" : "The whole ontology: node types, edge types and their inverses",

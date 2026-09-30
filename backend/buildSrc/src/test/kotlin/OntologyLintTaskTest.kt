@@ -44,7 +44,7 @@ class OntologyLintTaskTest {
     fun `the output is grouped by the type it is about`() {
         val registry = copyOf("missing-description")
         registry.resolve("edges.yaml").writeText(
-            registry.resolve("edges.yaml").readText().replace("description: \"Which evidence established the ownership\"\n", ""),
+            registry.resolve("edges.yaml").readText().replace("        description: \"Which evidence established the ownership\"\n", ""),
         )
 
         val failure = assertThrows<GradleException> { lint(registry) }

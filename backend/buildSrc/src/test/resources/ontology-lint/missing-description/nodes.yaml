@@ -41,6 +41,8 @@ nodes:
     description: A group that owns repositories and services.
     identity: [name]
     displayProperty: name
+    questions:
+      - Which repositories does this team own?
     examples:
       - { name: platform, email: platform@acme.example }
     properties:

@@ -19,9 +19,9 @@ dependencies {
 //
 // They are not reachable from the main build's `check`. Gradle 8 asks buildSrc only for its jar, and
 // a `GradleBuild` task cannot run them either, because a nested build rooted at a directory called
-// `buildSrc` is rejected as a reserved name. What guards the generator in CI is behavioural rather
-// than these unit tests: `ontologyDriftCheck` regenerates and compares against the committed files,
-// and the ontology-codegen acceptance scenarios compare the served ontology against them.
+// `buildSrc` is rejected as a reserved name. So CI's backend job runs them as a step of their own
+// (#81), because the ontology lint's rules are tested only here; the generator is also guarded
+// behaviourally, by `ontologyDriftCheck` and the ontology-codegen acceptance scenarios.
 tasks.test {
     useJUnitPlatform()
 }

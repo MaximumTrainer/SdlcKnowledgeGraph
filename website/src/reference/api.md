@@ -45,7 +45,7 @@ thing interactively at `/swagger-ui.html`.
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
 | `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id | 200 |
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity | 200 |
-| `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200 |
+| `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200, 400 |
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |
 | `GET` | `/api/v1/repositories` | List all registered repositories, or find the one a git remote resolves to, before or after a rename | 200 |
 | `POST` | `/api/v1/repositories` | Register a repository in the graph | 200 |

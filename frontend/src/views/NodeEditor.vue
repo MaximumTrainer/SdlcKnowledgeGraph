@@ -62,6 +62,36 @@ const isIdentity = (property: OntologyProperty) =>
 /** Identity is derived, so the server would refuse to move it; the form says so before the trip. */
 const isLocked = (property: OntologyProperty) => editing.value && isIdentity(property)
 
+/** The id of a property's help text, which its field names as its description for assistive tech. */
+const helpId = (property: OntologyProperty) => `help-${property.name}`
+
+const describedBy = (property: OntologyProperty) =>
+  property.description ? helpId(property) : undefined
+
+/**
+ * The first example the registry gives, as a placeholder (#81): the value a person would otherwise
+ * guess the shape of. Only for a box that is typed into, and only when the example is a scalar.
+ */
+const placeholderFor = (property: OntologyProperty): string | undefined => {
+  if (property.type !== 'string' && property.type !== 'int' && property.type !== 'float') {
+    return undefined
+  }
+  const example = property.examples?.[0]
+  return typeof example === 'string' || typeof example === 'number' ? String(example) : undefined
+}
+
+/**
+ * The choices a closed set offers: its values, and a stored value outside them too, so a node written
+ * before the set was declared shows what it holds rather than silently changing on save (#81).
+ */
+const choicesFor = (property: OntologyProperty): string[] => {
+  const allowed = property.enum ?? []
+  const current = values.value[property.name]
+  return typeof current === 'string' && current !== '' && !allowed.includes(current)
+    ? [...allowed, current]
+    : allowed
+}
+
 const emptyFor = (property: OntologyProperty): unknown => {
   if (property.type === 'string[]') return []
   if (property.type === 'boolean') return false
@@ -213,14 +243,32 @@ const save = async () => {
           v-model="values[property.name]"
           :name="property.name"
           :disabled="isLocked(property)"
+          :aria-describedby="describedBy(property)"
           type="checkbox"
         />
+        <select
+          v-else-if="property.enum && property.enum.length > 0"
+          :id="`field-${property.name}`"
+          v-model="values[property.name]"
+          :name="property.name"
+          :disabled="isLocked(property)"
+          :aria-describedby="describedBy(property)"
+        >
+          <option value="" :disabled="property.required">
+            {{ property.required ? 'Choose one' : 'None' }}
+          </option>
+          <option v-for="choice in choicesFor(property)" :key="choice" :value="choice">
+            {{ choice }}
+          </option>
+        </select>
         <input
           v-else
           :id="`field-${property.name}`"
           v-model="values[property.name]"
           :name="property.name"
           :disabled="isLocked(property)"
+          :aria-describedby="describedBy(property)"
+          :placeholder="placeholderFor(property)"
           :type="
             property.type === 'int'
               ? 'number'
@@ -240,7 +288,9 @@ const save = async () => {
           <template v-else>Not a git remote: {{ remotePreview.reason }}</template>
         </small>
 
-        <small v-if="property.description" class="hint">{{ property.description }}</small>
+        <small v-if="property.description" :id="helpId(property)" class="hint">{{
+          property.description
+        }}</small>
         <small v-if="isLocked(property)" class="hint">
           Part of this node's identity, so it cannot be changed.
         </small>

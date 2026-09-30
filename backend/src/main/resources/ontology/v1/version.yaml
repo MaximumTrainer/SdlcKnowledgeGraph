@@ -9,4 +9,8 @@
 # graph it has recorded, so rolling back past it means rolling the graph back too.
 # 1.2.0 (#88) added Repository's provider and providerId, the alias they form, and previousKeys on
 # the provenance envelope: a minor bump for the same reason, and the same rollback caveat.
-version: 1.2.0
+# 1.3.0 (#81) made the registry self-describing: examples, formats and deprecations on properties,
+# example nodes and questions on types, and enums on the status-like properties, enforced on write.
+# A minor bump: nothing was renamed or removed, and data written before an enum still reads. The
+# deprecated properties stay, and go only in a major version with a migration (#33).
+version: 1.3.0

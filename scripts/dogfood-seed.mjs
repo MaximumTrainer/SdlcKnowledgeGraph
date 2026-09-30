@@ -93,6 +93,26 @@ const withoutUndefined = props => Object.fromEntries(Object.entries(props).filte
  * The batch for one repository. Nodes and edges come out in the order they went in, so the same
  * reading builds the same bytes, and the instance treats an unchanged rerun as one delivery.
  */
+/**
+ * GitHub's run conclusion, or its status while the run has none, in the words Pipeline.lastRunStatus
+ * allows (#81): the ontology closes it to success, failure, cancelled, in_progress and unknown, and a
+ * seed carrying anything else would be refused whole.
+ */
+const RUN_STATUSES = {
+  success: 'success',
+  failure: 'failure',
+  timed_out: 'failure',
+  startup_failure: 'failure',
+  cancelled: 'cancelled',
+  queued: 'in_progress',
+  in_progress: 'in_progress',
+  waiting: 'in_progress',
+  requested: 'in_progress',
+  pending: 'in_progress',
+}
+
+const runStatus = reported => (reported === undefined ? undefined : (RUN_STATUSES[reported] ?? 'unknown'))
+
 export const buildSeed = ({ repository, codeowners, workflows, dependencies }) => {
   const owners = [...new Set(codeowners.flatMap(rule => rule.owners))]
   const repoKey = `github.com/${repository.fullName}`.toLowerCase()
@@ -115,7 +135,7 @@ export const buildSeed = ({ repository, codeowners, workflows, dependencies }) =
         workflowPath: workflow.path,
         name: workflow.name,
         repoId: repoKey,
-        lastRunStatus: workflow.lastRunStatus,
+        lastRunStatus: runStatus(workflow.lastRunStatus),
       }),
     })
     edges.push({ type: 'HAS_PIPELINE', from: 0, to: pipeline, props: {} })

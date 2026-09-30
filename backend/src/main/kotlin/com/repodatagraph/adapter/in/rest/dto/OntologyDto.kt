@@ -1,5 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
@@ -42,6 +44,10 @@ data class NodeTypeResponse(
     val displayProperty: String?,
     /** Properties that together find a node beside its key, unique where all are present (#88); empty for none. */
     val alias: List<String>,
+    /** Questions a reader answers with this type (#81), so an agent knows when to reach for it. */
+    val questions: List<String>,
+    /** Whole example nodes, each one the API accepts (#81). */
+    val examples: List<Map<String, Any?>>,
 ) {
     companion object {
         fun from(nodeType: NodeTypeDef): NodeTypeResponse =
@@ -53,6 +59,8 @@ data class NodeTypeResponse(
                 meta = nodeType.meta,
                 displayProperty = nodeType.displayProperty,
                 alias = nodeType.alias,
+                questions = nodeType.questions,
+                examples = nodeType.examples,
             )
     }
 }
@@ -70,6 +78,9 @@ data class EdgeTypeResponse(
     /** `owner`, `inherits` or `none`: what it says about ownership. */
     val ownership: String,
     val properties: List<PropertyResponse>,
+    val questions: List<String>,
+    /** Example property sets for an edge of this type (#81). */
+    val examples: List<Map<String, Any?>>,
 ) {
     companion object {
         fun from(edgeType: EdgeTypeDef): EdgeTypeResponse =
@@ -83,6 +94,8 @@ data class EdgeTypeResponse(
                 downstream = edgeType.downstream.wireName,
                 ownership = edgeType.ownership.wireName,
                 properties = edgeType.properties.map(PropertyResponse::from),
+                questions = edgeType.questions,
+                examples = edgeType.examples,
             )
     }
 }
@@ -106,8 +119,19 @@ data class PropertyResponse(
     val required: Boolean,
     val description: String?,
     /** Omitted when the property is unconstrained, so a form only offers a choice where there is one. */
-    @field:com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
     val enum: List<String>? = null,
+    /** The shape a value takes (#81), such as `url` or `email`; omitted where none is declared. */
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val format: String? = null,
+    /** The sibling values under which the format applies, such as provider aws; omitted when it always does. */
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val formatWhen: Map<String, String>? = null,
+    /** Values the property accepts, the first one shown wherever one is (#81). */
+    val examples: List<Any?> = emptyList(),
+    /** Since when the property is deprecated and what replaces it; omitted for a current property. */
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val deprecated: DeprecationResponse? = null,
 ) {
     companion object {
         fun from(property: PropertyDef): PropertyResponse =
@@ -117,11 +141,32 @@ data class PropertyResponse(
                 required = property.required,
                 description = property.description,
                 enum = property.enum,
+                format = property.format?.wireName,
+                formatWhen = property.formatWhen.takeIf { it.isNotEmpty() },
+                examples = property.examples,
+                deprecated = property.deprecated?.let(DeprecationResponse::from),
             )
+    }
+}
+
+data class DeprecationResponse(
+    val since: String,
+    /** The property of the same type, or the edge type, to use instead. */
+    val replacedBy: String?,
+) {
+    companion object {
+        fun from(deprecation: Deprecation): DeprecationResponse = DeprecationResponse(deprecation.since, deprecation.replacedBy)
     }
 }
 
 data class UnknownTypeResponse(
     val error: String,
     val type: String,
+)
+
+/** A `format` the ontology cannot be rendered in, with the ones it can (#81). */
+data class UnknownFormatResponse(
+    val error: String,
+    val format: String,
+    val supported: List<String>,
 )

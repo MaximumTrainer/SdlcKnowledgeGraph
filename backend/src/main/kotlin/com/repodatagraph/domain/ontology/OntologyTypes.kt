@@ -32,7 +32,46 @@ data class PropertyDef(
      * the set is what makes the property answerable.
      */
     val enum: List<String>? = null,
+    /** The shape a string value must take (#81), checked on write only when there is a value. */
+    val format: PropertyFormat? = null,
+    /**
+     * The format applies only where these sibling properties hold these values: a CloudResource's id
+     * is an ARN on AWS and something else on Azure or GCP. Empty for a format that always applies.
+     */
+    val formatWhen: Map<String, String> = emptyMap(),
+    /** Values the property accepts, published so a reader sees one rather than guessing (#81). */
+    val examples: List<Any?> = emptyList(),
+    /** Set when the property is kept for old writers and data but should no longer be relied on. */
+    val deprecated: Deprecation? = null,
 )
+
+/** Since which ontology version a property is deprecated, and the property or edge type to use instead. */
+data class Deprecation(
+    val since: String,
+    val replacedBy: String? = null,
+)
+
+/**
+ * The shapes a string property may be declared to take (#81). The wire name is what the registry
+ * and `GET /api/v1/ontology` spell; FormatValidator holds the rule for each.
+ */
+enum class PropertyFormat(
+    val wireName: String,
+) {
+    INSTANT("instant"),
+    URL("url"),
+    EMAIL("email"),
+    IANA_TZ("iana-tz"),
+    RRULE("rrule"),
+    SEMVER("semver"),
+    SHA256("sha256"),
+    ARN("arn"),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): PropertyFormat = fromWire(entries, value, "format") { it.wireName }
+    }
+}
 
 /**
  * A system of record a fact's provenance may name (#117): `manual`, for what a principal states
@@ -63,6 +102,10 @@ data class NodeTypeDef(
      * part of it. Empty for a type with no alias.
      */
     val alias: List<String> = emptyList(),
+    /** Whole example nodes, each a set of properties the API accepts (#81). */
+    val examples: List<Map<String, Any?>> = emptyList(),
+    /** Questions a reader answers with this type, so an agent knows when to reach for it (#81). */
+    val questions: List<String> = emptyList(),
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 
@@ -83,6 +126,9 @@ data class EdgeTypeDef(
     val downstream: ImpactAlong = ImpactAlong.FORWARD,
     /** Whether this edge names an owner, or passes its source's owner on to its target (#21). */
     val ownership: EdgeOwnership = EdgeOwnership.NONE,
+    /** Example property sets for an edge of this type (#81). */
+    val examples: List<Map<String, Any?>> = emptyList(),
+    val questions: List<String> = emptyList(),
 ) {
     fun connects(
         fromType: String,

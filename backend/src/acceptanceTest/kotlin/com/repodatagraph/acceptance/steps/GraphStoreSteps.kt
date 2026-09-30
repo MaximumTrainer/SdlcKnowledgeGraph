@@ -52,7 +52,7 @@ class GraphStoreSteps(
         graphStore.upsertNode(
             GraphNode(
                 key = key,
-                props = mapOf("name" to artifactKey, "version" to commitSha, "artifactType" to "docker"),
+                props = mapOf("name" to artifactKey, "version" to commitSha, "artifactType" to "container-image"),
                 provenance = Provenance.manual(),
             ),
         )

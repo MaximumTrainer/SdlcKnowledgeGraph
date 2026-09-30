@@ -164,6 +164,19 @@ class OntologyCodegenSelfDescriptionTest {
     }
 
     @Test
+    fun `a union that fits on the next line goes there, as Prettier puts it`() {
+        val values = listOf("PENDING", "IN_PROGRESS", "SUCCESS", "FAILED", "ROLLED_BACK", "CANCELLED")
+        val status = GenProperty("status", "string", true, "Whether the deployment worked", enum = values, examples = listOf("SUCCESS"))
+        val wide = ontology.copy(nodeTypes = listOf(ontology.nodeTypes.single().copy(properties = listOf(status))))
+
+        assertTrue(
+            OntologyCodegen.typescript(wide).contains(
+                "export type DeploymentStatus =\n  'PENDING' | 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'ROLLED_BACK' | 'CANCELLED'\n",
+            ),
+        )
+    }
+
+    @Test
     fun `every TypeScript property carries JSDoc with its description and first example`() {
         assertTrue(
             deploymentInterface.contains(
@@ -172,7 +185,7 @@ class OntologyCodegenSelfDescriptionTest {
             deploymentInterface,
         )
         assertTrue(deploymentInterface.contains("   * @example [\"blue\",\"green\"]\n   */\n  tags?: string[]\n"), deploymentInterface)
-        assertTrue(deploymentInterface.contains("   * @example 2\n   */\n  attempt?: number\n"), deploymentInterface)
+        assertTrue(deploymentInterface.contains("   * @example 2\n   */\n  attempt?: number"), deploymentInterface)
         assertFalse(deploymentInterface.contains("Never emitted as a field"), deploymentInterface)
     }
 

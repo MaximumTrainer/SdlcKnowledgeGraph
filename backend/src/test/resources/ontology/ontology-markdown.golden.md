@@ -8,13 +8,11 @@ Answers: Which team owns this repository?
 - name: string! e.g. payments
 - url: string! [url] e.g. https://github.com/acme/payments
 - topics: string[] e.g. ["billing"]
-Out: OWNS_RESOURCE CloudResource
 
 ## CloudResource
 An infrastructure object in AWS, Azure or GCP. Key: provider, resourceId.
 - provider: string! aws|azure|gcp e.g. aws
 - resourceId: string! [arn when provider=aws] e.g. arn:aws:s3:::acme-logs
-In: OWNS_RESOURCE Repository
 
 ## Relationships
 - OWNS_RESOURCE (Repository -> CloudResource, read back as OWNED_BY_REPO): A repository is responsible for a piece of infrastructure.

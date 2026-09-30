@@ -89,8 +89,16 @@ class OntologyLintRulesTest {
 
     @Test
     fun `ONT005 does not ask questions of a type outside the core`() {
-        assertTrue(valid().nodeTypes.single { it.name == "Team" }.questions.isEmpty())
-        assertEquals(emptyList<String>(), lines(valid()))
+        val library =
+            GenNodeType(
+                name = "Library",
+                description = "A third-party package a repository depends on.",
+                identity = listOf("name"),
+                properties = listOf(prop("name", required = true, description = "The package name as the manifest spells it", example = "left-pad")),
+                examples = listOf(mapOf("name" to "left-pad")),
+            )
+
+        assertEquals(emptyList<String>(), lines(valid().copy(nodeTypes = valid().nodeTypes + library)))
     }
 
     @Test
@@ -195,14 +203,14 @@ class OntologyLintRulesTest {
 
     @Test
     fun `ONT010 an edge type without a description`() {
-        val ontology = valid().copy(edgeTypes = valid().edgeTypes.map { it.copy(description = null) })
+        val ontology = valid().copy(edgeTypes = valid().edgeTypes.map { if (it.name == "OWNED_BY") it.copy(description = null) else it })
 
         assertEquals(listOf("edges.OWNED_BY: missing description [ONT010]"), lines(ontology))
     }
 
     @Test
     fun `ONT010 an edge type connecting a type that is not declared`() {
-        val ontology = valid().copy(edgeTypes = valid().edgeTypes.map { it.copy(to = listOf("Team", "Squad")) })
+        val ontology = valid().copy(edgeTypes = valid().edgeTypes.map { if (it.name == "OWNED_BY") it.copy(to = listOf("Team", "Squad")) else it })
 
         assertEquals(listOf("edges.OWNED_BY: to names undeclared node type 'Squad' [ONT010]"), lines(ontology))
     }
@@ -283,6 +291,7 @@ class OntologyLintRulesTest {
                                     .copy(format = "email"),
                             ),
                         examples = listOf(mapOf("name" to "platform")),
+                        questions = listOf("Which repositories does this team own?"),
                     ),
                 ),
             edgeTypes =

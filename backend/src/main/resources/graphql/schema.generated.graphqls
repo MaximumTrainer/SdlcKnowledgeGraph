@@ -3,18 +3,31 @@
 
 """Where a fact came from, attached to every node and edge."""
 type Provenance {
+  """The system of record, one sources.yaml declares: manual, github, servicenow and so on"""
   sourceSystem: String!
+  """The fact's identifier in that system, when it has one"""
   sourceId: String
+  """When the graph recorded the fact"""
   ingestedAt: String!
+  """When the source says the fact was true"""
   observedAt: String
+  """1.0 when reported by the system of record, lower when derived by a rule"""
   confidence: Float!
+  """True when a rule derived the fact rather than a source reporting it"""
   inferred: Boolean!
+  """When the fact started to hold, as far as the graph knows"""
   validFrom: String!
+  """Set when the fact is superseded"""
   validTo: String
+  """The sync run that wrote the fact, where a connector did"""
   syncRunId: String
+  """The subject of the principal that made the write, or a service principal's name"""
   writtenBy: String
+  """The kind of that principal"""
   principalType: String
+  """The key of the Team a service principal acted for; absent for a user"""
   onBehalfOfTeam: String
+  """Keys this node had before it was renamed, oldest first"""
   previousKeys: [String!]
 }
 
@@ -25,23 +38,51 @@ interface GraphNode {
   provenance: Provenance!
 }
 
+"""The values Repository.visibility may take."""
+enum RepositoryVisibility {
+  public
+  private
+  internal
+}
+
+"""The values Repository.provider may take."""
+enum RepositoryProvider {
+  github
+  gitlab
+  other
+}
+
 """A git repository, the anchor for most of the graph."""
 type RepositoryNode implements GraphNode {
   id: ID!
   key: String!
+  """The git remote, in any form; stored canonicalised as https://host/org/name"""
   url: String!
+  """Host of the remote, e.g. github.com. Derived from url"""
   host: String
+  """Owning organisation or user. Derived from url"""
   org: String
+  """Repository name within its organisation. Derived from url"""
   name: String
+  """The branch changes are merged into"""
   defaultBranch: String!
+  """Topics the forge lists for the repository; may be empty"""
   topics: [String!]!
+  """Owners named in its CODEOWNERS file, as written there"""
   codeowners: [String!]!
-  serviceId: String
+  """The service it provides, as an id, from before the PROVIDES edge"""
+  serviceId: String @deprecated(reason: "since 1.3.0, replaced by PROVIDES")
+  """Its main language, as the forge detects it"""
   language: String
+  """The one-line description the forge shows for it"""
   description: String
+  """Who may read it, as the forge reports it. One of RepositoryVisibility."""
   visibility: String
+  """Package names this repository publishes"""
   packageNames: [String!]
+  """Who assigns providerId. Derived from url on github.com and gitlab.com. One of RepositoryProvider."""
   provider: String
+  """The provider's stable id for the repository, such as GitHub's numeric repository id"""
   providerId: String
   provenance: Provenance!
 }
@@ -50,161 +91,362 @@ type RepositoryNode implements GraphNode {
 type TeamNode implements GraphNode {
   id: ID!
   key: String!
+  """The team's name as its organisation spells it, or host/org/slug from GitHub"""
   name: String!
+  """An address that reaches the whole team"""
   email: String
   provenance: Provenance!
+}
+
+"""The values Service.tier may take."""
+enum ServiceTier {
+  platinum
+  gold
+  silver
+  bronze
 }
 
 """A running logical component, which may span more than one repository."""
 type ServiceNode implements GraphNode {
   id: ID!
   key: String!
+  """The service's name, unique across the organisation"""
   name: String!
+  """What the service does, in a sentence"""
   description: String
+  """Criticality tier, platinum the most critical. One of ServiceTier."""
   tier: String
   provenance: Provenance!
+}
+
+"""The values Pipeline.provider may take."""
+enum PipelineProvider {
+  """Stored as github-actions."""
+  github_actions
+  """Stored as gitlab-ci."""
+  gitlab_ci
+  """Stored as azure-pipelines."""
+  azure_pipelines
+  jenkins
+  other
+}
+
+"""The values Pipeline.lastRunStatus may take."""
+enum PipelineLastRunStatus {
+  success
+  failure
+  cancelled
+  in_progress
+  unknown
 }
 
 """A CI/CD workflow definition."""
 type PipelineNode implements GraphNode {
   id: ID!
   key: String!
+  """The CI system that runs it. One of PipelineProvider."""
   provider: String!
+  """Key of the repository holding the workflow"""
   repoKey: String
+  """Path of the workflow file in that repository"""
   workflowPath: String
+  """The workflow's display name, or its file name"""
   name: String!
-  repoId: String!
+  """Key of the repository holding the workflow, from before repoKey"""
+  repoId: String! @deprecated(reason: "since 1.3.0, replaced by repoKey")
+  """How its most recent run ended, as far as the graph was told. One of PipelineLastRunStatus."""
   lastRunStatus: String
   provenance: Provenance!
+}
+
+"""The values Artifact.artifactType may take."""
+enum ArtifactArtifactType {
+  """Stored as container-image."""
+  container_image
+  jar
+  """Stored as npm-package."""
+  npm_package
+  """Stored as python-wheel."""
+  python_wheel
+  """Stored as helm-chart."""
+  helm_chart
+  """Stored as terraform-module."""
+  terraform_module
+  binary
+  other
 }
 
 """A built, addressable output such as a container image."""
 type ArtifactNode implements GraphNode {
   id: ID!
   key: String!
+  """The registry host it is published to, e.g. ghcr.io"""
   registry: String
+  """Its name in the registry, without the host"""
   name: String!
+  """Immutable content digest, preferred for identity"""
   digest: String
+  """The tag or version it was published as, or its digest"""
   version: String!
+  """The commit it was built from"""
   commitSha: String
-  repoId: String
+  """Key of the repository it was built from, from before BUILT_FROM"""
+  repoId: String @deprecated(reason: "since 1.3.0, replaced by BUILT_FROM")
+  """What kind of artifact it is. One of ArtifactArtifactType."""
   artifactType: String!
   provenance: Provenance!
+}
+
+"""The values Deployment.status may take."""
+enum DeploymentStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+  CANCELLED
 }
 
 """One event of putting an artifact into an environment."""
 type DeploymentNode implements GraphNode {
   id: ID!
   key: String!
+  """Key of the artifact that was deployed"""
   artifactKey: String
+  """Key of the environment it was deployed to"""
   environmentKey: String
+  """When the deployment happened, in UTC"""
   deployedAt: String!
-  artifactId: String!
-  environmentId: String!
+  """Key of the deployed artifact, from before artifactKey"""
+  artifactId: String! @deprecated(reason: "since 1.3.0, replaced by artifactKey")
+  """Key of the target environment, from before environmentKey"""
+  environmentId: String! @deprecated(reason: "since 1.3.0, replaced by environmentKey")
+  """Who or what started the deployment"""
   deployedBy: String
+  """How the deployment ended, or that it has not yet. One of DeploymentStatus."""
   status: String!
   provenance: Provenance!
+}
+
+"""The values Environment.type may take."""
+enum EnvironmentType {
+  development
+  test
+  staging
+  production
+  ephemeral
+  other
+}
+
+"""The values Environment.tier may take."""
+enum EnvironmentTier {
+  production
+  pre_production
+  development
+  other
 }
 
 """A deployment target such as staging or production."""
 type EnvironmentNode implements GraphNode {
   id: ID!
   key: String!
+  """The environment's name; prod and production are one"""
   name: String!
+  """What kind of environment this is. One of EnvironmentType."""
   type: String!
+  """Criticality, for ranking impact; read as other where absent. One of EnvironmentTier."""
   tier: String
   provenance: Provenance!
+}
+
+"""The values CloudResource.provider may take."""
+enum CloudResourceProvider {
+  aws
+  azure
+  gcp
 }
 
 """An infrastructure object in AWS, Azure or GCP."""
 type CloudResourceNode implements GraphNode {
   id: ID!
   key: String!
+  """The cloud the resource lives in. One of CloudResourceProvider."""
   provider: String!
+  """ARN, Azure resource id or GCP asset name"""
   resourceId: String
+  """The kind of resource, in the cloud's own terms"""
   resourceType: String!
+  """The resource's human-facing name"""
   name: String!
+  """The region it is deployed in, where it has one"""
   region: String
+  """The account, subscription or project that holds it"""
   accountId: String
-  repoId: String
+  """Key of the owning repository, from before OWNS_RESOURCE"""
+  repoId: String @deprecated(reason: "since 1.3.0, replaced by OWNS_RESOURCE")
   provenance: Provenance!
+}
+
+"""The values ConfigurationItem.sourceSystem may take."""
+enum ConfigurationItemSourceSystem {
+  servicenow
+  jsm
 }
 
 """A configuration item from a service management system such as ServiceNow."""
 type ConfigurationItemNode implements GraphNode {
   id: ID!
   key: String!
+  """The service-management tool it was read from. One of ConfigurationItemSourceSystem."""
   sourceSystem: String!
+  """Instance of that tool the CI belongs to"""
   instance: String!
+  """Identifier of the CI in the source system"""
   sysId: String!
+  """The CI's name as the CMDB shows it"""
   ciName: String!
+  """The CMDB class of the CI, e.g. cmdb_ci_service"""
   ciClass: String
-  serviceId: String
+  """The service it corresponds to, from before RELATES_TO_CI"""
+  serviceId: String @deprecated(reason: "since 1.3.0, replaced by RELATES_TO_CI")
+  """As the CMDB reports it, e.g. Operational or Retired"""
   operationalStatus: String
+  """The environment the CMDB places it in, as written there"""
   environment: String
+  """As the CMDB reports it, e.g. 1 - most critical"""
   businessCriticality: String
+  """The group the CMDB names as its owner"""
   ownerGroup: String
+  """The group that answers for it when it breaks"""
   supportGroup: String
+  """The human-facing identifier, where the CI has one"""
   number: String
   provenance: Provenance!
+}
+
+"""The values ChangeRequest.sourceSystem may take."""
+enum ChangeRequestSourceSystem {
+  servicenow
+  jsm
+}
+
+"""The values ChangeRequest.changeType may take."""
+enum ChangeRequestChangeType {
+  standard
+  normal
+  emergency
 }
 
 """A change as a service-management tool records it, with its approval and window."""
 type ChangeRequestNode implements GraphNode {
   id: ID!
   key: String!
+  """The service-management tool it was read from. One of ChangeRequestSourceSystem."""
   sourceSystem: String!
+  """Instance of that tool the change belongs to"""
   instance: String!
+  """Identifier of the change in the source system"""
   sysId: String!
+  """The human-facing identifier, e.g. CHG0001"""
   number: String!
+  """The change's one-line summary"""
   shortDescription: String
+  """As the tool reports it, e.g. Implement or Closed"""
   state: String
+  """How the change is governed: pre-approved, assessed or urgent. One of ChangeRequestChangeType."""
   changeType: String
+  """The risk the tool assessed for it, as written there"""
   risk: String
+  """Start of the planned window"""
   startDate: String
+  """End of the planned window"""
   endDate: String
+  """How the change was closed, as the tool reports it"""
   closeCode: String
+  """Who asked for the change, as the tool names them"""
   requestedBy: String
+  """The group assigned to carry out the change"""
   assignmentGroup: String
   provenance: Provenance!
+}
+
+"""The values Incident.sourceSystem may take."""
+enum IncidentSourceSystem {
+  servicenow
+  jsm
 }
 
 """An operational failure as a service-management tool records it."""
 type IncidentNode implements GraphNode {
   id: ID!
   key: String!
+  """The service-management tool it was read from. One of IncidentSourceSystem."""
   sourceSystem: String!
+  """Instance of that tool the incident belongs to"""
   instance: String!
+  """Identifier of the incident in the source system"""
   sysId: String!
+  """The human-facing identifier, e.g. INC0001"""
   number: String!
+  """The incident's one-line summary"""
   shortDescription: String
+  """As the tool reports it, e.g. In Progress or Resolved"""
   state: String
+  """The priority the tool gives it, as written there"""
   priority: String
+  """The severity the tool gives it, as written there"""
   severity: String
+  """When the incident was opened"""
   openedAt: String
+  """When the incident was resolved, if it has been"""
   resolvedAt: String
+  """How the incident was closed, as the tool reports it"""
   closeCode: String
+  """The group assigned to resolve the incident"""
   assignmentGroup: String
   provenance: Provenance!
+}
+
+"""The values Library.ecosystem may take."""
+enum LibraryEcosystem {
+  npm
+  maven
+  pypi
+  go
 }
 
 """A third-party package a repository depends on, as its ecosystem names it."""
 type LibraryNode implements GraphNode {
   id: ID!
   key: String!
+  """The package ecosystem; Gradle dependencies are maven. One of LibraryEcosystem."""
   ecosystem: String!
+  """The package name as the manifest spells it"""
   name: String!
+  """What the package does, in a sentence"""
   description: String
   provenance: Provenance!
+}
+
+"""The values IacFile.format may take."""
+enum IacFileFormat {
+  terraform
+  cdk
+  bicep
+  cloudformation
 }
 
 """An infrastructure-as-code file, and the resources it names."""
 type IacFileNode implements GraphNode {
   id: ID!
   key: String!
+  """Key of the repository holding the file"""
   repoKey: String!
+  """Path within the default branch"""
   path: String!
+  """The infrastructure-as-code language of the file. One of IacFileFormat."""
   format: String!
+  """Identifiers the file names literally, for the link engine to match on"""
   resourceRefs: [String!]
   provenance: Provenance!
 }
@@ -213,37 +455,71 @@ type IacFileNode implements GraphNode {
 type ChangeNode implements GraphNode {
   id: ID!
   key: String!
+  """Key of the repository the change was made in, e.g. github.com/acme/payments"""
   repositoryKey: String!
+  """The commit the change ends at, stored in lower case"""
   sha: String!
+  """The commit the change starts from, for a range"""
   baseSha: String
+  """The change's summary, such as its commit subject"""
   title: String
+  """Who made the change, as the forge names them"""
   author: String
+  """When the change was committed"""
   committedAt: String!
+  """Where the change can be read, e.g. the commit or compare page"""
   url: String
   provenance: Provenance!
+}
+
+"""The values PullRequest.state may take."""
+enum PullRequestState {
+  open
+  merged
+  closed
 }
 
 """A proposal to merge a change into a repository, as the forge records it."""
 type PullRequestNode implements GraphNode {
   id: ID!
   key: String!
+  """Key of the repository the pull request targets"""
   repositoryKey: String!
+  """The forge's number for it within the repository"""
   number: Int!
+  """Where the pull request can be read on the forge"""
   url: String!
+  """The pull request's title"""
   title: String
+  """Whether it is open, merged or closed unmerged. One of PullRequestState."""
   state: String
+  """When it was merged, if it has been"""
   mergedAt: String
+  """The head branch, e.g. chorus/CH-42-retry-webhook"""
   branch: String
   provenance: Provenance!
+}
+
+"""The values ExternalWorkItem.system may take."""
+enum ExternalWorkItemSystem {
+  chorus
+  jira
+  linear
+  github
+  other
 }
 
 """A task, ticket or issue in the system that owns it, referred to by its URI."""
 type ExternalWorkItemNode implements GraphNode {
   id: ID!
   key: String!
+  """e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42"""
   uri: String!
+  """The system that owns the work item. One of ExternalWorkItemSystem."""
   system: String!
+  """Its human-facing identifier there, e.g. CH-42"""
   externalKey: String
+  """The work item's title in the owning system"""
   title: String
   provenance: Provenance!
 }
@@ -252,41 +528,92 @@ type ExternalWorkItemNode implements GraphNode {
 type OntologyNode implements GraphNode {
   id: ID!
   key: String!
+  """The ontology version, as version.yaml declares it"""
   version: String!
+  """When a build first recorded this version"""
   loadedAt: String
   provenance: Provenance!
+}
+
+"""The values SyncRun.mode may take."""
+enum SyncRunMode {
+  FULL
+  INCREMENTAL
+  WEBHOOK
+}
+
+"""The values SyncRun.status may take."""
+enum SyncRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
 }
 
 """One execution of a connector, for auditing what a sync changed."""
 type SyncRunNode implements GraphNode {
   id: ID!
   key: String!
+  """The connector that ran, by its registered name"""
   connector: String!
+  """What this run stamped on the provenance of everything it wrote"""
   sourceSystem: String
+  """Whether it read everything, what changed, or one delivery. One of SyncRunMode."""
   mode: String
+  """The source system's id for the delivery that caused this run"""
   sourceId: String
+  """When the run started"""
   startedAt: String
+  """When the run finished, if it has"""
   finishedAt: String
+  """Whether the run is going, worked, partly worked or failed. One of SyncRunStatus."""
   status: String
+  """Nodes the run created or updated"""
   nodesUpserted: Int
+  """Edges the run created or updated"""
   edgesUpserted: Int
+  """Facts this run closed because the source stopped reporting them"""
   tombstones: Int
+  """Where the next incremental run should start"""
   watermark: String
+  """Why the run failed or partly failed, where it did"""
   error: String
   provenance: Provenance!
+}
+
+"""The values ConnectorState.lastStatus may take."""
+enum ConnectorStateLastStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+"""The values ConnectorState.lastRunStatus may take."""
+enum ConnectorStateLastRunStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
 }
 
 """What the graph remembers about a connector between runs."""
 type ConnectorStateNode implements GraphNode {
   id: ID!
   key: String!
+  """The connector this state belongs to"""
   connector: String!
+  """Reported by the last successful run"""
   watermark: String
+  """The last scheduled or manual run to finish, whatever its status"""
   lastRunId: String
+  """That run's status; the same as lastRunStatus, kept for states written before it. One of ConnectorStateLastStatus."""
   lastStatus: String
+  """How the last run to finish ended. One of ConnectorStateLastRunStatus."""
   lastRunStatus: String
+  """When the last run to finish finished"""
   lastFinishedAt: String
+  """When the last successful run finished"""
   lastSuccessAt: String
+  """Runs that ended PARTIAL or FAILED since the last SUCCESS"""
   consecutiveFailures: Int
   provenance: Provenance!
 }
@@ -295,8 +622,11 @@ type ConnectorStateNode implements GraphNode {
 type ServicePrincipalNode implements GraphNode {
   id: ID!
   key: String!
+  """The client id its tokens carry (azp, or client_id)"""
   name: String!
+  """Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam"""
   ownedBy: String!
+  """What the principal is for, in a sentence"""
   description: String
   provenance: Provenance!
 }
