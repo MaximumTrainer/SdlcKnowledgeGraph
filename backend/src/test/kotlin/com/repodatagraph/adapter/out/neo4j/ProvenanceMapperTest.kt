@@ -28,6 +28,8 @@ class ProvenanceMapperTest {
             validFrom = ingested,
             validTo = null,
             syncRunId = "run-1",
+            writtenBy = "dan",
+            principalType = "user",
         )
 
     @Test
@@ -42,6 +44,26 @@ class ProvenanceMapperTest {
         assertEquals(true, properties["prov_inferred"])
         assertEquals(ingested, (properties["prov_validFrom"] as ZonedDateTime).toInstant())
         assertEquals("run-1", properties["prov_syncRunId"])
+        assertEquals("dan", properties["prov_writtenBy"])
+        assertEquals("user", properties["prov_principalType"])
+    }
+
+    @Test
+    fun `who wrote a fact survives the round trip`() {
+        val back = ProvenanceMapper.fromProperties(ProvenanceMapper.toProperties(full))
+
+        assertEquals("dan", back.writtenBy)
+        assertEquals("user", back.principalType)
+    }
+
+    @Test
+    fun `a fact written before anyone was recorded reads back with no writer`() {
+        val legacy = ProvenanceMapper.toProperties(full).filterKeys { it != "prov_writtenBy" && it != "prov_principalType" }
+
+        val back = ProvenanceMapper.fromProperties(legacy)
+
+        assertNull(back.writtenBy)
+        assertNull(back.principalType)
     }
 
     @Test

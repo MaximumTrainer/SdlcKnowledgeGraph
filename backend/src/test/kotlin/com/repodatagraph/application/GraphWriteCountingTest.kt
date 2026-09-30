@@ -6,6 +6,7 @@ import com.repodatagraph.domain.model.EdgeRequest
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
+import com.repodatagraph.domain.model.Principal
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.IdentityResolver
@@ -44,8 +45,15 @@ class GraphWriteCountingTest {
             edgeTypes = listOf(EdgeTypeDef("OWNED_BY", null, listOf("Repository"), listOf("Team"), "OWNS")),
         )
     private val nodes =
-        NodeService(registry, IdentityResolver(), DerivedProperties(GitRemoteParser()), PropertyValidator(), graphStore, metrics)
-    private val edges = EdgeService(registry, PropertyValidator(), graphStore, metrics)
+        NodeService(
+            registry,
+            IdentityResolver(),
+            DerivedProperties(GitRemoteParser()),
+            PropertyValidator(),
+            graphStore,
+            metrics,
+        ) { Principal.ANONYMOUS }
+    private val edges = EdgeService(registry, PropertyValidator(), graphStore, metrics) { Principal.ANONYMOUS }
 
     private val platform = NodeKey("Team", "platform")
     private val web = NodeKey("Repository", "web")
