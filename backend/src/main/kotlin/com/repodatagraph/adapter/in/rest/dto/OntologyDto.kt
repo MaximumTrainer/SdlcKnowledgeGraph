@@ -57,6 +57,12 @@ data class EdgeTypeResponse(
     val from: List<String>,
     val to: List<String>,
     val inverse: String,
+    /** `propagates` when a change travels along this edge, so a client can draw the blast radius (#21). */
+    val impact: String,
+    /** `forward` or `inverse`: which way a change travels along it. */
+    val downstream: String,
+    /** `owner`, `inherits` or `none`: what it says about ownership. */
+    val ownership: String,
     val properties: List<PropertyResponse>,
 ) {
     companion object {
@@ -67,6 +73,9 @@ data class EdgeTypeResponse(
                 from = edgeType.from,
                 to = edgeType.to,
                 inverse = edgeType.inverse,
+                impact = edgeType.impact.wireName,
+                downstream = edgeType.downstream.wireName,
+                ownership = edgeType.ownership.wireName,
                 properties = edgeType.properties.map(PropertyResponse::from),
             )
     }

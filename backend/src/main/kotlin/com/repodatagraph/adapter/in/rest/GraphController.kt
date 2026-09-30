@@ -77,8 +77,13 @@ class GraphController(
         @PathVariable repoId: String,
     ): ResponseEntity<List<Pipeline>> = ResponseEntity.ok(graphQueryUseCase.getPipelinesForRepo(repoId))
 
+    /**
+     * Superseded by `GET /api/v1/graph/impact` (#21), and answered from it: the same traversal, cut
+     * back to the three lists this endpoint has always sent. The `Deprecation` header and the `Link` to
+     * the successor say so without the caller reading release notes.
+     */
     @GetMapping("/repositories/{repoId}/impact")
-    @Operation(summary = "Impact analysis: what is affected if this repo breaks")
+    @Operation(summary = "Impact analysis: what is affected if this repo breaks. Deprecated: use /api/v1/graph/impact", deprecated = true)
     fun getImpactAnalysis(
         @PathVariable repoId: String,
     ): ResponseEntity<ImpactAnalysisResponse> {
@@ -90,6 +95,17 @@ class GraphController(
                 cloudResources = analysis["cloudResources"]?.filterIsInstance<CloudResource>() ?: emptyList(),
                 deployments = analysis["deployments"]?.filterIsInstance<Deployment>() ?: emptyList(),
             )
-        return ResponseEntity.ok(response)
+        val successor = if (repoId.startsWith("$REPOSITORY:")) repoId else "$REPOSITORY:$repoId"
+        return ResponseEntity
+            .ok()
+            .header(DEPRECATION_HEADER, "true")
+            .header(LINK_HEADER, "</api/v1/graph/impact?nodeId=$successor>; rel=\"successor-version\"")
+            .body(response)
+    }
+
+    private companion object {
+        const val REPOSITORY = "Repository"
+        const val DEPRECATION_HEADER = "Deprecation"
+        const val LINK_HEADER = "Link"
     }
 }

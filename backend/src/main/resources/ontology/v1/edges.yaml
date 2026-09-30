@@ -3,6 +3,16 @@
 # Every edge declares an `inverse`: the name used when traversing it backwards. The inverse is a
 # traversal concept, not a second stored edge, so "what does this depend on" and "what depends on
 # this" are one relationship read in two directions. An edge without an inverse fails startup.
+#
+# `impact: propagates` marks an edge a change travels along (#21): the blast radius walks exactly these
+# edges and no query names them. `downstream` says which way the change travels - `forward`, the
+# default, as the edge is stored, or `inverse`, against it. `DEPENDS_ON` points from the dependent to
+# what it depends on, and a change travels from the second to the first, so its downstream is
+# `DEPENDED_ON_BY`. An upstream walk reads every propagating edge the other way.
+#
+# `ownership: owner` marks an edge that names an owner. `ownership: inherits` passes ownership on
+# against the direction a change travels: a thing with no owner of its own is owned by whoever owns
+# what its changes come from. Only a propagating edge can inherit, since only it has that direction.
 
 edges:
   OWNED_BY:
@@ -10,6 +20,7 @@ edges:
     from: [Repository, Service, CloudResource]
     to: [Team]
     inverse: OWNS
+    ownership: owner
     properties:
       # What the claim rests on. A CODEOWNERS line names a team against a path, and "owns everything"
       # and "owns /docs/" are both recorded as ownership - only the pattern says which was declared.
@@ -20,6 +31,8 @@ edges:
     from: [Repository, Service]
     to: [CloudResource]
     inverse: OWNED_BY_REPO
+    impact: propagates
+    ownership: inherits
     properties:
       - { name: rule, type: string, required: false, description: "Which link rule proposed this, e.g. tag or iac" }
 
@@ -28,6 +41,8 @@ edges:
     from: [Repository, Service, ConfigurationItem]
     to: [Repository, Service, Library, ConfigurationItem]
     inverse: DEPENDED_ON_BY
+    impact: propagates
+    downstream: inverse
     properties:
       - name: kind
         type: string
@@ -50,6 +65,8 @@ edges:
     from: [Repository]
     to: [Pipeline]
     inverse: PIPELINE_OF
+    impact: propagates
+    ownership: inherits
 
   RELATES_TO_CI:
     description: A repository or service corresponds to a configuration item in service management.
@@ -77,6 +94,10 @@ edges:
     from: [Artifact]
     to: [Repository]
     inverse: BUILDS
+    impact: propagates
+    # A change to the repository reaches what is built from it: downstream is BUILDS.
+    downstream: inverse
+    ownership: inherits
     properties:
       - { name: commitSha, type: string, required: false }
 
@@ -85,18 +106,23 @@ edges:
     from: [Artifact]
     to: [Deployment]
     inverse: DEPLOYMENT_OF
+    impact: propagates
+    ownership: inherits
 
   TO_ENVIRONMENT:
     description: A deployment targeted an environment.
     from: [Deployment]
     to: [Environment]
     inverse: HOSTS
+    impact: propagates
 
   PROVIDES:
     description: A repository provides a running service.
     from: [Repository]
     to: [Service]
     inverse: PROVIDED_BY
+    impact: propagates
+    ownership: inherits
 
   # Which run asserted a fact. Provenance already records the run id on every node, but an edge makes
   # it traversable: "show me everything that run wrote" is then one hop rather than a property scan,

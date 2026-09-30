@@ -43,14 +43,6 @@ class OntologyCodegenTest {
                         downstream = "inverse",
                         ownership = "inherits",
                     ),
-                    GenEdgeType(
-                        name = "RELATES_TO_CI",
-                        description = null,
-                        from = listOf("Repository"),
-                        to = listOf("ConfigurationItem"),
-                        inverse = "CI_OF",
-                        properties = emptyList(),
-                    ),
                 ),
             provenance =
                 listOf(
@@ -162,6 +154,8 @@ class OntologyCodegenTest {
     fun `the JSON snapshot says how a change travels along each edge and whether ownership does (#21)`() {
         assertTrue(json.contains("\"impact\": \"propagates\",\n      \"downstream\": \"inverse\",\n      \"ownership\": \"inherits\","), json)
         // An edge that says nothing is published as saying "none", so a consumer never has to guess a default.
+        val plain = GenEdgeType("RELATES_TO_CI", null, listOf("Repository"), listOf("ConfigurationItem"), "CI_OF", emptyList())
+        val json = OntologyCodegen.json(ontology.copy(edgeTypes = ontology.edgeTypes + plain))
         assertTrue(json.contains("\"impact\": \"none\",\n      \"downstream\": \"forward\",\n      \"ownership\": \"none\","), json)
     }
 

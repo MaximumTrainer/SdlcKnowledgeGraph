@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.domain.exception.InvalidEdgeException
+import com.repodatagraph.domain.exception.InvalidQueryParameterException
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.UnknownEdgeTypeException
 import com.repodatagraph.domain.exception.UnknownNodeTypeException
@@ -51,6 +52,11 @@ class RestExceptionHandler {
     @ExceptionHandler(IdentityResolutionException::class)
     fun onIdentityResolution(exception: IdentityResolutionException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.badRequest().body(mapOf("error" to "cannot derive identity", "detail" to exception.message.orEmpty()))
+
+    /** A query parameter out of bounds or out of form (#21, FR7), naming it so the caller knows which to fix. */
+    @ExceptionHandler(InvalidQueryParameterException::class)
+    fun onInvalidQueryParameter(exception: InvalidQueryParameterException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.badRequest().body(mapOf("error" to exception.message.orEmpty(), "field" to exception.field))
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun onIllegalArgument(exception: IllegalArgumentException): ResponseEntity<Map<String, Any>> {

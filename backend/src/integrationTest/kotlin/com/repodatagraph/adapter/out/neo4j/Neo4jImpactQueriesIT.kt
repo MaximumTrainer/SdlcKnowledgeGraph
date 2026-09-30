@@ -216,7 +216,7 @@ class Neo4jImpactQueriesIT {
         assertThat(facts.commitSha).isEqualTo("c2")
         assertThat(facts.repository?.id).isEqualTo(payments.id)
         assertThat(facts.pipeline?.id).isEqualTo(pipeline.id)
-        assertThat(facts.environment?.key).isEqualTo("$run-staging")
+        assertThat(facts.environment?.key?.key).isEqualTo("$run-staging")
         assertThat(facts.history.map { it.id to it.commitSha }).containsExactlyInAnyOrder(good.id to "c1", failed.id to "c2")
         val dependency = facts.dependencyDeployments.single()
         assertThat(dependency.id).isEqualTo(lib.id)

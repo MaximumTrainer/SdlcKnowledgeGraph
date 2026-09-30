@@ -66,12 +66,74 @@ data class EdgeTypeDef(
     /** Name used when traversing this edge backwards. Not stored as a second edge. */
     val inverse: String,
     val properties: List<PropertyDef> = emptyList(),
+    /** Whether a change to one end reaches the other (#21): what an impact traversal walks. */
+    val impact: EdgeImpact = EdgeImpact.NONE,
+    /** Which way a change travels along a propagating edge: as stored, or along its inverse. */
+    val downstream: ImpactAlong = ImpactAlong.FORWARD,
+    /** Whether this edge names an owner, or passes its source's owner on to its target (#21). */
+    val ownership: EdgeOwnership = EdgeOwnership.NONE,
 ) {
     fun connects(
         fromType: String,
         toType: String,
     ): Boolean = fromType in from && toType in to
 }
+
+/** Whether a change travels along an edge (#21). The wire name is what edges.yaml and the ontology endpoint say. */
+enum class EdgeImpact(
+    val wireName: String,
+) {
+    NONE("none"),
+    PROPAGATES("propagates"),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): EdgeImpact = fromWire(entries, value, "impact") { it.wireName }
+    }
+}
+
+/**
+ * Which way "downstream" runs along a propagating edge. `DEPENDS_ON` points from the dependent to what
+ * it depends on, but a change travels the other way, so its downstream is [INVERSE]: `DEPENDED_ON_BY`.
+ */
+enum class ImpactAlong(
+    val wireName: String,
+) {
+    FORWARD("forward"),
+    INVERSE("inverse"),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): ImpactAlong = fromWire(entries, value, "downstream") { it.wireName }
+    }
+}
+
+/**
+ * What an edge says about ownership (#21). [OWNER] names the owner at its target; [INHERITS] passes the
+ * owner of whatever a change comes from on to what it reaches, so a cloud resource with no owner of
+ * its own is owned by whoever owns the repository that owns it.
+ */
+enum class EdgeOwnership(
+    val wireName: String,
+) {
+    NONE("none"),
+    OWNER("owner"),
+    INHERITS("inherits"),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): EdgeOwnership = fromWire(entries, value, "ownership") { it.wireName }
+    }
+}
+
+private fun <T> fromWire(
+    entries: List<T>,
+    value: String,
+    flag: String,
+    wireName: (T) -> String,
+): T =
+    entries.firstOrNull { wireName(it) == value }
+        ?: throw InvalidOntologyException("unknown $flag '$value', expected one of ${entries.map(wireName)}")
 
 class InvalidOntologyException(
     message: String,

@@ -34,6 +34,12 @@ data class GenEdgeType(
     val to: List<String>,
     val inverse: String,
     val properties: List<GenProperty>,
+    /** `propagates` when a change travels along this edge (#21), else `none`. */
+    val impact: String = "none",
+    /** `forward` or `inverse`: which way a change travels along a propagating edge. */
+    val downstream: String = "forward",
+    /** `owner`, `inherits` or `none`: what the edge says about ownership. */
+    val ownership: String = "none",
 )
 
 /** A source system a fact's provenance may name (sources.yaml, #117). */
@@ -93,6 +99,9 @@ object OntologyReader {
                         to = definition.path("to").map { it.asText() },
                         inverse = definition.path("inverse").asText(""),
                         properties = definition.readProperties(),
+                        impact = definition.text("impact") ?: "none",
+                        downstream = definition.text("downstream") ?: "forward",
+                        ownership = definition.text("ownership") ?: "none",
                     )
                 }.toList()
 

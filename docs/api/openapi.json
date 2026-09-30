@@ -1,6 +1,32 @@
 {
   "components" : {
     "schemas" : {
+      "AffectedNodeResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "distance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "node" : {
+            "$ref" : "#/components/schemas/ImpactNodeView"
+          },
+          "path" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PathStepResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "confidence", "distance", "inferred", "node", "path" ],
+        "type" : "object"
+      },
       "AuditEvent" : {
         "properties" : {
           "actor" : {
@@ -237,6 +263,31 @@
         "required" : [ "artifactId", "deployedAt", "environmentId", "id", "status" ],
         "type" : "object"
       },
+      "DeploymentRecordResponse" : {
+        "properties" : {
+          "commitSha" : {
+            "type" : [ "string", "null" ]
+          },
+          "deployedAt" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "repository" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NodeRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "deployedAt", "id", "status" ],
+        "type" : "object"
+      },
       "EdgeListResponse" : {
         "properties" : {
           "items" : {
@@ -305,16 +356,25 @@
           "description" : {
             "type" : [ "string", "null" ]
           },
+          "downstream" : {
+            "type" : "string"
+          },
           "from" : {
             "items" : {
               "type" : "string"
             },
             "type" : "array"
           },
+          "impact" : {
+            "type" : "string"
+          },
           "inverse" : {
             "type" : "string"
           },
           "name" : {
+            "type" : "string"
+          },
+          "ownership" : {
             "type" : "string"
           },
           "properties" : {
@@ -330,7 +390,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "from", "inverse", "name", "properties", "to" ],
+        "required" : [ "downstream", "from", "impact", "inverse", "name", "ownership", "properties", "to" ],
         "type" : "object"
       },
       "EdgeViewResponse" : {
@@ -359,6 +419,18 @@
           }
         },
         "required" : [ "direction", "displayName", "inverse", "other", "props", "provenance", "type" ],
+        "type" : "object"
+      },
+      "FailureReasonResponse" : {
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "detail", "kind" ],
         "type" : "object"
       },
       "FreshnessView" : {
@@ -420,6 +492,61 @@
         "required" : [ "cloudResources", "dependents", "deployments", "repoId" ],
         "type" : "object"
       },
+      "ImpactNodeView" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "props", "type" ],
+        "type" : "object"
+      },
+      "ImpactResponse" : {
+        "properties" : {
+          "affected" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AffectedNodeResponse"
+            },
+            "type" : "array"
+          },
+          "byType" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          },
+          "depth" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "minConfidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "root" : {
+            "$ref" : "#/components/schemas/NodeRef"
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "affected", "byType", "depth", "direction", "minConfidence", "root", "truncated" ],
+        "type" : "object"
+      },
       "LastRunView" : {
         "properties" : {
           "finishedAt" : {
@@ -450,6 +577,21 @@
           }
         },
         "required" : [ "items" ],
+        "type" : "object"
+      },
+      "NodeRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "type" ],
         "type" : "object"
       },
       "NodeRefResponse" : {
@@ -567,6 +709,62 @@
         "required" : [ "edgeTypes", "nodeTypes", "provenance", "sources", "version" ],
         "type" : "object"
       },
+      "OwnerResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "team" : {
+            "$ref" : "#/components/schemas/TeamRef"
+          },
+          "via" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PathStepResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "confidence", "team", "via" ],
+        "type" : "object"
+      },
+      "OwnersResponse" : {
+        "properties" : {
+          "node" : {
+            "$ref" : "#/components/schemas/NodeRef"
+          },
+          "owners" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "node", "owners" ],
+        "type" : "object"
+      },
+      "PathStepResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "edge" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "edge", "from", "inferred", "to" ],
+        "type" : "object"
+      },
       "Pipeline" : {
         "properties" : {
           "id" : {
@@ -586,6 +784,18 @@
           }
         },
         "required" : [ "id", "name", "provider", "repoId" ],
+        "type" : "object"
+      },
+      "PipelineRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "lastRunStatus" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "id" ],
         "type" : "object"
       },
       "PropertyResponse" : {
@@ -1042,6 +1252,89 @@
         },
         "required" : [ "id", "name" ],
         "type" : "object"
+      },
+      "TeamRef" : {
+        "properties" : {
+          "email" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "id", "key" ],
+        "type" : "object"
+      },
+      "WhyFailedResponse" : {
+        "properties" : {
+          "artifact" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NodeRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "changedDependencies" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DeploymentRecordResponse"
+            },
+            "type" : "array"
+          },
+          "commitSha" : {
+            "type" : [ "string", "null" ]
+          },
+          "deployedAt" : {
+            "type" : "string"
+          },
+          "deployment" : {
+            "$ref" : "#/components/schemas/NodeRef"
+          },
+          "environment" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NodeRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "pipeline" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PipelineRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "precedingSuccessfulDeployment" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/DeploymentRecordResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "reasons" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FailureReasonResponse"
+            },
+            "type" : "array"
+          },
+          "repository" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NodeRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "changedDependencies", "deployedAt", "deployment", "reasons", "status" ],
+        "type" : "object"
       }
     }
   },
@@ -1422,6 +1715,82 @@
         "tags" : [ "Graph traversal" ]
       }
     },
+    "/api/v1/graph/impact" : {
+      "get" : {
+        "description" : "nodeId is Type:key. depth 1..5 (default 3), minConfidence 0..1 (default 0.5), direction downstream (default) or upstream. Edges walked are those the ontology flags `impact: propagates`. At most 1000 nodes are listed.",
+        "operationId" : "impact",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "nodeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depth",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "minConfidence",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "direction",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImpactResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Blast radius: every node a change reaches, with the path, distance and confidence that explain it",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/owners" : {
+      "get" : {
+        "operationId" : "owners",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "nodeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnersResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Who owns a node: its own OWNED_BY, or the owners of what it inherits ownership from",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
     "/api/v1/graph/repositories/{repoId}/audit" : {
       "get" : {
         "operationId" : "getAuditEvents",
@@ -1574,6 +1943,7 @@
     },
     "/api/v1/graph/repositories/{repoId}/impact" : {
       "get" : {
+        "deprecated" : true,
         "operationId" : "getImpactAnalysis",
         "parameters" : [ {
           "in" : "path",
@@ -1595,7 +1965,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Impact analysis: what is affected if this repo breaks",
+        "summary" : "Impact analysis: what is affected if this repo breaks. Deprecated: use /api/v1/graph/impact",
         "tags" : [ "Graph Queries" ]
       }
     },
@@ -1680,6 +2050,33 @@
           }
         },
         "summary" : "Get the owning team for a repository",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/why-failed" : {
+      "get" : {
+        "operationId" : "whyFailed",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "deploymentId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WhyFailedResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Why a deployment failed: its lineage, the last success before it and the dependencies deployed since",
         "tags" : [ "Graph Queries" ]
       }
     },

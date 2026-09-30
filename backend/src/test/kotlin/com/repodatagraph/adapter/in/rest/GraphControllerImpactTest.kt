@@ -37,7 +37,7 @@ import java.time.Instant
  * parameter or an unresolved node (#21, FR1, FR4, FR6, FR7). The use case is mocked: what the
  * answers contain is the service's and the adapter's business, and the acceptance suite's.
  */
-@WebMvcTest(GraphController::class)
+@WebMvcTest(GraphController::class, ImpactController::class)
 class GraphControllerImpactTest {
     @Autowired
     private lateinit var mockMvc: MockMvc
