@@ -1,10 +1,12 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.adapter.`in`.rest.dto.ImpactAnalysisResponse
+import com.repodatagraph.adapter.`in`.rest.dto.NeighbourhoodResponse
 import com.repodatagraph.adapter.`in`.rest.dto.ServiceNowCIResponse
 import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.CloudResource
 import com.repodatagraph.domain.model.Deployment
+import com.repodatagraph.domain.model.NeighbourhoodSpec
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.Team
@@ -15,6 +17,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.UriUtils
 import kotlin.text.Charsets.UTF_8
@@ -78,6 +81,30 @@ class GraphController(
     fun getPipelines(
         @PathVariable repoId: String,
     ): ResponseEntity<List<Pipeline>> = ResponseEntity.ok(graphQueryUseCase.getPipelinesForRepo(repoId))
+
+    /**
+     * The neighbourhood the graph view draws (#9, FR1 to FR3). Parameters are read as text and bounded
+     * by [NeighbourhoodSpec], so a malformed one is a 400 naming it; the node is a query parameter
+     * because its key holds '/'. Filters are comma separated.
+     */
+    @GetMapping("/neighbourhood")
+    @Operation(
+        summary = "A bounded neighbourhood of a node, ready to draw: labelled nodes and the edges between them",
+        description =
+            "nodeId is Type:key. depth 1..3 (default 1); nodeTypes and edgeTypes are comma separated (default: every type " +
+                "but the meta ones, and every edge type); direction in, out or both (default). At most 500 nodes, nearest " +
+                "first; truncated says there were more. An edge's id is type:from>to.",
+    )
+    fun neighbourhood(
+        @RequestParam(required = false) nodeId: String?,
+        @RequestParam(required = false) depth: String?,
+        @RequestParam(required = false) nodeTypes: String?,
+        @RequestParam(required = false) edgeTypes: String?,
+        @RequestParam(required = false) direction: String?,
+    ): ResponseEntity<NeighbourhoodResponse> {
+        val spec = NeighbourhoodSpec.of(nodeId, depth, nodeTypes, edgeTypes, direction)
+        return ResponseEntity.ok(NeighbourhoodResponse.from(graphQueryUseCase.neighbourhood(spec)))
+    }
 
     /**
      * Superseded by `GET /api/v1/graph/impact` (#21), and answered from it: the same traversal, cut

@@ -99,6 +99,14 @@ describe('AppLayout', () => {
     expect(wrapper.find('header a[href="/connectors"]').text()).toBe('Connectors')
   })
 
+  it('links to the graph view from the header (#9)', async () => {
+    serve()
+    const wrapper = await mountLayout()
+    await flushPromises()
+
+    expect(wrapper.find('header a[href="/graph"]').text()).toBe('Graph')
+  })
+
   it('links to the sync run history from the header', async () => {
     serve()
     const wrapper = await mountLayout()

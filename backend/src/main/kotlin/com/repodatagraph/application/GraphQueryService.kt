@@ -2,6 +2,7 @@ package com.repodatagraph.application
 
 import com.repodatagraph.application.impact.ImpactAnalysisService
 import com.repodatagraph.application.impact.LegacyImpactView
+import com.repodatagraph.application.neighbourhood.NeighbourhoodService
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.model.AuditEvent
 import com.repodatagraph.domain.model.CloudResource
@@ -13,6 +14,7 @@ import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.Team
 import com.repodatagraph.domain.port.`in`.GraphQueryUseCase
 import com.repodatagraph.domain.port.`in`.ImpactUseCase
+import com.repodatagraph.domain.port.`in`.NeighbourhoodUseCase
 import com.repodatagraph.domain.port.out.FactStorePort
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
 import org.springframework.stereotype.Service
@@ -22,9 +24,12 @@ class GraphQueryService(
     private val graphPort: RepositoryGraphPort,
     private val factStorePort: FactStorePort,
     private val impactAnalysis: ImpactAnalysisService,
+    neighbourhoods: NeighbourhoodService,
 ) : GraphQueryUseCase,
     // The multi-hop questions (#21) are the impact service's; this answers them by delegating to it.
-    ImpactUseCase by impactAnalysis {
+    ImpactUseCase by impactAnalysis,
+    // And the graph view's neighbourhood (#9) is the neighbourhood service's.
+    NeighbourhoodUseCase by neighbourhoods {
     override fun getCloudResourcesForRepo(repoId: String): List<CloudResource> = graphPort.findCloudResourcesForRepo(repoId)
 
     override fun getDependencies(repoId: String): List<Repository> = graphPort.findDependencies(repoId)

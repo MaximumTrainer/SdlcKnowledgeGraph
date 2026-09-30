@@ -5,9 +5,9 @@ import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.IncidentEdge
-import com.repodatagraph.domain.model.NeighbourhoodSpec
+import com.repodatagraph.domain.model.NeighbourStep
+import com.repodatagraph.domain.model.Neighbours
 import com.repodatagraph.domain.model.NodeKey
-import com.repodatagraph.domain.model.Subgraph
 import com.repodatagraph.domain.port.out.GraphStore
 import io.micrometer.core.instrument.MeterRegistry
 
@@ -71,9 +71,9 @@ class InstrumentedGraphStore(
     ): List<IncidentEdge> = observe("findEdges") { delegate.findEdges(key, direction, edgeType) }
 
     override fun neighbourhood(
-        key: NodeKey,
-        spec: NeighbourhoodSpec,
-    ): Subgraph = observe("neighbourhood") { delegate.neighbourhood(key, spec) }
+        frontier: Collection<NodeKey>,
+        step: NeighbourStep,
+    ): Neighbours = observe("neighbourhood") { delegate.neighbourhood(frontier, step) }
 
     private fun errors(operation: String) = meters.counter(ERRORS, OPERATION, operation)
 

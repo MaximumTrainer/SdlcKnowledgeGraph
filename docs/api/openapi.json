@@ -768,6 +768,30 @@
         },
         "type" : "object"
       },
+      "NeighbourhoodResponse" : {
+        "properties" : {
+          "edges" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SubgraphEdgeResponse"
+            },
+            "type" : "array"
+          },
+          "nodes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SubgraphNodeResponse"
+            },
+            "type" : "array"
+          },
+          "root" : {
+            "type" : "string"
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "edges", "nodes", "root", "truncated" ],
+        "type" : "object"
+      },
       "NodePageResponse" : {
         "properties" : {
           "items" : {
@@ -859,6 +883,9 @@
       "NodeTypeResponse" : {
         "properties" : {
           "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "displayProperty" : {
             "type" : [ "string", "null" ]
           },
           "identity" : {
@@ -1282,6 +1309,63 @@
           }
         },
         "required" : [ "name" ],
+        "type" : "object"
+      },
+      "SubgraphEdgeResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "inverse" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "from", "id", "inferred", "inverse", "to", "type" ],
+        "type" : "object"
+      },
+      "SubgraphNodeResponse" : {
+        "properties" : {
+          "distance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/Provenance"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "distance", "id", "key", "label", "props", "provenance", "type" ],
         "type" : "object"
       },
       "SyncAccepted" : {
@@ -1988,6 +2072,62 @@
           }
         },
         "summary" : "Blast radius: every node a change reaches, with the path, distance and confidence that explain it",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/graph/neighbourhood" : {
+      "get" : {
+        "description" : "nodeId is Type:key. depth 1..3 (default 1); nodeTypes and edgeTypes are comma separated (default: every type but the meta ones, and every edge type); direction in, out or both (default). At most 500 nodes, nearest first; truncated says there were more. An edge's id is type:from>to.",
+        "operationId" : "neighbourhood",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "nodeId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depth",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "nodeTypes",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "edgeTypes",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "direction",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NeighbourhoodResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "A bounded neighbourhood of a node, ready to draw: labelled nodes and the edges between them",
         "tags" : [ "Graph Queries" ]
       }
     },

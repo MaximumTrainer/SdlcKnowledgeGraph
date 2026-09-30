@@ -8,7 +8,9 @@ import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.Team
 
-interface GraphQueryUseCase : ImpactUseCase {
+interface GraphQueryUseCase :
+    ImpactUseCase,
+    NeighbourhoodUseCase {
     fun getCloudResourcesForRepo(repoId: String): List<CloudResource>
 
     fun getDependencies(repoId: String): List<Repository>

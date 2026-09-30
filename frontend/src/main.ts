@@ -25,6 +25,8 @@ import { guardRoutes } from './auth/guard'
 const nodeId = (segments: string | string[]) =>
   Array.isArray(segments) ? segments.join('/') : segments
 
+const GraphView = () => import('./views/GraphView.vue')
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -40,6 +42,15 @@ const router = createRouter({
       path: '/nodes/:type/:id+',
       component: NodeDetail,
       props: route => ({ type: route.params.type, id: nodeId(route.params.id) })
+    },
+    // The graph view (#9). A node id is `Type:key` and a key has slashes, like the routes above.
+    // Loaded when first visited, so Cytoscape is not in the bundle every other page waits for.
+    { path: '/graph', component: GraphView },
+    {
+      path: '/graph/:nodeId+',
+      name: 'graph',
+      component: GraphView,
+      props: route => ({ nodeId: nodeId(route.params.nodeId) })
     },
     { path: '/connectors', component: ConnectorsView },
     { path: '/sync-runs', component: SyncRunsView },

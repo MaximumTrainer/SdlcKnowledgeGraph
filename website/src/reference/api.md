@@ -21,6 +21,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/graph/dependents` | Repositories that depend on this repository | 200 |
 | `GET` | `/api/v1/graph/deployments` | Deployments of artifacts built from a repository | 200 |
 | `GET` | `/api/v1/graph/impact` | Blast radius: every node a change reaches, with the path, distance and confidence that explain it | 200 |
+| `GET` | `/api/v1/graph/neighbourhood` | A bounded neighbourhood of a node, ready to draw: labelled nodes and the edges between them | 200 |
 | `GET` | `/api/v1/graph/owners` | Who owns a node: its own OWNED_BY, or the owners of what it inherits ownership from | 200 |
 | `GET` | `/api/v1/graph/repositories/{repoId}/audit` | Get audit trail for a repository | 200 |
 | `GET` | `/api/v1/graph/repositories/{repoId}/cloud-resources` | Get cloud resources deployed by a repository | 200 |

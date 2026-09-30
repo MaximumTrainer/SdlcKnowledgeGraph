@@ -4,9 +4,9 @@ import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.IncidentEdge
-import com.repodatagraph.domain.model.NeighbourhoodSpec
+import com.repodatagraph.domain.model.NeighbourStep
+import com.repodatagraph.domain.model.Neighbours
 import com.repodatagraph.domain.model.NodeKey
-import com.repodatagraph.domain.model.Subgraph
 
 /**
  * The single way in and out of the graph.
@@ -92,9 +92,13 @@ interface GraphStore {
         edgeType: String? = null,
     ): List<IncidentEdge>
 
-    /** Explores outward from a node, bounded by depth and result size. */
+    /**
+     * One hop out from every node of [frontier] (#9): each current edge the [step] allows, with the
+     * node at its far end, closed facts skipped, at most [NeighbourStep.limit] of them in a stable
+     * order. The walk itself - how far, and when to stop - is the caller's.
+     */
     fun neighbourhood(
-        key: NodeKey,
-        spec: NeighbourhoodSpec = NeighbourhoodSpec(),
-    ): Subgraph
+        frontier: Collection<NodeKey>,
+        step: NeighbourStep,
+    ): Neighbours
 }

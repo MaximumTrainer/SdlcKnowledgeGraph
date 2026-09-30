@@ -144,10 +144,31 @@ the connector's `details` as JSON. **Re-run** there asks that connector for anot
 the run was a full one and incrementally otherwise, and the new run appears at the top of the list.
 On a [read-only instance](#read-only-instances) the button is disabled and says why.
 
+### The graph view
+
+**Graph** in the header, or **View in graph** on any node's page, draws a node's neighbourhood
+(`/graph/<Type>:<key>`; `/graph` alone asks which node to start from). Nodes are coloured by type
+and labelled by their type's display property; an edge a system reported is solid, and one a rule
+inferred is dashed and fainter the less confident it is. The legend under the canvas says so.
+
+- **Depth** (1 to 3), **Direction** (`both`, `out` along the stored edges, `in` against them) and
+  the **Node types** and **Edge types** boxes narrow what is drawn. They are kept in the address,
+  so a narrowed view is a link you can send. The graph's own bookkeeping types are not offered.
+- Tapping a node opens a drawer with its key, properties and provenance. **Open** goes to its page;
+  **Expand** (or double-tapping the node) adds its own neighbourhood beside it without moving
+  anything already drawn.
+- **Blast radius** marks, in red, what a change to the selected node would reach, or to the node
+  the view started from when none is selected, dims the rest, and counts what it reaches by type.
+  It is the [blast radius](#blast-radius-failed-deployments-and-owners) query to the view's depth,
+  counting links held with confidence 0.5 or more.
+- **Fit** fits the drawing to the canvas. At most 500 nodes are drawn; past that the view says
+  `Showing 500 of more nodes; narrow the filters`.
+
+It works signed in and on an instance without a login alike: it only reads.
+
 ### What the interface does not do yet
 
-There is no graph visualisation, no free-text search, no impact or dependency view, and no sign-in;
-the interface shows every node to anyone who can reach it. The API described next can answer
+There is no free-text search; the interface shows every node to anyone who can reach it. The API described next can answer
 some questions the interface cannot show, and the [roadmap](ROADMAP.md) tracks the rest.
 
 ## The REST API
@@ -295,6 +316,7 @@ and a confidence ([ONTOLOGY.md](ONTOLOGY.md#traversal-semantics) has the rules).
 | `GET /api/v1/graph/impact?nodeId=Repository:github.com/acme/shared-lib` | Every node a change reaches, with its distance, confidence, inferred flag and path, and counts by type. `depth` 1..5 (3), `minConfidence` 0..1 (0.5), `direction` `downstream` or `upstream` |
 | `GET /api/v1/graph/why-failed?deploymentId=Deployment:<key>` | The deployment's commit, repository, pipeline and environment, the last success before it, the dependencies deployed there since, and the reasons |
 | `GET /api/v1/graph/owners?nodeId=CloudResource:aws:<arn>` | The teams that own a node, directly or through the repository it came from, with the path that says so |
+| `GET /api/v1/graph/neighbourhood?nodeId=Repository:github.com/acme/payments` | The nodes around one, and the edges between them, as the graph view draws them. `depth` 1..3 (1), `nodeTypes` and `edgeTypes` comma separated, `direction` `in`, `out` or `both` (both); at most 500 nodes, with `truncated` saying there were more ([ONTOLOGY.md](ONTOLOGY.md#the-neighbourhood-of-a-node)) |
 
 Encode the id as a query value: a Deployment key holds `#`, which is `%23`. A malformed parameter is
 `400 {error, field}` naming it; a node that does not exist is `404`.

@@ -25,6 +25,8 @@ data class GenNodeType(
     val identity: List<String>,
     val properties: List<GenProperty>,
     val meta: Boolean = false,
+    /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
+    val displayProperty: String? = null,
 )
 
 data class GenEdgeType(
@@ -82,6 +84,7 @@ object OntologyReader {
                         identity = definition.path("identity").map { it.asText() },
                         properties = definition.readProperties(),
                         meta = definition.path("meta").asBoolean(false),
+                        displayProperty = definition.text("displayProperty"),
                     )
                 }.toList()
 

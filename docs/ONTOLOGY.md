@@ -47,6 +47,14 @@ A node type may also say `meta: true` (the default is `false`), for a type that 
 own bookkeeping rather than something in the software estate. There is no `default` or
 `sensitivity` key; a property the loader does not recognise fails startup.
 
+A node type may name a `displayProperty`: the property that labels one of its nodes where a person
+reads it, such as the graph view ([#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9)).
+It must be one of the type's own properties, or startup fails with `node type 'Team' displays
+'title', which it does not declare`. A node whose display property is absent or blank is labelled
+with its key, and so is every node of a type that names none, so no label is ever empty. Every type
+in the registry names one: `name` for most, `number` for a change request or an incident, `path` for
+an IaC file, `deployedAt` for a deployment. `GET /api/v1/ontology` serves it with each node type.
+
 ### A Repository is identified by its git remote
 
 The identity properties are optional on purpose, and `url` is the required one. A caller supplies the
@@ -281,11 +289,34 @@ success the window has no start, which is itself reported. A deployment is faile
 | `GET /api/v1/graph/impact?nodeId=Type:key&depth=3&minConfidence=0.5&direction=downstream` | `{root, depth, direction, minConfidence, truncated, affected: [{node, distance, confidence, inferred, path}], byType}` |
 | `GET /api/v1/graph/why-failed?deploymentId=Deployment:key` | `{deployment, status, artifact, commitSha, repository, pipeline, environment, changedDependencies, precedingSuccessfulDeployment, reasons}` |
 | `GET /api/v1/graph/owners?nodeId=Type:key` | `{node, owners: [{team, via, confidence}]}`; no owners is `[]`, not 404 |
+| `GET /api/v1/graph/neighbourhood?nodeId=Type:key&depth=1&nodeTypes=A,B&edgeTypes=X,Y&direction=both` | `{root, nodes: [{id, type, key, label, distance, props, provenance}], edges: [{id, type, inverse, from, to, confidence, inferred}], truncated}` |
 
 A node id is `Type:key`, the `id` every node has. A malformed parameter is `400 {error, field}`,
 and a node that resolves to nothing `404`. The deployment is a query parameter rather than a path
 segment because its key holds `/` and `#`. GraphQL has `impact` and `whyDeploymentFailed`, whose
 nodes are the generated `<Type>Node` types. All of them need `graph:read`.
+
+### The neighbourhood of a node
+
+`GET /api/v1/graph/neighbourhood` ([#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9))
+is what the graph view draws. Unlike the queries above it walks every edge type, not only the ones
+flagged `impact: propagates`, because it answers "what is around this" rather than "what does a
+change reach":
+
+- `depth` is 1 to 3 hops (default 1); anything else is `400` naming `depth`. `direction` is `out`
+  (along stored edges), `in` (against them) or `both` (the default).
+- `nodeTypes` and `edgeTypes` are comma separated and constrain the walk itself: a node of a type
+  left out is neither answered nor walked through. With no `nodeTypes`, every type except the
+  `meta: true` ones is walked, since a sync run links to everything it wrote and would otherwise
+  flood every neighbourhood. A type the registry does not declare is `400` naming the parameter.
+- At most 500 nodes are answered, the root among them, nearest first; `truncated: true` says there
+  were more. Each node carries the hop `distance` at which it was first reached and a `label` from
+  its type's `displayProperty`. A fact whose `prov_validTo` is set is closed and is not walked.
+- An edge's `id` is `type:from>to`, the same in every answer, so a client merging one neighbourhood
+  into another can tell an edge it already has. `inferred` and `confidence` are its provenance's.
+
+It runs one Cypher statement per hop, no APOC, and a final one that only joins up what was reached,
+so an edge between two nodes at the outer edge is drawn without reaching past it.
 
 ### Impact of a change, ranked for an agent
 

@@ -8,11 +8,16 @@
 #
 # `meta: true` marks a type that describes the graph itself rather than the software it models. The
 # web interface leaves meta types out of its navigation; they are still stored and queryable.
+#
+# `displayProperty` names the property a node is labelled with where it is drawn, such as the graph
+# view (#9): a repository reads as `payments` rather than `github.com/acme/payments`. It must be a
+# property the type declares; a node without a value for it is labelled with its key.
 
 nodes:
   Repository:
     description: A git repository, the anchor for most of the graph.
     identity: [host, org, name]
+    displayProperty: name
     properties:
       - { name: url, type: string, required: true, description: "The git remote, in any form; stored canonicalised as https://host/org/name" }
       # Not required of a caller: the server derives all three from url before anything is validated
@@ -34,6 +39,7 @@ nodes:
   Team:
     description: A group that owns repositories, services or infrastructure.
     identity: [name]
+    displayProperty: name
     properties:
       - { name: name, type: string, required: true }
       - { name: email, type: string, required: false }
@@ -41,6 +47,7 @@ nodes:
   Service:
     description: A running logical component, which may span more than one repository.
     identity: [name]
+    displayProperty: name
     properties:
       - { name: name, type: string, required: true }
       - { name: description, type: string, required: false }
@@ -49,6 +56,7 @@ nodes:
   Pipeline:
     description: A CI/CD workflow definition.
     identity: [provider, repoKey, workflowPath]
+    displayProperty: name
     properties:
       - { name: provider, type: string, required: true, description: "e.g. github-actions" }
       - { name: repoKey, type: string, required: false, description: "Key of the repository holding the workflow" }
@@ -60,6 +68,7 @@ nodes:
   Artifact:
     description: A built, addressable output such as a container image.
     identity: [registry, name, digest]
+    displayProperty: name
     properties:
       - { name: registry, type: string, required: false, description: "e.g. ghcr.io" }
       - { name: name, type: string, required: true }
@@ -72,6 +81,7 @@ nodes:
   Deployment:
     description: One event of putting an artifact into an environment.
     identity: [artifactKey, environmentKey, deployedAt]
+    displayProperty: deployedAt
     properties:
       - { name: artifactKey, type: string, required: false }
       - { name: environmentKey, type: string, required: false }
@@ -84,6 +94,7 @@ nodes:
   Environment:
     description: A deployment target such as staging or production.
     identity: [name]
+    displayProperty: name
     properties:
       - { name: name, type: string, required: true }
       - { name: type, type: string, required: true }
@@ -96,6 +107,7 @@ nodes:
   CloudResource:
     description: An infrastructure object in AWS, Azure or GCP.
     identity: [provider, resourceId]
+    displayProperty: name
     properties:
       - { name: provider, type: string, required: true, description: "aws, azure or gcp" }
       - { name: resourceId, type: string, required: false, description: "ARN, Azure resource id or GCP asset name" }
@@ -108,6 +120,7 @@ nodes:
   ConfigurationItem:
     description: A configuration item from a service management system such as ServiceNow.
     identity: [sourceSystem, instance, sysId]
+    displayProperty: ciName
     properties:
       - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
       - { name: instance, type: string, required: true, description: "Instance the CI belongs to" }
@@ -132,6 +145,7 @@ nodes:
   ChangeRequest:
     description: A change as a service-management tool records it, with its approval and window.
     identity: [sourceSystem, instance, sysId]
+    displayProperty: number
     properties:
       - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
       - { name: instance, type: string, required: true }
@@ -150,6 +164,7 @@ nodes:
   Incident:
     description: An operational failure as a service-management tool records it.
     identity: [sourceSystem, instance, sysId]
+    displayProperty: number
     properties:
       - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
       - { name: instance, type: string, required: true }
@@ -169,6 +184,7 @@ nodes:
     # Keyed by ecosystem as well as name, because "utils" on npm and "utils" on PyPI are different
     # packages and a shared key would merge two unrelated dependencies into one node.
     identity: [ecosystem, name]
+    displayProperty: name
     properties:
       - { name: ecosystem, type: string, required: true, description: "npm, maven, pypi, go or gradle", enum: [npm, maven, pypi, go] }
       - { name: name, type: string, required: true, description: "The package name as the manifest spells it" }
@@ -179,6 +195,7 @@ nodes:
     # Not the resources themselves. A CloudResource is something that exists; this is a file that
     # claims one should. Turning the claim into a link is the job of the link engine (#28).
     identity: [repoKey, path]
+    displayProperty: path
     properties:
       - { name: repoKey, type: string, required: true, description: "Key of the repository holding the file" }
       - { name: path, type: string, required: true, description: "Path within the default branch" }
@@ -190,6 +207,7 @@ nodes:
     description: Records which ontology version the graph was built with.
     meta: true
     identity: [version]
+    displayProperty: version
     properties:
       - { name: version, type: string, required: true }
       - { name: loadedAt, type: instant, required: false }
@@ -198,6 +216,7 @@ nodes:
     description: One execution of a connector, for auditing what a sync changed.
     meta: true
     identity: [id]
+    displayProperty: id
     properties:
       - { name: id, type: string, required: true }
       - { name: connector, type: string, required: true }
@@ -222,6 +241,7 @@ nodes:
     description: What the graph remembers about a connector between runs.
     meta: true
     identity: [connector]
+    displayProperty: connector
     properties:
       - { name: connector, type: string, required: true }
       - { name: watermark, type: instant, required: false, description: "Reported by the last successful run" }
@@ -241,6 +261,7 @@ nodes:
     description: A connector or agent registered as a principal of its own, owned by a team.
     meta: true
     identity: [name]
+    displayProperty: name
     properties:
       - { name: name, type: string, required: true, description: "The client id its tokens carry (azp, or client_id)" }
       - { name: ownedBy, type: string, required: true, description: "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" }

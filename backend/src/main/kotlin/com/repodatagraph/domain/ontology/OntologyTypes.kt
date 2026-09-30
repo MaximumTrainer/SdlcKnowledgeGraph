@@ -52,6 +52,11 @@ data class NodeTypeDef(
     val properties: List<PropertyDef>,
     /** Describes the graph itself (its ontology, its sync runs) rather than the software it models. */
     val meta: Boolean = false,
+    /**
+     * The property a node of this type is labelled with where it is drawn (#9), such as a
+     * repository's `name` rather than its whole key. Null labels it with its key.
+     */
+    val displayProperty: String? = null,
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 

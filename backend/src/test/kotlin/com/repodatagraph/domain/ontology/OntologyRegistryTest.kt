@@ -106,6 +106,35 @@ class OntologyRegistryTest {
     }
 
     @Test
+    fun `a display property must be one the type declares, so every label can be read (#9)`() {
+        val labelled =
+            NodeTypeDef(
+                name = "Team",
+                description = null,
+                identity = listOf("name"),
+                properties = listOf(PropertyDef("name", PropertyType.STRING, required = true)),
+                displayProperty = "title",
+            )
+
+        val error = assertThrows<InvalidOntologyException> { OntologyRegistry("1.0.0", listOf(labelled), emptyList()) }
+
+        assertEquals("node type 'Team' displays 'title', which it does not declare", error.message)
+    }
+
+    @Test
+    fun `a display property the type declares is kept, and none is allowed (#9)`() {
+        val registry =
+            OntologyRegistry(
+                "1.0.0",
+                listOf(nodeType("Team").copy(displayProperty = "name"), nodeType("Repository")),
+                emptyList(),
+            )
+
+        assertEquals("name", registry.nodeType("Team")?.displayProperty)
+        assertNull(registry.nodeType("Repository")?.displayProperty)
+    }
+
+    @Test
     fun `the version must be semver so it can be compared`() {
         assertThrows<InvalidOntologyException> {
             OntologyRegistry("one", listOf(nodeType("Repository")), emptyList())

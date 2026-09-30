@@ -55,6 +55,7 @@ onMounted(() => {
       <div class="app-header-row">
         <router-link to="/" class="brand">🕸 RepoDataGraph</router-link>
         <div class="header-links">
+          <router-link to="/graph" class="header-link">Graph</router-link>
           <router-link to="/connectors" class="header-link">Connectors</router-link>
           <router-link to="/sync-runs" class="header-link">Sync runs</router-link>
           <template v-if="username">

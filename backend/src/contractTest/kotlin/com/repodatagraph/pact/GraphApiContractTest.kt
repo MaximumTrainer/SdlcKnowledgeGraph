@@ -87,4 +87,10 @@ class GraphApiContractTest {
 
     @State(ProviderStates.FAILED_SYNC_RUN_EXISTS)
     fun failedSyncRunExists() = states.failedSyncRunExists()
+
+    @State(ProviderStates.PAYMENTS_HAS_A_NEIGHBOURHOOD)
+    fun paymentsHasANeighbourhood() = states.paymentsHasANeighbourhood()
+
+    @State(ProviderStates.HUB_DEPENDS_ON_MANY)
+    fun hubRepositoryDependsOnMany() = states.hubRepositoryDependsOnMany()
 }

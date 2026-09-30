@@ -20,6 +20,7 @@ class ScopePolicyTest {
         "HEAD, /api/v1/nodes/Repository",
         "GET, /api/v1/edges",
         "GET, /api/v1/graph/repositories/r1/impact",
+        "GET, /api/v1/graph/neighbourhood",
         "GET, /api/v1/connectors",
         "GET, /api/v1/sync-runs/42",
         "GET, /api/v1/service-principals",

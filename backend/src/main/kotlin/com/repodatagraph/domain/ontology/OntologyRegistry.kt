@@ -73,6 +73,9 @@ class OntologyRegistry(
         nodeType.identity
             .filter { nodeType.property(it) == null }
             .forEach { problems += "identity references '$it', which it does not declare" }
+        nodeType.displayProperty
+            ?.takeIf { nodeType.property(it) == null }
+            ?.let { problems += "displays '$it', which it does not declare" }
 
         reject("node type '${nodeType.name}'", problems)
     }
