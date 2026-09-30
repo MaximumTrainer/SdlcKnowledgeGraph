@@ -112,8 +112,10 @@ every edge attached to it, in one operation.
 At the foot of a node's page, **Provenance** shows the source system, the confidence, when the fact
 was ingested, whether it was inferred, who wrote it and what kind of principal they were. Through the
 interface these are always `manual`, `1`, the time of the write, `no`, your account's subject, and
-`user`. On an instance running without a login, the writer is `anonymous`; a fact a connector wrote,
-or one written before writers were recorded, says `not recorded`.
+`user`. A fact a registered connector or agent wrote through the API names it, says `service`, and
+adds **on behalf of team** with the team that owns it. On an instance running without a login, the
+writer is `anonymous`; a fact a scheduled connector run wrote, or one written before writers were
+recorded, says `not recorded`.
 
 ### Signing in
 
@@ -161,6 +163,12 @@ no token: the health probes, `/actuator/info`, `/actuator/prometheus`, the ontol
 API documentation, the webhook receivers (which check the sender's signature) and the ingest
 endpoints (which have their own bearer token). Every write records the token's subject as
 `writtenBy`, and `principalType: "user"`, in its provenance.
+
+A connector or an agent calls the API with a client-credentials token instead, once a user has
+registered its client as a service principal with `POST /api/v1/service-principals`. Until then, and
+after it is deregistered, it gets `403 {"error": "unregistered service principal", "clientId": ...}`.
+Its writes record its registered name, `principalType: "service"` and `onBehalfOfTeam`.
+[Authentication and principals](AUTH.md) covers registering one and setting up its client.
 
 Node ids take the form `Type:key`, for example `Repository:github.com/acme/payments` or
 `Team:platform`. Where a key appears in a URL path it is the raw key, slashes included, so

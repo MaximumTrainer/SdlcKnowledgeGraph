@@ -61,6 +61,10 @@ That starts Keycloak on port 8081 with a development realm, and points the API a
 at it. Opening `http://localhost:5173` now sends you to Keycloak's login page; sign in as `dan`,
 password `dan`. Keycloak's admin console is on `http://localhost:8081` (`admin` / `admin`).
 
+The realm also has two example machine clients, `github-connector` and `triage-agent`, which get
+tokens with the client-credentials grant; the API lets them in once `dan` has registered them as
+service principals. [Authentication and principals](AUTH.md) walks through it.
+
 `--profile governance` adds Open Policy Agent on port 8181. Nothing in the application talks to it
 yet, so leave it off.
 

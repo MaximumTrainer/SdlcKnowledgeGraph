@@ -5,8 +5,9 @@
 ## Status
 
 Accepted, amended by [#114](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/114) (AUTH-1, below), which is the first slice to be
-built. The rest of the sequence - machine principals (AUTH-2), scopes (AUTH-3) and making the login
-the default (AUTH-5) - elaborates that slice without changing its shape. The original work items are
+built, and by [#115](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/115) (AUTH-2, machine principals, below). The rest of the
+sequence - scopes (AUTH-3) and making the login the default (AUTH-5) - elaborates those slices
+without changing their shape. The original work items are
 [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3) and [#2](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/2), tracked under [#94](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/94).
 
 ## Context
@@ -111,7 +112,7 @@ provenance, declared in the ontology registry's provenance envelope.
 What stays public, whoever asks: the probes, `/actuator/info` and `/actuator/prometheus` (the
 scraper inside the deployment holds no user token), the ontology document and the API
 documentation, the webhook receivers (which verify the sender's signature), and the ingest endpoints,
-which keep their own bearer token until pipelines are principals of their own.
+which keep their own bearer token (see AUTH-2 below).
 
 There are no scopes and no 403s yet: any valid token may do anything an anonymous caller could before.
 
@@ -121,10 +122,50 @@ at startup under any profile named `prod`. The default compose stack and the dog
 with it, since neither has an identity provider yet; the dogfood instance is also read-only, which is
 what keeps it safe ([Deployment](/guide/deployment), D4).
 
-### Placeholder: machine principals (AUTH-2)
+## Amendment: AUTH-2, machine principals (#115)
 
-Connectors, the deploy pipeline and agents are not principals yet. Their writes carry no `writtenBy`,
-and the ingest endpoints keep a shared bearer token. AUTH-2 decides how they become principals -
-client-credentials tokens from the same issuer, backend-issued API keys stored hashed, or both - and
-what `principalType` each records (`service`, `agent`). This section is to be replaced by that
-decision.
+**Connectors and agents authenticate with the OAuth 2 client-credentials grant, from the same issuer
+as people.** Each is a confidential client of the identity provider, and its token passes the same
+gate as a user's. Backend-issued API keys, which the original decision allowed for callers that
+cannot do an OAuth flow, are not built: every caller so far can do client credentials, and a second
+credential type is a second thing to store, rotate and revoke. They stay available if a caller that
+cannot turns up.
+
+**A client is a principal only once a user has registered it.** `POST /api/v1/service-principals`
+records a name (the client id), the key of the Team that owns it and a description; only a user may
+call it, and the team must exist in the graph. Every request under `/api` and `/graphql` made with
+the token of a client that has no current registration is refused with
+`403 {"error": "unregistered service principal", clientId}`. So adding a client to the identity
+provider is not by itself a way in, and every machine that can write has a team answering for it.
+Deregistering sets the registration's `validTo` and keeps it, because what the service wrote still
+names it. Registrations are `ServicePrincipal` nodes, a meta type of the ontology, whose provenance
+records who registered them and for how long.
+
+**What is a machine's token is decided by the token, not by configuration.** A token is a service's
+when Keycloak issued it to a client's service account (`preferred_username` starting
+`service-account-`, a prefix Keycloak reserves) or its `sub` is the client id (RFC 9068); the client
+is `azp`, then `client_id`. A person's token also names a client, so that alone does not count. Other
+providers' marks (Entra ID's `idtyp`, Auth0's `gty`) are added when one is deployed.
+
+**The name is not checked against the identity provider.** Doing so would need its admin API and a
+credential with rights over clients, held by the API. A registration only ever admits a token the
+provider signed for a client of that name, so one whose client does not exist admits nobody.
+
+**Writes say who and for whom.** A service principal's writes record its registered name as
+`writtenBy`, `principalType: service`, and its owning team as `onBehalfOfTeam`, a new field of the
+provenance envelope. Connectors and agents share the `service` kind; the original decision's
+separate `agent` kind is not needed until something treats the two differently, which is AUTH-3's
+scopes at the earliest.
+
+**Unchanged.** The ingest endpoints keep their shared bearer token for now; their callers can be
+moved onto client credentials as a change of their own. A scheduled connector run inside the
+application writes as no principal. `AUTH_DISABLED=true` behaves as before: everyone is anonymous
+and nothing is refused.
+
+### Open question: agents acting for a user
+
+An agent answering a person's question should see no more than that person can. Client credentials
+give the agent its own identity, not the user's, so the graph cannot tell whose question it is
+answering. OAuth 2 token exchange (RFC 8693) is the likely answer: the agent exchanges the user's
+token for one naming both, and provenance records the user as well as the agent. That needs scopes
+(AUTH-3) to mean anything and is left to a separate issue.

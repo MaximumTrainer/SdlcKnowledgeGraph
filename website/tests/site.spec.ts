@@ -31,8 +31,12 @@ test.describe('the published website', () => {
 
     for (const nodeType of ontology.nodeTypes) {
       // VitePress appends a permalink anchor to every heading, so the accessible name is the text
-      // plus that anchor; anchoring the pattern at the start is what makes this stable.
-      const heading = page.getByRole('heading', { level: 3, name: new RegExp(`^${nodeType.name}`) })
+      // plus that anchor; anchoring the pattern at the start is what makes this stable, and refusing
+      // a letter after the name keeps Service from also matching ServicePrincipal.
+      const heading = page.getByRole('heading', {
+        level: 3,
+        name: new RegExp(`^${nodeType.name}(?![A-Za-z])`)
+      })
       await expect(heading).toBeVisible()
     }
   })

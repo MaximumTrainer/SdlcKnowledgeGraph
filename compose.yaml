@@ -86,7 +86,8 @@ services:
 
   # Local OIDC provider (docs/adr/0005-auth-oidc-github-first.md). Admin console: http://localhost:8081
   # It imports the development realm the acceptance suite signs in against: realm "sdlc", the public
-  # PKCE client "sdlc-ui" for the web interface, and the user "dan" (password "dan").
+  # PKCE client "sdlc-ui" for the web interface, the user "dan" (password "dan"), and the
+  # client-credentials clients "github-connector" and "triage-agent" (docs/AUTH.md).
   keycloak:
     profiles: ["auth"]
     image: quay.io/keycloak/keycloak:26.0
