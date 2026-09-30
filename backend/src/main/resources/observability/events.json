@@ -160,6 +160,26 @@
       "type" : "string"
     } ]
   }, {
+    "name" : "scope.refused",
+    "level" : "WARN",
+    "message" : "request refused for insufficient scope",
+    "description" : "A principal the API knows was refused with 403 because its token lacks a graph scope the request needs - graph:read to read, graph:write to change the graph. Names the principal, the method and the scopes, never the path, which can hold a node's key.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "principal",
+      "type" : "string"
+    }, {
+      "name" : "method",
+      "type" : "string"
+    }, {
+      "name" : "required",
+      "type" : "string[]"
+    }, {
+      "name" : "held",
+      "type" : "string[]"
+    } ]
+  }, {
     "name" : "auth.disabled",
     "level" : "WARN",
     "message" : "authentication is disabled; every request is anonymous",

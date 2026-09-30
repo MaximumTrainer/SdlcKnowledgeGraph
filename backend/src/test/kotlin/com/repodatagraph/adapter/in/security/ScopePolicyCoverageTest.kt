@@ -45,6 +45,8 @@ class ScopePolicyCoverageTest {
             .apply { addIncludeFilter(AnnotationTypeFilter(Controller::class.java)) }
             .findCandidateComponents("com.repodatagraph")
             .map { ClassUtils.forName(checkNotNull(it.beanClassName), javaClass.classLoader) }
+            // The application's own controllers, not the ones tests declare to drive a filter.
+            .filter { it.protectionDomain.codeSource.location == ScopePolicy::class.java.protectionDomain.codeSource.location }
 
     private val routes: List<Route> by lazy {
         val mappings = Mappings()

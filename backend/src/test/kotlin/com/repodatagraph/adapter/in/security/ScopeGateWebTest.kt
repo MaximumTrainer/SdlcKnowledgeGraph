@@ -13,6 +13,7 @@ import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import com.repodatagraph.observability.EventLog
+import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -119,8 +120,8 @@ class ScopeGateWebTest {
     ): ResultActions =
         andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error").value("insufficient scope"))
-            .andExpect(jsonPath("$.required").value(required))
-            .andExpect(jsonPath("$.held").value(held))
+            .andExpect(jsonPath("$.required").value(equalTo(required)))
+            .andExpect(jsonPath("$.held").value(equalTo(held)))
 
     private fun createTeam(bearer: String) =
         mockMvc.perform(
