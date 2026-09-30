@@ -29,21 +29,19 @@ class RepositoryContentsMapperTest {
     private val terraform = """resource "aws_s3_bucket" "receipts" { bucket = "acme-payments-receipts" }"""
 
     @Test
-    fun `reads a manifest into a library and an edge naming the file it came from`() {
-        val contents = mapper().map(payments, mapOf("package.json" to packageJson), null)
+    fun `reads a manifest into dependencies naming the file they came from`() {
+        val contents = mapper().map(payments, mapOf("package.json" to packageJson), null, "acme/payments")
 
-        assertThat(
-            contents.delta.nodes
-                .single()
-                .props,
-        ).containsEntry("name", "express")
-        assertThat(
-            contents.delta.edges
-                .single()
-                .props,
-        ).containsEntry("kind", "library")
-            .containsEntry("manifest", "package.json")
-            .containsEntry("version", "^4.18.0")
+        // Every dependency waits for the whole picture (#86, FR-4): whether "express" is a library or
+        // a repository in this organisation is only known once every repository has said what it
+        // publishes, so nothing is written for it yet.
+        assertThat(contents.delta.nodes).isEmpty()
+        val dependency = contents.dependencies.single()
+        assertThat(dependency.packageName).isEqualTo("express")
+        assertThat(dependency.manifest).isEqualTo("package.json")
+        assertThat(dependency.version).isEqualTo("^4.18.0")
+        assertThat(dependency.source).isEqualTo("acme/payments")
+        assertThat(dependency.internal).isFalse()
     }
 
     @Test
@@ -52,8 +50,8 @@ class RepositoryContentsMapperTest {
 
         // Thousands of transitive packages for a repository that declares twenty. Recording them by
         // default would turn "who depends on this" into a question about npm's install graph.
-        assertThat(mapper().map(payments, files, null).delta.nodes).isEmpty()
-        assertThat(mapper(manifests(includeLockfiles = true)).map(payments, files, null).delta.nodes).isNotEmpty()
+        assertThat(mapper().map(payments, files, null).dependencies).isEmpty()
+        assertThat(mapper(manifests(includeLockfiles = true)).map(payments, files, null).dependencies).isNotEmpty()
     }
 
     @Test
@@ -61,19 +59,20 @@ class RepositoryContentsMapperTest {
         val contents = mapper(manifests(enabled = false)).map(payments, mapOf("package.json" to packageJson), null)
 
         assertThat(contents.delta.nodes).isEmpty()
-        assertThat(contents.delta.edges).isEmpty()
+        assertThat(contents.dependencies).isEmpty()
     }
 
     @Test
-    fun `holds back a dependency on something this organisation publishes`() {
+    fun `marks a dependency named like something this organisation publishes`() {
         val internal = """{ "dependencies": { "@acme/billing": "1.2.3" } }"""
 
         val contents = mapper(manifests(prefixes = listOf("@acme/"))).map(payments, mapOf("package.json" to internal), null)
 
-        // No Library node: which repository publishes it is not known until every repository has been
-        // read, and writing the library first would leave a third-party node nothing later removes.
+        // A webhook, which has read one repository, holds such a dependency back rather than record
+        // it as a library; a run that has read them all does not need the hint.
         assertThat(contents.delta.nodes).isEmpty()
-        assertThat(contents.pending.single().packageName).isEqualTo("@acme/billing")
+        assertThat(contents.dependencies.single().packageName).isEqualTo("@acme/billing")
+        assertThat(contents.dependencies.single().internal).isTrue()
     }
 
     @Test
@@ -83,6 +82,7 @@ class RepositoryContentsMapperTest {
         val node = contents.delta.nodes.single()
         assertThat(node.type).isEqualTo("IacFile")
         assertThat(node.props).containsEntry("format", "terraform").containsEntry("path", "infra/main.tf")
+        assertThat(node.sourceId).isEqualTo("github.com/acme/payments:infra/main.tf")
         assertThat(
             contents.delta.edges
                 .single()
