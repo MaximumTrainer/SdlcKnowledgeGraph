@@ -25,6 +25,16 @@ class ApiWorld(
 
     fun get(path: String): ResponseEntity<String> = restTemplate.getForEntity(path, String::class.java).also { response = it }
 
+    /**
+     * A GET whose [uriVariables] are expanded into [pathTemplate] and encoded as the component they
+     * land in, for values - like a Deployment key - holding characters a URI would otherwise read as
+     * structure.
+     */
+    fun getExpanding(
+        pathTemplate: String,
+        vararg uriVariables: Any,
+    ): ResponseEntity<String> = restTemplate.getForEntity(pathTemplate, String::class.java, *uriVariables).also { response = it }
+
     fun get(
         path: String,
         headers: Map<String, String>,
