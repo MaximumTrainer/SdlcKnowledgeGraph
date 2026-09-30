@@ -46,6 +46,7 @@ test('D2 /actuator/info says what the deployment is running', async ({ request }
   expect(info.ontologyVersion).toBe(ontology.version)
   expect(info.profile).toEqual(expect.any(String))
   expect(info.readOnly).toEqual(expect.any(Boolean))
+  expect(['oidc', 'anonymous-read-only']).toContain(info.authentication)
 })
 
 test('D3 the deployment is running the commit that was meant to be deployed', async ({ request }) => {
@@ -56,8 +57,12 @@ test('D3 the deployment is running the commit that was meant to be deployed', as
 })
 
 test('D4 a deployment without authentication runs read-only', async ({ request }) => {
-  // There is no authentication provider yet (#3), so every deployment is one without.
-  expect((await deployment(request)).readOnly).toBe(true)
+  // A deployment either trusts an identity provider (oidc) or serves reads to anyone, and then it
+  // must accept no writes (#118). The API refuses to start in any other state (D13); this checks
+  // what the running deployment says about itself.
+  const info = await deployment(request)
+  expect(['oidc', 'anonymous-read-only']).toContain(info.authentication)
+  if (info.authentication !== 'oidc') expect(info.readOnly).toBe(true)
 })
 
 for (const verb of WRITE_VERBS) {

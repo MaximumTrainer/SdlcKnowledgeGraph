@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * The sync run history and connector freshness, against the real stack (#29, FR8).

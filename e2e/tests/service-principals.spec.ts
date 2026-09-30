@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { accessTokenOf, signIn, TOKEN_ENDPOINT } from '../support/session'
 
 /**
  * Connectors and agents are principals of their own (#115): a client of the development realm gets
@@ -9,23 +10,13 @@ import { expect, test, type Page } from '@playwright/test'
  * and triage-agent as examples; their secrets are development values that exist nowhere else.
  */
 
-const TOKEN_ENDPOINT = 'http://localhost:8081/realms/sdlc/protocol/openid-connect/token'
-
 /** A team name no other run will produce, so the node is always a new one. */
 const uniqueTeam = () => `written-by-connector-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 
 /** Signs dan in through the web interface and hands back the access token it holds. */
 async function signInAsDan(page: Page): Promise<string> {
-  await page.goto('/')
-  await expect(page).toHaveURL(/\/realms\/sdlc\/protocol\/openid-connect\/auth/)
-  await page.getByLabel('Username').fill('dan')
-  await page.getByLabel('Password', { exact: true }).fill('dan')
-  await page.getByRole('button', { name: 'Sign In' }).click()
-  await expect(page.getByTestId('signed-in-user')).toHaveText('dan')
-  return page.evaluate(() => {
-    const key = Object.keys(sessionStorage).find(name => name.startsWith('oidc.user:'))
-    return key ? (JSON.parse(sessionStorage.getItem(key) ?? '{}').access_token as string) : ''
-  })
+  await signIn(page, 'dan')
+  return accessTokenOf(page)
 }
 
 test('an unregistered client is refused with 403', async ({ request }) => {
