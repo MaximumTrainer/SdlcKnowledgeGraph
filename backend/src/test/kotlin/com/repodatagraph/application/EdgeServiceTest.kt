@@ -277,4 +277,15 @@ class EdgeServiceTest {
         assertThatThrownBy { service.delete("SMELLS_LIKE", payments.id, sharedLib.id) }
             .isInstanceOf(UnknownEdgeTypeException::class.java)
     }
+
+    @Test
+    fun `a listing as of an instant asks the store for the edges valid then (#93)`() {
+        val asOf = java.time.Instant.parse("2026-09-30T01:30:00Z")
+        whenever(graphStore.findEdges(sharedLib, Direction.BOTH, null, asOf)).thenReturn(emptyList())
+
+        service.forNode("Repository", "acme/shared-lib", Direction.BOTH, null, asOf)
+
+        verify(graphStore).findEdges(sharedLib, Direction.BOTH, null, asOf)
+        verify(graphStore, never()).findEdges(sharedLib, Direction.BOTH, null)
+    }
 }

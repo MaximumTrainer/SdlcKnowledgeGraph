@@ -177,4 +177,59 @@ class Neo4jSyncRunStoreIT {
         assertThat(store.deleteFinishedBefore(cutoff, batchSize = 2)).isEqualTo(1)
         assertThat(store.deleteFinishedBefore(cutoff, batchSize = 2)).isZero()
     }
+
+    @Test
+    fun `the last success of each source is the latest finish of its successful runs, of any kind (#93)`() {
+        val source = "runs-it-source-" + UUID.randomUUID()
+
+        fun sourced(
+            id: String,
+            finishedAt: Instant?,
+            status: String,
+            mode: String = "FULL",
+        ) = graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("SyncRun", "$connector-$id"),
+                props =
+                    mapOf(
+                        "id" to "$connector-$id",
+                        "connector" to connector,
+                        "sourceSystem" to source,
+                        "mode" to mode,
+                        "status" to status,
+                        "startedAt" to base,
+                        "finishedAt" to finishedAt,
+                    ).filterValues { it != null },
+                provenance = Provenance(sourceSystem = "sdlc-knowledge-graph", ingestedAt = base, validFrom = base),
+            ),
+        )
+        sourced("full", base.plusSeconds(60), "SUCCESS")
+        sourced("webhook", base.plusSeconds(120), "SUCCESS", mode = "WEBHOOK")
+        sourced("partial", base.plusSeconds(600), "PARTIAL")
+        sourced("running", null, "RUNNING")
+
+        assertThat(store.lastSuccessBySource()).containsEntry(source, base.plusSeconds(120))
+    }
+
+    @Test
+    fun `a source with no successful run has no last success (#93)`() {
+        val source = "runs-it-failing-" + UUID.randomUUID()
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("SyncRun", "$connector-failed"),
+                props =
+                    mapOf(
+                        "id" to "$connector-failed",
+                        "connector" to connector,
+                        "sourceSystem" to source,
+                        "status" to "FAILED",
+                        "startedAt" to base,
+                        "finishedAt" to base.plusSeconds(5),
+                    ),
+                provenance = Provenance(sourceSystem = "sdlc-knowledge-graph", ingestedAt = base, validFrom = base),
+            ),
+        )
+
+        assertThat(store.lastSuccessBySource()).doesNotContainKey(source)
+    }
 }
