@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.0.0**. It is generated, so a type added to the registry appears here without
+**v1.1.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -217,6 +217,51 @@ Identity: `repoKey, path`
 | `format` | `string` | yes |  |
 | `resourceRefs` | `string[]` | no | Identifiers the file names literally, for the link engine to match on |
 
+### Change
+
+A commit range or merge in a repository, identified there by its head sha.
+
+Identity: `repositoryKey, sha`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `repositoryKey` | `string` | yes | Key of the repository the change was made in, e.g. github.com/acme/payments |
+| `sha` | `string` | yes | The commit the change ends at, stored in lower case |
+| `baseSha` | `string` | no | The commit the change starts from, for a range |
+| `title` | `string` | no |  |
+| `author` | `string` | no |  |
+| `committedAt` | `instant` | yes |  |
+| `url` | `string` | no | Where the change can be read, e.g. the commit or compare page |
+
+### PullRequest
+
+A proposal to merge a change into a repository, as the forge records it.
+
+Identity: `repositoryKey, number`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `repositoryKey` | `string` | yes | Key of the repository the pull request targets |
+| `number` | `int` | yes | The forge's number for it within the repository |
+| `url` | `string` | yes |  |
+| `title` | `string` | no |  |
+| `state` | `string` | no |  |
+| `mergedAt` | `instant` | no |  |
+| `branch` | `string` | no | The head branch, e.g. chorus/CH-42-retry-webhook |
+
+### ExternalWorkItem
+
+A task, ticket or issue in the system that owns it, referred to by its URI.
+
+Identity: `uri`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `uri` | `string` | yes | e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42 |
+| `system` | `string` | yes | The system that owns the work item |
+| `externalKey` | `string` | no | Its human-facing identifier there, e.g. CH-42 |
+| `title` | `string` | no |  |
+
 ### Ontology
 
 Records which ontology version the graph was built with.
@@ -298,7 +343,12 @@ second relationship.
 | `DEPLOYED_TO` | Artifact | Deployment | `DEPLOYMENT_OF` | An artifact was the subject of a deployment. |
 | `TO_ENVIRONMENT` | Deployment | Environment | `HOSTS` | A deployment targeted an environment. |
 | `PROVIDES` | Repository | Service | `PROVIDED_BY` | A repository provides a running service. |
-| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident | `PRODUCED_BY` | A sync run asserted this node. |
+| `INTRODUCED_IN` | Change | Repository | `HAS_CHANGE` | A change was made in a repository. |
+| `MERGES` | PullRequest | Change | `MERGED_BY` | A pull request merged a change. |
+| `CONTAINS` | Artifact | Change | `CONTAINED_IN` | An artifact was built with a change in it. |
+| `IMPLEMENTS` | Change | ExternalWorkItem | `IMPLEMENTED_BY` | A change implements a work item in the system that owns it. |
+| `TRACKED_IN` | ExternalWorkItem | Team | `TRACKS` | A work item is tracked by a team. |
+| `PRODUCED` | SyncRun | Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident, Change, PullRequest, ExternalWorkItem | `PRODUCED_BY` | A sync run asserted this node. |
 
 ### Relationship properties
 

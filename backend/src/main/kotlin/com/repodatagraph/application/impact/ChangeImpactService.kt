@@ -15,6 +15,7 @@ import com.repodatagraph.domain.model.PathFilter
 import com.repodatagraph.domain.model.PathIndexEntry
 import com.repodatagraph.domain.model.PathIndexKind
 import com.repodatagraph.domain.port.`in`.ChangeImpactUseCase
+import com.repodatagraph.domain.port.out.ChangeLineagePort
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.ImpactQueryPort
 import org.springframework.stereotype.Service
@@ -26,7 +27,9 @@ import org.springframework.stereotype.Service
  * found by [ImpactQueryPort], and owners by [OwnerResolver]. This adds what an agent needs on top -
  * each hit placed in the environment it runs in, scored by [ImpactScorer], ranked in a total order,
  * cut at the limit, and cited - and says honestly what it could not do: a `paths` filter with no
- * index to read it against, and a `sha` with no Change nodes (#85) to scope it by.
+ * index to read it against, and a `sha` that names no Change (#85) to scope it by. A sha that does
+ * name one leaves out every deployment whose artifact does not contain it, and whatever the walk
+ * reached only through those.
  */
 @Service
 class ChangeImpactService(
@@ -34,11 +37,13 @@ class ChangeImpactService(
     private val graphStore: GraphStore,
     private val traversals: TraversalFilterBuilder,
     private val ownerResolver: OwnerResolver,
+    private val lineage: ChangeLineagePort,
 ) : ChangeImpactUseCase {
     override fun changeImpact(query: ChangeImpactQuery): ChangeImpactResult {
         val repository = graphStore.findNode(query.repository) ?: throw NodeNotFoundException(listOf(query.repository))
         val search = queries.paths(repository.key, traversals.impact(ImpactDirection.DOWNSTREAM), query.depth, MAX_PATHS)
-        val nearest = ImpactScorer.nearest(repository.key, search.paths)
+        val scope = shaScope(repository.key, query.sha)
+        val nearest = ImpactScorer.nearest(repository.key, scope.keep(search.paths))
         val placements = queries.placements(nearest.map { it.target.key }, traversals.placement())
         val paths = pathMatch(repository.key, query.paths)
 
@@ -58,10 +63,43 @@ class ChangeImpactService(
             limit = query.limit,
             pathFilter = paths.filter,
             matchedPaths = paths.matched,
-            changeScope = if (query.sha == null) ChangeScope.NOT_REQUESTED else ChangeScope.UNKNOWN,
+            changeScope = scope.scope,
             truncated = search.truncated || ranked.size > query.limit,
             hits = kept.map { it.copy(owners = ownerResolver.resolve(it.node, ownerPaths[it.node.key].orEmpty()).owners) },
         )
+    }
+
+    /**
+     * What a sha narrows the walk to (#87, FR3): nothing when none was asked or it names no Change in
+     * the repository, else the deployments whose artifact contains one of the Changes it names.
+     */
+    private fun shaScope(
+        repository: NodeKey,
+        sha: String?,
+    ): ShaScope {
+        val changes = sha?.let { lineage.changesMatching(repository, it.lowercase()) }
+        return when {
+            changes == null -> ShaScope(ChangeScope.NOT_REQUESTED)
+            changes.isEmpty() -> ShaScope(ChangeScope.UNKNOWN)
+            else -> ShaScope(ChangeScope.APPLIED, lineage.deploymentsCarrying(changes, traversals.lineage()))
+        }
+    }
+
+    /**
+     * A sha's scope: when applied, a path through a deployment not among [carrying] is dropped, so a
+     * node reached only through such a deployment - its environment - is dropped with it.
+     */
+    private data class ShaScope(
+        val scope: ChangeScope,
+        val carrying: Set<NodeKey> = emptySet(),
+    ) {
+        fun keep(paths: List<CandidatePath>): List<CandidatePath> {
+            if (scope != ChangeScope.APPLIED) return paths
+            val carried = carrying.mapTo(hashSetOf()) { it.id }
+            return paths.filter { path -> path.steps.none { isDeployment(it.to) && it.to !in carried } }
+        }
+
+        private fun isDeployment(id: String): Boolean = id.startsWith("$DEPLOYMENT:")
     }
 
     private fun hit(
@@ -134,6 +172,7 @@ class ChangeImpactService(
 
     private companion object {
         const val ENVIRONMENT = "Environment"
+        const val DEPLOYMENT = "Deployment"
         const val TIER = "tier"
 
         /** As #21's blast radius: candidate paths read before the walk is cut short. */

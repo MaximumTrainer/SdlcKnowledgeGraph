@@ -124,6 +124,24 @@ leaves meta types out of its navigation; they can still be opened by their URL.
 Person, Policy, Incident, ChangeRequest and Requirement arrive with the M2 and M3 connectors that
 can actually populate them. They are registry additions, not code changes.
 
+Three types trace a deployment back to the work it delivered
+([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)):
+
+| Type | What it represents |
+| --- | --- |
+| Change | A commit in a repository: `repositoryKey`, `sha` and `committedAt`, with an optional `baseSha`, `title`, `author` and `url` |
+| PullRequest | A pull or merge request: `repositoryKey`, `number` and `url`, with `state` (`open`, `merged` or `closed`), `mergedAt` and `title` |
+| ExternalWorkItem | A task, ticket or issue in the system that owns it: `uri` and `system` (`chorus`, `jira`, `linear`, `github` or `other`), with `externalKey` (for example `CH-42`) and `title` |
+
+A work item is a reference to the system that owns it, not a copy: status, assignee and history
+stay there ([ADR-0012](adr/0012-external-work-items-are-references-not-copies.md)). Its human
+identifier is `externalKey`, not `key`, because every node's `key` is its identity. No connector
+writes these types yet: the GitHub connector's commits and pull requests
+([#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23)) and a change feed are later
+work. They are written through the node API, and they land in the graph directly. The proposal
+queue that would hold them for review ([#74](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/74))
+is not built.
+
 ## Relationship types
 
 Every relationship declares the types it may connect and the name of its inverse. The inverse is a
@@ -140,6 +158,11 @@ traversal concept, not a second stored edge.
 | DEPLOYED_TO | Artifact | Deployment | DEPLOYMENT_OF | propagates (forward) | inherits |
 | TO_ENVIRONMENT | Deployment | Environment | HOSTS | propagates (forward) | none |
 | PROVIDES | Repository | Service | PROVIDED_BY | propagates (forward) | inherits |
+| INTRODUCED_IN | Change | Repository | HAS_CHANGE | none | none |
+| MERGES | PullRequest | Change | MERGED_BY | none | none |
+| CONTAINS | Artifact | Change | CONTAINED_IN | propagates (inverse) | none |
+| IMPLEMENTS | Change | ExternalWorkItem | IMPLEMENTED_BY | none | none |
+| TRACKED_IN | ExternalWorkItem | Team | TRACKS | none | none |
 
 This table is a copy of `edges.yaml`. The website's
 [ontology reference](https://maximumtrainer.github.io/SdlcKnowledgeGraph/reference/ontology) is
@@ -403,10 +426,23 @@ Nothing is removed from the answer by a path: which parts of a repository a sour
 the caller's code index to say, not this graph's. A matched manifest is reported but boosts nothing,
 because what a manifest names is what the repository depends on - upstream of a change.
 
-**A commit.** A `sha` would restrict deployments to those whose artifact contains the change. That
-needs Change nodes ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)), which
-do not exist yet, so a request with a `sha` answers `"changeScope": "unknown"` and the unscoped hits;
-one without says `not_requested`.
+**A commit.** A `sha` restricts deployments to those whose artifact contains the change
+([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)).
+
+The sha names the Changes in the repository that it abbreviates, or that abbreviate it. It is read
+in lower case, as Changes are stored. A stored sha shorter than four characters names nothing.
+
+When at least one Change matches:
+
+- The deployments kept are those of every Artifact that CONTAINS one of the matching Changes.
+- A path through any other deployment is dropped before the nearest paths are chosen. What was
+  reached only through a dropped deployment, such as its environment, is dropped with it.
+- The answer says `"changeScope": "applied"`. It says `applied` even when no deployment carries the
+  Change yet, in which case no deployment is left.
+
+When no Change matches, the answer says `unknown` and gives the unscoped hits. Without a sha it says
+`not_requested`. The response shape did not change: `changeScope` was already a string, and
+`applied` is a new value of it.
 
 Each hit is `{node, hops, score, confidence, inferred, tier, environment, pathMatched, owners,
 citation}`, where `citation` is `{nodeKey, edgePath, provenance}`: the node's id, the edges of the
@@ -420,6 +456,54 @@ The issue also asked that a one-hop `GET /api/v1/impact/{repositoryId}` stay as 
 answered by this endpoint at depth 1. No such route exists: the one-hop repository impact is
 `GET /api/v1/graph/repositories/{repoId}/impact`, already deprecated in favour of `GET
 /api/v1/graph/impact`, and both are left as they are.
+
+### Change lineage
+
+Two questions follow the chain from a deployment to the work behind it
+([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)):
+
+| Query | Answer |
+| --- | --- |
+| `GET /api/v1/work-items/deployments?uri=` | Where a work item is live: `{workItem, deployments}`, most recent first. Each deployment carries its `environment`, the `artifacts` and the `changes` that carry the work item there |
+| `GET /api/v1/deployments/work-items?deploymentId=` | What a deployment carried: `{deployment, lineage, changes, workItems}`. Each change names its `artifact`, and each work item lists the `changes` implementing it |
+
+Each input is a query parameter, because a URI holds `//` and a Deployment key holds `/` and `#`.
+The work item is found by its URI exactly as written.
+
+- `lineage` is `unknown` when no artifact of the deployment contains any Change. It is not an empty
+  list, which would claim the deployment carried nothing.
+- A deployment whose Changes implement no work item is `known`, with no work items.
+- A work item nothing has deployed is `200` with no deployments.
+- A work item or deployment the graph does not hold is `404`.
+
+Both queries need `graph:read`.
+
+The chain is found in the registry by the node types each edge connects, not by edge name, in
+`TraversalFilterBuilder.lineage()`:
+
+- an Artifact's edge to a Deployment (`DEPLOYED_TO`),
+- an Artifact's edge to a Change (`CONTAINS`),
+- a Change's edge to an ExternalWorkItem (`IMPLEMENTS`),
+- and the placement edges that end at an Environment (`TO_ENVIRONMENT`).
+
+Each edge is followed in its stored direction, one plain Cypher statement per question, with no
+APOC (`Neo4jChangeLineageQueries`). Closed facts are not followed. A deployment placed in several
+environments is shown in the most critical one, as impact does.
+
+`CONTAINS` propagates, with downstream read as `CONTAINED_IN`. So the blast radius of a Change
+reaches the artifacts that contain it, then their deployments and environments. Nothing else about
+impact changed: a repository's downstream walk does not reach its Changes, because `INTRODUCED_IN`
+does not propagate.
+
+Nodes are also addressed by key:
+
+- A key holding `//` cannot travel in a path, because the security firewall refuses one.
+- So every node can be read, replaced and deleted at `/api/v1/nodes/{type}/by-key?key=`.
+- A node created with such a key is located there.
+- The web interface encodes such a key as one route segment.
+
+There is no GraphQL field for either question yet, and no screen in the web interface. Both are
+answered over REST only.
 
 ### How it runs
 
@@ -451,6 +535,9 @@ seen by two different connectors has to land on one node.
 | Deployment | `<artifactKey>#<environmentKey>#<deployedAt as epoch seconds>` |
 | Environment | lowercased name, with an alias table so `prod`, `prd` and `live` all mean `production` |
 | Team, Service | lowercased, trimmed `name` |
+| Change | `<repositoryKey>@<sha>`, the repository key resolved from any remote form and the sha lowercased |
+| PullRequest | `<repositoryKey>/pull/<number>` |
+| ExternalWorkItem | `uri`, trimmed and otherwise exactly as written: not lowercased, parsed or normalised ([ADR-0012](adr/0012-external-work-items-are-references-not-copies.md)) |
 | Ontology | `version` |
 | SyncRun | `id` |
 
@@ -477,6 +564,10 @@ labels that reach Cypher are declared ones.
 
 The segment after the type is the derived key, which contains slashes for most types
 (`/api/v1/nodes/Repository/github.com/acme/payments`). A full `Type:key` id is accepted there too.
+
+A key holding `//`, such as an ExternalWorkItem's URI, cannot be a path: the security firewall
+refuses one. `GET`, `PUT` and `DELETE /api/v1/nodes/{type}/by-key?key=` address any node by its key
+as a query parameter, and the `Location` of a created node with such a key points there.
 
 ### What is validated, and what it says
 
@@ -568,7 +659,13 @@ starts consulting a different property stays correctly reported.
 graph was built with; the application refuses to start against a graph written by a newer registry
 than its own. Adding a type or an optional property is free. Renaming or removing anything needs a
 version bump and a migration of the data already in the graph; no migration mechanism exists yet
-([#33](../../issues/33)), so today that means not renaming or removing. `GET /api/v1/ontology`
+([#33](../../issues/33)), so today that means not renaming or removing.
+
+1.1.0 ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)) added Change,
+PullRequest, ExternalWorkItem and their five edges. It is a minor bump, because nothing was renamed
+or removed. Once a 1.1.0 build has run against a graph, that graph records 1.1.0, and a 1.0.0 build
+refuses to start against it. So rolling back past 1.1.0 means restoring the graph from before it, or
+setting the version recorded on its `Ontology` node back by hand. `GET /api/v1/ontology`
 returns the current registry as JSON, which is what drives the generic editing screen in the
 frontend.
 

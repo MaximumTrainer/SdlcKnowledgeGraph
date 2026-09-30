@@ -300,6 +300,63 @@
       }
     },
     {
+      "description": "a request for the ExternalWorkItem chorus://task/01JABC by key",
+      "providerStates": [
+        {
+          "name": "work item chorus://task/01JABC is live in production"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/nodes/ExternalWorkItem/by-key",
+        "query": {
+          "key": [
+            "chorus://task/01JABC"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "id": "ExternalWorkItem:chorus://task/01JABC",
+          "key": "chorus://task/01JABC",
+          "props": {
+            "system": "chorus",
+            "uri": "chorus://task/01JABC"
+          },
+          "provenance": {
+            "confidence": 1,
+            "inferred": false,
+            "sourceSystem": "manual"
+          },
+          "type": "ExternalWorkItem"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the FAILED runs of github",
       "providerStates": [
         {
@@ -705,6 +762,193 @@
           }
         },
         "status": 200
+      }
+    },
+    {
+      "description": "a request for the deployments carrying chorus://task/01JABC",
+      "providerStates": [
+        {
+          "name": "work item chorus://task/01JABC is live in production"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/work-items/deployments",
+        "query": {
+          "uri": [
+            "chorus://task/01JABC"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "deployments": [
+            {
+              "artifacts": [
+                {
+                  "id": "Artifact:acme/payments:1.4.0"
+                }
+              ],
+              "changes": [
+                {
+                  "id": "Change:github.com/acme/payments@a1b2c3",
+                  "repositoryKey": "github.com/acme/payments",
+                  "sha": "a1b2c3"
+                }
+              ],
+              "deployedAt": "2026-09-13T11:00:00Z",
+              "environment": {
+                "id": "Environment:production",
+                "key": "production",
+                "tier": "other"
+              },
+              "id": "Deployment:acme/payments:1.4.0#production#1789297200",
+              "status": "SUCCESS"
+            }
+          ],
+          "workItem": {
+            "id": "ExternalWorkItem:chorus://task/01JABC",
+            "system": "chorus",
+            "uri": "chorus://task/01JABC"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.deployments": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.deployments[*].artifacts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.deployments[*].artifacts[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].changes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.deployments[*].changes[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].changes[*].repositoryKey": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].changes[*].sha": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].deployedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.deployments[*].environment.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].environment.tier": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployments[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the deployments of a work item that does not exist",
+      "providerStates": [
+        {
+          "name": "no work items exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/work-items/deployments",
+        "query": {
+          "uri": [
+            "chorus://task/nothing"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "error": "node not found",
+          "missing": [
+            "ExternalWorkItem:chorus://task/nothing"
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 404
       }
     },
     {
@@ -1315,6 +1559,183 @@
               ]
             },
             "$.version": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the work items of a deployment with no change lineage",
+      "providerStates": [
+        {
+          "name": "a deployment whose artifact contains no changes"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/deployments/work-items",
+        "query": {
+          "deploymentId": [
+            "Deployment:acme/payments:1.3.0#production#1789210800"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "changes": [],
+          "deployment": {
+            "id": "Deployment:acme/payments:1.3.0#production#1789210800"
+          },
+          "lineage": "unknown",
+          "workItems": []
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the work items the production deployment carries",
+      "providerStates": [
+        {
+          "name": "work item chorus://task/01JABC is live in production"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/deployments/work-items",
+        "query": {
+          "deploymentId": [
+            "Deployment:acme/payments:1.4.0#production#1789297200"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "changes": [
+            {
+              "artifact": "Artifact:acme/payments:1.4.0",
+              "id": "Change:github.com/acme/payments@a1b2c3",
+              "sha": "a1b2c3"
+            }
+          ],
+          "deployment": {
+            "environment": {
+              "id": "Environment:production",
+              "key": "production",
+              "tier": "other"
+            },
+            "id": "Deployment:acme/payments:1.4.0#production#1789297200"
+          },
+          "lineage": "known",
+          "workItems": [
+            {
+              "changes": [
+                "Change:github.com/acme/payments@a1b2c3"
+              ],
+              "id": "ExternalWorkItem:chorus://task/01JABC",
+              "system": "chorus",
+              "uri": "chorus://task/01JABC"
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.changes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.changes[*].artifact": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.changes[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.changes[*].sha": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployment.environment.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.deployment.environment.tier": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.workItems": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.workItems[*].changes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.workItems[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.workItems[*].system": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.workItems[*].uri": {
               "combine": "AND",
               "matchers": [
                 {

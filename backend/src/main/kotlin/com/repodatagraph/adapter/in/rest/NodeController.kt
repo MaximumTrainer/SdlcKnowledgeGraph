@@ -31,7 +31,9 @@ import java.net.URI
  *
  * The node segment is a trailing capture because derived keys contain slashes
  * (`github.com/acme/payments`). Encoding them instead would mean allowing encoded slashes in paths,
- * which the servlet container rejects by default and which opens a path-traversal surface.
+ * which the servlet container rejects by default and which opens a path-traversal surface. A key
+ * that holds `//` - an ExternalWorkItem's URI (#85) - cannot travel in a path at all, since the
+ * security firewall refuses one, so every node can also be addressed at `/{type}/by-key?key=`.
  */
 @RestController
 @RequestMapping("/api/v1/nodes")
@@ -59,6 +61,29 @@ class NodeController(
         @RequestParam(required = false) cursor: String?,
     ): ResponseEntity<NodePageResponse> =
         ResponseEntity.ok(NodePageResponse.from(nodeUseCase.list(type, limit.coerceIn(1, MAX_LIMIT), cursor)))
+
+    @GetMapping("/{type}/$BY_KEY")
+    @Operation(summary = "Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85)")
+    fun getByKey(
+        @PathVariable type: String,
+        @RequestParam key: String,
+    ): ResponseEntity<NodeResponse> = get(type, key)
+
+    @PutMapping("/{type}/$BY_KEY")
+    @Operation(summary = "Replace the properties of a node addressed by its key as a query parameter (#85)")
+    fun updateByKey(
+        @PathVariable type: String,
+        @RequestParam key: String,
+        @RequestBody request: NodeRequest,
+    ): ResponseEntity<NodeResponse> = update(type, key, request)
+
+    @DeleteMapping("/{type}/$BY_KEY")
+    @Operation(summary = "Delete a node addressed by its key as a query parameter (#85)")
+    fun deleteByKey(
+        @PathVariable type: String,
+        @RequestParam key: String,
+        @RequestParam(defaultValue = "false") cascade: Boolean,
+    ): ResponseEntity<Void> = delete(type, key, cascade)
 
     @GetMapping("/{type}/{*key}")
     @Operation(summary = "Get one node by its derived key or its full id")
@@ -98,20 +123,32 @@ class NodeController(
     private companion object {
         const val DEFAULT_LIMIT = 50
         const val MAX_LIMIT = 500
+        const val BY_KEY = "by-key"
+        const val DOUBLE_SLASH = "//"
     }
 
     /**
      * Where the node lives, with its key encoded as a path: a key may hold characters a URI gives
      * another meaning, like the `#` between a Deployment's parts, which would otherwise make the
-     * Location unbuildable and the create answer 400 after the node was written.
+     * Location unbuildable and the create answer 400 after the node was written. A key holding `//`
+     * is located by key instead, since no path may carry one.
      */
     private fun location(
         type: String,
         key: String,
     ): URI =
-        UriComponentsBuilder
-            .fromPath("/api/v1/nodes/$type/$key")
-            .build()
-            .encode()
-            .toUri()
+        if (DOUBLE_SLASH in key) {
+            UriComponentsBuilder
+                .fromPath("/api/v1/nodes/$type/$BY_KEY")
+                .queryParam("key", key)
+                .build()
+                .encode()
+                .toUri()
+        } else {
+            UriComponentsBuilder
+                .fromPath("/api/v1/nodes/$type/$key")
+                .build()
+                .encode()
+                .toUri()
+        }
 }

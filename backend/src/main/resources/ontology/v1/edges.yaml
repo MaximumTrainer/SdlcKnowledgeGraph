@@ -124,6 +124,44 @@ edges:
     impact: propagates
     ownership: inherits
 
+  # A change and the intent behind it (#85). CONTAINS is the join both lineage questions cross:
+  # "where is this work item live" walks IMPLEMENTS back to its changes, CONTAINS back to the
+  # artifacts that hold them and DEPLOYED_TO on to deployments; "what did this deployment carry"
+  # walks the same edges the other way.
+  INTRODUCED_IN:
+    description: A change was made in a repository.
+    from: [Change]
+    to: [Repository]
+    inverse: HAS_CHANGE
+
+  MERGES:
+    description: A pull request merged a change.
+    from: [PullRequest]
+    to: [Change]
+    inverse: MERGED_BY
+
+  CONTAINS:
+    description: An artifact was built with a change in it.
+    from: [Artifact]
+    to: [Change]
+    inverse: CONTAINED_IN
+    impact: propagates
+    # A change reaches the artifacts that contain it, and from them their deployments: downstream is
+    # CONTAINED_IN. So the blast radius of a Change answers "what depends on this change".
+    downstream: inverse
+
+  IMPLEMENTS:
+    description: A change implements a work item in the system that owns it.
+    from: [Change]
+    to: [ExternalWorkItem]
+    inverse: IMPLEMENTED_BY
+
+  TRACKED_IN:
+    description: A work item is tracked by a team.
+    from: [ExternalWorkItem]
+    to: [Team]
+    inverse: TRACKS
+
   # Which run asserted a fact. Provenance already records the run id on every node, but an edge makes
   # it traversable: "show me everything that run wrote" is then one hop rather than a property scan,
   # which is what makes a bad sync reversible rather than merely auditable.
@@ -133,5 +171,5 @@ edges:
     # Every type a connector can write. A type missing from here is one a run cannot record having
     # written, which fails the page rather than losing it quietly - so this list grows with the
     # others above it.
-    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident]
+    to: [Repository, Team, Service, Pipeline, Artifact, Deployment, Environment, CloudResource, ConfigurationItem, Library, IacFile, ChangeRequest, Incident, Change, PullRequest, ExternalWorkItem]
     inverse: PRODUCED_BY

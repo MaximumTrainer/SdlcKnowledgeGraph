@@ -133,12 +133,21 @@ enum class PathFilter(
     APPLIED("applied"),
 }
 
-/** Whether a `sha` narrowed the answer (#87, FR3). Change nodes (#85) do not exist yet, so it cannot. */
+/**
+ * Whether a `sha` narrowed the answer (#87, FR3). A sha names Change nodes (#85); deployments whose
+ * artifact CONTAINS none of them are left out, with whatever is reached only through them.
+ */
 enum class ChangeScope(
     val wire: String,
 ) {
+    /** No sha was asked about. */
     NOT_REQUESTED("not_requested"),
+
+    /** A sha was asked about, but no Change in the repository matches it, so it could not scope anything. */
     UNKNOWN("unknown"),
+
+    /** The sha matched a Change: only deployments whose artifact contains it are in the answer. */
+    APPLIED("applied"),
 }
 
 /** What kind of file an index entry is. */

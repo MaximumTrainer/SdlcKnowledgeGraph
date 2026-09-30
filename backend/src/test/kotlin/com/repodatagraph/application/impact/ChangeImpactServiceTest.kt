@@ -16,6 +16,7 @@ import com.repodatagraph.domain.model.PathIndexKind
 import com.repodatagraph.domain.model.PathSearch
 import com.repodatagraph.domain.model.PathStep
 import com.repodatagraph.domain.model.Provenance
+import com.repodatagraph.domain.port.out.ChangeLineagePort
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.ImpactQueryPort
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,7 +46,8 @@ class ChangeImpactServiceTest {
     private val queries = mock<ImpactQueryPort>()
     private val graphStore = mock<GraphStore>()
     private val traversals = TraversalFilterBuilder(registry)
-    private val service = ChangeImpactService(queries, graphStore, traversals, OwnerResolver())
+    private val lineage = mock<ChangeLineagePort>()
+    private val service = ChangeImpactService(queries, graphStore, traversals, OwnerResolver(), lineage)
 
     private val at = Instant.parse("2026-09-01T10:00:00Z")
     private val stated = Provenance(sourceSystem = "manual", ingestedAt = at, validFrom = at)
@@ -250,9 +252,67 @@ class ChangeImpactServiceTest {
     }
 
     @Test
-    fun `a sha cannot scope the answer until changes are in the graph, and says so`() {
+    fun `a sha no Change in the repository carries cannot scope the answer, and says so`() {
         assertEquals(ChangeScope.NOT_REQUESTED, service.changeImpact(ChangeImpactQuery(payments.key.key)).changeScope)
-        assertEquals(ChangeScope.UNKNOWN, service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4f1c2d9")).changeScope)
+
+        val unscoped = service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4f1c2d9"))
+
+        assertEquals(ChangeScope.UNKNOWN, unscoped.changeScope)
+        assertEquals(service.changeImpact(ChangeImpactQuery(payments.key.key)).hits, unscoped.hits)
+    }
+
+    private val change = NodeKey("Change", "github.com/acme/payments@4f1c2d9e0a")
+
+    @Test
+    fun `a sha restricts deployments to those whose artifact contains the Change it names (#85)`() {
+        whenever(lineage.changesMatching(payments.key, "4f1c2d9")).thenReturn(listOf(change))
+        whenever(lineage.deploymentsCarrying(listOf(change), traversals.lineage())).thenReturn(setOf(prodDeployment.key))
+
+        val result = service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4f1c2d9"))
+
+        assertEquals(ChangeScope.APPLIED, result.changeScope)
+        assertEquals(listOf(prodDeployment.id, artifact.id, checkout.id), result.hits.map { it.node.id })
+    }
+
+    @Test
+    fun `what a left-out deployment alone reaches is left out with it (#85)`() {
+        val toStagingEnvironment = CandidatePath(staging, toStaging.steps + step("TO_ENVIRONMENT", stagingDeployment, staging))
+        val toProductionEnvironment = CandidatePath(production, toProd.steps + step("TO_ENVIRONMENT", prodDeployment, production))
+        whenever(queries.paths(any(), any(), any(), any())).thenReturn(
+            PathSearch(listOf(toStaging, toProd, toArtifact, toStagingEnvironment, toProductionEnvironment), false),
+        )
+        whenever(lineage.changesMatching(payments.key, "4f1c2d9")).thenReturn(listOf(change))
+        whenever(lineage.deploymentsCarrying(listOf(change), traversals.lineage())).thenReturn(setOf(prodDeployment.key))
+
+        val hits = service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4f1c2d9")).hits.map { it.node.id }
+
+        assertEquals(setOf(prodDeployment.id, production.id, artifact.id), hits.toSet())
+    }
+
+    @Test
+    fun `a change no deployment carries yet leaves no deployment, and is still applied (#85)`() {
+        whenever(lineage.changesMatching(payments.key, "4f1c2d9")).thenReturn(listOf(change))
+        whenever(lineage.deploymentsCarrying(listOf(change), traversals.lineage())).thenReturn(emptySet())
+
+        val result = service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4f1c2d9"))
+
+        assertEquals(ChangeScope.APPLIED, result.changeScope)
+        assertEquals(listOf(artifact.id, checkout.id), result.hits.map { it.node.id })
+    }
+
+    @Test
+    fun `a sha is matched in lower case, as changes are stored (#85)`() {
+        service.changeImpact(ChangeImpactQuery(payments.key.key, sha = "4F1C2D9"))
+
+        verify(lineage).changesMatching(payments.key, "4f1c2d9")
+    }
+
+    @Test
+    fun `without a sha the lineage is not consulted (#85)`() {
+        service.changeImpact(ChangeImpactQuery(payments.key.key))
+
+        verify(lineage, never()).changesMatching(any(), any())
+        verify(lineage, never()).deploymentsCarrying(any(), any())
     }
 
     @Test

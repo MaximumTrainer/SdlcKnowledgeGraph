@@ -2,6 +2,7 @@ package com.repodatagraph.application.impact
 
 import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
 import com.repodatagraph.domain.model.ImpactDirection
+import com.repodatagraph.domain.model.LineageTraversal
 import com.repodatagraph.domain.ontology.EdgeImpact
 import com.repodatagraph.domain.ontology.EdgeOwnership
 import com.repodatagraph.domain.ontology.EdgeTypeDef
@@ -96,7 +97,54 @@ class TraversalFilterBuilderTest {
         val downstream = shipped.impact(ImpactDirection.DOWNSTREAM)
 
         assertEquals(setOf("PROVIDES", "HAS_PIPELINE", "DEPLOYED_TO", "TO_ENVIRONMENT", "OWNS_RESOURCE"), downstream.forward)
-        assertEquals(mapOf("DEPENDS_ON" to "DEPENDED_ON_BY", "BUILT_FROM" to "BUILDS"), downstream.inverse)
+        // A change reaches the artifacts that contain it (#85): CONTAINS read against its direction.
+        assertEquals(
+            mapOf("DEPENDS_ON" to "DEPENDED_ON_BY", "BUILT_FROM" to "BUILDS", "CONTAINS" to "CONTAINED_IN"),
+            downstream.inverse,
+        )
+    }
+
+    @Test
+    fun `the lineage of a deployment is found by the types each edge connects, not by its name (#85)`() {
+        val lineage =
+            OntologyRegistry(
+                version = "1.0.0",
+                nodeTypes = listOf("Artifact", "Deployment", "Change", "ExternalWorkItem", "Environment").map(::node),
+                edgeTypes =
+                    listOf(
+                        edge("SHIPPED_AS", "Artifact", "Deployment", "SHIPMENT_OF", EdgeImpact.PROPAGATES),
+                        edge("BUNDLES", "Artifact", "Change", "BUNDLED_IN"),
+                        edge("DELIVERS", "Change", "ExternalWorkItem", "DELIVERED_BY"),
+                        // The other way round: a work item that mentions a change does not say the change implements it.
+                        edge("MENTIONS", "ExternalWorkItem", "Change", "MENTIONED_BY"),
+                        edge("RUNS_IN", "Deployment", "Environment", "RUNS", EdgeImpact.PROPAGATES),
+                    ),
+            )
+
+        assertEquals(
+            LineageTraversal(
+                deployedAs = setOf("SHIPPED_AS"),
+                contains = setOf("BUNDLES"),
+                implements = setOf("DELIVERS"),
+                placement = setOf("RUNS_IN"),
+            ),
+            TraversalFilterBuilder(lineage).lineage(),
+        )
+    }
+
+    @Test
+    fun `the shipped registry's lineage is DEPLOYED_TO, CONTAINS and IMPLEMENTS, placed by TO_ENVIRONMENT (#85)`() {
+        val shipped = TraversalFilterBuilder(YamlOntologyLoader(DefaultResourceLoader()).load())
+
+        assertEquals(
+            LineageTraversal(setOf("DEPLOYED_TO"), setOf("CONTAINS"), setOf("IMPLEMENTS"), setOf("TO_ENVIRONMENT")),
+            shipped.lineage(),
+        )
+    }
+
+    @Test
+    fun `a registry without the lineage types has an empty lineage rather than an error (#85)`() {
+        assertEquals(LineageTraversal(emptySet(), emptySet(), emptySet(), emptySet()), builder.lineage())
     }
 
     @Test

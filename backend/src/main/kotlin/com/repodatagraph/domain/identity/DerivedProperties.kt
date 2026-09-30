@@ -29,8 +29,33 @@ class DerivedProperties(
     ): Map<String, Any?> =
         when (type) {
             "Repository" -> repository(props)
+            "Change" -> repositoryKeyed(props) + sha(props)
+            "PullRequest" -> repositoryKeyed(props)
             else -> props
         }
+
+    /**
+     * A Change or a PullRequest names its repository by key (#85). Stored as the repository's own
+     * key, whatever remote notation the caller used, so what the node says and what it is keyed by
+     * agree - and so it can be matched against the Repository node it belongs to.
+     */
+    private fun repositoryKeyed(props: Map<String, Any?>): Map<String, Any?> {
+        val repositoryKey = props[REPOSITORY_KEY]?.toString()?.trim()
+        if (repositoryKey.isNullOrEmpty()) return props
+        return props + (REPOSITORY_KEY to gitRemoteParser.parse(repositoryKey).key)
+    }
+
+    /** A sha is hexadecimal, so it is stored in the one case it is keyed in. */
+    private fun sha(props: Map<String, Any?>): Map<String, Any?> {
+        val sha = props[SHA]?.toString()?.trim()
+        if (sha.isNullOrEmpty()) return emptyMap()
+        return mapOf(SHA to sha.lowercase())
+    }
+
+    private companion object {
+        const val REPOSITORY_KEY = "repositoryKey"
+        const val SHA = "sha"
+    }
 
     /**
      * Left alone when there is no `url`: a caller that supplied `host`, `org` and `name` directly is

@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.0.0'
+export const ONTOLOGY_VERSION = '1.1.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -174,6 +174,39 @@ export interface IacFile {
   resourceRefs?: string[]
 }
 
+/** A commit range or merge in a repository, identified there by its head sha. */
+export interface Change {
+  id: string
+  repositoryKey: string
+  sha: string
+  baseSha?: string
+  title?: string
+  author?: string
+  committedAt: string
+  url?: string
+}
+
+/** A proposal to merge a change into a repository, as the forge records it. */
+export interface PullRequest {
+  id: string
+  repositoryKey: string
+  number: number
+  url: string
+  title?: string
+  state?: string
+  mergedAt?: string
+  branch?: string
+}
+
+/** A task, ticket or issue in the system that owns it, referred to by its URI. */
+export interface ExternalWorkItem {
+  id: string
+  uri: string
+  system: string
+  externalKey?: string
+  title?: string
+}
+
 /** Records which ontology version the graph was built with. */
 export interface Ontology {
   id: string
@@ -233,6 +266,9 @@ export type NodeType =
   | 'Incident'
   | 'Library'
   | 'IacFile'
+  | 'Change'
+  | 'PullRequest'
+  | 'ExternalWorkItem'
   | 'Ontology'
   | 'SyncRun'
   | 'ConnectorState'
@@ -252,6 +288,9 @@ export const NODE_TYPES: readonly NodeType[] = [
   'Incident',
   'Library',
   'IacFile',
+  'Change',
+  'PullRequest',
+  'ExternalWorkItem',
   'Ontology',
   'SyncRun',
   'ConnectorState',
@@ -271,6 +310,11 @@ export type EdgeTypeName =
   | 'DEPLOYED_TO'
   | 'TO_ENVIRONMENT'
   | 'PROVIDES'
+  | 'INTRODUCED_IN'
+  | 'MERGES'
+  | 'CONTAINS'
+  | 'IMPLEMENTS'
+  | 'TRACKED_IN'
   | 'PRODUCED'
 
 export const EDGE_TYPES: readonly EdgeTypeName[] = [
@@ -286,5 +330,10 @@ export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'DEPLOYED_TO',
   'TO_ENVIRONMENT',
   'PROVIDES',
+  'INTRODUCED_IN',
+  'MERGES',
+  'CONTAINS',
+  'IMPLEMENTS',
+  'TRACKED_IN',
   'PRODUCED'
 ]

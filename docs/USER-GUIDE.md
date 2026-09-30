@@ -9,11 +9,12 @@ If you do not have a running instance yet, [getting started](GETTING-STARTED.md)
 ## What the graph holds
 
 Everything in the graph is a **node** of a type the ontology declares, connected by **edges** of a
-type the ontology declares. The current registry (ontology 1.0.0) has eleven node types: the nine
-that describe software — Repository, Team, Service, Pipeline, Artifact, Deployment, Environment,
-CloudResource and ConfigurationItem — plus Ontology and SyncRun, which describe the graph itself.
-The nine relationship types, and which node types each may connect, are listed in the
-[ontology reference](ONTOLOGY.md#relationship-types).
+type the ontology declares. The current registry is ontology 1.1.0. It includes the nine types that
+describe running software: Repository, Team, Service, Pipeline, Artifact, Deployment, Environment,
+CloudResource and ConfigurationItem. It adds Change, PullRequest and ExternalWorkItem, which trace a
+deployment back to the work it delivered. Meta types such as Ontology and SyncRun describe the graph
+itself. Every node type and relationship type, with which node types each relationship may connect,
+is listed in the [ontology reference](ONTOLOGY.md#relationship-types).
 
 Three things hold for every node, whichever type it is:
 
@@ -73,6 +74,14 @@ Some types need more than their required fields to derive a key. A Repository's 
 `acme/payments` shorthand, which assumes `github.com`. All of them derive the same key,
 `github.com/acme/payments`. An Artifact needs either a `digest` or a `version` alongside its name.
 A request that cannot derive a key is refused with `cannot derive identity` and the reason.
+
+An instant is entered in UTC and saved as the instant it names. For example, `2026-09-13 10:00`
+typed into a Change's `committedAt` is stored as `2026-09-13T10:00:00Z`, whatever your browser's
+time zone.
+
+An ExternalWorkItem is keyed by its `uri`, exactly as you type it, so give the URI the owning
+system uses. The browser address encodes its `//`, but the page and its edit form work as they do
+for any other node.
 
 ### Editing a node
 
@@ -225,6 +234,13 @@ a declared one; anything else is `404 {error: "unknown node type", type}`.
 | `PUT /api/v1/nodes/{type}/{key}` with `{"props": {…}}` | `200` the updated node, same id and key |
 | `DELETE /api/v1/nodes/{type}/{key}` | `204`, or `409 {error: "node has edges", edgeCount}` while edges remain |
 | `DELETE /api/v1/nodes/{type}/{key}?cascade=true` | `204`, removing the node and its edges |
+| `GET`, `PUT`, `DELETE /api/v1/nodes/{type}/by-key?key=` | The same three, with the key as a query parameter |
+
+A key that holds `//`, which is every ExternalWorkItem's URI, cannot be sent in a path: the server
+refuses a path holding `//`. Address such a node by key instead. For example, use
+`GET /api/v1/nodes/ExternalWorkItem/by-key?key=chorus://task/01JABC`, with the key encoded as a
+query value. The `Location` header of a created node with such a key already points there. The
+`by-key` form works for any node.
 
 A node in a response looks like this:
 
@@ -335,10 +351,60 @@ curl -s -X POST http://localhost:8080/api/v1/impact \
 ```
 
 `depth` is 1 to 4 (default 2), `limit` 1 to 500 (default 50). The answer says whether the `paths`
-could be read against the repository's IaC and manifest index (`pathFilter`) and that a `sha` cannot
-narrow it yet (`changeScope: "unknown"`). A production deployment outranks a staging one only when
+could be read against the repository's IaC and manifest index (`pathFilter`). It also says whether a
+`sha` narrowed it (`changeScope`):
+
+- `applied`: the sha names a Change in the repository. The answer then keeps only deployments whose
+  Artifact CONTAINS that Change, and leaves out anything reached only through the others.
+- `unknown`: no Change matches the sha. The answer is not narrowed.
+- `not_requested`: no sha was given.
+
+A sha matches a Change when it starts the Change's sha, or the Change's sha starts it. It is matched
+in any case. A production deployment outranks a staging one only when
 the environments say which is which: give each Environment a `tier` (`production`,
 `pre_production`, `development` or `other`; unset reads as `other`). It needs only `graph:read`.
+
+### Where a work item is live, and what a deployment carried
+
+Change lineage ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)) follows the
+chain from a deployment to the work behind it:
+
+- the Artifact that was DEPLOYED_TO a Deployment,
+- the Changes the Artifact CONTAINS,
+- and the ExternalWorkItems each Change IMPLEMENTS.
+
+Both questions need only `graph:read`. Both take their input as a query parameter, because a URI and
+a Deployment key hold characters no path can carry.
+
+```bash
+curl -s -G http://localhost:8080/api/v1/work-items/deployments \
+  -H "Authorization: Bearer $TOKEN" --data-urlencode 'uri=chorus://task/01JABC'
+curl -s -G http://localhost:8080/api/v1/deployments/work-items \
+  -H "Authorization: Bearer $TOKEN" --data-urlencode 'deploymentId=Deployment:acme/payments:1.4.0#production#1789297200'
+```
+
+The first answers `{workItem, deployments}`. Deployments are listed most recent first. Each one
+lists:
+
+- its `environment`,
+- the `artifacts` that carried the work item,
+- the `changes` that carried it.
+
+A work item nothing has deployed yet has an empty `deployments` list.
+
+The second answers `{deployment, lineage, changes, workItems}`. `lineage` is `known`, or `unknown`
+when no artifact of the deployment contains any Change. When it is `unknown`, the empty lists mean
+"the graph does not know", not "it carried nothing". `deploymentId` may be the full id or the bare
+key.
+
+A work item or deployment the graph does not hold is
+`404 {"error": "node not found", "missing": [id]}`. A missing parameter is `400 {error, field}`.
+
+The Changes, PullRequests and work items are written through the node and edge APIs. No connector
+populates them yet. They are saved straight into the graph, because the proposal queue that would
+let someone review them first ([#74](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/74))
+is not built. [ADR-0012](adr/0012-external-work-items-are-references-not-copies.md) explains why a
+work item is a reference to the owning system, not a copy of it.
 
 ### The repository endpoints
 

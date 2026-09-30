@@ -1,9 +1,12 @@
 package com.repodatagraph.domain.ontology
 
+import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.core.io.DefaultResourceLoader
 
 class OntologyRegistryTest {
     private fun nodeType(
@@ -139,5 +142,100 @@ class OntologyRegistryTest {
         assertThrows<InvalidOntologyException> {
             OntologyRegistry("one", listOf(nodeType("Repository")), emptyList())
         }
+    }
+
+    private val shipped by lazy { YamlOntologyLoader(DefaultResourceLoader()).load() }
+
+    @Test
+    fun `the shipped registry is a minor version on from 1_0_0, since it only adds (#85)`() {
+        assertEquals("1.1.0", shipped.version)
+    }
+
+    @Test
+    fun `a change is keyed in its repository by its sha, and says when it was committed (#85)`() {
+        val change = shipped.nodeType("Change") ?: error("no Change")
+
+        assertEquals(listOf("repositoryKey", "sha"), change.identity)
+        assertRequired(change, "repositoryKey" to PropertyType.STRING, "sha" to PropertyType.STRING, "committedAt" to PropertyType.INSTANT)
+        assertOptional(change, "baseSha", "title", "author", "url")
+        assertEquals("sha", change.displayProperty)
+        assertFalse(change.meta)
+    }
+
+    @Test
+    fun `a pull request is keyed in its repository by its number, with a state from a fixed set (#85)`() {
+        val pullRequest = shipped.nodeType("PullRequest") ?: error("no PullRequest")
+
+        assertEquals(listOf("repositoryKey", "number"), pullRequest.identity)
+        assertRequired(pullRequest, "repositoryKey" to PropertyType.STRING, "number" to PropertyType.INT, "url" to PropertyType.STRING)
+        assertOptional(pullRequest, "title", "state", "mergedAt", "branch")
+        assertEquals(listOf("open", "merged", "closed"), pullRequest.property("state")?.enum)
+        assertEquals(PropertyType.INSTANT, pullRequest.property("mergedAt")?.type)
+        assertEquals("number", pullRequest.displayProperty)
+    }
+
+    @Test
+    fun `an external work item is keyed by its uri and names the system that owns it (#85)`() {
+        val workItem = shipped.nodeType("ExternalWorkItem") ?: error("no ExternalWorkItem")
+
+        assertEquals(listOf("uri"), workItem.identity)
+        assertRequired(workItem, "uri" to PropertyType.STRING, "system" to PropertyType.STRING)
+        assertOptional(workItem, "externalKey", "title")
+        assertEquals(listOf("chorus", "jira", "linear", "github", "other"), workItem.property("system")?.enum)
+        assertEquals("externalKey", workItem.displayProperty)
+    }
+
+    @Test
+    fun `the lineage edges connect what the issue names, each with its inverse (#85)`() {
+        val expected =
+            mapOf(
+                "INTRODUCED_IN" to Triple("Change", "Repository", "HAS_CHANGE"),
+                "MERGES" to Triple("PullRequest", "Change", "MERGED_BY"),
+                "CONTAINS" to Triple("Artifact", "Change", "CONTAINED_IN"),
+                "IMPLEMENTS" to Triple("Change", "ExternalWorkItem", "IMPLEMENTED_BY"),
+                "TRACKED_IN" to Triple("ExternalWorkItem", "Team", "TRACKS"),
+            )
+
+        expected.forEach { (name, ends) ->
+            val edge = shipped.edgeType(name) ?: error("no $name")
+            assertEquals(listOf(ends.first), edge.from, "$name from")
+            assertEquals(listOf(ends.second), edge.to, "$name to")
+            assertEquals(ends.third, edge.inverse, "$name inverse")
+        }
+    }
+
+    @Test
+    fun `a change travels to the artifacts that contain it, and no other lineage edge carries it (#85)`() {
+        val contains = shipped.edgeType("CONTAINS") ?: error("no CONTAINS")
+
+        assertEquals(EdgeImpact.PROPAGATES, contains.impact)
+        assertEquals(ImpactAlong.INVERSE, contains.downstream)
+        assertEquals(EdgeOwnership.NONE, contains.ownership)
+        listOf("INTRODUCED_IN", "MERGES", "IMPLEMENTS", "TRACKED_IN").forEach {
+            assertEquals(EdgeImpact.NONE, shipped.edgeType(it)?.impact, it)
+        }
+    }
+
+    @Test
+    fun `a sync run can record writing a change, a pull request or a work item (#85)`() {
+        val produced = shipped.edgeType("PRODUCED") ?: error("no PRODUCED")
+
+        assertEquals(true, produced.to.containsAll(listOf("Change", "PullRequest", "ExternalWorkItem")))
+    }
+
+    private fun assertRequired(
+        type: NodeTypeDef,
+        vararg properties: Pair<String, PropertyType>,
+    ) = properties.forEach { (name, propertyType) ->
+        val property = type.property(name) ?: error("${type.name} declares no $name")
+        assertEquals(true, property.required, "${type.name}.$name required")
+        assertEquals(propertyType, property.type, "${type.name}.$name type")
+    }
+
+    private fun assertOptional(
+        type: NodeTypeDef,
+        vararg names: String,
+    ) = names.forEach { name ->
+        assertEquals(false, type.property(name)?.required ?: error("${type.name} declares no $name"), "${type.name}.$name optional")
     }
 }

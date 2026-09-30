@@ -208,4 +208,49 @@ class IdentityResolverTest {
     fun `a service principal is keyed by its name exactly, since client ids are case-sensitive (#115)`() {
         assertEquals("Triage-Agent", resolver.keyFor("ServicePrincipal", mapOf("name" to " Triage-Agent ")).key)
     }
+
+    @Test
+    fun `a change is keyed by its repository and sha, the repository in any remote form and the sha lowercased (#85)`() {
+        val key = resolver.keyFor("Change", mapOf("repositoryKey" to "https://github.com/Acme/Payments.git", "sha" to "A1B2C3"))
+
+        assertEquals("Change:github.com/acme/payments@a1b2c3", key.id)
+    }
+
+    @Test
+    fun `a pull request is keyed by its repository and number (#85)`() {
+        assertEquals(
+            "github.com/acme/payments/pull/42",
+            resolver.keyFor("PullRequest", mapOf("repositoryKey" to "github.com/acme/payments", "number" to 42)).key,
+        )
+        assertEquals(
+            "github.com/acme/payments/pull/42",
+            resolver.keyFor("PullRequest", mapOf("repositoryKey" to "acme/payments", "number" to "42")).key,
+        )
+    }
+
+    @ParameterizedTest(name = "{0} is its own key")
+    @CsvSource(
+        "chorus://task/01JABC",
+        "https://acme.atlassian.net/browse/PAY-42",
+        "https://acme.atlassian.net/browse/pay-42",
+        "HTTPS://Linear.app/acme/issue/ENG-7/",
+    )
+    fun `a work item is keyed by its uri exactly as written, case and all (#85)`(uri: String) {
+        assertEquals("ExternalWorkItem:$uri", resolver.keyFor("ExternalWorkItem", mapOf("uri" to uri)).id)
+    }
+
+    @Test
+    fun `two work items whose uris differ only in case are two work items (#85)`() {
+        val upper = resolver.keyFor("ExternalWorkItem", mapOf("uri" to "https://acme.atlassian.net/browse/PAY-42"))
+        val lower = resolver.keyFor("ExternalWorkItem", mapOf("uri" to "https://acme.atlassian.net/browse/pay-42"))
+
+        assertEquals(false, upper == lower)
+    }
+
+    @Test
+    fun `a change without a sha, or a pull request without a number, cannot be keyed (#85)`() {
+        assertThrows<IdentityResolutionException> { resolver.keyFor("Change", mapOf("repositoryKey" to "github.com/acme/payments")) }
+        assertThrows<IdentityResolutionException> { resolver.keyFor("PullRequest", mapOf("repositoryKey" to "github.com/acme/payments")) }
+        assertThrows<IdentityResolutionException> { resolver.keyFor("ExternalWorkItem", mapOf("system" to "chorus")) }
+    }
 }

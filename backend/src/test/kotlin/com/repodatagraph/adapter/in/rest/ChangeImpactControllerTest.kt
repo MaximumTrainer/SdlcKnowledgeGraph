@@ -170,6 +170,15 @@ class ChangeImpactControllerTest {
     }
 
     @Test
+    fun `a sha a Change in the graph carries is reported as applied (#85)`() {
+        whenever(useCase.changeImpact(any())).thenReturn(result.copy(changeScope = ChangeScope.APPLIED))
+
+        impact("""{"repositoryKey":"github.com/acme/payments","sha":"4f1c2d9"}""")
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.changeScope").value("applied"))
+    }
+
+    @Test
     fun `a missing repositoryKey is 400 naming it`() {
         impact("""{"depth":2}""")
             .andExpect(status().isBadRequest)

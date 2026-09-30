@@ -101,6 +101,50 @@ class ChangeImpactSteps(
         deploy(checkNotNull(artifact) { "no artifact yet" }, environment, tier)
     }
 
+    @Given("another Artifact from {string} deployed to Environment {string} with tier {string}")
+    fun anotherArtifactDeployedTo(
+        repository: String,
+        environment: String,
+        tier: String,
+    ) {
+        val props =
+            mapOf(
+                "registry" to "ghcr.io",
+                "name" to repository.substringAfter('/'),
+                "digest" to "sha256:bbb",
+                "version" to "1.1.0",
+                "commitSha" to "c2",
+                "artifactType" to "container-image",
+            )
+        val artifactKey = identityResolver.keyFor("Artifact", props)
+        graphStore.upsertNode(GraphNode(artifactKey, props, stated()))
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "BUILT_FROM",
+                from = artifactKey,
+                to = repository(repository),
+                props = mapOf("commitSha" to "c2"),
+                provenance = stated(),
+            ),
+        )
+        deploy(artifactKey, environment, tier)
+    }
+
+    /** A Change (#85) the background's Artifact CONTAINS, keyed as the node API keys one. */
+    @Given("the Artifact deployed to {string} CONTAINS Change {string} in {string}")
+    fun theArtifactContainsChange(
+        environment: String,
+        sha: String,
+        repository: String,
+    ) {
+        val deployedArtifact = checkNotNull(artifact) { "no artifact yet" }
+        val props = mapOf("repositoryKey" to repository, "sha" to sha, "committedAt" to Instant.parse("2026-09-01T09:00:00Z"))
+        val change = identityResolver.keyFor("Change", props)
+        graphStore.upsertNode(GraphNode(change, props, stated()))
+        graphStore.upsertEdge(GraphEdge(type = "CONTAINS", from = deployedArtifact, to = change, provenance = stated()))
+        assertTrue(isDeployedTo(environment)) { "the artifact is not deployed to $environment" }
+    }
+
     @Given("{int} services DEPENDS_ON the repository")
     fun servicesDependOnTheRepository(count: Int) {
         repeat(count) { index ->
@@ -232,6 +276,14 @@ class ChangeImpactSteps(
         )
     }
 
+    @Then("no hit is the {string} deployment")
+    fun noHitIsTheDeployment(environment: String) {
+        val deployments = hits().filter { it.path("node").path("type").asText() == "Deployment" }
+        assertTrue(deployments.none { it.path("environment").path("key").asText() == environment }) {
+            "a deployment to $environment is a hit: ${world.lastResponse().body}"
+        }
+    }
+
     @Then("the hit for Service {string} lists owner {string}")
     fun theHitForServiceListsOwner(
         service: String,
@@ -347,6 +399,17 @@ class ChangeImpactSteps(
         assertTrue(index >= 0) { "no deployment to $environment in ${world.lastResponse().body}" }
         return index
     }
+
+    /** Whether the background's artifact was deployed to [environment], read from the graph rather than a response. */
+    private fun isDeployedTo(environment: String): Boolean =
+        neo4jClient
+            .query(
+                "MATCH (a:Artifact { key: \$artifact })-[:DEPLOYED_TO]->(:Deployment)" +
+                    "-[:TO_ENVIRONMENT]->(e:Environment { key: \$environment }) RETURN count(e) > 0",
+            ).bindAll(mapOf("artifact" to checkNotNull(artifact).key, "environment" to environment))
+            .fetchAs(Boolean::class.javaObjectType)
+            .one()
+            .orElse(false)
 
     private fun assertOwner(
         hit: JsonNode,

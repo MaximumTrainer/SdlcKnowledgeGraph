@@ -191,7 +191,7 @@ input ChangeImpactInput {
     repositoryKey: String!
     "Paths the change touches, read against the repository's manifest and IaC index where it has one."
     paths: [String!]
-    "The commit of the change. Answered with changeScope unknown until Change nodes exist (#85)."
+    "The commit of the change, 4 to 64 hex characters. Keeps only deployments whose Artifact CONTAINS a matching Change (#85)."
     sha: String
     "Hops to walk, 1 to 4."
     depth: Int = 2
@@ -254,7 +254,7 @@ type ChangeImpact {
     "not_requested, not_applied (no index to read the paths against) or applied."
     pathFilter: String!
     matchedPaths: [String!]!
-    "not_requested, or unknown: a sha cannot scope the answer until Change nodes exist (#85)."
+    "not_requested; applied (deployments limited to those carrying a Change the sha names); or unknown (no Change matches it)."
     changeScope: String!
     "True when there were more hits than limit; how many more is not said."
     truncated: Boolean!

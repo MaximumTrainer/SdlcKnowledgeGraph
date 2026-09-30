@@ -11,6 +11,7 @@ import {
 } from '@/services/api'
 import { useCanWrite } from '@/auth/canWrite'
 import { refusalReason } from '@/auth/scopes'
+import { nodeRoute } from '@/lib/nodeRoute'
 
 /**
  * The relationships of one node, from that node's point of view.
@@ -63,11 +64,19 @@ const grouped = computed(() => {
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
 })
 
+/**
+ * Each load is numbered, and only the latest one may write. When the node changes before an earlier
+ * answer arrives, that answer describes a node this panel is no longer beside and is dropped.
+ */
+let latestLoad = 0
+
 const load = async () => {
+  const thisLoad = ++latestLoad
   const [ontology, found] = await Promise.all([
     ontologyApi.get(),
     edgeApi.forNode(props.type, props.nodeKey)
   ])
+  if (thisLoad !== latestLoad) return
   edgeTypes.value = ontology.edgeTypes
   edges.value = found
 }
@@ -208,7 +217,7 @@ const remove = async (edge: EdgeView) => {
         <h3>{{ displayName }}</h3>
         <ul>
           <li v-for="edge in group" :key="`${edge.type}-${edge.other.id}`">
-            <router-link :to="`/nodes/${edge.other.type}/${edge.other.key}`">
+            <router-link :to="nodeRoute(edge.other.type, edge.other.key)">
               {{ edge.other.key }}
             </router-link>
             <span v-if="Object.keys(edge.props).length" class="props">

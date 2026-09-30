@@ -206,6 +206,45 @@ type IacFileNode implements GraphNode {
   provenance: Provenance!
 }
 
+"""A commit range or merge in a repository, identified there by its head sha."""
+type ChangeNode implements GraphNode {
+  id: ID!
+  key: String!
+  repositoryKey: String!
+  sha: String!
+  baseSha: String
+  title: String
+  author: String
+  committedAt: String!
+  url: String
+  provenance: Provenance!
+}
+
+"""A proposal to merge a change into a repository, as the forge records it."""
+type PullRequestNode implements GraphNode {
+  id: ID!
+  key: String!
+  repositoryKey: String!
+  number: Int!
+  url: String!
+  title: String
+  state: String
+  mergedAt: String
+  branch: String
+  provenance: Provenance!
+}
+
+"""A task, ticket or issue in the system that owns it, referred to by its URI."""
+type ExternalWorkItemNode implements GraphNode {
+  id: ID!
+  key: String!
+  uri: String!
+  system: String!
+  externalKey: String
+  title: String
+  provenance: Provenance!
+}
+
 """Records which ontology version the graph was built with."""
 type OntologyNode implements GraphNode {
   id: ID!
@@ -272,6 +311,11 @@ enum EdgeType {
   DEPLOYED_TO
   TO_ENVIRONMENT
   PROVIDES
+  INTRODUCED_IN
+  MERGES
+  CONTAINS
+  IMPLEMENTS
+  TRACKED_IN
   PRODUCED
 }
 

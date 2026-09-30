@@ -17,7 +17,11 @@ data class ChangeImpactRequest(
     val repositoryKey: String? = null,
     @field:Schema(description = "Paths in the repository the change touches; read against its manifest and IaC index where it has one")
     val paths: List<String?>? = null,
-    @field:Schema(description = "The commit of the change. Answered with changeScope unknown until Change nodes exist (#85)")
+    @field:Schema(
+        description =
+            "The commit of the change, 4 to 64 hex characters. Keeps only deployments whose Artifact CONTAINS a " +
+                "Change it names (changeScope applied); unknown when no Change in the repository matches it (#85)",
+    )
     val sha: String? = null,
     @field:Schema(description = "Hops to walk, 1 to 4", defaultValue = "2", minimum = "1", maximum = "4")
     val depth: Int? = null,

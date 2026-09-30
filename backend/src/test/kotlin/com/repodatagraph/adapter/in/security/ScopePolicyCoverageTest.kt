@@ -76,6 +76,31 @@ class ScopePolicyCoverageTest {
     }
 
     @Test
+    fun `the change lineage queries are mapped, and are reads (#85)`() {
+        listOf("/api/v1/work-items/deployments", "/api/v1/deployments/work-items").forEach { path ->
+            assertTrue(Route("GET", path) in routes, "routes found: $routes")
+            assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("GET", path))
+        }
+    }
+
+    @Test
+    fun `a node read by key is a read, and changing it by key is a write (#85)`() {
+        assertTrue(Route("GET", "/api/v1/nodes/{type}/by-key") in routes, "routes found: $routes")
+        assertEquals(
+            RouteRequirement.Scopes(setOf(GraphScope.READ)),
+            ScopePolicy.requirementFor("GET", "/api/v1/nodes/ExternalWorkItem/by-key"),
+        )
+        assertEquals(
+            RouteRequirement.Scopes(setOf(GraphScope.WRITE)),
+            ScopePolicy.requirementFor("PUT", "/api/v1/nodes/ExternalWorkItem/by-key"),
+        )
+        assertEquals(
+            RouteRequirement.Scopes(setOf(GraphScope.WRITE)),
+            ScopePolicy.requirementFor("DELETE", "/api/v1/nodes/ExternalWorkItem/by-key"),
+        )
+    }
+
+    @Test
     fun `every mapped route has a scope requirement or is on the public allowlist`() {
         val undeclared = routes.filter { ScopePolicy.requirementFor(it.method, it.samplePath) == null }
 

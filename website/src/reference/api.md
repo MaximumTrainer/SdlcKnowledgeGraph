@@ -13,6 +13,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/connectors/{name}/health` | Whether the source system is reachable now | 200 |
 | `GET` | `/api/v1/connectors/{name}/runs` | This connector's runs, newest first | 200 |
 | `POST` | `/api/v1/connectors/{name}/sync` | Ask a connector to sync now | 200 |
+| `GET` | `/api/v1/deployments/work-items` | What a deployment carries: the changes its artifacts contain and the work items they implement | 200 |
 | `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
 | `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees | 200 |
 | `POST` | `/api/v1/edges` | State a relationship between two existing nodes, as manual or as a source the caller's scopes allow | 200 |
@@ -38,6 +39,9 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/ingest/seed` | Record repositories, teams, pipelines and dependencies read by the dogfood seed | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |
 | `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity, as manual or a permitted source | 200 |
+| `DELETE` | `/api/v1/nodes/{type}/by-key` | Delete a node addressed by its key as a query parameter (#85) | 200 |
+| `GET` | `/api/v1/nodes/{type}/by-key` | Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85) | 200 |
+| `PUT` | `/api/v1/nodes/{type}/by-key` | Replace the properties of a node addressed by its key as a query parameter (#85) | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
 | `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id | 200 |
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity | 200 |
@@ -59,3 +63,4 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/sync-runs` | List sync runs, newest first, filtered by connector, status and start time | 200 |
 | `GET` | `/api/v1/sync-runs/{id}` | One sync run in full, with its whole error and details | 200 |
 | `POST` | `/api/v1/webhooks/{name}` | Accept a signed webhook from a source system | 200 |
+| `GET` | `/api/v1/work-items/deployments` | Where a work item is live: every deployment of an artifact containing a change that implements it | 200 |
