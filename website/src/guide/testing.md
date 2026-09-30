@@ -44,8 +44,11 @@ which turns authentication on against a Keycloak in Testcontainers loaded from t
 in `backend/src/acceptanceTest/resources/keycloak/`, the same realm the compose `auth` profile
 imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does, and
 get machine tokens with the client-credentials grant for the realm's confidential clients
-(`service-principals.feature`). The other backend suites run with the bypass too; `AuthGateWebTest`
-covers the 401 and the 403 for an unregistered client.
+(`service-principals.feature`), some of them asking for fewer scopes than the client may hold
+(`scopes.feature`). The other backend suites run with the bypass too; `AuthGateWebTest` covers the
+401 and the 403 for an unregistered client, and `ScopeGateWebTest` the 403 for a missing scope.
+`ScopePolicyCoverageTest` reads every controller's mappings and fails while a route has no declared
+scope requirement.
 
 `backend/src/testSupport/kotlin` holds helpers shared by more than one suite, currently the
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
@@ -102,7 +105,8 @@ into green hides races like the one in #148, and a real regression would be hidd
 browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
 never by reading a locator once straight after the click that loads it.
 
-`e2e/auth` is the login journey and a registered connector's write, with its own config for the
+`e2e/auth` is the login journey, a registered connector's write and a read-only user (#116), with
+its own config for the
 stack behind Keycloak: CI restarts the
 compose stack with `compose.auth.yaml` and the `auth` profile after the conformance runs, then runs
 `npx playwright test --config=auth.config.ts`. The main browser suite runs against the default stack,

@@ -5,9 +5,9 @@
 ## Status
 
 Accepted, amended by [#114](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/114) (AUTH-1, below), which is the first slice to be
-built, and by [#115](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/115) (AUTH-2, machine principals, below). The rest of the
-sequence - scopes (AUTH-3) and making the login the default (AUTH-5) - elaborates those slices
-without changing their shape. The original work items are
+built, by [#115](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/115) (AUTH-2, machine principals, below) and by
+[#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116) (AUTH-3, scopes, below). The rest of the sequence - making the login the
+default (AUTH-5) - elaborates those slices without changing their shape. The original work items are
 [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3) and [#2](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/2), tracked under [#94](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/94).
 
 ## Context
@@ -114,7 +114,8 @@ scraper inside the deployment holds no user token), the ontology document and th
 documentation, the webhook receivers (which verify the sender's signature), and the ingest endpoints,
 which keep their own bearer token (see AUTH-2 below).
 
-There are no scopes and no 403s yet: any valid token may do anything an anonymous caller could before.
+AUTH-1 had no scopes and no 403s: any valid token could do anything an anonymous caller could before.
+AUTH-3 (below) adds them.
 
 **The development bypass.** `AUTH_DISABLED=true` lets every request through and records its writes
 as `writtenBy: anonymous`. It logs a security warning (`auth.disabled`) on every start and is refused
@@ -167,5 +168,33 @@ and nothing is refused.
 An agent answering a person's question should see no more than that person can. Client credentials
 give the agent its own identity, not the user's, so the graph cannot tell whose question it is
 answering. OAuth 2 token exchange (RFC 8693) is the likely answer: the agent exchanges the user's
-token for one naming both, and provenance records the user as well as the agent. That needs scopes
-(AUTH-3) to mean anything and is left to a separate issue.
+token for one naming both, and provenance records the user as well as the agent. With scopes in place
+(AUTH-3, below) that can now mean something; it is left to a separate issue.
+
+## Amendment: AUTH-3, scopes (#116)
+
+**Two scopes, read and write, enforced in the API.** `graph:read` lets a principal read the graph
+(every `GET` under `/api/v1`, every GraphQL query) and `graph:write` change it (every `POST`, `PUT`,
+`PATCH` and `DELETE` under `/api/v1`, every GraphQL mutation). They are ordinary OAuth 2 scopes in
+the token's `scope` claim (or `scp`), issued by the identity provider: in Keycloak, client scopes
+gated by the realm roles `graph-reader` and `graph-writer`, so one client issues each user what their
+roles allow. Enforcement is in the backend rather than a gateway, so a refusal is explained the way
+every other refusal is: `403 {"error": "insufficient scope", "required": [...], "held": [...]}`.
+
+**Declared per route family, checked by walking the routes.** The requirement lives in one table
+(`ScopePolicy`) keyed by method and path pattern, not on each handler, and a test reads every mapped
+handler and fails while one has no requirement and is not on the explicit public allowlist. A new
+endpoint is either covered by its family or breaks the build.
+
+**GraphQL is refused with the same HTTP 403**, before the document runs, rather than as a GraphQL
+error in a 200: one refusal shape for both APIs, and no partly executed mutation. Every operation in
+the document counts, and a document that cannot be shown to hold only reads needs `graph:write`.
+
+**Refusals come in order:** no valid token (401), an unregistered client (403, AUTH-2), then missing
+scopes (403). The ontology stays public, which more than satisfies "any valid token may read it".
+The service principal registry needs `graph:write` to change and `graph:read` to list, on top of
+AUTH-2's users-only rule. The web interface hides what the user's scopes do not allow, and shows the
+refusal's reason if one slips through. `AUTH_DISABLED=true` checks no scopes.
+
+**Out of scope:** per-source write scopes (AUTH-4) and anything finer, which is policy
+([#95](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/95)), not scopes.

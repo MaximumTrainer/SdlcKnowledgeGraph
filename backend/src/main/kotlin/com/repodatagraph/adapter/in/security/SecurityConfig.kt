@@ -29,13 +29,14 @@ import org.springframework.security.web.SecurityFilterChain
  * needs a bearer JWT signed by the configured issuer, and anything else is refused with a 401 the web
  * interface answers by restarting the login.
  *
- * There are no scopes yet. Any valid token may do what any caller could before; deciding *what* a
- * principal may do is AUTH-3. What this establishes is *who* the caller is, which is what provenance
- * records ([SecurityContextPrincipal]): a user, or a connector or agent holding a client-credentials
- * token, which [ServicePrincipalGate] lets in only once its client is a registered service principal
- * (#115).
+ * What a principal may do is decided by the graph scopes on its token (#116): `graph:read` to read,
+ * `graph:write` to change the graph, declared once per route family in [ScopePolicy] and checked by
+ * [ScopeGate]. Who the caller is, which is what provenance records ([SecurityContextPrincipal]), is a
+ * user, or a connector or agent holding a client-credentials token, which [ServicePrincipalGate] lets
+ * in only once its client is a registered service principal (#115).
  *
- * A few paths stay public, each for a reason that does not depend on who is asking:
+ * A few paths stay public, each for a reason that does not depend on who is asking. They are
+ * [ScopePolicy.PUBLIC], the same list the scope check exempts:
  * - the probes, `/actuator/info` and `/actuator/prometheus`: the platform and the scraper inside the
  *   deployment hold no user token (docs/DEPLOYMENT.md D1, D2, D9);
  * - the ingest endpoints, which keep their own bearer token (D6) - their token is never decoded as a
@@ -55,6 +56,8 @@ class SecurityConfig(
     private val objectMapper: ObjectMapper,
     private val servicePrincipals: ServicePrincipalUseCase,
 ) {
+    // The spread copies a handful of patterns once, when the chain is built.
+    @Suppress("SpreadOperator")
     @Bean
     fun apiSecurity(http: HttpSecurity): SecurityFilterChain {
         http
@@ -74,28 +77,18 @@ class SecurityConfig(
         val refusal = unauthenticated()
         http
             .authorizeHttpRequests {
-                // Answered for anyone, whatever the method. /error is where the servlet container
-                // forwards a failure of a request that was already let in.
-                it
-                    .requestMatchers(
-                        "/actuator/health",
-                        "/actuator/health/**",
-                        "/actuator/info",
-                        "/actuator/prometheus",
-                        "/api-docs",
-                        "/api-docs/**",
-                        "/swagger-ui.html",
-                        "/swagger-ui/**",
-                        "/error",
-                    ).permitAll()
-                    // The model, not the data in it (ADR-0005).
-                    .requestMatchers(HttpMethod.GET, "/api/v1/ontology", "/api/v1/ontology/**")
-                    .permitAll()
-                    // Guarded by a credential of their own rather than a user's token.
-                    .requestMatchers(HttpMethod.POST, "$INGEST_PREFIX**", "/api/v1/webhooks/*")
-                    .permitAll()
-                    .anyRequest()
-                    .authenticated()
+                // Answered for anyone, each for the reason ScopePolicy gives: the probes, the API's
+                // description, the error page, the ontology, and the endpoints with a credential of
+                // their own (the ingest token, a webhook's signature).
+                ScopePolicy.PUBLIC.forEach { family ->
+                    val patterns = family.patterns.toTypedArray()
+                    if (family.methods.isEmpty()) {
+                        it.requestMatchers(*patterns).permitAll()
+                    } else {
+                        family.methods.forEach { method -> it.requestMatchers(HttpMethod.valueOf(method), *patterns).permitAll() }
+                    }
+                }
+                it.anyRequest().authenticated()
             }.oauth2ResourceServer {
                 it
                     .jwt(Customizer.withDefaults())
@@ -104,6 +97,9 @@ class SecurityConfig(
             }.exceptionHandling { it.authenticationEntryPoint(refusal) }
             // A client's token is good only once its client is a registered service principal (#115).
             .addFilterAfter(ServicePrincipalGate(servicePrincipals, objectMapper), BearerTokenAuthenticationFilter::class.java)
+            // And then only for what its scopes allow (#116). After the registry gate, so an
+            // unregistered client is told that rather than which scope it lacks.
+            .addFilterAfter(ScopeGate(objectMapper), ServicePrincipalGate::class.java)
         return http.build()
     }
 

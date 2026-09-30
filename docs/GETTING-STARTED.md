@@ -59,7 +59,9 @@ docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --build
 
 That starts Keycloak on port 8081 with a development realm, and points the API and the web interface
 at it. Opening `http://localhost:5173` now sends you to Keycloak's login page; sign in as `dan`,
-password `dan`. Keycloak's admin console is on `http://localhost:8081` (`admin` / `admin`).
+password `dan`. Signing in as `reader` (password `reader`) instead shows the graph as a user who may
+only read it: nothing offers to change it. Keycloak's admin console is on `http://localhost:8081`
+(`admin` / `admin`).
 
 The realm also has two example machine clients, `github-connector` and `triage-agent`, which get
 tokens with the client-credentials grant; the API lets them in once `dan` has registered them as

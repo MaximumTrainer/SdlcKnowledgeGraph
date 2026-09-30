@@ -94,6 +94,15 @@ object LogEvents {
     ) =
         EventLog.emit("principal.refused", Level.WARN, "token from an unregistered client refused", mapOf("clientId" to clientId), security = true)
 
+    /** A principal the API knows was refused with 403 because its token lacks a graph scope the request needs - graph:read to read, graph:write to change the graph. Names the principal, the method and the scopes, never the path, which can hold a node's key. */
+    fun scopeRefused(
+        principal: String,
+        method: String,
+        required: List<String>,
+        held: List<String>,
+    ) =
+        EventLog.emit("scope.refused", Level.WARN, "request refused for insufficient scope", mapOf("principal" to principal, "method" to method, "required" to required, "held" to held), security = true)
+
     /** The API started with AUTH_DISABLED=true, the development bypass (#114). Every request is let through and every write is recorded as anonymous. Logged on every start, and refused outright under the prod profile. */
     fun authDisabled() =
         EventLog.emit("auth.disabled", Level.WARN, "authentication is disabled; every request is anonymous", mapOf(), security = true)

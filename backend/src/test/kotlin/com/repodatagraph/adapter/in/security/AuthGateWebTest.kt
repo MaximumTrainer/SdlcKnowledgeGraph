@@ -80,6 +80,8 @@ class AuthGateWebTest {
             .withTokenValue("good")
             .header("alg", "RS256")
             .subject(subject)
+            // Both graph scopes (#116), so what this class proves is the gate, not the scopes.
+            .claim("scope", "openid graph:read graph:write")
             .issuer("https://issuer.example.test/realms/sdlc")
             .issuedAt(Instant.parse("2026-01-01T00:00:00Z"))
             .expiresAt(Instant.parse("2099-01-01T00:00:00Z"))
@@ -93,6 +95,7 @@ class AuthGateWebTest {
             .subject("0b6f3c1e-service-account")
             .claim("azp", clientId)
             .claim("preferred_username", "service-account-$clientId")
+            .claim("scope", "profile graph:read graph:write")
             .issuer("https://issuer.example.test/realms/sdlc")
             .issuedAt(Instant.parse("2026-01-01T00:00:00Z"))
             .expiresAt(Instant.parse("2099-01-01T00:00:00Z"))

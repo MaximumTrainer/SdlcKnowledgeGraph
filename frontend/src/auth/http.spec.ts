@@ -9,6 +9,7 @@ import type { AuthSession } from './session'
 /** Every call to the API carries the token, and a 401 restarts the login rather than erroring (#114). */
 const session = (token: string | null): AuthSession => ({
   username: ref(null),
+  scopes: ref([]),
   accessToken: vi.fn(async () => token),
   signIn: vi.fn(async () => undefined),
   completeSignIn: vi.fn(async () => '/'),

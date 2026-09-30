@@ -5,10 +5,7 @@ import graphql.language.OperationDefinition
 import graphql.parser.InvalidSyntaxException
 import graphql.parser.Parser
 import jakarta.servlet.FilterChain
-import jakarta.servlet.ReadListener
-import jakarta.servlet.ServletInputStream
 import jakarta.servlet.http.HttpServletRequest
-import jakarta.servlet.http.HttpServletRequestWrapper
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -18,10 +15,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.io.BufferedReader
-import java.io.ByteArrayInputStream
-import java.io.IOException
-import java.io.InputStreamReader
 
 /** A write that stays allowed on a read-only instance: an exact method and an exact path. */
 data class AllowedWrite(
@@ -137,39 +130,6 @@ class ReadOnlyGuard internal constructor(
         response.contentType = MediaType.APPLICATION_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()
         objectMapper.writeValue(response.outputStream, mapOf("error" to REFUSAL))
-    }
-
-    /** The body had to be read to be inspected, so the application is handed the same bytes again. */
-    private class ReplayedBodyRequest(
-        request: HttpServletRequest,
-        private val body: ByteArray,
-    ) : HttpServletRequestWrapper(request) {
-        override fun getInputStream(): ServletInputStream = ByteArrayServletInputStream(ByteArrayInputStream(body))
-
-        override fun getReader(): BufferedReader =
-            BufferedReader(InputStreamReader(inputStream, characterEncoding ?: Charsets.UTF_8.name()))
-
-        override fun getContentLength(): Int = body.size
-
-        override fun getContentLengthLong(): Long = body.size.toLong()
-    }
-
-    private class ByteArrayServletInputStream(
-        private val source: ByteArrayInputStream,
-    ) : ServletInputStream() {
-        override fun read(): Int = source.read()
-
-        override fun read(
-            b: ByteArray,
-            off: Int,
-            len: Int,
-        ): Int = source.read(b, off, len)
-
-        override fun isFinished(): Boolean = source.available() == 0
-
-        override fun isReady(): Boolean = true
-
-        override fun setReadListener(listener: ReadListener?): Unit = throw IOException("asynchronous reads are not supported")
     }
 
     companion object {

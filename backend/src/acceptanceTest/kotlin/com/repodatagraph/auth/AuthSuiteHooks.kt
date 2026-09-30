@@ -1,5 +1,6 @@
 package com.repodatagraph.auth
 
+import io.cucumber.java.AfterAll
 import io.cucumber.java.BeforeAll
 
 /**
@@ -8,9 +9,22 @@ import io.cucumber.java.BeforeAll
  * that insists on an issuer reads the environment before dynamic properties exist. The other suites
  * run with the development bypass, where an issuer is ignored.
  *
- * A top-level function, because Cucumber wants a static method and a companion object's is not one.
+ * Top-level functions, because Cucumber wants a static method and a companion object's is not one.
  */
 @BeforeAll
 fun nameTheIssuer() {
-    System.setProperty("sdlc.auth.issuer-uri", DevRealmKeycloak.issuer)
+    System.setProperty(ISSUER_PROPERTY, DevRealmKeycloak.issuer)
 }
+
+/**
+ * Takes the issuer back once the suite is done. The suites share a JVM, and a system property outranks
+ * the AUTH_ISSUER_URI a later suite's startup scenario unsets, so a leftover issuer would let the
+ * application start where that scenario expects it to refuse - as it did whenever this suite ran
+ * first.
+ */
+@AfterAll
+fun forgetTheIssuer() {
+    System.clearProperty(ISSUER_PROPERTY)
+}
+
+private const val ISSUER_PROPERTY = "sdlc.auth.issuer-uri"

@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { server } from '@/test/msw/server'
 import { ontologyFixture } from '@/test/fixtures/ontology'
 import NodeEditor from './NodeEditor.vue'
+import { insufficientScope } from '@/test/authSession'
 
 /**
  * The editor renders itself from the ontology, so these assert the mapping from declared property
@@ -148,6 +149,21 @@ describe('NodeEditor', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('already exists')
+  })
+
+  it('says which scope was missing when a save is refused for it (#116)', async () => {
+    server.use(
+      http.post('/api/v1/nodes/Team', () => HttpResponse.json(insufficientScope, { status: 403 }))
+    )
+    const wrapper = await editorFor({ type: 'Team' })
+
+    await wrapper.find('input[name="name"]').setValue('platform')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="form-error"]').text()).toBe(
+      'You do not have permission to do that: it needs graph:write, and you hold graph:read.'
+    )
   })
 
   it('shows a server-side field error against its own field', async () => {

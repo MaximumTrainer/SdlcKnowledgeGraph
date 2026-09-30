@@ -160,8 +160,12 @@ Every request under `/api` and `/graphql` needs a bearer JWT from the instance's
 (`Authorization: Bearer <token>`), unless the instance runs its development bypass
 (`AUTH_DISABLED=true`). Without a valid token the answer is
 `401 {"error": "authentication required"}` with a `WWW-Authenticate: Bearer` challenge; why a token
-was refused is not said. There are no scopes yet: any valid token may do anything. A few paths need
-no token: the health probes, `/actuator/info`, `/actuator/prometheus`, the ontology document, the
+was refused is not said. What a token may do is set by its scopes: `graph:read` for every `GET` and
+GraphQL query, `graph:write` for every `POST`, `PUT`, `PATCH`, `DELETE` and GraphQL mutation. A token
+without the one a request needs gets
+`403 {"error": "insufficient scope", "required": ["graph:write"], "held": ["graph:read"]}`, GraphQL
+included, and the web interface does not offer a user controls their scopes would not allow. A few
+paths need no token and no scope: the health probes, `/actuator/info`, `/actuator/prometheus`, the ontology document, the
 API documentation, the webhook receivers (which check the sender's signature) and the ingest
 endpoints (which have their own bearer token). Every write records the token's subject as
 `writtenBy`, and `principalType: "user"`, in its provenance.
