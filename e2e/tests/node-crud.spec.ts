@@ -70,7 +70,10 @@ test.describe('ontology-driven node CRUD', () => {
     await page.getByLabel('email').fill('platform@acme.example')
     await save(page, name)
 
-    await expect(page.getByText('platform@acme.example')).toBeVisible()
+    // Exactly the value, as the properties list shows it. The history below it (#33) lists the change
+    // as `email: platform@acme.example` once its own request answers, so a looser match found one
+    // element or two depending on which request won.
+    await expect(page.getByText('platform@acme.example', { exact: true })).toBeVisible()
 
     // The bug: the hand-written editor called create in both modes, so this was 2.
     await page.goto('/nodes/Team')
