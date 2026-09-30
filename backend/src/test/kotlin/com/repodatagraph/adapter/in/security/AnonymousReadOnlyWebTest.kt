@@ -1,10 +1,14 @@
 package com.repodatagraph.adapter.`in`.security
 
+import com.repodatagraph.adapter.`in`.rest.ChangeImpactController
 import com.repodatagraph.adapter.`in`.rest.NodeController
 import com.repodatagraph.adapter.`in`.rest.NodeRestExceptionHandler
 import com.repodatagraph.adapter.`in`.rest.SeedIngestController
 import com.repodatagraph.adapter.`in`.rest.ServicePrincipalController
+import com.repodatagraph.domain.exception.NodeNotFoundException
+import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
+import com.repodatagraph.domain.port.`in`.ChangeImpactUseCase
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.SeedIngestOutcome
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
@@ -40,7 +44,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
  * no issuer there are no keys to trust, so the API holds no decoder at all.
  */
 @WebMvcTest(
-    controllers = [NodeController::class, SeedIngestController::class, ServicePrincipalController::class],
+    controllers = [NodeController::class, SeedIngestController::class, ServicePrincipalController::class, ChangeImpactController::class],
     properties = [
         "sdlc.read-only=true",
         "sdlc.auth.issuer-uri=",
@@ -63,6 +67,9 @@ class AnonymousReadOnlyWebTest {
     @MockitoBean
     private lateinit var servicePrincipals: ServicePrincipalUseCase
 
+    @MockitoBean
+    private lateinit var changeImpact: ChangeImpactUseCase
+
     @Test
     fun `a read needs no token`() {
         whenever(nodeUseCase.list(eq("Repository"), any(), anyOrNull())).thenReturn(NodePage(emptyList(), null))
@@ -70,6 +77,17 @@ class AnonymousReadOnlyWebTest {
         mockMvc
             .perform(get("/api/v1/nodes/Repository"))
             .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `a query sent as a POST needs no token either, because it only reads (#87)`() {
+        whenever(changeImpact.changeImpact(any())).thenThrow(NodeNotFoundException(listOf(NodeKey("Repository", "github.com/acme/x"))))
+
+        mockMvc
+            .perform(post("/api/v1/impact").contentType(MediaType.APPLICATION_JSON).content("""{"repositoryKey":"github.com/acme/x"}"""))
+            .andExpect(status().isNotFound)
+
+        verify(changeImpact).changeImpact(any())
     }
 
     @Test

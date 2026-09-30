@@ -301,6 +301,25 @@ and a confidence ([Ontology](/guide/ontology#traversal-semantics) has the rules)
 Encode the id as a query value: a Deployment key holds `#`, which is `%23`. A malformed parameter is
 `400 {error, field}` naming it; a node that does not exist is `404`.
 
+### Impact of a change
+
+`POST /api/v1/impact` answers what a change to a repository reaches, ranked for a coding agent's
+context pack: each hit with a score, the environment it runs in, its owners and a citation of the
+facts behind it, in an order that does not change between identical requests
+([Ontology](/guide/ontology#impact-of-a-change-ranked-for-an-agent) has the formula).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/impact \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"repositoryKey": "github.com/acme/payments", "paths": ["infra/db.tf"], "depth": 2, "limit": 50}'
+```
+
+`depth` is 1 to 4 (default 2), `limit` 1 to 500 (default 50). The answer says whether the `paths`
+could be read against the repository's IaC and manifest index (`pathFilter`) and that a `sha` cannot
+narrow it yet (`changeScope: "unknown"`). A production deployment outranks a staging one only when
+the environments say which is which: give each Environment a `tier` (`production`,
+`pre_production`, `development` or `other`; unset reads as `other`). It needs only `graph:read`.
+
 ### The repository endpoints
 
 `/api/v1/repositories` predates the registry. It is kept so existing callers keep working, but
@@ -325,7 +344,8 @@ GraphiQL at `/graphiql` for trying queries. It is the pre-registry surface: quer
 neighbours only; the generic node and edge operations are available through REST. `impact(nodeId,
 depth, minConfidence, direction)` and `whyDeploymentFailed(id)` answer as their REST counterparts
 do, and return the generated `<Type>Node` types from `schema.generated.graphqls`, provenance
-included, so select fields with `... on RepositoryNode { url }`.
+included, so select fields with `... on RepositoryNode { url }`. `changeImpact(input: {repositoryKey,
+paths, sha, depth, limit})` answers as `POST /api/v1/impact` does.
 
 ## Read-only instances
 
@@ -340,6 +360,7 @@ where every read needs no token and nothing can be written by nobody. The dogfoo
   `POST /api/v1/ingest/deployment`, where the deploy pipeline reports what it deployed, and
   `POST /api/v1/ingest/seed`, where the dogfood seed records this repository. Both have their own
   bearer token and refuse anyone without it ([Adapters](/guide/adapters#self-ingestion-deployments-from-the-pipeline)).
+- `POST /api/v1/impact` is answered: it is a query whose input is a body, and it writes nothing.
 - `POST /graphql` is answered only when the document can be parsed and contains no mutation. A
   document that carries a mutation anywhere, whichever operation it names, is refused, and so is
   one that cannot be parsed or is larger than 256 KB.

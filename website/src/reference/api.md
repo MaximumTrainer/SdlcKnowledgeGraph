@@ -32,6 +32,7 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/graph/repositories/{repoId}/servicenow` | Get the ServiceNow CI item linked to a repository | 200 |
 | `GET` | `/api/v1/graph/repositories/{repoId}/team` | Get the owning team for a repository | 200 |
 | `GET` | `/api/v1/graph/why-failed` | Why a deployment failed: its lineage, the last success before it and the dependencies deployed since | 200 |
+| `POST` | `/api/v1/impact` | Impact of a change: what a change to a repository reaches, ranked, with owners and a citation per hit | 200 |
 | `POST` | `/api/v1/ingest/deployment` | Record a deployment reported by the deploy pipeline | 200 |
 | `POST` | `/api/v1/ingest/seed` | Record repositories, teams, pipelines and dependencies read by the dogfood seed | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |

@@ -36,6 +36,17 @@ class TraversalFilterBuilder(
             .filter { it.ownership == EdgeOwnership.OWNER }
             .mapTo(linkedSetOf()) { it.name }
 
+    /**
+     * The edges that place a node in an environment (#87): the propagating ones that end at an
+     * Environment, followed as stored. Only a propagating edge, because an edge a change does not
+     * travel along - a sync run's PRODUCED - says nothing about where something runs.
+     */
+    fun placement(): Set<String> =
+        registry
+            .allEdgeTypes()
+            .filter { it.impact == EdgeImpact.PROPAGATES && ENVIRONMENT in it.to }
+            .mapTo(linkedSetOf()) { it.name }
+
     private fun traversal(
         edges: List<EdgeTypeDef>,
         reversed: Boolean,
@@ -47,3 +58,5 @@ class TraversalFilterBuilder(
         )
     }
 }
+
+private const val ENVIRONMENT = "Environment"

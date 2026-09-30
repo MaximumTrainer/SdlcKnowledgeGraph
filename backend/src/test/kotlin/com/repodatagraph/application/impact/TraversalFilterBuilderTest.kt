@@ -100,6 +100,15 @@ class TraversalFilterBuilderTest {
     }
 
     @Test
+    fun `a node is placed in an environment by the propagating edges that end at one (#87)`() {
+        val shipped = TraversalFilterBuilder(YamlOntologyLoader(DefaultResourceLoader()).load())
+
+        // Not PRODUCED, which also ends at an Environment: a sync run records writing it, it does not run there.
+        assertEquals(setOf("TO_ENVIRONMENT"), shipped.placement())
+        assertEquals(emptySet<String>(), builder.placement())
+    }
+
+    @Test
     fun `the shipped registry inherits ownership back to a repository through resources, services, pipelines and builds`() {
         val shipped = TraversalFilterBuilder(YamlOntologyLoader(DefaultResourceLoader()).load())
 

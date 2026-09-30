@@ -90,6 +90,7 @@ export interface Environment {
   id: string
   name: string
   type: string
+  tier?: string
 }
 
 /** An infrastructure object in AWS, Azure or GCP. */

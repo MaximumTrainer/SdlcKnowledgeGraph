@@ -92,7 +92,8 @@
       "identity": ["name"],
       "properties": [
         { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "type", "type": "string", "required": true, "description": null }
+        { "name": "type", "type": "string", "required": true, "description": null },
+        { "name": "tier", "type": "string", "required": false, "description": "Criticality, for ranking impact; read as other where absent", "enum": ["production", "pre_production", "development", "other"] }
       ],
       "meta": false
     },

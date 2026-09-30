@@ -6,6 +6,8 @@ import com.repodatagraph.domain.model.DeploymentRecord
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.OwnerPath
+import com.repodatagraph.domain.model.PathIndexEntry
+import com.repodatagraph.domain.model.PathIndexKind
 import com.repodatagraph.domain.model.PathSearch
 import com.repodatagraph.domain.model.PathStep
 import com.repodatagraph.domain.model.Provenance
@@ -52,7 +54,7 @@ class Neo4jImpactQueries(
                     RETURN labels(n)[0] AS type, n { .* } AS node, $PATH_COLUMNS
                     LIMIT ${'$'}limit
                     """.trimIndent(),
-                ).bindAll(parameters(root, traversal) + ("limit" to limit.toLong() + 1))
+                ).bindAll(parameters(traversal) + ("key" to root.key) + ("limit" to limit.toLong() + 1))
                 .fetch()
                 .all()
                 .toList()
@@ -91,11 +93,125 @@ class Neo4jImpactQueries(
                 WHERE o.prov_validTo IS NULL AND team.prov_validTo IS NULL
                 RETURN labels(team)[0] AS type, team { .* } AS team, $PATH_COLUMNS
                 """.trimIndent(),
-            ).bindAll(parameters(node, inheritance))
+            ).bindAll(parameters(inheritance) + ("key" to node.key))
             .fetch()
             .all()
             // The owner edge is walked as stored, so the traversal names it by its own name.
             .map { row -> OwnerPath(GraphRowMapper.toNode(row["type"].toString(), row["team"]), ImpactRowMapper.steps(row, inheritance)) }
+    }
+
+    /**
+     * One statement per node type among [nodes], since a label cannot be a parameter; each walks
+     * the same pattern as [ownerPaths] from every node of that type at once.
+     */
+    override fun ownerPathsOf(
+        nodes: Collection<NodeKey>,
+        inheritance: Traversal,
+        ownerEdges: Set<String>,
+        maxDepth: Int,
+    ): Map<NodeKey, List<OwnerPath>> {
+        if (ownerEdges.isEmpty() || nodes.isEmpty()) return emptyMap()
+        val owner = ownerEdges.joinToString("|") { cypher.edgeType(it) }
+        val pattern =
+            if (inheritance.edgeTypes.isEmpty()) {
+                "(start)-[o:$owner]->(team)"
+            } else {
+                "(start) ${step(inheritance)}{0,${depth(maxDepth)}} (owned)-[o:$owner]->(team)"
+            }
+        return nodes
+            .distinct()
+            .groupBy { it.type }
+            .flatMap { (type, keys) ->
+                neo4jClient
+                    .query(
+                        """
+                        UNWIND ${'$'}keys AS key
+                        MATCH (start:${cypher.nodeLabel(type)} { key: key })
+                        MATCH p = $pattern
+                        WHERE o.prov_validTo IS NULL AND team.prov_validTo IS NULL
+                        RETURN start.key AS start, labels(team)[0] AS type, team { .* } AS team, $PATH_COLUMNS
+                        """.trimIndent(),
+                    ).bindAll(parameters(inheritance) + ("keys" to keys.map { it.key }))
+                    .fetch()
+                    .all()
+                    .map { row ->
+                        NodeKey(type, row["start"].toString()) to
+                            OwnerPath(GraphRowMapper.toNode(row["type"].toString(), row["team"]), ImpactRowMapper.steps(row, inheritance))
+                    }
+            }.groupBy({ it.first }, { it.second })
+    }
+
+    override fun placements(
+        nodes: Collection<NodeKey>,
+        edges: Set<String>,
+    ): Map<NodeKey, List<GraphNode>> {
+        if (edges.isEmpty() || nodes.isEmpty()) return emptyMap()
+        val types = edges.joinToString("|") { cypher.edgeType(it) }
+        return nodes
+            .distinct()
+            .groupBy { it.type }
+            .flatMap { (type, keys) ->
+                neo4jClient
+                    .query(
+                        """
+                        UNWIND ${'$'}keys AS key
+                        MATCH (n:${cypher.nodeLabel(type)} { key: key })-[r:$types]->(t)
+                        WHERE r.prov_validTo IS NULL AND t.prov_validTo IS NULL
+                        RETURN n.key AS start, labels(t)[0] AS type, t { .* } AS node
+                        """.trimIndent(),
+                    ).bindAll(mapOf("keys" to keys.map { it.key }))
+                    .fetch()
+                    .all()
+                    .map { row -> NodeKey(type, row["start"].toString()) to GraphRowMapper.toNode(row["type"].toString(), row["node"]) }
+            }.groupBy({ it.first }, { it.second })
+    }
+
+    /**
+     * The index the GitHub connector writes (#23): an IacFile per infrastructure file the repository
+     * CONTAINS_IAC, and the `manifest` each DEPENDS_ON edge was read from. The edge names are that
+     * connector's, each checked against the registry.
+     */
+    override fun pathIndex(repository: NodeKey): List<PathIndexEntry> {
+        val label = cypher.nodeLabel(repository.type)
+        val containsIac = cypher.edgeType("CONTAINS_IAC")
+        val entry = { row: Map<String, Any?>, kind: PathIndexKind ->
+            PathIndexEntry(
+                path = row["path"].toString(),
+                kind = kind,
+                names =
+                    (row["names"] as? List<*>)
+                        .orEmpty()
+                        .filterNotNull()
+                        .map { it.toString() }
+                        .sorted(),
+            )
+        }
+        val dependsOn = cypher.edgeType("DEPENDS_ON")
+        val iac =
+            neo4jClient
+                .query(
+                    """
+                    MATCH (:$label { key: ${'$'}key })-[c:$containsIac]->(f)
+                    WHERE c.prov_validTo IS NULL AND f.prov_validTo IS NULL AND f.path IS NOT NULL
+                    RETURN f.path AS path, coalesce(f.resourceRefs, []) AS names
+                    """.trimIndent(),
+                ).bindAll(mapOf("key" to repository.key))
+                .fetch()
+                .all()
+                .map { entry(it, PathIndexKind.IAC) }
+        val manifests =
+            neo4jClient
+                .query(
+                    """
+                    MATCH (:$label { key: ${'$'}key })-[d:$dependsOn]->(x)
+                    WHERE d.prov_validTo IS NULL AND d.manifest IS NOT NULL
+                    RETURN d.manifest AS path, collect(x.key) AS names
+                    """.trimIndent(),
+                ).bindAll(mapOf("key" to repository.key))
+                .fetch()
+                .all()
+                .map { entry(it, PathIndexKind.MANIFEST) }
+        return iac + manifests
     }
 
     override fun deploymentFacts(
@@ -187,12 +303,8 @@ class Neo4jImpactQueries(
             """.trimIndent()
     }
 
-    private fun parameters(
-        start: NodeKey,
-        traversal: Traversal,
-    ): Map<String, Any> =
+    private fun parameters(traversal: Traversal): Map<String, Any> =
         mapOf(
-            "key" to start.key,
             "forward" to traversal.forward.toList(),
             "inverse" to traversal.inverse.keys.toList(),
         )

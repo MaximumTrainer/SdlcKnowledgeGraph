@@ -30,7 +30,8 @@ object GraphNodeView {
                 TYPE_NAME to "${node.type}Node",
             )
 
-    private fun provenance(provenance: Provenance): Map<String, Any?> =
+    /** Provenance as the generated `Provenance` type reads it; also what a change-impact citation cites (#87). */
+    fun provenance(provenance: Provenance): Map<String, Any?> =
         mapOf(
             "sourceSystem" to provenance.sourceSystem,
             "sourceId" to provenance.sourceId,

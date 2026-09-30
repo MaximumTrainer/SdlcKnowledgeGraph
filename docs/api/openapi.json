@@ -58,6 +58,130 @@
         "required" : [ "details", "eventType", "id", "timestamp" ],
         "type" : "object"
       },
+      "ChangeImpactRequest" : {
+        "properties" : {
+          "depth" : {
+            "default" : 2,
+            "description" : "Hops to walk, 1 to 4",
+            "format" : "int32",
+            "maximum" : 4,
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "limit" : {
+            "default" : 50,
+            "description" : "Hits to return, 1 to 500",
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "paths" : {
+            "description" : "Paths in the repository the change touches; read against its manifest and IaC index where it has one",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "repositoryKey" : {
+            "description" : "Key of the Repository that is about to change, e.g. github.com/acme/payments",
+            "example" : "github.com/acme/payments",
+            "type" : [ "string", "null" ]
+          },
+          "sha" : {
+            "description" : "The commit of the change. Answered with changeScope unknown until Change nodes exist (#85)",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ChangeImpactResponse" : {
+        "properties" : {
+          "changeScope" : {
+            "type" : "string"
+          },
+          "depth" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "hits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ImpactHitResponse"
+            },
+            "type" : "array"
+          },
+          "limit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "matchedPaths" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "pathFilter" : {
+            "type" : "string"
+          },
+          "repository" : {
+            "$ref" : "#/components/schemas/NodeRef"
+          },
+          "scoring" : {
+            "$ref" : "#/components/schemas/ScoringResponse"
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "changeScope", "depth", "hits", "limit", "matchedPaths", "pathFilter", "repository", "scoring", "truncated" ],
+        "type" : "object"
+      },
+      "CitationProvenance" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "observedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          },
+          "syncRunId" : {
+            "type" : [ "string", "null" ]
+          },
+          "validFrom" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "inferred", "sourceSystem", "validFrom" ],
+        "type" : "object"
+      },
+      "CitationResponse" : {
+        "properties" : {
+          "edgePath" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PathStepResponse"
+            },
+            "type" : "array"
+          },
+          "nodeKey" : {
+            "type" : "string"
+          },
+          "provenance" : {
+            "$ref" : "#/components/schemas/CitationProvenance"
+          }
+        },
+        "required" : [ "edgePath", "nodeKey", "provenance" ],
+        "type" : "object"
+      },
       "CloudResource" : {
         "properties" : {
           "id" : {
@@ -421,6 +545,21 @@
         "required" : [ "direction", "displayName", "inverse", "other", "props", "provenance", "type" ],
         "type" : "object"
       },
+      "EnvironmentRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "tier" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "tier" ],
+        "type" : "object"
+      },
       "FailureReasonResponse" : {
         "properties" : {
           "detail" : {
@@ -465,6 +604,25 @@
         "required" : [ "status" ],
         "type" : "object"
       },
+      "HitNodeView" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "props" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "key", "props", "type" ],
+        "type" : "object"
+      },
       "ImpactAnalysisResponse" : {
         "properties" : {
           "cloudResources" : {
@@ -490,6 +648,52 @@
           }
         },
         "required" : [ "cloudResources", "dependents", "deployments", "repoId" ],
+        "type" : "object"
+      },
+      "ImpactHitResponse" : {
+        "properties" : {
+          "citation" : {
+            "$ref" : "#/components/schemas/CitationResponse"
+          },
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "environment" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/EnvironmentRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "hops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "node" : {
+            "$ref" : "#/components/schemas/HitNodeView"
+          },
+          "owners" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerResponse"
+            },
+            "type" : "array"
+          },
+          "pathMatched" : {
+            "type" : "boolean"
+          },
+          "score" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "tier" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "citation", "confidence", "hops", "inferred", "node", "owners", "pathMatched", "score", "tier" ],
         "type" : "object"
       },
       "ImpactNodeView" : {
@@ -974,6 +1178,29 @@
           }
         },
         "required" : [ "codeowners", "defaultBranch", "id", "key", "topics", "url" ],
+        "type" : "object"
+      },
+      "ScoringResponse" : {
+        "properties" : {
+          "formula" : {
+            "type" : "string"
+          },
+          "pathMatchBoost" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "tierWeights" : {
+            "additionalProperties" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : "object"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "formula", "pathMatchBoost", "tierWeights", "version" ],
         "type" : "object"
       },
       "ServiceNowCI" : {
@@ -1718,7 +1945,7 @@
     "/api/v1/graph/impact" : {
       "get" : {
         "description" : "nodeId is Type:key. depth 1..5 (default 3), minConfidence 0..1 (default 0.5), direction downstream (default) or upstream. Edges walked are those the ontology flags `impact: propagates`. At most 1000 nodes are listed.",
-        "operationId" : "impact",
+        "operationId" : "impact_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "nodeId",
@@ -2077,6 +2304,36 @@
           }
         },
         "summary" : "Why a deployment failed: its lineage, the last success before it and the dependencies deployed since",
+        "tags" : [ "Graph Queries" ]
+      }
+    },
+    "/api/v1/impact" : {
+      "post" : {
+        "description" : "Walks the edges the ontology flags `impact: propagates` downstream from the repository, depth 1..4 (default 2). Each hit is scored min(1, 1/(1+hops) * tierWeight * pathBoost) - scoring version 1 - and the hits are ordered by score descending, hops ascending, node id ascending, at most `limit` (1..500, default 50) of them. Identical requests against an unchanged graph give identical bodies.",
+        "operationId" : "impact",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeImpactRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChangeImpactResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Impact of a change: what a change to a repository reaches, ranked, with owners and a citation per hit",
         "tags" : [ "Graph Queries" ]
       }
     },

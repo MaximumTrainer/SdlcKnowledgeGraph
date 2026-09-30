@@ -110,6 +110,7 @@ Identity: `name`
 | --- | --- | --- | --- |
 | `name` | `string` | yes |  |
 | `type` | `string` | yes |  |
+| `tier` | `string` | no | Criticality, for ranking impact; read as other where absent |
 
 ### CloudResource
 

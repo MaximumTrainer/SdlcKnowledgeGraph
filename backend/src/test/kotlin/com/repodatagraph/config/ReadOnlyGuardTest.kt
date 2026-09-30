@@ -81,6 +81,13 @@ class ReadOnlyGuardTest {
     }
 
     @Test
+    fun `a query sent as a POST is answered, because it only reads (#87)`() {
+        assert(guard().handle(MockHttpServletRequest("POST", "/api/v1/impact")).passed)
+        assertRefused(guard().handle(MockHttpServletRequest("PUT", "/api/v1/impact")))
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/impact/extra")))
+    }
+
+    @Test
     fun `a websocket upgrade is refused, because a GraphQL mutation can travel over one`() {
         val upgrade = MockHttpServletRequest("GET", "/graphql").apply { addHeader("Upgrade", "websocket") }
 

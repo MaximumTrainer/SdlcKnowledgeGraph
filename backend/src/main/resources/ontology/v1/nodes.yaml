@@ -87,6 +87,11 @@ nodes:
     properties:
       - { name: name, type: string, required: true }
       - { name: type, type: string, required: true }
+      # How much a change reaching this environment matters (#87): impact analysis weights a hit by
+      # it. Optional rather than required with a default, because there is no migration mechanism to
+      # set it on environments already in the graph (#33); a missing tier is read as `other`, never
+      # guessed from the name.
+      - { name: tier, type: string, required: false, description: "Criticality, for ranking impact; read as other where absent", enum: [production, pre_production, development, other] }
 
   CloudResource:
     description: An infrastructure object in AWS, Azure or GCP.

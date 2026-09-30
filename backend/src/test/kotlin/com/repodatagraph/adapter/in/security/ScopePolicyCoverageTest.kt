@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.security
 
+import com.repodatagraph.config.ReadsOverPost
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -77,10 +78,12 @@ class ScopePolicyCoverageTest {
 
     @Test
     fun `every read under the API needs graph read and every write graph write, unless it is public`() {
+        assertTrue(Route("POST", "/api/v1/impact") in routes, "the read over POST is mapped: $routes")
         val wrong =
             routes.filter { it.pattern.startsWith("/api/v1/") }.mapNotNull { route ->
                 val requirement = ScopePolicy.requirementFor(route.method, route.samplePath)
-                val expected = if (route.method in READ_METHODS) setOf(GraphScope.READ) else setOf(GraphScope.WRITE)
+                val read = route.method in READ_METHODS || (route.method == "POST" && route.pattern in ReadsOverPost.PATHS)
+                val expected = if (read) setOf(GraphScope.READ) else setOf(GraphScope.WRITE)
                 when (requirement) {
                     is RouteRequirement.Public -> null
                     is RouteRequirement.Scopes -> if (requirement.scopes == expected) null else "$route needs ${requirement.scopes}"
