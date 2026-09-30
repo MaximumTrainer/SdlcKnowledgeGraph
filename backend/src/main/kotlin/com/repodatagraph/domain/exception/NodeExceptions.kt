@@ -49,3 +49,13 @@ class ImmutableIdentityException(
 class NodeHasEdgesException(
     val edgeCount: Int,
 ) : RuntimeException("node still has $edgeCount edges")
+
+/**
+ * The type has an API of its own that enforces rules the generic node API does not know, so writing
+ * it through the generic one is refused (#115). A ServicePrincipal is the case: only a user may
+ * register one, and only against a team the graph holds.
+ */
+class ManagedNodeTypeException(
+    val type: String,
+    val managedAt: String,
+) : RuntimeException("$type is written through $managedAt")

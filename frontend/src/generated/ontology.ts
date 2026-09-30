@@ -15,6 +15,7 @@ export interface Provenance {
   syncRunId: string | null
   writtenBy: string | null
   principalType: string | null
+  onBehalfOfTeam: string | null
 }
 
 /** A git repository, the anchor for most of the graph. */
@@ -209,6 +210,14 @@ export interface ConnectorState {
   consecutiveFailures?: number
 }
 
+/** A connector or agent registered as a principal of its own, owned by a team. */
+export interface ServicePrincipal {
+  id: string
+  name: string
+  ownedBy: string
+  description?: string
+}
+
 export type NodeType =
   | 'Repository'
   | 'Team'
@@ -226,6 +235,7 @@ export type NodeType =
   | 'Ontology'
   | 'SyncRun'
   | 'ConnectorState'
+  | 'ServicePrincipal'
 
 export const NODE_TYPES: readonly NodeType[] = [
   'Repository',
@@ -243,7 +253,8 @@ export const NODE_TYPES: readonly NodeType[] = [
   'IacFile',
   'Ontology',
   'SyncRun',
-  'ConnectorState'
+  'ConnectorState',
+  'ServicePrincipal'
 ]
 
 export type EdgeTypeName =

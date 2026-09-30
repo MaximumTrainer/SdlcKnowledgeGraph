@@ -1,5 +1,9 @@
 package com.repodatagraph.adapter.`in`.security
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.repodatagraph.adapter.`in`.rest.NodeController
 import com.repodatagraph.adapter.`in`.rest.NodeRestExceptionHandler
 import com.repodatagraph.adapter.`in`.rest.SeedIngestController
@@ -9,6 +13,8 @@ import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.SeedIngestOutcome
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
+import com.repodatagraph.observability.EventLog
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -16,6 +22,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.context.annotation.Import
@@ -169,6 +176,28 @@ class AuthGateWebTest {
             .andExpect(jsonPath("$.clientId").value("rogue-agent"))
 
         verify(nodeUseCase, never()).list(any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a refused client is logged as a security warning naming it`() {
+        whenever(jwtDecoder.decode("service")).thenReturn(serviceJwt("rogue-agent"))
+        val events =
+            ch.qos.logback.core.read
+                .ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+                .apply { start() }
+        val logger =
+            org.slf4j.LoggerFactory.getLogger(
+                "${com.repodatagraph.observability.EventLog.LOGGER_PREFIX}.principal.refused",
+            ) as ch.qos.logback.classic.Logger
+        logger.addAppender(events)
+        try {
+            mockMvc.perform(get("/api/v1/nodes/Repository").header("Authorization", "Bearer service"))
+        } finally {
+            logger.detachAppender(events)
+        }
+
+        org.junit.jupiter.api.Assertions
+            .assertEquals(listOf(ch.qos.logback.classic.Level.WARN), events.list.map { it.level })
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.`in`.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.config.AuthProperties
+import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -19,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 
@@ -29,13 +31,16 @@ import org.springframework.security.web.SecurityFilterChain
  *
  * There are no scopes yet. Any valid token may do what any caller could before; deciding *what* a
  * principal may do is AUTH-3. What this establishes is *who* the caller is, which is what provenance
- * records ([SecurityContextPrincipal]).
+ * records ([SecurityContextPrincipal]): a user, or a connector or agent holding a client-credentials
+ * token, which [ServicePrincipalGate] lets in only once its client is a registered service principal
+ * (#115).
  *
  * A few paths stay public, each for a reason that does not depend on who is asking:
  * - the probes, `/actuator/info` and `/actuator/prometheus`: the platform and the scraper inside the
  *   deployment hold no user token (docs/DEPLOYMENT.md D1, D2, D9);
- * - the ingest endpoints, which keep their own bearer token (D6) until connectors and pipelines are
- *   principals of their own (AUTH-2) - their token is never decoded as a JWT;
+ * - the ingest endpoints, which keep their own bearer token (D6) - their token is never decoded as a
+ *   JWT. Connectors and pipelines can be principals of their own since #115, but the ingest callers
+ *   (a CI pipeline, the seed job) are not yet moved onto client credentials;
  * - the webhook receivers, which verify the sender's signature instead (ADR-0005);
  * - the ontology document and the API documentation, which describe the model, not the data in it.
  *
@@ -48,6 +53,7 @@ import org.springframework.security.web.SecurityFilterChain
 class SecurityConfig(
     private val auth: AuthProperties,
     private val objectMapper: ObjectMapper,
+    private val servicePrincipals: ServicePrincipalUseCase,
 ) {
     @Bean
     fun apiSecurity(http: HttpSecurity): SecurityFilterChain {
@@ -96,6 +102,8 @@ class SecurityConfig(
                     .bearerTokenResolver(bearerTokenResolver())
                     .authenticationEntryPoint(refusal)
             }.exceptionHandling { it.authenticationEntryPoint(refusal) }
+            // A client's token is good only once its client is a registered service principal (#115).
+            .addFilterAfter(ServicePrincipalGate(servicePrincipals, objectMapper), BearerTokenAuthenticationFilter::class.java)
         return http.build()
     }
 

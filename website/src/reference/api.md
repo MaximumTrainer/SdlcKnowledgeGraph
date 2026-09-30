@@ -48,6 +48,9 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/repositories/{repoId}/pipelines/{pipelineId}` | Link repository to a pipeline | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/servicenow/{ciId}` | Link repository to a ServiceNow CI item | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/teams/{teamId}` | Link repository to a team | 200 |
+| `GET` | `/api/v1/service-principals` | List every registration, deregistered ones with their validTo | 200 |
+| `POST` | `/api/v1/service-principals` | Register an identity provider client as a service principal owned by a team (users only) | 200 |
+| `DELETE` | `/api/v1/service-principals/{name}` | Deregister a service principal: sets its validTo and keeps the record (users only) | 200 |
 | `GET` | `/api/v1/sync-runs` | List sync runs, newest first, filtered by connector, status and start time | 200 |
 | `GET` | `/api/v1/sync-runs/{id}` | One sync run in full, with its whole error and details | 200 |
 | `POST` | `/api/v1/webhooks/{name}` | Accept a signed webhook from a source system | 200 |

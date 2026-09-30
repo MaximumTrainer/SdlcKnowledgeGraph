@@ -71,6 +71,18 @@ class NodeControllerTest {
     }
 
     @Test
+    fun `a key holding characters a URI reserves is encoded in the Location, not refused`() {
+        val key = "ghcr.io/acme/payments@sha256:1#production#1790769600"
+        whenever(nodeUseCase.create(eq("Deployment"), any()))
+            .thenReturn(GraphNode(NodeKey("Deployment", key), mapOf("status" to "SUCCESS"), Provenance.manual()))
+
+        mockMvc
+            .perform(body(post("/api/v1/nodes/Deployment"), mapOf("props" to mapOf("status" to "SUCCESS"))))
+            .andExpect(status().isCreated)
+            .andExpect(header().string("Location", "/api/v1/nodes/Deployment/ghcr.io/acme/payments@sha256:1%23production%231790769600"))
+    }
+
+    @Test
     fun `a node a service principal wrote names the team it acted for`() {
         val written =
             platform.copy(

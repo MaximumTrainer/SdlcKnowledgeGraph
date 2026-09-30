@@ -137,9 +137,15 @@ class ServicePrincipalSteps(
     ) {
         val created = world.json(world.last())
         assertServiceProvenance(created.path("provenance"), writtenBy, principalType, team, "in the create response")
-        // And as stored, not only as echoed back.
+        // And as stored, not only as echoed back. Found through the listing, because a Deployment's key
+        // holds a '#' that a path would have to be encoded around.
+        val key = created.path("key").asText()
         val stored =
-            world.json(world.send(HttpMethod.GET, "/api/v1/nodes/Deployment/${created.path("key").asText()}", world.actorToken()))
+            world
+                .json(world.send(HttpMethod.GET, "/api/v1/nodes/Deployment", world.actorToken()))
+                .path("items")
+                .firstOrNull { it.path("key").asText() == key }
+                ?: error("the Deployment $key is not listed")
         assertServiceProvenance(stored.path("provenance"), writtenBy, principalType, team, "when read back")
     }
 

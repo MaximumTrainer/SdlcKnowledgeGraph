@@ -73,6 +73,27 @@ object LogEvents {
     ) =
         EventLog.emit("ingest.unauthorized", Level.WARN, "ingest refused without a valid token", mapOf("endpoint" to endpoint), security = true)
 
+    /** A user registered an identity provider client as a service principal, owned by a team. From now on the client's tokens are let in and its writes are attributed to it. */
+    fun principalRegistered(
+        name: String,
+        ownedBy: String,
+        registeredBy: String,
+    ) =
+        EventLog.emit("principal.registered", Level.INFO, "service principal registered", mapOf("name" to name, "ownedBy" to ownedBy, "registeredBy" to registeredBy), security = true)
+
+    /** A user ended a service principal's registration. The record is kept with a validTo, and the client's tokens are refused from now on. */
+    fun principalDeregistered(
+        name: String,
+        deregisteredBy: String,
+    ) =
+        EventLog.emit("principal.deregistered", Level.INFO, "service principal deregistered", mapOf("name" to name, "deregisteredBy" to deregisteredBy), security = true)
+
+    /** A token the identity provider signed for a client, with no user in it, was refused with 403 because no current service principal registration names the client. Either a client nobody registered, or one since deregistered, is calling the API. */
+    fun principalRefused(
+        clientId: String,
+    ) =
+        EventLog.emit("principal.refused", Level.WARN, "token from an unregistered client refused", mapOf("clientId" to clientId), security = true)
+
     /** The API started with AUTH_DISABLED=true, the development bypass (#114). Every request is let through and every write is recorded as anonymous. Logged on every start, and refused outright under the prod profile. */
     fun authDisabled() =
         EventLog.emit("auth.disabled", Level.WARN, "authentication is disabled; every request is anonymous", mapOf(), security = true)

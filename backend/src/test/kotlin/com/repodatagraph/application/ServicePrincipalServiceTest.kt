@@ -1,5 +1,8 @@
 package com.repodatagraph.application
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.repodatagraph.domain.exception.ServicePrincipalExistsException
 import com.repodatagraph.domain.exception.ServicePrincipalNotFoundException
 import com.repodatagraph.domain.exception.ServicePrincipalValidationException
@@ -14,6 +17,7 @@ import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.model.ServicePrincipalRegistration
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.ServicePrincipalStore
+import com.repodatagraph.observability.EventLog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -25,6 +29,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -207,5 +212,25 @@ class ServicePrincipalServiceTest {
         whenever(store.findAll()).thenReturn(all)
 
         assertThat(service.list()).isEqualTo(all)
+    }
+
+    @Test
+    fun `registering and deregistering are security events naming who did it`() {
+        val events = ListAppender<ILoggingEvent>().apply { start() }
+        val loggers =
+            listOf("principal.registered", "principal.deregistered")
+                .map { LoggerFactory.getLogger("${EventLog.LOGGER_PREFIX}.$it") as Logger }
+        loggers.forEach { it.addAppender(events) }
+        try {
+            teamExists()
+            val registered = service.register(triage)
+            whenever(store.find("triage-agent")).thenReturn(registered)
+            service.deregister("triage-agent")
+        } finally {
+            loggers.forEach { it.detachAppender(events) }
+        }
+
+        assertThat(events.list.map { it.loggerName.removePrefix("${EventLog.LOGGER_PREFIX}.") })
+            .containsExactly("principal.registered", "principal.deregistered")
     }
 }

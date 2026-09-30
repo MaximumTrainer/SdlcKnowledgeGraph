@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.repodatagraph.domain.exception.ImmutableIdentityException
 import com.repodatagraph.domain.exception.InvalidGitRemoteException
+import com.repodatagraph.domain.exception.ManagedNodeTypeException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
@@ -67,5 +68,12 @@ class NodeRestExceptionHandler {
     fun onNodeHasEdges(exception: NodeHasEdgesException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.status(HttpStatus.CONFLICT).body(
             mapOf("error" to "node has edges", "edgeCount" to exception.edgeCount),
+        )
+
+    /** Forbidden to everyone here, whoever they are: the type is written through its own API (#115). */
+    @ExceptionHandler(ManagedNodeTypeException::class)
+    fun onManagedNodeType(exception: ManagedNodeTypeException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            mapOf("error" to "managed node type", "type" to exception.type, "managedAt" to exception.managedAt),
         )
 }

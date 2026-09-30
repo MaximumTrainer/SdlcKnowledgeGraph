@@ -128,6 +128,10 @@ const remove = async (cascade: boolean) => {
         <dd data-test="provenance-principal-type">
           {{ node.provenance.principalType ?? 'not recorded' }}
         </dd>
+        <template v-if="node.provenance.onBehalfOfTeam">
+          <dt>on behalf of team</dt>
+          <dd data-test="provenance-on-behalf-of-team">{{ node.provenance.onBehalfOfTeam }}</dd>
+        </template>
       </dl>
     </template>
   </section>

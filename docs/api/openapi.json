@@ -612,6 +612,9 @@
             "format" : "date-time",
             "type" : [ "string", "null" ]
           },
+          "onBehalfOfTeam" : {
+            "type" : [ "string", "null" ]
+          },
           "principalType" : {
             "type" : [ "string", "null" ]
           },
@@ -752,6 +755,56 @@
           }
         },
         "required" : [ "ciName", "id", "serviceId" ],
+        "type" : "object"
+      },
+      "ServicePrincipalListResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ServicePrincipalResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "ServicePrincipalRequest" : {
+        "properties" : {
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "ownedBy" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ServicePrincipalResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ownedBy" : {
+            "type" : "string"
+          },
+          "registeredBy" : {
+            "type" : [ "string", "null" ]
+          },
+          "validFrom" : {
+            "type" : "string"
+          },
+          "validTo" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "name", "ownedBy", "validFrom" ],
         "type" : "object"
       },
       "SyncAccepted" : {
@@ -2167,6 +2220,79 @@
         "tags" : [ "Repositories (deprecated links)" ]
       }
     },
+    "/api/v1/service-principals" : {
+      "get" : {
+        "operationId" : "listServicePrincipals",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServicePrincipalListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List every registration, deregistered ones with their validTo",
+        "tags" : [ "Service principals" ]
+      },
+      "post" : {
+        "operationId" : "registerServicePrincipal",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ServicePrincipalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServicePrincipalResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Register an identity provider client as a service principal owned by a team (users only)",
+        "tags" : [ "Service principals" ]
+      }
+    },
+    "/api/v1/service-principals/{name}" : {
+      "delete" : {
+        "operationId" : "deregisterServicePrincipal",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServicePrincipalResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Deregister a service principal: sets its validTo and keeps the record (users only)",
+        "tags" : [ "Service principals" ]
+      }
+    },
     "/api/v1/sync-runs" : {
       "get" : {
         "operationId" : "listSyncRuns",
@@ -2304,6 +2430,9 @@
     }
   },
   "tags" : [ {
+    "description" : "Connectors and agents registered as principals of their own",
+    "name" : "Service principals"
+  }, {
     "description" : "Traversals for nodes addressed by id",
     "name" : "Graph traversal"
   }, {
