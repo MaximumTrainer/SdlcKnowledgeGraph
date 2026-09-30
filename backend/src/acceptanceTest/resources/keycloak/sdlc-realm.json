@@ -38,6 +38,60 @@
       }
     },
     {
+      "name": "graph:write:github",
+      "description": "Write facts whose provenance names sourceSystem github, as the GitHub connector does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:write:github-actions",
+      "description": "Write facts whose provenance names sourceSystem github-actions, as the pipeline reporting deployments does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:write:servicenow",
+      "description": "Write facts whose provenance names sourceSystem servicenow, as the ServiceNow connector does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:write:aws",
+      "description": "Write facts whose provenance names sourceSystem aws, as an AWS connector does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:write:dogfood-seed",
+      "description": "Write facts whose provenance names sourceSystem dogfood-seed, as the dogfood seed job does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:write:sdlc-knowledge-graph",
+      "description": "Write facts whose provenance names sourceSystem sdlc-knowledge-graph, as the graph's own bookkeeping does, on top of graph:write (#117).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
       "name": "offline_access",
       "description": "OpenID Connect built-in scope: offline_access",
       "protocol": "openid-connect",
@@ -712,7 +766,9 @@
         "acr",
         "basic",
         "graph:read",
-        "graph:write"
+        "graph:write",
+        "graph:write:github",
+        "graph:write:github-actions"
       ],
       "optionalClientScopes": [
         "offline_access",
