@@ -182,6 +182,67 @@ class ProviderStates(
         )
     }
 
+    /**
+     * The graph view's background (#9): payments owned by a team, depending on a library and owning
+     * a bucket through an edge a link rule inferred, so the neighbourhood has an inferred edge to
+     * carry its confidence and flag.
+     */
+    fun paymentsHasANeighbourhood() {
+        paymentsDependsOnSharedLib()
+        graphStore.upsertNode(GraphNode(NodeKey("Team", TEAM_KEY), mapOf("name" to TEAM_KEY), Provenance.manual()))
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "OWNED_BY",
+                from = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                to = NodeKey("Team", TEAM_KEY),
+                provenance = Provenance.manual(),
+            ),
+        )
+        val bucket = NodeKey("CloudResource", BUCKET_KEY)
+        graphStore.upsertNode(
+            GraphNode(
+                key = bucket,
+                props =
+                    mapOf(
+                        "provider" to "aws",
+                        "resourceId" to BUCKET_KEY.removePrefix("aws:"),
+                        "resourceType" to "s3",
+                        "name" to "acme-logs",
+                    ),
+                provenance = Provenance.manual(),
+            ),
+        )
+        val now = Instant.now()
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "OWNS_RESOURCE",
+                from = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                to = bucket,
+                props = mapOf("rule" to "tag"),
+                provenance = Provenance(sourceSystem = "aws", ingestedAt = now, validFrom = now, confidence = 0.7, inferred = true),
+            ),
+        )
+    }
+
+    /** A repository with more neighbours than the graph view's cap, so the answer is cut short. */
+    fun hubRepositoryDependsOnMany() {
+        emptyGraph()
+        repository(HUB_KEY)
+        repeat(HUB_DEPENDENCIES) { index ->
+            val key = "github.com/acme/dependency-$index"
+            repository(key)
+            graphStore.upsertEdge(
+                GraphEdge(
+                    type = "DEPENDS_ON",
+                    from = NodeKey("Repository", HUB_KEY),
+                    to = NodeKey("Repository", key),
+                    props = mapOf("kind" to "library"),
+                    provenance = Provenance.manual(),
+                ),
+            )
+        }
+    }
+
     /** The key is `host/org/name`, so the parts a Repository is identified by come from it. */
     private fun repository(key: String) {
         val (host, org, name) = key.split("/")
@@ -216,6 +277,8 @@ class ProviderStates(
         const val PAYMENTS_DEPENDS_ON_SHARED_LIB = "payments DEPENDS_ON shared-lib"
         const val R1_RELATES_TO_A_CI = "repository R1 is linked to a configuration item"
         const val FAILED_SYNC_RUN_EXISTS = "a FAILED sync run of github exists"
+        const val PAYMENTS_HAS_A_NEIGHBOURHOOD = "payments has a neighbourhood with an inferred edge"
+        const val HUB_DEPENDS_ON_MANY = "a hub repository depends on more than 500 others"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -223,6 +286,11 @@ class ProviderStates(
         private const val SHARED_LIB_KEY = "github.com/acme/shared-lib"
         private const val CI_KEY = "servicenow:sn.example.test:a1"
         private const val SYNC_RUN_ID = "pact-run-1"
+        private const val BUCKET_KEY = "aws:arn:aws:s3:::acme-logs"
+        private const val HUB_KEY = "github.com/acme/hub"
+
+        /** One more than the graph view's cap, counting the hub itself. */
+        private const val HUB_DEPENDENCIES = 500
 
         /** Every state this provider can seed. */
         val ALL =
@@ -235,6 +303,8 @@ class ProviderStates(
                 PAYMENTS_DEPENDS_ON_SHARED_LIB,
                 R1_RELATES_TO_A_CI,
                 FAILED_SYNC_RUN_EXISTS,
+                PAYMENTS_HAS_A_NEIGHBOURHOOD,
+                HUB_DEPENDS_ON_MANY,
             )
     }
 }

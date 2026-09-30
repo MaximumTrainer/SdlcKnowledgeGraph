@@ -70,6 +70,12 @@ class ScopePolicyCoverageTest {
     }
 
     @Test
+    fun `the graph view's neighbourhood is mapped, and is a read`() {
+        assertTrue(Route("GET", "/api/v1/graph/neighbourhood") in routes, "routes found: $routes")
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("GET", "/api/v1/graph/neighbourhood"))
+    }
+
+    @Test
     fun `every mapped route has a scope requirement or is on the public allowlist`() {
         val undeclared = routes.filter { ScopePolicy.requirementFor(it.method, it.samplePath) == null }
 
