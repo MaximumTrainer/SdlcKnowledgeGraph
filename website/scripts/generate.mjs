@@ -187,6 +187,22 @@ export const ontologyPage = ontology => {
     lines.push('')
   }
 
+  // The systems a fact's provenance may name (#117), and the scope a principal needs to name one.
+  if (ontology.sources?.length) {
+    lines.push('## Source systems\n')
+    lines.push(
+      'What `provenance.sourceSystem` may name. A write through the API naming any source but',
+      '`manual` also needs that source\'s scope; see [Authentication](/guide/auth#source-scopes).\n'
+    )
+    lines.push('| Source | Scope to write as it | Description |')
+    lines.push('| --- | --- | --- |')
+    for (const source of ontology.sources) {
+      const scope = source.name === 'manual' ? 'graph:write' : `graph:write:${source.name}`
+      lines.push(`| \`${source.name}\` | \`${scope}\` | ${source.description ?? ''} |`)
+    }
+    lines.push('')
+  }
+
   return lines.join('\n')
 }
 
