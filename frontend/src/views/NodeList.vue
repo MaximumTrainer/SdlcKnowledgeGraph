@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { nodeApi, ontologyApi, type GraphNode, type OntologyNodeType } from '@/services/api'
 import { useCanWrite } from '@/auth/canWrite'
 import { nodeRoute } from '@/lib/nodeRoute'
+import SourceLag from '@/components/SourceLag.vue'
 
 /**
  * The list of nodes of one type. Moving between types is the shell's navigation (#6); the ontology
@@ -54,6 +55,8 @@ const cell = (node: GraphNode, column: string): string => {
         >New</router-link
       >
     </header>
+
+    <SourceLag />
 
     <p v-if="loading">Loading…</p>
     <p v-else-if="nodes.length === 0">No {{ type }} nodes yet.</p>

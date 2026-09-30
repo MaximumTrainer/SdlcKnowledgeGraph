@@ -320,7 +320,16 @@ export interface GraphNode {
   type: string
   key: string
   props: Record<string, unknown>
-  provenance: Provenance
+  provenance: ProvenanceView
+}
+
+/**
+ * Provenance as a read returns it: the envelope the ontology declares, plus `stale` (#93, FR-1),
+ * which the server computes on every read from the source's freshness window rather than storing.
+ * Optional because the impact answers carry provenance without it.
+ */
+export interface ProvenanceView extends Provenance {
+  stale?: boolean
 }
 
 export interface NodePage {
@@ -394,7 +403,7 @@ export interface EdgeView {
   displayName: string
   other: { id: string; type: string; key: string; props?: Record<string, unknown> }
   props: Record<string, unknown>
-  provenance: Provenance
+  provenance: ProvenanceView
 }
 
 export interface EdgeWritten {
@@ -403,7 +412,7 @@ export interface EdgeWritten {
   from: { id: string; type: string; key: string }
   to: { id: string; type: string; key: string }
   props: Record<string, unknown>
-  provenance: Provenance
+  provenance: ProvenanceView
 }
 
 export interface EdgeInput {
