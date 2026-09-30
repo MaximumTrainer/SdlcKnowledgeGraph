@@ -117,7 +117,7 @@ That is [#48](../../issues/48)'s FR6, and requirement D13 of the [deployment con
 Started read-only, it:
 
 - answers every read, REST and GraphQL, without a token, and decodes no token at all - including
-  `POST /api/v1/impact`, a read sent as a POST;
+  `POST /api/v1/impact` and `POST /api/v1/context-pack`, reads sent as a POST;
 - refuses every write with `403 {"error": "this instance is read-only"}`, whether or not it carries a
   token, so no fact is ever written by nobody;
 - still takes the ingest endpoints' writes, behind their own `INGEST_TOKEN` (D6), so the deploy
@@ -139,6 +139,7 @@ AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --buil
 | `GET` (and `HEAD`) under `/api/v1` | `graph:read` |
 | `POST`, `PUT`, `PATCH`, `DELETE` under `/api/v1` | `graph:write` |
 | `POST /api/v1/impact`, a query whose input is a body ([#87](../../issues/87)) | `graph:read` |
+| `POST /api/v1/context-pack`, a query whose input is a body ([#96](../../issues/96)) | `graph:read` |
 | A GraphQL query or subscription | `graph:read` |
 | A GraphQL mutation | `graph:write` |
 | A GraphQL document holding a query and a mutation | both |
@@ -191,7 +192,8 @@ A query whose input is too structured for a query string is sent as a POST but o
 needs `graph:read`, not `graph:write`. Such routes are listed once, by exact path, in
 [`ReadsOverPost`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/kotlin/com/repodatagraph/config/ReadsOverPost.kt),
 which the scope policy, the read-only guard and the anonymous read-only mode all read, so the three
-cannot disagree about what a POST may do. `POST /api/v1/impact` is the only one. A route belongs
+cannot disagree about what a POST may do. `POST /api/v1/impact` and `POST /api/v1/context-pack` are
+the only ones. A route belongs
 there only if its handler writes nothing at all.
 
 A path outside every family - an actuator endpoint other than the public ones, the GraphiQL page -

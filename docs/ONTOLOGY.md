@@ -263,6 +263,7 @@ rule is a fact about the registry, not a matter of taste.
 | ONT011 | A deprecated identity property |
 | ONT012 | In `environments.yaml`: an alias that already names another environment, an alias that is another environment's own name, or an environment without a description |
 | ONT013 | A `mergeScope` naming a property the type does not declare |
+| ONT014 | In `templates.yaml`: a template badly named, undescribed, starting from an undeclared type or declaring no steps; or a step walking an edge that is neither an edge type nor an inverse, walking one from a type it cannot leave, filtering on a property or value the edge does not declare, repeating outside 0 to 5 times, or marking `current` a step that reaches anything but Deployment |
 
 ```text
 Ontology lint: 1 errors, 0 warnings
@@ -393,7 +394,7 @@ traversal concept, not a second stored edge.
 | --- | --- | --- | --- | --- | --- |
 | OWNED_BY | Repository, Service, CloudResource | Team | OWNS | none | owner |
 | OWNS_RESOURCE | Repository, Service | CloudResource | OWNED_BY_REPO | propagates (forward) | inherits |
-| DEPENDS_ON | Repository, Service | Repository, Service | DEPENDED_ON_BY | propagates (inverse) | none |
+| DEPENDS_ON | Repository, Service | Repository, Service, CloudResource | DEPENDED_ON_BY | propagates (inverse) | none |
 | HAS_PIPELINE | Repository | Pipeline | PIPELINE_OF | propagates (forward) | inherits |
 | RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_OF | none | none |
 | BUILT_FROM | Artifact | Repository | BUILDS | propagates (inverse) | inherits |
@@ -413,6 +414,9 @@ rendered from the registry itself, so it is the one to trust if the two ever dif
 Four relationships carry properties of their own. `DEPENDS_ON` requires `kind` (`library`, `api`,
 `event` or `data`) and accepts `manifest`, the file the dependency was read from, with its path from
 the repository root in a monorepo, so an inferred dependency can be traced back to its evidence.
+Since 1.6.0 a dependency may end at a CloudResource: a repository that reads a bucket or a database
+`DEPENDS_ON` it with `kind: data`, which is what the `data-consumers` context pack walks back
+([#96](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/96)).
 `PROVIDES` accepts `path`, the directory a monorepo builds the service from, so one repository can
 provide several services, each from a directory of its own
 ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). `OWNS_RESOURCE` accepts `rule`, which link rule
@@ -823,6 +827,99 @@ answered by this endpoint at depth 1. No such route exists: the one-hop reposito
 `GET /api/v1/graph/repositories/{repoId}/impact`, already deprecated in favour of `GET
 /api/v1/graph/impact`, and both are left as they are.
 
+### Context packs: the subgraph a task needs
+
+`POST /api/v1/context-pack` ([#96](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/96))
+answers the question an agent asks before a task: "starting here, what does this kind of task need
+to know?" It names a node, a template and a budget, and gets back at most that many nodes, nearest
+and most confident first, with the edges between them and where each fact came from.
+[ADR-0016](adr/0016-context-pack-templates-are-registry-data.md) records why.
+
+```json
+{ "startId": "Repository:github.com/acme/settlement-api", "template": "change-impact", "budget": 20, "asOf": "2026-09-10T00:00:00Z" }
+```
+
+`startId`, `template` and `budget` are required; a missing or malformed one is `400` naming the
+field. `budget` is 1 to 500 and counts the nodes returned beside the start. An unknown template is
+`400` with `field: "template"`, listing the ones there are; a start of a type the template does not
+start from is `400` with `field: "startId"`; a start the graph does not hold is `404`. `asOf`, an
+ISO-8601 instant, reads the start, every edge and every node as they were then
+([#93](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/93)). Like `POST /api/v1/impact`
+it only reads, so it needs `graph:read`, a read-only instance answers it and so does anonymous
+read-only mode. GraphQL answers the same as `contextPack(input: ContextPackInput!)`.
+
+The walks are registry data, in `templates.yaml` beside the edges they walk:
+
+```yaml
+# backend/src/main/resources/ontology/v1/templates.yaml
+templates:
+  change-impact:
+    description: What a change to a repository or service reaches, where that is running now, and who owns it
+    start: [Repository, Service]
+    owners: true
+    steps:
+      - edge: DEPENDED_ON_BY      # an edge's inverse walks it backwards
+        min: 0                    # 0: the steps below start from the start node too
+        max: 4                    # repeated up to four times: dependants of dependants
+        then:
+          - edge: BUILDS
+            then:
+              - edge: DEPLOYED_TO
+                current: true     # only what is running: the latest SUCCESS per environment
+                then:
+                  - { edge: TO_ENVIRONMENT }
+```
+
+| Template | Starts from | Walks | Owners |
+| --- | --- | --- | --- |
+| `change-impact` | Repository, Service | dependants (up to 4 deep), what each builds, its current deployments and their environments | yes |
+| `incident-triage` | CloudResource | the repository that owns it, its pipelines, its CI, its current deployments, and the repositories it calls as an `api` with theirs | no |
+| `data-consumers` | CloudResource | the repositories that `DEPENDS_ON` it with `kind: data` | yes |
+
+A step names an edge by its own name, walked as stored, or by its inverse, walked against it.
+`where` keeps only edges holding those property values, bound as parameters. `min` to `max` (0 to 5)
+repeats the step; a trail never revisits a node on it, so a cycle ends that trail, not the walk.
+`current`, allowed only on a step that reaches Deployment alone, keeps of the deployments reached
+from each repository the latest `SUCCESS` by `deployedAt` per environment, at or before `asOf`
+when one is given. `owners: true` adds the teams the `ownership: owner` edges of the start and of
+every node reached name, one hop past the path to what they own. The application refuses to start,
+and the lint fails (ONT014), on a template the edges cannot walk. `GET /api/v1/ontology` lists the
+templates under `templates`, every step spelt out, and the Markdown rendering lists one line each.
+
+Each node is explained by its nearest path (`via`), chosen as `POST /api/v1/impact` chooses one.
+The pack is ordered by distance ascending, then the path's confidence descending, then #87's score
+(scoring version 1, the node placed in its environment) descending, then id: a total order, so the
+same graph gives the same pack. The budget keeps the first nodes of that order; `reached` says how
+many the template found, `cut` how many the budget left out, and `truncated` whether anything was
+left out, including a store step that stopped at its 10,000-row cap.
+
+```json
+{
+  "template": "change-impact", "budget": 20, "scoring": { "version": "1" },
+  "start": { "id": "Repository:github.com/acme/settlement-api", "distance": 0 },
+  "reached": 14, "truncated": false, "cut": 0,
+  "nodes": [
+    { "id": "Repository:github.com/acme/web", "type": "Repository", "label": "web", "distance": 1,
+      "confidence": 0.9, "inferred": false, "score": 0.25, "tier": "other",
+      "via": [{ "edge": "DEPENDED_ON_BY", "from": "Repository:github.com/acme/settlement-api", "to": "Repository:github.com/acme/web" }],
+      "provenance": { "source": "github", "observedAt": "2026-08-31T12:00:00Z", "confidence": 0.9, "inferred": false, "stale": false } }
+  ],
+  "edges": [
+    { "id": "DEPENDS_ON:Repository:github.com/acme/web>Repository:github.com/acme/settlement-api",
+      "type": "DEPENDS_ON", "inverse": "DEPENDED_ON_BY", "manifest": "package.json", "props": { "kind": "library" },
+      "provenance": { "source": "github", "observedAt": "2026-08-31T12:00:00Z", "confidence": 0.9, "inferred": false, "stale": false } }
+  ]
+}
+```
+
+Every node and edge carries a provenance summary: its source, when that source last saw it, its
+confidence, whether it was inferred, and whether it is stale now. An edge carries the `manifest`,
+`rule` or `commitSha` it rests on where it has one, and is absent of each it has not. Node ids and
+edge ids are the graph's own and stable, so a renderer
+([#79](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/79)) can cite them.
+`ContextPackService` does the work over the store's one-hop neighbourhood step, which a template step
+narrows by `where` and `asOf`; `ImpactScorer` scores, and `ContextPackRanking` orders and cuts.
+
 ### Change lineage
 
 Two questions follow the chain from a deployment to the work behind it
@@ -1145,6 +1242,10 @@ migration.
 artifact written before it has no `identityQuality` until it is written again, and the fold finds a
 version-only node by its key, not by that property.
 
+1.6.0 ([#96](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/96)) added `templates.yaml`,
+the traversal templates of [context packs](#context-packs-the-subgraph-a-task-needs), and let
+`DEPENDS_ON` end at a CloudResource. It is a minor bump and ships no migration.
+
 ### Migrations
 
 A migration brings the data in the graph to a registry version. Each is a file under
@@ -1205,7 +1306,7 @@ of a node is generated from it:
 | Generated file | Consumer |
 | --- | --- |
 | `backend/src/main/resources/graphql/schema.generated.graphqls` | GraphQL types, one `<Type>Node` per registry type, all implementing `GraphNode`, with docstrings, `@deprecated` and an enum type per enum property |
-| `frontend/src/generated/ontology.ts` | Frontend interfaces with JSDoc, a union per enum property, `NODE_TYPES`, `EDGE_TYPES`, `ONTOLOGY_VERSION` |
+| `frontend/src/generated/ontology.ts` | Frontend interfaces with JSDoc, a union per enum property, `NODE_TYPES`, `EDGE_TYPES`, `CONTEXT_PACK_TEMPLATES`, `ONTOLOGY_VERSION` |
 | `backend/src/main/resources/ontology/v1/ontology.json` | The exact payload `GET /api/v1/ontology` returns, usable as a test fixture |
 
 After changing anything under `ontology/v1/`:
