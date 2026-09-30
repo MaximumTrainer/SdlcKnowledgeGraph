@@ -6,8 +6,8 @@ import io.cucumber.java.en.When
 import org.junit.jupiter.api.Assertions.assertEquals
 
 /**
- * The source systems a write may name (#117), through the development bypass: which ones the
- * ontology publishes, and that naming one outside it is refused whether or not authentication is on.
+ * The source systems a write may name (#117): which ones the ontology publishes, and that naming one
+ * outside them is refused whoever the writer is.
  */
 class SourceSystemSteps(
     private val world: ApiWorld,

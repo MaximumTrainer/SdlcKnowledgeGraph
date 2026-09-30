@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
  */
 class AnonymousReadOnlyWarningTest {
     private val appender = ListAppender<ILoggingEvent>()
-    private val eventLogger = LoggerFactory.getLogger("${EventLog.LOGGER_PREFIX}.auth.anonymous-read-only") as Logger
+    private val eventLogger = LoggerFactory.getLogger("${EventLog.LOGGER_PREFIX}.auth.anonymous.readonly") as Logger
 
     @BeforeEach
     fun attach() {

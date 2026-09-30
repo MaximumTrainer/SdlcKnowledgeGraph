@@ -1,13 +1,17 @@
 package com.repodatagraph.adapter.`in`.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.repodatagraph.config.AuthMode
 import com.repodatagraph.config.AuthProperties
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import jakarta.servlet.http.HttpServletRequest
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Condition
+import org.springframework.context.annotation.ConditionContext
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.type.AnnotatedTypeMetadata
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -45,6 +49,13 @@ import org.springframework.security.web.SecurityFilterChain
  * - the webhook receivers, which verify the sender's signature instead (ADR-0005);
  * - the ontology document and the API documentation, which describe the model, not the data in it.
  *
+ * With no issuer configured the instance runs the anonymous read-only mode instead (#118, [AuthMode]):
+ * there is nobody to issue a token, so reads are answered for anyone and no token is decoded at all.
+ * [AuthGuard][com.repodatagraph.config.AuthGuard] lets that start only on a read-only instance, so
+ * [ReadOnlyGuard][com.repodatagraph.config.ReadOnlyGuard], which runs before this chain, has already
+ * refused every write but the ingest endpoints' own; the chain refuses any other write again, so a
+ * write is never let in by the absence of a login alone.
+ *
  * Stateless and without CSRF protection: the token travels in a header, never in a cookie, so there is
  * no ambient credential for a cross-site request to ride on.
  */
@@ -68,11 +79,7 @@ class SecurityConfig(
             .logout { it.disable() }
             .requestCache { it.disable() }
 
-        if (auth.disabled) {
-            // The development bypass: nothing is checked, and every write is recorded as anonymous.
-            http.authorizeHttpRequests { it.anyRequest().permitAll() }
-            return http.build()
-        }
+        if (auth.mode == AuthMode.ANONYMOUS_READ_ONLY) return anonymousReadOnly(http)
 
         val refusal = unauthenticated()
         http
@@ -104,12 +111,39 @@ class SecurityConfig(
     }
 
     /**
+     * The anonymous read-only mode's chain: reads, GraphQL queries (ReadOnlyGuard refuses a mutation
+     * before it gets here) and the public families answer for anyone; anything else is refused. The
+     * spread copies a handful of patterns once, when the chain is built.
+     */
+    @Suppress("SpreadOperator")
+    private fun anonymousReadOnly(http: HttpSecurity): SecurityFilterChain {
+        val refusal = unauthenticated()
+        http
+            .authorizeHttpRequests {
+                ScopePolicy.PUBLIC.forEach { family ->
+                    val patterns = family.patterns.toTypedArray()
+                    if (family.methods.isEmpty()) {
+                        it.requestMatchers(*patterns).permitAll()
+                    } else {
+                        family.methods.forEach { method -> it.requestMatchers(HttpMethod.valueOf(method), *patterns).permitAll() }
+                    }
+                }
+                ANONYMOUS_READS.forEach { method -> it.requestMatchers(HttpMethod.valueOf(method)).permitAll() }
+                it.requestMatchers(HttpMethod.POST, GRAPHQL_PATH).permitAll()
+                it.anyRequest().denyAll()
+            }.exceptionHandling { it.authenticationEntryPoint(refusal) }
+        return http.build()
+    }
+
+    /**
      * Trusts tokens the configured issuer signed, and only while they name that issuer and are in date.
-     * The keys are fetched on first use rather than at startup, so the API can start before its
-     * identity provider does.
+     * With a key set URI the keys are fetched on first use rather than at startup, so the API can start
+     * before its identity provider does; from the issuer alone, its discovery document is read at
+     * startup. Only with an issuer: in the anonymous read-only mode there are no keys to
+     * trust, and no decoder to trust them with.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "sdlc.auth", name = ["disabled"], havingValue = "false", matchIfMissing = true)
+    @Conditional(IssuerConfigured::class)
     fun jwtDecoder(): JwtDecoder {
         val issuer = checkNotNull(auth.issuerUri?.takeIf { it.isNotBlank() }) { "AUTH_ISSUER_URI must be set" }
         val decoder =
@@ -151,5 +185,15 @@ class SecurityConfig(
         const val REFUSAL = "authentication required"
 
         private const val INGEST_PREFIX = "/api/v1/ingest/"
+        private const val GRAPHQL_PATH = "/graphql"
+        private val ANONYMOUS_READS = listOf("GET", "HEAD", "OPTIONS")
+    }
+
+    /** Matches when an issuer is configured: the [AuthMode.OIDC] mode. */
+    class IssuerConfigured : Condition {
+        override fun matches(
+            context: ConditionContext,
+            metadata: AnnotatedTypeMetadata,
+        ): Boolean = AuthMode.of(context.environment.getProperty("sdlc.auth.issuer-uri")) == AuthMode.OIDC
     }
 }

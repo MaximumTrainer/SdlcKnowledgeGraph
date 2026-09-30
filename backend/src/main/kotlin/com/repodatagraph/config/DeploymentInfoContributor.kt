@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component
  * every field is always present, and a value the build did not supply reads `unknown` rather than
  * being left out: a missing field and an unstamped image should not look the same.
  *
+ * `authentication` says how the instance knows who is calling (#118): `oidc` when it trusts an identity
+ * provider, `anonymous-read-only` when it has none and so serves reads to anyone and accepts no writes.
+ *
  * `commit` comes from `SDLC_COMMIT`, which the image build sets from the commit it was built from.
  */
 @Component
@@ -25,6 +28,7 @@ class DeploymentInfoContributor(
     private val build: BuildProperties?,
     private val environment: Environment,
     private val registry: OntologyRegistry,
+    private val auth: AuthProperties,
 ) : InfoContributor {
     override fun contribute(builder: Info.Builder) {
         builder.withDetail(
@@ -35,6 +39,7 @@ class DeploymentInfoContributor(
                 "ontologyVersion" to registry.version,
                 "profile" to environment.activeProfiles.joinToString(",").ifEmpty { "default" },
                 "readOnly" to readOnly,
+                "authentication" to auth.mode.wireName,
             ),
         )
     }

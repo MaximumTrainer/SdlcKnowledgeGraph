@@ -930,7 +930,7 @@
             "inferred": false,
             "principalType": "user",
             "sourceSystem": "manual",
-            "writtenBy": "anonymous"
+            "writtenBy": "dan"
           },
           "to": {
             "id": "Repository:github.com/acme/shared-lib",
@@ -1028,7 +1028,7 @@
             "inferred": false,
             "principalType": "user",
             "sourceSystem": "manual",
-            "writtenBy": "anonymous"
+            "writtenBy": "dan"
           },
           "type": "Team"
         },

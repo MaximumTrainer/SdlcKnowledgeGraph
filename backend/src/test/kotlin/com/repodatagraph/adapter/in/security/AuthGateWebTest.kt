@@ -54,7 +54,6 @@ import java.time.Instant
 @WebMvcTest(
     controllers = [NodeController::class, SeedIngestController::class],
     properties = [
-        "sdlc.auth.disabled=false",
         "sdlc.auth.issuer-uri=https://issuer.example.test/realms/sdlc",
     ],
 )

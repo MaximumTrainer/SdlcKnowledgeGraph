@@ -50,13 +50,13 @@ describe('node API contract', () => {
           type: like('Team'),
           key: like('platform'),
           props: like({ name: 'platform' }),
-          // Who made the write (#114): the token's subject, or anonymous through the development
-          // bypass the provider is verified with.
+          // Who made the write (#114): the signed-in user's token subject. The provider is verified
+          // as a fixed test principal, and the matcher holds the shape, not the name (#118).
           provenance: like({
             sourceSystem: 'manual',
             confidence: 1.0,
             inferred: false,
-            writtenBy: 'anonymous',
+            writtenBy: 'dan',
             principalType: 'user'
           })
         }
@@ -69,7 +69,7 @@ describe('node API contract', () => {
 
       expect(created.key).toBe('platform')
       expect(created.provenance.sourceSystem).toBe('manual')
-      expect(created.provenance).toMatchObject({ writtenBy: 'anonymous', principalType: 'user' })
+      expect(created.provenance).toMatchObject({ writtenBy: 'dan', principalType: 'user' })
     })
   })
 

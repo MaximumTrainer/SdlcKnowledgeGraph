@@ -54,9 +54,10 @@ const router = createRouter({
 })
 
 /**
- * Whether users sign in is the deployment's decision (#114): with an identity provider configured,
- * every page waits for a signed-in user and every API call carries their token; without one, the API
- * is running its development bypass and the web interface calls it as before.
+ * Whether users sign in is the deployment's decision (#114, #118): with an identity provider
+ * configured, every page waits for a signed-in user and every API call carries their token; without
+ * one, the API is running its anonymous read-only mode, and the web interface reads the graph without
+ * a login and offers no way to change it.
  */
 loadAuthConfig().then(config => {
   const session = config ? createAuthSession(config) : null

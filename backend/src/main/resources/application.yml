@@ -91,7 +91,8 @@ connectors:
       client-secret: ${SERVICENOW_CLIENT_SECRET:}
 
 # Deployment posture (#48). Read-only refuses every write, deny-by-default, so an instance reachable
-# by people who must not change it is not an open database while there is no authentication (#3).
+# by people who must not change it cannot be changed through it, whoever signs in - and an instance
+# with no identity provider must be read-only (sdlc.auth below).
 # The bearer token the deploy pipeline sends to POST /api/v1/ingest/deployment (#7). Unset turns the
 # endpoint off (503) rather than leaving it open.
 ingest:
@@ -99,13 +100,13 @@ ingest:
 
 sdlc:
   read-only: ${SDLC_READ_ONLY:false}
-  # Who the API trusts to say who a caller is (#114, docs/adr/0005-auth-oidc-github-first.md). On by
-  # default: every request under /api and /graphql needs a bearer JWT from AUTH_ISSUER_URI, and the
-  # API refuses to start without one. AUTH_DISABLED=true is the development bypass - everyone is
-  # anonymous, it is announced on every start, and it is refused under the prod profile (AuthGuard).
+  # Who the API trusts to say who a caller is (#114, #118, docs/AUTH.md). With AUTH_ISSUER_URI, every
+  # request under /api and /graphql needs a bearer JWT that issuer signed. Without it, the instance
+  # runs the anonymous read-only mode - reads for anyone, every write refused, announced on every
+  # start - which AuthGuard lets start only with SDLC_READ_ONLY=true (#48 FR6). There is no bypass:
+  # AUTH_DISABLED was removed, and setting it stops the API starting.
   # AUTH_JWK_SET_URI is only for an API that reaches the issuer at another address than it signs as.
   auth:
-    disabled: ${AUTH_DISABLED:false}
     issuer-uri: ${AUTH_ISSUER_URI:}
     jwk-set-uri: ${AUTH_JWK_SET_URI:}
   # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),
