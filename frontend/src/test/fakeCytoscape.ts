@@ -34,6 +34,7 @@ export class FakeCy {
   readonly layouts: Record<string, unknown>[] = []
   readonly handlers: { event: string; selector: string | null; handler: Handler }[] = []
   fits = 0
+  resizes = 0
   destroyed = false
 
   constructor(readonly options: Record<string, unknown>) {}
@@ -121,6 +122,10 @@ export class FakeCy {
 
   fit() {
     this.fits += 1
+  }
+
+  resize() {
+    this.resizes += 1
   }
 
   destroy() {

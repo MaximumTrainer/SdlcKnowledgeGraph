@@ -481,6 +481,42 @@ describe('GraphView', () => {
     expect(fakeCytoscape.last().fits).toBe(fits + 1)
   })
 
+  it('has the canvas re-measure where it sits when the controls above it change size', async () => {
+    // Cytoscape maps a click through the container's position, measured once and re-measured only
+    // when the container itself resizes. The type filters fill in when the ontology arrives, which
+    // can be after the graph is drawn, and push the canvas down without resizing it.
+    const observed: { callback: ResizeObserverCallback; targets: Element[] }[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        readonly targets: Element[] = []
+        constructor(callback: ResizeObserverCallback) {
+          observed.push({ callback, targets: this.targets })
+        }
+        observe(target: Element) {
+          this.targets.push(target)
+        }
+        unobserve() {}
+        disconnect() {}
+      }
+    )
+    try {
+      serve()
+      const { wrapper } = await open()
+      const cy = fakeCytoscape.last()
+      const view = wrapper.get('section.graph-view').element
+      const watcher = observed.find(entry => entry.targets.includes(view))
+      expect(watcher, 'the view watches its own size').toBeDefined()
+      const resizes = cy.resizes
+
+      watcher!.callback([], {} as ResizeObserver)
+
+      expect(cy.resizes).toBe(resizes + 1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('with no node in the path, asks which node to start from', async () => {
     serve()
     const { router, wrapper } = await open('/graph')

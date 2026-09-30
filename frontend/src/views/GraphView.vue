@@ -52,11 +52,13 @@ const blast = ref(false)
 const blastCounts = ref<string[] | null>(null)
 const blastFocus = ref<string | null>(null)
 const container = ref<HTMLDivElement | null>(null)
+const view = ref<HTMLElement | null>(null)
 const startType = ref('')
 const startKey = ref('')
 
 let cy: Core | null = null
 let loads = 0
+let viewSize: ResizeObserver | null = null
 
 const exposed = () => import.meta.env.MODE === 'test' || route.query.e2e === '1'
 const setReady = (ready: boolean) => {
@@ -281,6 +283,15 @@ const start = () => {
 }
 
 onMounted(() => {
+  // Cytoscape maps a click through where the canvas sat when it last measured it, and measures again
+  // only when the canvas itself resizes or scrolls. The type filters fill in when the ontology
+  // arrives - which can be after the graph is drawn - and a badge or an error can appear above the
+  // canvas, each pushing it down without resizing it. Anything that changes the view's size may
+  // have moved the canvas, so the canvas is told to measure again.
+  if (typeof ResizeObserver !== 'undefined' && view.value) {
+    viewSize = new ResizeObserver(() => cy?.resize())
+    viewSize.observe(view.value)
+  }
   ontologyApi
     .get()
     .then(answer => {
@@ -303,6 +314,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  viewSize?.disconnect()
+  viewSize = null
   cy?.destroy()
   if (cy && window.__cy === cy) window.__cy = undefined
   cy = null
@@ -310,7 +323,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="graph-view">
+  <section ref="view" class="graph-view">
     <form v-if="!nodeId" class="start" data-test="start" @submit.prevent="start">
       <h1>Graph</h1>
       <p>Pick a node to draw the neighbourhood of.</p>
