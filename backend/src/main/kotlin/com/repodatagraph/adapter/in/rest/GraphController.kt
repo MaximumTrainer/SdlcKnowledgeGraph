@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.util.UriUtils
+import kotlin.text.Charsets.UTF_8
 
 @RestController
 @RequestMapping("/api/v1/graph")
@@ -95,7 +97,8 @@ class GraphController(
                 cloudResources = analysis["cloudResources"]?.filterIsInstance<CloudResource>() ?: emptyList(),
                 deployments = analysis["deployments"]?.filterIsInstance<Deployment>() ?: emptyList(),
             )
-        val successor = if (repoId.startsWith("$REPOSITORY:")) repoId else "$REPOSITORY:$repoId"
+        // Encoded, because the path variable is the caller's text and a header is no place for it raw.
+        val successor = UriUtils.encodeQueryParam(if (repoId.startsWith("$REPOSITORY:")) repoId else "$REPOSITORY:$repoId", UTF_8)
         return ResponseEntity
             .ok()
             .header(DEPRECATION_HEADER, "true")
