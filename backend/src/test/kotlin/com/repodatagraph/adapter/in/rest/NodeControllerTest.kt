@@ -322,6 +322,62 @@ class NodeControllerTest {
             .andExpect(jsonPath("$.edgeCount").value(3))
     }
 
+    private val workItem =
+        GraphNode(
+            key = NodeKey("ExternalWorkItem", "chorus://task/01JABC"),
+            props = mapOf("uri" to "chorus://task/01JABC", "system" to "chorus"),
+            provenance = Provenance.manual(Instant.parse("2026-01-01T00:00:00Z")),
+        )
+
+    @Test
+    fun `a key no path segment can carry is read by key as a query parameter (#85)`() {
+        whenever(nodeUseCase.get("ExternalWorkItem", "chorus://task/01JABC")).thenReturn(workItem)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/01JABC"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value("ExternalWorkItem:chorus://task/01JABC"))
+            .andExpect(jsonPath("$.key").value("chorus://task/01JABC"))
+    }
+
+    @Test
+    fun `reading by key answers 404 for a key nothing holds, and 400 without a key (#85)`() {
+        whenever(nodeUseCase.get("ExternalWorkItem", "chorus://task/nothing")).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/nothing"))
+            .andExpect(status().isNotFound)
+        mockMvc
+            .perform(get("/api/v1/nodes/ExternalWorkItem/by-key"))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `a node addressed by key is updated and deleted the same way (#85)`() {
+        whenever(nodeUseCase.update(eq("ExternalWorkItem"), eq("chorus://task/01JABC"), any(), any())).thenReturn(workItem)
+
+        mockMvc
+            .perform(
+                body(put("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/01JABC"), mapOf("props" to workItem.props)),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.key").value("chorus://task/01JABC"))
+        mockMvc
+            .perform(delete("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/01JABC").param("cascade", "true"))
+            .andExpect(status().isNoContent)
+
+        verify(nodeUseCase).delete("ExternalWorkItem", "chorus://task/01JABC", true)
+    }
+
+    @Test
+    fun `a node whose key holds a double slash is located by key rather than by a path it cannot travel in (#85)`() {
+        whenever(nodeUseCase.create(eq("ExternalWorkItem"), any(), any())).thenReturn(workItem)
+
+        mockMvc
+            .perform(body(post("/api/v1/nodes/ExternalWorkItem"), mapOf("props" to workItem.props)))
+            .andExpect(status().isCreated)
+            .andExpect(header().string("Location", "/api/v1/nodes/ExternalWorkItem/by-key?key=chorus://task/01JABC"))
+    }
+
     private fun body(
         builder: org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder,
         payload: Any,

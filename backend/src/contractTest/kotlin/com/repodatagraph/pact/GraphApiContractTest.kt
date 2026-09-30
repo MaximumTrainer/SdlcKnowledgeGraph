@@ -93,4 +93,13 @@ class GraphApiContractTest {
 
     @State(ProviderStates.HUB_DEPENDS_ON_MANY)
     fun hubRepositoryDependsOnMany() = states.hubRepositoryDependsOnMany()
+
+    @State(ProviderStates.WORK_ITEM_IS_LIVE)
+    fun workItemIsLiveInProduction() = states.workItemIsLiveInProduction()
+
+    @State(ProviderStates.DEPLOYMENT_WITHOUT_LINEAGE)
+    fun deploymentWithoutLineage() = states.deploymentWithoutLineage()
+
+    @State(ProviderStates.NO_WORK_ITEMS_EXIST)
+    fun noWorkItemsExist() = states.noWorkItemsExist()
 }

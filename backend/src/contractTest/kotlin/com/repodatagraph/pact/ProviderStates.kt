@@ -243,6 +243,75 @@ class ProviderStates(
         }
     }
 
+    /**
+     * The issue's lineage (#85): a Change in payments IMPLEMENTS a Chorus task, the 1.4.0 artifact
+     * CONTAINS the change and was deployed to production. Keyed as the identity rules key them: a
+     * Change as `<repositoryKey>@<sha>`, a work item as its URI.
+     */
+    fun workItemIsLiveInProduction() {
+        emptyGraph()
+        repository(REPOSITORY_KEY_OWNED)
+        val change = NodeKey("Change", "$REPOSITORY_KEY_OWNED@$CHANGE_SHA")
+        graphStore.upsertNode(
+            GraphNode(
+                change,
+                mapOf("repositoryKey" to REPOSITORY_KEY_OWNED, "sha" to CHANGE_SHA, "committedAt" to Instant.parse("2026-09-13T10:00:00Z")),
+                Provenance.manual(),
+            ),
+        )
+        val workItem = NodeKey("ExternalWorkItem", WORK_ITEM_URI)
+        graphStore.upsertNode(GraphNode(workItem, mapOf("uri" to WORK_ITEM_URI, "system" to "chorus"), Provenance.manual()))
+        graphStore.upsertEdge(GraphEdge(type = "IMPLEMENTS", from = change, to = workItem, provenance = Provenance.manual()))
+        val artifact = deployed("1.4.0", "2026-09-13T11:00:00Z")
+        graphStore.upsertEdge(GraphEdge(type = "CONTAINS", from = artifact, to = change, provenance = Provenance.manual()))
+    }
+
+    /** A deployment of an artifact nothing says the contents of, so its lineage is unknown (#85). */
+    fun deploymentWithoutLineage() {
+        emptyGraph()
+        deployed("1.3.0", "2026-09-12T11:00:00Z")
+    }
+
+    fun noWorkItemsExist() {
+        emptyGraph()
+    }
+
+    /** `acme/payments:<version>` deployed to production at [deployedAt], as the deployment ingest links one. */
+    private fun deployed(
+        version: String,
+        deployedAt: String,
+    ): NodeKey {
+        val artifact = NodeKey("Artifact", "acme/payments:$version")
+        graphStore.upsertNode(
+            GraphNode(
+                artifact,
+                mapOf("registry" to "ghcr.io", "name" to "acme/payments", "version" to version, "artifactType" to "container-image"),
+                Provenance.manual(),
+            ),
+        )
+        val environment = NodeKey("Environment", PRODUCTION)
+        graphStore.upsertNode(GraphNode(environment, mapOf("name" to PRODUCTION, "type" to PRODUCTION), Provenance.manual()))
+        val at = Instant.parse(deployedAt)
+        val deployment = NodeKey("Deployment", "${artifact.key}#$PRODUCTION#${at.epochSecond}")
+        graphStore.upsertNode(
+            GraphNode(
+                deployment,
+                mapOf(
+                    "artifactKey" to artifact.key,
+                    "environmentKey" to PRODUCTION,
+                    "deployedAt" to at,
+                    "artifactId" to artifact.key,
+                    "environmentId" to PRODUCTION,
+                    "status" to "SUCCESS",
+                ),
+                Provenance.manual(),
+            ),
+        )
+        graphStore.upsertEdge(GraphEdge(type = "DEPLOYED_TO", from = artifact, to = deployment, provenance = Provenance.manual()))
+        graphStore.upsertEdge(GraphEdge(type = "TO_ENVIRONMENT", from = deployment, to = environment, provenance = Provenance.manual()))
+        return artifact
+    }
+
     /** The key is `host/org/name`, so the parts a Repository is identified by come from it. */
     private fun repository(key: String) {
         val (host, org, name) = key.split("/")
@@ -279,6 +348,9 @@ class ProviderStates(
         const val FAILED_SYNC_RUN_EXISTS = "a FAILED sync run of github exists"
         const val PAYMENTS_HAS_A_NEIGHBOURHOOD = "payments has a neighbourhood with an inferred edge"
         const val HUB_DEPENDS_ON_MANY = "a hub repository depends on more than 500 others"
+        const val WORK_ITEM_IS_LIVE = "work item chorus://task/01JABC is live in production"
+        const val DEPLOYMENT_WITHOUT_LINEAGE = "a deployment whose artifact contains no changes"
+        const val NO_WORK_ITEMS_EXIST = "no work items exist"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -288,6 +360,9 @@ class ProviderStates(
         private const val SYNC_RUN_ID = "pact-run-1"
         private const val BUCKET_KEY = "aws:arn:aws:s3:::acme-logs"
         private const val HUB_KEY = "github.com/acme/hub"
+        private const val CHANGE_SHA = "a1b2c3"
+        private const val WORK_ITEM_URI = "chorus://task/01JABC"
+        private const val PRODUCTION = "production"
 
         /** One more than the graph view's cap, counting the hub itself. */
         private const val HUB_DEPENDENCIES = 500
@@ -305,6 +380,9 @@ class ProviderStates(
                 FAILED_SYNC_RUN_EXISTS,
                 PAYMENTS_HAS_A_NEIGHBOURHOOD,
                 HUB_DEPENDS_ON_MANY,
+                WORK_ITEM_IS_LIVE,
+                DEPLOYMENT_WITHOUT_LINEAGE,
+                NO_WORK_ITEMS_EXIST,
             )
     }
 }
