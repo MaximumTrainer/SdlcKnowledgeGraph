@@ -42,6 +42,14 @@ Feature: A read-only deployment refuses every write
     When I send a GET to "/api/v1/graph/neighbourhood?nodeId=Repository:github.com/acme/nothing&depth=4"
     Then the response status is 400
 
+  Scenario: The change lineage queries are reads, answered for anyone
+    # #85. Where a work item is live, and what a deployment carries, are GETs under /api/v1 like
+    # every other read: answered here, with a 404 for a work item or deployment the graph lacks.
+    When I send a GET to "/api/v1/work-items/deployments?uri=chorus://task/nothing"
+    Then the response status is 404
+    When I send a GET to "/api/v1/deployments/work-items?deploymentId=Deployment:nothing"
+    Then the response status is 404
+
   Scenario: A write endpoint added later is refused without anyone remembering to refuse it
     When I send a POST to "/api/v1/a-write-endpoint-nobody-has-built-yet"
     Then the response status is 403

@@ -61,10 +61,23 @@ Feature: Impact analysis for a change
     And the matched paths are "infra/db.tf"
     And the first hit is CloudResource "aws:arn:aws:rds:eu-west-1:1:db:payments" with pathMatched true
 
-  Scenario: A change sha cannot be scoped until changes are in the graph
+  Scenario: A sha no Change in the graph carries cannot scope the answer
     When I POST /api/v1/impact with sha "4f1c2d9"
     Then the response status is 200
     And "changeScope" is "unknown"
+    And the body has 4 hits and "truncated" is false
+
+  Scenario: A sha restricts deployments to those whose artifact contains the change
+    # #85 made changes part of the graph: an Artifact CONTAINS a Change, identified in its repository
+    # by its sha. An abbreviated sha finds the Change it begins, as git would.
+    Given the Artifact deployed to "production" CONTAINS Change "4f1c2d9e0a" in "github.com/acme/payments"
+    And another Artifact from "github.com/acme/payments" deployed to Environment "development" with tier "development"
+    When I POST /api/v1/impact with sha "4f1c2d9"
+    Then the response status is 200
+    And "changeScope" is "applied"
+    And the first hit is the "production" deployment
+    And the "staging" deployment appears after it
+    And no hit is the "development" deployment
 
   Scenario: Results are truncated honestly
     Given 60 services DEPENDS_ON the repository
