@@ -68,7 +68,8 @@ const router = (): Router =>
     routes: [
       { path: '/nodes/:type', name: 'nodes', component: { template: '<div />' } },
       { path: '/nodes/:type/:id', name: 'node', component: { template: '<div />' } },
-      { path: '/nodes/:type/:id/edit', name: 'edit', component: { template: '<div />' } }
+      { path: '/nodes/:type/:id/edit', name: 'edit', component: { template: '<div />' } },
+      { path: '/graph/:nodeId+', name: 'graph', component: { template: '<div />' } }
     ]
   })
 
@@ -119,6 +120,15 @@ describe('NodeDetail', () => {
     const link = wrapper.find('[data-test="open-remote"]')
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toContain('noopener')
+  })
+
+  /** The graph view starts from the node being read (#9). */
+  it('links to the node in the graph view, for a reader as for a writer', async () => {
+    const wrapper = await mountDetail('Repository', 'github.com/acme/payments')
+
+    const link = wrapper.find('a[data-test="view-in-graph"]')
+    expect(link.text()).toBe('View in graph')
+    expect(link.attributes('href')).toBe('/graph/Repository:github.com%2Facme%2Fpayments')
   })
 
   it('shows no link on a node type that has no remote', async () => {

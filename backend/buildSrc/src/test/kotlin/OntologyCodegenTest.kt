@@ -28,6 +28,7 @@ class OntologyCodegenTest {
                                 GenProperty("archived", "boolean", required = true, description = null),
                                 GenProperty("id", "string", required = false, description = "Never emitted"),
                             ),
+                        displayProperty = "name",
                     ),
                 ),
             edgeTypes =
@@ -157,6 +158,14 @@ class OntologyCodegenTest {
         val plain = GenEdgeType("RELATES_TO_CI", null, listOf("Repository"), listOf("ConfigurationItem"), "CI_OF", emptyList())
         val json = OntologyCodegen.json(ontology.copy(edgeTypes = ontology.edgeTypes + plain))
         assertTrue(json.contains("\"impact\": \"none\",\n      \"downstream\": \"forward\",\n      \"ownership\": \"none\","), json)
+    }
+
+    @Test
+    fun `the JSON snapshot says which property labels each node type (#9)`() {
+        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": \"name\"\n"), json)
+        val unlabelled = GenNodeType("Team", null, listOf("name"), listOf(GenProperty("name", "string", true, null)))
+        val json = OntologyCodegen.json(ontology.copy(nodeTypes = listOf(unlabelled)))
+        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": null\n"), json)
     }
 
     @Test

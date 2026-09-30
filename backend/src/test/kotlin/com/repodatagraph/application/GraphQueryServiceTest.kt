@@ -1,6 +1,7 @@
 package com.repodatagraph.application
 
 import com.repodatagraph.application.impact.ImpactAnalysisService
+import com.repodatagraph.application.neighbourhood.NeighbourhoodService
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.model.AffectedNode
 import com.repodatagraph.domain.model.AuditEvent
@@ -10,10 +11,12 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.ImpactDirection
 import com.repodatagraph.domain.model.ImpactResult
 import com.repodatagraph.domain.model.ImpactSpec
+import com.repodatagraph.domain.model.NeighbourhoodSpec
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.PathStep
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.Repository
+import com.repodatagraph.domain.model.SubgraphView
 import com.repodatagraph.domain.port.out.FactStorePort
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -26,7 +29,18 @@ class GraphQueryServiceTest {
     private val graphPort = mock<RepositoryGraphPort>()
     private val factStorePort = mock<FactStorePort>()
     private val impactAnalysis = mock<ImpactAnalysisService>()
-    private val service = GraphQueryService(graphPort, factStorePort, impactAnalysis)
+    private val neighbourhoods = mock<NeighbourhoodService>()
+    private val service = GraphQueryService(graphPort, factStorePort, impactAnalysis, neighbourhoods)
+
+    @Test
+    fun `the neighbourhood is the neighbourhood service's answer (#9)`() {
+        val root = GraphNode(NodeKey("Team", "platform"), emptyMap(), Provenance.manual())
+        val spec = NeighbourhoodSpec(root.key)
+        val view = SubgraphView(root, emptyList(), emptyList(), truncated = false)
+        whenever(neighbourhoods.neighbourhood(spec)).thenReturn(view)
+
+        assertEquals(view, service.neighbourhood(spec))
+    }
 
     @Test
     fun `getCloudResourcesForRepo delegates to graph port`() {
