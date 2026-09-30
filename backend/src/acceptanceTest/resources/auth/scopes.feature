@@ -9,7 +9,8 @@ Feature: least privilege on the graph
   only then are the scopes compared.
 
   The development realm gives dan both scopes, reader graph:read, visitor none, github-connector both,
-  and triage-agent graph:read by default with graph:write only when it asks for it.
+  and triage-agent graph:read by default with graph:write only when it asks for it. Archiving closed
+  facts and applying ontology migrations (#33) also need graph:admin, which only dan holds.
 
   Scenario: a read-only agent cannot write
     Given service principal "triage-agent" is registered with ownedBy "team-payments"
@@ -30,6 +31,12 @@ Feature: least privilege on the graph
     Then the response is 200
     When it sends the GraphQL query "mutation { deleteRepository(id: \"r1\") }"
     Then the response is 403 with required ["graph:write"] and held ["graph:read"]
+
+  Scenario: a writer that is not an administrator cannot archive or migrate
+    Given service principal "github-connector" is registered with ownedBy "team-platform"
+    And "github-connector" holds a client-credentials token
+    When it POSTs /api/v1/lifecycle/migrations/apply
+    Then the response is 403 with required ["graph:admin", "graph:write"] and held ["graph:read", "graph:write", "graph:write:github", "graph:write:github-actions"]
 
   Scenario: a read-only user cannot write
     Given "reader" has signed in through the UI

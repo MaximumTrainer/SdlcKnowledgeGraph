@@ -80,9 +80,12 @@ class TestPrincipalConfig {
         /** The header value for a client that is not a `TestRestTemplate`. */
         const val AUTHORIZATION = "Bearer $TOKEN"
 
-        /** Both graph scopes and the scope of every source sources.yaml declares (#116, #117). */
+        /**
+         * Every graph scope - reading, writing and administering the graph's lifecycle (#33) - and the
+         * scope of every source sources.yaml declares (#116, #117).
+         */
         private const val SCOPES =
-            "graph:read graph:write graph:write:github graph:write:github-actions graph:write:servicenow " +
+            "graph:read graph:write graph:admin graph:write:github graph:write:github-actions graph:write:servicenow " +
                 "graph:write:aws graph:write:dogfood-seed graph:write:sdlc-knowledge-graph"
 
         private const val INGEST_PREFIX = "/api/v1/ingest/"

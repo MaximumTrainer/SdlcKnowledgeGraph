@@ -13,14 +13,16 @@ Feature: A read-only deployment refuses every write
     And the error is "this instance is read-only"
 
     Examples:
-      | verb   | path                        |
-      | POST   | /api/v1/nodes/Team          |
-      | PUT    | /api/v1/nodes/Team/platform |
-      | PATCH  | /api/v1/nodes/Team/platform |
-      | DELETE | /api/v1/nodes/Team/platform |
-      | POST   | /api/v1/edges               |
-      | POST   | /api/v1/repositories        |
-      | POST   | /api/v1/service-principals  |
+      | verb   | path                               |
+      | POST   | /api/v1/nodes/Team                 |
+      | PUT    | /api/v1/nodes/Team/platform        |
+      | PATCH  | /api/v1/nodes/Team/platform        |
+      | DELETE | /api/v1/nodes/Team/platform        |
+      | POST   | /api/v1/edges                      |
+      | POST   | /api/v1/repositories               |
+      | POST   | /api/v1/service-principals         |
+      | POST   | /api/v1/lifecycle/archive          |
+      | POST   | /api/v1/lifecycle/migrations/apply |
 
   Scenario: A refused write leaves nothing behind
     When I send a POST to "/api/v1/nodes/Team"
@@ -34,6 +36,11 @@ Feature: A read-only deployment refuses every write
     # #29, FR5. A read like any other; the nightly prune of old runs (FR6) is not an HTTP request,
     # so this posture does not stop it either.
     When I send a GET to "/api/v1/sync-runs?connector=fake"
+    Then the response status is 200
+
+  Scenario: The lifecycle status is a read, answered for anyone
+    # #33. Archiving and applying migrations are writes and refused above; their status is not.
+    When I send a GET to "/api/v1/lifecycle/migrations"
     Then the response status is 200
 
   Scenario: The graph view's neighbourhood is a read, answered for anyone

@@ -38,6 +38,14 @@ connectors:
     servicenow:
       enabled: true
       schedule: "0 0 5 31 2 ?"
+    # A second scripted connector with lifecycle rules of its own (#33): what a full sync stops
+    # reporting is retired only once it has gone unreported for seven days, as an ITSM connector's is.
+    fake-itsm:
+      enabled: true
+      schedule: "0 0 5 31 2 ?"
+      lifecycle:
+        missing-from-full-sync: tombstone
+        grace-period: P7D
   # The org the fake serves. The base URL is set from the fake's port in CucumberSpringConfig, so
   # nothing here reaches the real api.github.com.
   github:
@@ -64,3 +72,16 @@ connectors:
 freshness:
   windows:
     aws: PT6H
+
+# The data lifecycle (#33). The archive is off by default everywhere else and a dry run when merely
+# enabled; the acceptance suite opts in to purging so the scenario that archives can prove it, into a
+# directory under the build. Its schedule never fires: the scenarios run it on demand. The migrations
+# are a fixture, so the suite can hold a graph at an older ontology version and watch one apply.
+lifecycle:
+  archive:
+    enabled: true
+    mode: purge
+    schedule: "0 0 5 31 2 ?"
+    directory: build/lifecycle-archive
+  migrations:
+    location: classpath:ontology/migrations-fixture/
