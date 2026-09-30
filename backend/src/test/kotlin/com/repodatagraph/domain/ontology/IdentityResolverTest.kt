@@ -203,4 +203,9 @@ class IdentityResolverTest {
     fun `an unknown type cannot be keyed`() {
         assertThrows<IdentityResolutionException> { resolver.keyFor("Nonsense", mapOf("name" to "x")) }
     }
+
+    @Test
+    fun `a service principal is keyed by its name exactly, since client ids are case-sensitive (#115)`() {
+        assertEquals("Triage-Agent", resolver.keyFor("ServicePrincipal", mapOf("name" to " Triage-Agent ")).key)
+    }
 }

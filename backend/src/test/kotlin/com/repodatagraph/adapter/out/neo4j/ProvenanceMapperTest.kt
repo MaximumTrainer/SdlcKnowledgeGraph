@@ -32,6 +32,9 @@ class ProvenanceMapperTest {
             principalType = "user",
         )
 
+    private val byService =
+        full.copy(writtenBy = "triage-agent", principalType = "service", onBehalfOfTeam = "team-payments")
+
     @Test
     fun `every field is flattened under the prov prefix`() {
         val properties = ProvenanceMapper.toProperties(full)
@@ -54,6 +57,14 @@ class ProvenanceMapperTest {
 
         assertEquals("dan", back.writtenBy)
         assertEquals("user", back.principalType)
+    }
+
+    @Test
+    fun `the team a service acted for is stored under the prefix and survives the round trip (#115)`() {
+        val properties = ProvenanceMapper.toProperties(byService)
+
+        assertEquals("team-payments", properties["prov_onBehalfOfTeam"])
+        assertEquals("team-payments", ProvenanceMapper.fromProperties(properties).onBehalfOfTeam)
     }
 
     @Test

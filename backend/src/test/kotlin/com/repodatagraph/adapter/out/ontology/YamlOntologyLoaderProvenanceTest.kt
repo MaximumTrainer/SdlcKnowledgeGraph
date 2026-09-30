@@ -18,7 +18,24 @@ class YamlOntologyLoaderProvenanceTest {
 
         assertEquals(PropertyType.STRING, byName["writtenBy"]?.type)
         assertEquals(false, byName["writtenBy"]?.required)
-        assertEquals(listOf("user"), byName["principalType"]?.enum)
+        assertEquals(listOf("user", "service"), byName["principalType"]?.enum)
+    }
+
+    @Test
+    fun `the envelope declares the team a service principal acted for (#115)`() {
+        val onBehalfOfTeam = registry.provenance.single { it.name == "onBehalfOfTeam" }
+
+        assertEquals(PropertyType.STRING, onBehalfOfTeam.type)
+        assertEquals(false, onBehalfOfTeam.required)
+    }
+
+    @Test
+    fun `service principals are a meta type of the registry, keyed by name (#115)`() {
+        val type = checkNotNull(registry.nodeType("ServicePrincipal"))
+
+        assertEquals(true, type.meta)
+        assertEquals(listOf("name"), type.identity)
+        assertEquals(listOf("name", "ownedBy"), type.properties.filter { it.required }.map { it.name })
     }
 
     @Test
@@ -36,6 +53,7 @@ class YamlOntologyLoaderProvenanceTest {
                 "syncRunId",
                 "writtenBy",
                 "principalType",
+                "onBehalfOfTeam",
             ),
             registry.provenance.map { it.name },
         )
