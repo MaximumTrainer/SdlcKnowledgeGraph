@@ -10,7 +10,8 @@ Feature: least privilege on the graph
 
   The development realm gives dan both scopes, reader graph:read, visitor none, github-connector both,
   and triage-agent graph:read by default with graph:write only when it asks for it. Archiving closed
-  facts and applying ontology migrations (#33) also need graph:admin, which only dan holds.
+  facts and applying ontology migrations (#33), and merging two nodes (#98), also need graph:admin,
+  which only dan holds.
 
   Scenario: a read-only agent cannot write
     Given service principal "triage-agent" is registered with ownedBy "team-payments"
@@ -36,6 +37,13 @@ Feature: least privilege on the graph
     Given service principal "github-connector" is registered with ownedBy "team-platform"
     And "github-connector" holds a client-credentials token
     When it POSTs /api/v1/lifecycle/migrations/apply
+    Then the response is 403 with required ["graph:admin", "graph:write"] and held ["graph:read", "graph:write", "graph:write:github", "graph:write:github-actions"]
+
+  Scenario: a writer that is not an administrator cannot merge nodes
+    # #98. A merge retires one node and moves its edges to another, so it needs graph:admin too.
+    Given service principal "github-connector" is registered with ownedBy "team-platform"
+    And "github-connector" holds a client-credentials token
+    When it POSTs /api/v1/nodes/Team/platform/merge
     Then the response is 403 with required ["graph:admin", "graph:write"] and held ["graph:read", "graph:write", "graph:write:github", "graph:write:github-actions"]
 
   Scenario: a read-only user cannot write

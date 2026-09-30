@@ -23,6 +23,7 @@ Feature: A read-only deployment refuses every write
       | POST   | /api/v1/service-principals         |
       | POST   | /api/v1/lifecycle/archive          |
       | POST   | /api/v1/lifecycle/migrations/apply |
+      | POST   | /api/v1/nodes/Team/platform/merge  |
 
   Scenario: A refused write leaves nothing behind
     When I send a POST to "/api/v1/nodes/Team"
