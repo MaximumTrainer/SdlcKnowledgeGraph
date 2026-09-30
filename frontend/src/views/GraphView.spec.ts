@@ -481,10 +481,11 @@ describe('GraphView', () => {
     expect(fakeCytoscape.last().fits).toBe(fits + 1)
   })
 
-  it('has the canvas re-measure where it sits when the controls above it change size', async () => {
+  it('has the canvas re-measure where it sits when the page around it changes size', async () => {
     // Cytoscape maps a click through the container's position, measured once and re-measured only
-    // when the container itself resizes. The type filters fill in when the ontology arrives, which
-    // can be after the graph is drawn, and push the canvas down without resizing it.
+    // when the container itself resizes. The header's type navigation and the type filters fill in
+    // when the ontology arrives, which can be after the graph is drawn, and push the canvas down
+    // without resizing it - but they grow the page.
     const observed: { callback: ResizeObserverCallback; targets: Element[] }[] = []
     vi.stubGlobal(
       'ResizeObserver',
@@ -502,11 +503,10 @@ describe('GraphView', () => {
     )
     try {
       serve()
-      const { wrapper } = await open()
+      await open()
       const cy = fakeCytoscape.last()
-      const view = wrapper.get('section.graph-view').element
-      const watcher = observed.find(entry => entry.targets.includes(view))
-      expect(watcher, 'the view watches its own size').toBeDefined()
+      const watcher = observed.find(entry => entry.targets.includes(document.documentElement))
+      expect(watcher, 'the view watches the size of the page').toBeDefined()
       const resizes = cy.resizes
 
       watcher!.callback([], {} as ResizeObserver)

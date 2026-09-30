@@ -95,12 +95,19 @@ test.beforeAll(async () => {
 
 /**
  * Opens the graph view of the payments repository, with its test hook, and waits for the layout and
- * for the type filters, which fill in from the ontology and move the canvas down when they arrive.
+ * for everything above the canvas that fills in from the ontology and moves the canvas down when it
+ * arrives: the header's type navigation and the view's type filters, each fetched on its own.
  */
 const openGraph = async (page: Page) => {
   const [type, ...key] = PAYMENTS_ID.split(':')
   await page.goto(`/graph/${type}:${encodeURIComponent(key.join(':'))}?e2e=1`)
   await page.waitForFunction(() => window.__cyReady === true)
+  await expect(
+    page.getByRole('navigation', { name: 'Node types' }).getByRole('link', {
+      name: 'Repository',
+      exact: true
+    })
+  ).toBeVisible()
   await expect(
     page.getByRole('group', { name: 'Node types' }).getByLabel('Repository', { exact: true })
   ).toBeVisible()
