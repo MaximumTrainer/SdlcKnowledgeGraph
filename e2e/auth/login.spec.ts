@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test'
  * The graph is behind a login (#114): a user signs in through Keycloak, the web interface sends
  * their token with every call, and what they write says who wrote it.
  *
- * The development realm (backend/src/acceptanceTest/resources/keycloak/sdlc-realm.json) has one user,
- * "dan", whose password is his name.
+ * The development realm (backend/src/acceptanceTest/resources/keycloak/sdlc-realm.json) has a user
+ * "dan", whose password is his name, holding both graph scopes.
  */
 
 /** A remote no other run will produce, so the test never trips over a node another run left. */

@@ -15,8 +15,8 @@ the graph is populated by hand, through the web interface or the API.
 
 The graph is read by people through the web interface and by programs through a REST and GraphQL
 API. Both sit behind an OIDC login when the deployment has an identity provider, and every write
-records who made it ([ADR-0005](docs/adr/0005-auth-oidc-github-first.md)); scopes, and access
-control that applies to AI agents exactly as it applies to people, are still to come.
+records who made it ([ADR-0005](docs/adr/0005-auth-oidc-github-first.md)). Read and write scopes
+apply to AI agents exactly as they apply to people; finer-grained access control is still to come.
 
 See the [roadmap](docs/ROADMAP.md) for what is built and what is planned, issue by issue.
 

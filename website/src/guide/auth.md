@@ -13,9 +13,105 @@ There are two kinds of principal:
 | A connector or an agent | The OAuth 2 client-credentials grant, as a registered service principal ([#115](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/115)) | The registered name, which is its client id | `service` | The key of the Team that owns it |
 
 Both present a bearer JWT from the instance's identity provider (`AUTH_ISSUER_URI`) and pass the
-same gate. There are no scopes yet: what one principal may do, any may. With the development bypass
-(`AUTH_DISABLED=true`) none of this applies: every caller is `anonymous`, a user, and nothing is
-refused.
+same gate, and what either may do is decided by the [scopes](#scopes) on its token
+([#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116)): `graph:read` to read the graph, `graph:write` to change it. With the
+development bypass (`AUTH_DISABLED=true`) none of this applies: every caller is `anonymous`, a user,
+and nothing is refused.
+
+## Scopes
+
+| Request | Needs |
+| --- | --- |
+| `GET` (and `HEAD`) under `/api/v1` | `graph:read` |
+| `POST`, `PUT`, `PATCH`, `DELETE` under `/api/v1` | `graph:write` |
+| A GraphQL query or subscription | `graph:read` |
+| A GraphQL mutation | `graph:write` |
+| A GraphQL document holding a query and a mutation | both |
+| `GET /api/v1/ontology`, `GET /api/v1/ontology/nodes/{type}` | nothing: public, with or without a token |
+| The ingest endpoints, the webhook receivers | nothing: they have a credential of their own |
+
+A token without what the request needs is refused before the request reaches the API:
+
+```json
+403 {"error": "insufficient scope", "required": ["graph:write"], "held": ["graph:read"]}
+```
+
+`required` is everything the request needs and `held` the `graph:` scopes the token carries (and
+nothing else it carries), both sorted, so the caller can see what to ask its identity provider for.
+The response also carries RFC 6750's `WWW-Authenticate: Bearer error="insufficient_scope"`
+challenge, naming the scopes, and the `scope.refused` security event is logged with the principal,
+the method and the scopes (never the path, which can hold a node's key).
+
+- **GraphQL is refused the same way**, as an HTTP 403 with the same body, before the document runs,
+  rather than as a GraphQL error inside a 200. A caller handles one kind of refusal whichever API it
+  uses, and a mutation it may not make is never partly executed. Every operation in the document
+  counts, not only the one `operationName` picks, and a document that cannot be shown to hold only
+  reads (it does not parse, or is over 256 KiB) needs `graph:write` as well.
+- **The ontology stays public.** #116 requires only that any valid token, whatever its scopes, can
+  read it, so an agent can always discover the schema. It has been public since #114 (ADR-0005),
+  which meets that and more: a token with no graph scope reads it like anyone else.
+- **The order of refusals is fixed.** No valid token is a `401`; a token from a client nobody
+  registered is `403 unregistered service principal`, whatever scopes it holds; only then are the
+  scopes compared.
+- **The service principal registry needs a scope too.** Registering or deregistering one needs
+  `graph:write` and a user (a service is refused even with `graph:write`); listing them needs
+  `graph:read`.
+- **Scopes are read from `scope` and `scp`.** OAuth 2's `scope` claim is a space-separated string,
+  which is what Keycloak issues; `scp`, an array, is what some other providers use. A token carrying
+  both holds what either names.
+
+The requirements are declared once per route family, in
+[`ScopePolicy`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/kotlin/com/repodatagraph/adapter/in/security/ScopePolicy.kt),
+not on each handler; its public list is also what the security configuration lets in without a
+token, so the two cannot disagree. Two tests keep it honest: `ScopePolicyCoverageTest` reads every
+controller's mappings as Spring MVC does and fails while any route falls outside every family, and
+the acceptance scenario "every route is guarded" calls every mapped route with a token holding no
+graph scope and expects each one not on its explicit allowlist to refuse it. A new controller cannot
+be served unguarded without one of them failing.
+
+A path outside every family - an actuator endpoint other than the public ones, the GraphiQL page -
+still needs a valid token, as it did before scopes, but no particular scope.
+
+### In the web interface
+
+The web interface reads the scopes from the signed-in user's access token and offers only what they
+allow: a user holding `graph:read` alone sees no New, Edit, Delete, relationship or Sync controls.
+If a refusal gets through anyway (the token changed, or a page was reached by its address), the page
+shows what the request needed and what the user holds in its usual error line. Without a login (the
+development bypass) everything is offered, as before.
+
+### Issuing them in Keycloak
+
+`graph:read` and `graph:write` are client scopes with *Include in token scope* on. Each has a role
+scope mapping, to the realm roles `graph-reader` and `graph-writer`, and Keycloak only puts a scope
+with role mappings into a token when the user (or the client's service account) holds one of those
+roles. So the same client, `sdlc-ui`, issues `dan` both scopes and `reader` only `graph:read`:
+
+| Client | `graph:read` | `graph:write` |
+| --- | --- | --- |
+| `sdlc-ui` | default | default |
+| `github-connector` | default | default |
+| `triage-agent` | default | optional: only when the token request asks for `scope=graph:write` |
+
+A default scope is in every token the client is issued; an optional one only when asked for, which
+is how the same agent gets a read-only token for a task that only reads:
+
+```bash
+curl -s http://localhost:8081/realms/sdlc/protocol/openid-connect/token \
+  -d grant_type=client_credentials -d client_id=triage-agent -d client_secret=triage-agent-dev-only
+# scope: "profile email graph:read"
+curl -s http://localhost:8081/realms/sdlc/protocol/openid-connect/token \
+  -d grant_type=client_credentials -d client_id=triage-agent -d client_secret=triage-agent-dev-only \
+  -d scope=graph:write
+# scope: "profile graph:write email graph:read"
+```
+
+Asking for a scope a client was never given is refused by Keycloak (`invalid_scope`), not silently
+dropped.
+
+A realm export that declares any client scope replaces all of Keycloak's built-in ones, so the
+development realm spells those out too (`basic`, which puts `sub` in the token, among them). Keep
+them when adding a scope; a realm without `basic` issues tokens the API cannot attribute.
 
 ## Service principals
 
@@ -96,6 +192,10 @@ off. Its client id is the name you register. In the realm export that is:
 }
 ```
 
+Give its client the graph scopes it needs as default client scopes (or `graph:write` as an optional
+one, for an agent that should usually only read), and give its service account the matching roles,
+`graph-reader` and `graph-writer` (see [Issuing them in Keycloak](#issuing-them-in-keycloak)).
+
 The connector or agent then asks the token endpoint for a token and sends it like any other:
 
 ```bash
@@ -112,17 +212,24 @@ What it writes records `writtenBy: "triage-agent"`, `principalType: "service"` a
 
 The realm the compose `auth` profile and the acceptance suite import
 ([`sdlc-realm.json`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/acceptanceTest/resources/keycloak/sdlc-realm.json))
-has, besides the web interface's public client `sdlc-ui` and the user `dan` (password `dan`), three
-confidential clients with the client-credentials grant:
+has the web interface's public client `sdlc-ui` and three users, each with their name as password:
 
-| Client | Secret | Purpose |
+| User | Graph scopes | Purpose |
 | --- | --- | --- |
-| `github-connector` | `github-connector-dev-only` | An example connector |
-| `triage-agent` | `triage-agent-dev-only` | An example agent |
-| `rogue-agent` | `rogue-agent-dev-only` | A client nobody registers, to see the 403 |
+| `dan` | `graph:read`, `graph:write` | The developer: reads, writes, registers service principals |
+| `reader` | `graph:read` | A read-only user, to see what the web interface hides and the API refuses |
+| `visitor` | none | A signed-in user with no graph scope: reads the ontology and nothing else |
 
-The secrets are development values that exist only in that realm, which no deployment imports. None
-of the clients is registered when the stack starts: register them as `dan` first.
+and three confidential clients with the client-credentials grant:
+
+| Client | Secret | Graph scopes | Purpose |
+| --- | --- | --- | --- |
+| `github-connector` | `github-connector-dev-only` | both | An example connector |
+| `triage-agent` | `triage-agent-dev-only` | `graph:read`, and `graph:write` when asked for | An example agent |
+| `rogue-agent` | `rogue-agent-dev-only` | none | A client nobody registers, to see the 403 |
+
+The secrets and passwords are development values that exist only in that realm, which no deployment
+imports. None of the clients is registered when the stack starts: register them as `dan` first.
 
 ## What stays as it was
 
