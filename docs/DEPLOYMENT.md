@@ -38,8 +38,12 @@ The web interface proxies exactly those three and nothing else under `/actuator`
 
 ## Read-only is a posture, not access control
 
-There is no authentication yet ([#3](../../issues/3)), so D4 means every deployment reachable by
-people who must not change it runs with `SDLC_READ_ONLY=true`. The [user guide](USER-GUIDE.md#read-only-instances)
+A deployment without an identity provider runs the API's development bypass (`AUTH_DISABLED=true`,
+[#114](../../issues/114)), which lets every caller in as `anonymous`, so D4 means every such
+deployment reachable by people who must not change it also runs with `SDLC_READ_ONLY=true`. The
+dogfood instance is one (`fly/fly.backend.toml`). The bypass is refused at startup under the `prod`
+profile, and logs the security event `auth.disabled` on every start. A deployment with an identity
+provider sets `AUTH_ISSUER_URI` instead, and needs no bypass. The [user guide](USER-GUIDE.md#read-only-instances)
 describes what that refuses. It narrows what has to be made safe; it does not make anything safe
 that it lets through.
 

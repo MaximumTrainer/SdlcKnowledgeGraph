@@ -10,6 +10,8 @@ import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
+import com.repodatagraph.domain.model.Principal
+import com.repodatagraph.domain.model.PrincipalType
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.IdentityResolver
@@ -66,6 +68,7 @@ class NodeServiceTest {
             PropertyValidator(),
             graphStore,
             GraphWriteMetrics(SimpleMeterRegistry()),
+            { Principal("dan", PrincipalType.USER) },
         )
 
     private val platformKey = NodeKey("Team", "platform")
@@ -108,6 +111,28 @@ class NodeServiceTest {
         assertThat(created.provenance.sourceSystem).isEqualTo("manual")
         assertThat(created.provenance.confidence).isEqualTo(1.0)
         assertThat(created.provenance.inferred).isFalse()
+    }
+
+    @Test
+    fun `a manual write records who made it (#114)`() {
+        whenever(graphStore.findNode(platformKey)).thenReturn(null)
+        whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
+
+        val created = service.create("Team", mapOf("name" to "platform"))
+
+        assertThat(created.provenance.writtenBy).isEqualTo("dan")
+        assertThat(created.provenance.principalType).isEqualTo("user")
+    }
+
+    @Test
+    fun `an update records who made it, not who made the node`() {
+        val byAnother = platform.copy(provenance = platform.provenance.copy(writtenBy = "erin", principalType = "user"))
+        whenever(graphStore.findNode(platformKey)).thenReturn(byAnother)
+        whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
+
+        val updated = service.update("Team", "platform", mapOf("name" to "platform", "email" to "p@acme.example"))
+
+        assertThat(updated.provenance.writtenBy).isEqualTo("dan")
     }
 
     @Test

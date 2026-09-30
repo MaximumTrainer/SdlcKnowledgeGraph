@@ -41,11 +41,30 @@ class OntologyCodegenTest {
                         properties = listOf(GenProperty("commitSha", "string", required = true, description = null)),
                     ),
                 ),
+            provenance =
+                listOf(
+                    GenProperty("sourceSystem", "string", required = true, description = null),
+                    GenProperty("confidence", "float", required = true, description = null),
+                    GenProperty("writtenBy", "string", required = false, description = "Who made the write"),
+                ),
         )
 
     private val sdl = OntologyCodegen.graphqlSdl(ontology)
     private val typescript = OntologyCodegen.typescript(ontology)
     private val json = OntologyCodegen.json(ontology)
+
+    @Test
+    fun `the provenance envelope is rendered from the registry (#114)`() {
+        assertTrue(sdl.contains("type Provenance {\n  sourceSystem: String!\n  confidence: Float!\n  writtenBy: String\n}"), sdl)
+        assertTrue(
+            typescript.contains(
+                "export interface Provenance {\n  sourceSystem: string\n  confidence: number\n  writtenBy: string | null\n}",
+            ),
+            typescript,
+        )
+        assertTrue(json.contains("\"provenance\": {"), json)
+        assertTrue(json.contains("""{ "name": "writtenBy", "type": "string", "required": false, "description": "Who made the write" }"""), json)
+    }
 
     @Test
     fun `generated SDL marks every file as generated`() {

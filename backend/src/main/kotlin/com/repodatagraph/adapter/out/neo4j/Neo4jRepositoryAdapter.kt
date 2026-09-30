@@ -9,6 +9,7 @@ import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.Team
 import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.port.out.CurrentPrincipal
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.RepositoryGraphPort
 import org.springframework.data.neo4j.core.Neo4jClient
@@ -29,6 +30,9 @@ class Neo4jRepositoryAdapter(
     private val graphStore: GraphStore,
     private val identityResolver: IdentityResolver,
     private val neo4jClient: Neo4jClient,
+    // The legacy repository endpoints and the GraphQL mutations write here, so their facts record
+    // their writer like the generic API's do (#114).
+    private val currentPrincipal: CurrentPrincipal,
 ) : RepositoryGraphPort {
     override fun save(repository: DomainRepository): DomainRepository {
         val key = identityResolver.keyFor("Repository", mapOf("url" to repository.url))
@@ -48,7 +52,7 @@ class Neo4jRepositoryAdapter(
                         "language" to repository.language,
                         "description" to repository.description,
                     ),
-                provenance = Provenance.manual(),
+                provenance = Provenance.manual(by = currentPrincipal.current()),
             ),
         )
         // The stored id is the derived one, so a second registration of the same remote updates the
@@ -187,7 +191,7 @@ class Neo4jRepositoryAdapter(
                 type = edgeType,
                 from = keyOf(fromId, fromType),
                 to = keyOf(toId, toType),
-                provenance = Provenance.manual(),
+                provenance = Provenance.manual(by = currentPrincipal.current()),
             ),
         )
     }

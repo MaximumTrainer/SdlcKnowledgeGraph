@@ -47,6 +47,8 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
+    // The API as an OAuth 2 resource server: bearer JWTs from a configured issuer (#114, ADR-0005).
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     // The ontology registry is YAML on the classpath, read at startup.

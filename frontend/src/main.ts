@@ -7,6 +7,12 @@ import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
 import SyncRunsView from './views/SyncRunsView.vue'
 import NotFound from './views/NotFound.vue'
+import AuthCallback from './views/AuthCallback.vue'
+import { apiClient } from './services/api'
+import { loadAuthConfig } from './auth/config'
+import { AUTH_SESSION, CALLBACK_PATH, createAuthSession } from './auth/session'
+import { attachAuth } from './auth/http'
+import { guardRoutes } from './auth/guard'
 
 /**
  * One set of routes for every node type, keyed by registry type, so a type added to the ontology is
@@ -37,6 +43,7 @@ const router = createRouter({
     },
     { path: '/connectors', component: ConnectorsView },
     { path: '/sync-runs', component: SyncRunsView },
+    { path: CALLBACK_PATH, component: AuthCallback },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },
     { path: '/repositories/:id', redirect: to => `/nodes/Repository/${to.params.id}` },
@@ -46,4 +53,16 @@ const router = createRouter({
   ]
 })
 
-createApp(App).use(router).mount('#app')
+/**
+ * Whether users sign in is the deployment's decision (#114): with an identity provider configured,
+ * every page waits for a signed-in user and every API call carries their token; without one, the API
+ * is running its development bypass and the web interface calls it as before.
+ */
+loadAuthConfig().then(config => {
+  const session = config ? createAuthSession(config) : null
+  if (session) {
+    attachAuth(apiClient, session)
+    guardRoutes(router, session)
+  }
+  createApp(App).provide(AUTH_SESSION, session).use(router).mount('#app')
+})

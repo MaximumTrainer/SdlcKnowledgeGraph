@@ -14,8 +14,11 @@ swap_size_mb = 512
 
 [env]
   SPRING_PROFILES_ACTIVE = "docker"
-  # No authentication yet (#3), so this instance must not accept writes (#48 D4, D5).
+  # No identity provider yet, so this instance runs the API's development bypass and must not accept
+  # writes (#48 D4, D5). AUTH_DISABLED is refused under the prod profile (#114, FR-5); this instance
+  # runs the docker profile, and the API logs a security warning (auth.disabled) on every start.
   SDLC_READ_ONLY = "true"
+  AUTH_DISABLED = "true"
   NEO4J_USERNAME = "neo4j"
   NEO4J_URI = "bolt://sdlc-graph-neo4j.internal:7687"
   # A smaller heap share than the image's default, and C1 only, so a 512 MB machine starts quickly

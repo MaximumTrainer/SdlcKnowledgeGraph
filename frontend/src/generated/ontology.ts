@@ -13,6 +13,8 @@ export interface Provenance {
   validFrom: string
   validTo: string | null
   syncRunId: string | null
+  writtenBy: string | null
+  principalType: string | null
 }
 
 /** A git repository, the anchor for most of the graph. */

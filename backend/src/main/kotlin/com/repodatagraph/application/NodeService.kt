@@ -15,6 +15,7 @@ import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.NodeUseCase
+import com.repodatagraph.domain.port.out.CurrentPrincipal
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
@@ -37,6 +38,7 @@ class NodeService(
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
     private val metrics: GraphWriteMetrics,
+    private val currentPrincipal: CurrentPrincipal,
 ) : NodeUseCase {
     override fun create(
         type: String,
@@ -51,7 +53,7 @@ class NodeService(
         val key = identityResolver.keyFor(type, expanded)
         graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
 
-        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual())).also {
+        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual(by = currentPrincipal.current()))).also {
             LogEvents.nodeCreated(type, key.key, props.keys.sorted())
             metrics.node(type, WriteOutcome.CREATED)
         }
@@ -103,7 +105,7 @@ class NodeService(
             throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existingKey))
         }
 
-        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual())).also {
+        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual(by = currentPrincipal.current()))).also {
             metrics.node(type, WriteOutcome.UPDATED)
         }
     }

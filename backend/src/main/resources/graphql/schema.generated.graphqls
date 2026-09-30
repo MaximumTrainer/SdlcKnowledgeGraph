@@ -12,6 +12,8 @@ type Provenance {
   validFrom: String!
   validTo: String
   syncRunId: String
+  writtenBy: String
+  principalType: String
 }
 
 """Anything addressable in the graph."""

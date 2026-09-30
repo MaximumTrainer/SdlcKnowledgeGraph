@@ -37,6 +37,14 @@ while the slow ones are left to push and CI.
 | `acceptanceTest` | `backend/src/acceptanceTest` | yes | pre-push, CI |
 | `contractTest` | `backend/src/contractTest` | yes | pre-push, CI |
 
+`acceptanceTest` runs three Cucumber suites, each with its own Spring context, because what they
+differ in is fixed when the context starts: the main suite (`features/`) with the development
+authentication bypass, the read-only suite (`read-only/`), and the authentication suite (`auth/`),
+which turns authentication on against a Keycloak in Testcontainers loaded from the development realm
+in `backend/src/acceptanceTest/resources/keycloak/`, the same realm the compose `auth` profile
+imports. Its steps sign in through Keycloak's login form with PKCE, as the web interface does. The
+other backend suites run with the bypass too; `AuthGateWebTest` covers the 401.
+
 `backend/src/testSupport/kotlin` holds helpers shared by more than one suite, currently the
 Testcontainers Neo4j configuration. It is compiled into `integrationTest`, `acceptanceTest` and
 `contractTest`.
@@ -91,6 +99,11 @@ fails and then passes on a retry still fails the run (`failOnFlakyTests`). A ret
 into green hides races like the one in #148, and a real regression would be hidden the same way. A
 browser test waits for what it reads with Playwright's web-first assertions (`expect(locator)...`),
 never by reading a locator once straight after the click that loads it.
+
+`e2e/auth` is the login journey, with its own config for the stack behind Keycloak: CI restarts the
+compose stack with `compose.auth.yaml` and the `auth` profile after the conformance runs, then runs
+`npx playwright test --config=auth.config.ts`. The main browser suite runs against the default stack,
+which has no login.
 
 `e2e/conformance` is a separate Playwright suite with its own config: the deployment contract in
 [Deployment](/guide/deployment), run against any base URL with no browser. CI runs it against the

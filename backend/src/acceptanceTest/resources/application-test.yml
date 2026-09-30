@@ -14,6 +14,11 @@ management:
 sdlc:
   deployment:
     commit: 0123456789abcdef0123456789abcdef01234567
+  # The development bypass (#114): the scenarios here are about the graph, not about signing in, so
+  # they run as an anonymous caller. The login itself is the auth suite's (auth/authentication.feature),
+  # which turns this off for its own context.
+  auth:
+    disabled: true
 
 # The bearer token the deploy pipeline sends to POST /api/v1/ingest/deployment (#7).
 ingest:

@@ -161,8 +161,20 @@ data class Provenance(
     val validFrom: Instant,
     val validTo: Instant? = null,   // null means current
     val syncRunId: String?,
+    val writtenBy: String?,     // the principal's subject, "anonymous" under the bypass (#114)
+    val principalType: String?, // "user"; service and agent principals arrive with AUTH-2
 )
 ```
+
+The envelope is declared in the registry like the types are, in
+[`provenance.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/resources/ontology/v1/provenance.yaml),
+so the `Provenance` GraphQL type, the `Provenance` TypeScript interface and the `provenance` section
+of `ontology.json` are generated from it. `confidence` is the registry's one `float` property.
+
+`writtenBy` and `principalType` say who made a write through the API: the subject of the bearer
+token, which does not change when a username does, and the kind of principal. A connector's facts
+carry neither until connectors are principals of their own; nor do facts written before they
+existed.
 
 Neo4j does not store nested maps, so these are flattened to `prov_` prefixed properties, and an
 index on `prov_sourceSystem` is created for every type. Re-stating a node replaces its provenance

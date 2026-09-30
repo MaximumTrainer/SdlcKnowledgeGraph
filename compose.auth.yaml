@@ -1,0 +1,24 @@
+# The stack behind a login (#114): layered on compose.yaml together with the auth profile, which
+# starts Keycloak with the development realm.
+#
+#   docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --build --wait
+#
+# Then http://localhost:5173 sends you to Keycloak; sign in as dan / dan.
+#
+# Keycloak is two addresses at once. The browser reaches it at localhost:8081, so that is the issuer
+# every token names and the API must expect; the API, inside the compose network, fetches the signing
+# keys from keycloak:8080. Hence an issuer and a separate key set URI.
+services:
+  backend:
+    environment:
+      AUTH_DISABLED: "false"
+      AUTH_ISSUER_URI: http://localhost:8081/realms/sdlc
+      AUTH_JWK_SET_URI: http://keycloak:8080/realms/sdlc/protocol/openid-connect/certs
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  frontend:
+    environment:
+      OIDC_AUTHORITY: http://localhost:8081/realms/sdlc
+      OIDC_CLIENT_ID: sdlc-ui

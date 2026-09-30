@@ -15,15 +15,7 @@ object OntologyCodegen {
             appendLine()
             appendLine("\"\"\"Where a fact came from, attached to every node and edge.\"\"\"")
             appendLine("type Provenance {")
-            appendLine("  sourceSystem: String!")
-            appendLine("  sourceId: String")
-            appendLine("  ingestedAt: String!")
-            appendLine("  observedAt: String")
-            appendLine("  confidence: Float!")
-            appendLine("  inferred: Boolean!")
-            appendLine("  validFrom: String!")
-            appendLine("  validTo: String")
-            appendLine("  syncRunId: String")
+            ontology.provenance.forEach { appendLine("  ${it.name}: ${graphqlType(it)}") }
             appendLine("}")
             appendLine()
             appendLine("\"\"\"Anything addressable in the graph.\"\"\"")
@@ -68,15 +60,10 @@ object OntologyCodegen {
             appendLine("export const ONTOLOGY_VERSION = '${ontology.version}'")
             appendLine()
             appendLine("export interface Provenance {")
-            appendLine("  sourceSystem: string")
-            appendLine("  sourceId: string | null")
-            appendLine("  ingestedAt: string")
-            appendLine("  observedAt: string | null")
-            appendLine("  confidence: number")
-            appendLine("  inferred: boolean")
-            appendLine("  validFrom: string")
-            appendLine("  validTo: string | null")
-            appendLine("  syncRunId: string | null")
+            ontology.provenance.forEach { property ->
+                val nullable = if (property.required) "" else " | null"
+                appendLine("  ${property.name}: ${typescriptType(property)}$nullable")
+            }
             appendLine("}")
             appendLine()
 
@@ -138,7 +125,12 @@ object OntologyCodegen {
                 appendLine("      ]")
                 appendLine("    }${if (index == ontology.edgeTypes.lastIndex) "" else ","}")
             }
-            appendLine("  ]")
+            appendLine("  ],")
+            appendLine("""  "provenance": {""")
+            appendLine("""    "properties": [""")
+            appendProperties(ontology.provenance, indent = "      ")
+            appendLine("    ]")
+            appendLine("  }")
             appendLine("}")
         }
 
@@ -174,6 +166,7 @@ object OntologyCodegen {
         val base =
             when (property.type) {
                 "int" -> "Int"
+                "float" -> "Float"
                 "boolean" -> "Boolean"
                 "string[]" -> "[String!]"
                 else -> "String"
@@ -183,7 +176,7 @@ object OntologyCodegen {
 
     private fun typescriptType(property: GenProperty): String =
         when (property.type) {
-            "int" -> "number"
+            "int", "float" -> "number"
             "boolean" -> "boolean"
             "string[]" -> "string[]"
             else -> "string"

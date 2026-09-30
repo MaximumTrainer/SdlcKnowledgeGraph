@@ -369,5 +369,20 @@
       "properties": [
       ]
     }
-  ]
+  ],
+  "provenance": {
+    "properties": [
+      { "name": "sourceSystem", "type": "string", "required": true, "description": "The system of record: github, servicenow:prod, manual" },
+      { "name": "sourceId", "type": "string", "required": false, "description": "The fact's identifier in that system, when it has one" },
+      { "name": "ingestedAt", "type": "instant", "required": true, "description": null },
+      { "name": "observedAt", "type": "instant", "required": false, "description": "When the source says the fact was true" },
+      { "name": "confidence", "type": "float", "required": true, "description": "1.0 when reported by the system of record, lower when derived by a rule" },
+      { "name": "inferred", "type": "boolean", "required": true, "description": null },
+      { "name": "validFrom", "type": "instant", "required": true, "description": null },
+      { "name": "validTo", "type": "instant", "required": false, "description": "Set when the fact is superseded" },
+      { "name": "syncRunId", "type": "string", "required": false, "description": null },
+      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write; anonymous under AUTH_DISABLED" },
+      { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user"] }
+    ]
+  }
 }

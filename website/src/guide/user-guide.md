@@ -112,8 +112,18 @@ every edge attached to it, in one operation.
 ### Provenance
 
 At the foot of a node's page, **Provenance** shows the source system, the confidence, when the fact
-was ingested, and whether it was inferred. Through the interface these are always `manual`, `1`,
-the time of the write, and `no`.
+was ingested, whether it was inferred, who wrote it and what kind of principal they were. Through the
+interface these are always `manual`, `1`, the time of the write, `no`, your account's subject, and
+`user`. On an instance running without a login, the writer is `anonymous`; a fact a connector wrote,
+or one written before writers were recorded, says `not recorded`.
+
+### Signing in
+
+An instance with an identity provider sends you to its login page before showing anything, and back
+to the page you asked for afterwards. The header then shows who you are signed in as, with
+**Sign out** beside it. Your session is renewed in the background while the tab is open; if it
+cannot be, the next request takes you back to the login page rather than failing. An instance
+without an identity provider (the default compose stack, the dogfood instance) has no login.
 
 ### Connectors and sync runs
 
@@ -142,7 +152,17 @@ some questions the interface cannot show, and the [roadmap](/reference/roadmap) 
 
 The API is served at `http://localhost:8080/api/v1` by default, documented interactively at
 `/swagger-ui.html`, and listed endpoint by endpoint in the generated
-[API reference](/reference/api). Requests and responses are JSON. There is no authentication.
+[API reference](/reference/api). Requests and responses are JSON.
+
+Every request under `/api` and `/graphql` needs a bearer JWT from the instance's identity provider
+(`Authorization: Bearer <token>`), unless the instance runs its development bypass
+(`AUTH_DISABLED=true`). Without a valid token the answer is
+`401 {"error": "authentication required"}` with a `WWW-Authenticate: Bearer` challenge; why a token
+was refused is not said. There are no scopes yet: any valid token may do anything. A few paths need
+no token: the health probes, `/actuator/info`, `/actuator/prometheus`, the ontology document, the
+API documentation, the webhook receivers (which check the sender's signature) and the ingest
+endpoints (which have their own bearer token). Every write records the token's subject as
+`writtenBy`, and `principalType: "user"`, in its provenance.
 
 Node ids take the form `Type:key`, for example `Repository:github.com/acme/payments` or
 `Team:platform`. Where a key appears in a URL path it is the raw key, slashes included, so
@@ -280,8 +300,9 @@ schema that will replace this, and no query returns them yet.
 ## Read-only instances
 
 An instance started with `sdlc.read-only=true` (environment variable `SDLC_READ_ONLY=true`) refuses
-every write. It exists because there is no authentication yet: an instance reachable by people who
-must not change it, such as a public demonstration, would otherwise be an open database.
+every write. It exists for an instance that has no identity provider and runs the development
+bypass (`AUTH_DISABLED=true`): reachable by people who must not change it, such as a public
+demonstration, it would otherwise be an open database.
 
 - Every request other than `GET`, `HEAD` and `OPTIONS` is refused with
   `403 {"error": "this instance is read-only"}`, on every path. The refusal is deny-by-default: a

@@ -13,6 +13,8 @@ class OntologyRegistry(
     val version: String,
     nodeTypes: List<NodeTypeDef>,
     edgeTypes: List<EdgeTypeDef>,
+    /** The provenance envelope every node and edge carries, in declaration order (#114). */
+    val provenance: List<PropertyDef> = emptyList(),
 ) {
     private val nodesByName: Map<String, NodeTypeDef>
     private val edgesByName: Map<String, EdgeTypeDef>

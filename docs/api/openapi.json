@@ -537,11 +537,14 @@
             },
             "type" : "array"
           },
+          "provenance" : {
+            "$ref" : "#/components/schemas/ProvenanceEnvelopeResponse"
+          },
           "version" : {
             "type" : "string"
           }
         },
-        "required" : [ "edgeTypes", "nodeTypes", "version" ],
+        "required" : [ "edgeTypes", "nodeTypes", "provenance", "version" ],
         "type" : "object"
       },
       "Pipeline" : {
@@ -609,6 +612,9 @@
             "format" : "date-time",
             "type" : [ "string", "null" ]
           },
+          "principalType" : {
+            "type" : [ "string", "null" ]
+          },
           "sourceId" : {
             "type" : [ "string", "null" ]
           },
@@ -625,9 +631,24 @@
           "validTo" : {
             "format" : "date-time",
             "type" : [ "string", "null" ]
+          },
+          "writtenBy" : {
+            "type" : [ "string", "null" ]
           }
         },
         "required" : [ "confidence", "current", "inferred", "ingestedAt", "sourceSystem", "validFrom" ],
+        "type" : "object"
+      },
+      "ProvenanceEnvelopeResponse" : {
+        "properties" : {
+          "properties" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PropertyResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "properties" ],
         "type" : "object"
       },
       "Repository" : {

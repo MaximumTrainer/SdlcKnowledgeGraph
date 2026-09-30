@@ -1,6 +1,10 @@
 spring:
   application:
     name: repodatagraph
+  # The API has no users of its own: callers are principals an identity provider vouched for (#114).
+  # Without this Spring Boot would invent an in-memory user and log its generated password.
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   neo4j:
     uri: ${NEO4J_URI:bolt://localhost:7687}
     authentication:
@@ -95,6 +99,15 @@ ingest:
 
 sdlc:
   read-only: ${SDLC_READ_ONLY:false}
+  # Who the API trusts to say who a caller is (#114, docs/adr/0005-auth-oidc-github-first.md). On by
+  # default: every request under /api and /graphql needs a bearer JWT from AUTH_ISSUER_URI, and the
+  # API refuses to start without one. AUTH_DISABLED=true is the development bypass - everyone is
+  # anonymous, it is announced on every start, and it is refused under the prod profile (AuthGuard).
+  # AUTH_JWK_SET_URI is only for an API that reaches the issuer at another address than it signs as.
+  auth:
+    disabled: ${AUTH_DISABLED:false}
+    issuer-uri: ${AUTH_ISSUER_URI:}
+    jwk-set-uri: ${AUTH_JWK_SET_URI:}
   # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),
   # so a pipeline can ask the running instance whether it is serving the commit it meant to deploy.
   deployment:

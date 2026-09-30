@@ -1,0 +1,20 @@
+# The provenance envelope: where a fact came from, attached to every node and edge.
+#
+# Declared here like the node and edge types, so the GraphQL schema, ontology.json and the frontend
+# types are generated from one place (#114). The fields are stored on each node and relationship with
+# a prov_ prefix (ProvenanceMapper), so none can collide with a domain property.
+provenance:
+  properties:
+    - { name: sourceSystem, type: string, required: true, description: "The system of record: github, servicenow:prod, manual" }
+    - { name: sourceId, type: string, required: false, description: "The fact's identifier in that system, when it has one" }
+    - { name: ingestedAt, type: instant, required: true }
+    - { name: observedAt, type: instant, required: false, description: "When the source says the fact was true" }
+    - { name: confidence, type: float, required: true, description: "1.0 when reported by the system of record, lower when derived by a rule" }
+    - { name: inferred, type: boolean, required: true }
+    - { name: validFrom, type: instant, required: true }
+    - { name: validTo, type: instant, required: false, description: "Set when the fact is superseded" }
+    - { name: syncRunId, type: string, required: false }
+    # Who made the write (#114). A connector's facts name no writer until connectors are principals
+    # of their own (AUTH-2).
+    - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write; anonymous under AUTH_DISABLED" }
+    - { name: principalType, type: string, required: false, description: "The kind of that principal", enum: [user] }

@@ -40,6 +40,8 @@ data class GenOntology(
     val version: String,
     val nodeTypes: List<GenNodeType>,
     val edgeTypes: List<GenEdgeType>,
+    /** The provenance envelope every node and edge carries (provenance.yaml, #114). */
+    val provenance: List<GenProperty> = emptyList(),
 )
 
 object OntologyReader {
@@ -86,7 +88,11 @@ object OntologyReader {
                     )
                 }.toList()
 
-        return GenOntology(version, nodes, edges)
+        val provenanceFile = baseDir.resolve("provenance.yaml")
+        val provenance =
+            if (provenanceFile.exists()) yaml.readTree(provenanceFile).path("provenance").readProperties() else emptyList()
+
+        return GenOntology(version, nodes, edges, provenance)
     }
 
     private fun JsonNode.readProperties(): List<GenProperty> =

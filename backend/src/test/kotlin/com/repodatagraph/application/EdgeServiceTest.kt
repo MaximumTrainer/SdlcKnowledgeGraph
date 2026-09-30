@@ -10,6 +10,8 @@ import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.IncidentEdge
 import com.repodatagraph.domain.model.NodeKey
+import com.repodatagraph.domain.model.Principal
+import com.repodatagraph.domain.model.PrincipalType
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
@@ -72,7 +74,13 @@ class EdgeServiceTest {
                 ),
         )
 
-    private val service = EdgeService(registry, PropertyValidator(), graphStore, GraphWriteMetrics(SimpleMeterRegistry()))
+    private val service =
+        EdgeService(
+            registry,
+            PropertyValidator(),
+            graphStore,
+            GraphWriteMetrics(SimpleMeterRegistry()),
+        ) { Principal("dan", PrincipalType.USER) }
 
     private val payments = NodeKey("Repository", "acme/payments")
     private val sharedLib = NodeKey("Repository", "acme/shared-lib")
@@ -139,6 +147,17 @@ class EdgeServiceTest {
         assertThat(written.edge.provenance.sourceSystem).isEqualTo("manual")
         assertThat(written.edge.provenance.confidence).isEqualTo(1.0)
         assertThat(written.edge.provenance.inferred).isFalse()
+    }
+
+    @Test
+    fun `a new edge records who made it (#114)`() {
+        whenever(graphStore.findEdge(any(), any(), any())).thenReturn(null)
+        whenever(graphStore.upsertEdge(any())).thenAnswer { it.arguments[0] }
+
+        val written = service.create(request())
+
+        assertThat(written.edge.provenance.writtenBy).isEqualTo("dan")
+        assertThat(written.edge.provenance.principalType).isEqualTo("user")
     }
 
     @Test

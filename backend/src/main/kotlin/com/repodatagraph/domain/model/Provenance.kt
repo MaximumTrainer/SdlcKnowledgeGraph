@@ -16,6 +16,9 @@ import java.time.Instant
  * @param confidence 1.0 when reported by the system of record, lower when derived by a rule
  * @param inferred true when a rule produced this rather than a system reporting it
  * @param validTo null while the fact is current; set when it is superseded
+ * @param writtenBy the subject of the principal that made the write (#114); null for a fact a
+ *   connector wrote, until connectors are principals of their own (AUTH-2)
+ * @param principalType the kind of that principal, as its wire name ("user")
  */
 data class Provenance(
     val sourceSystem: String,
@@ -27,6 +30,8 @@ data class Provenance(
     val validFrom: Instant,
     val validTo: Instant? = null,
     val syncRunId: String? = null,
+    val writtenBy: String? = null,
+    val principalType: String? = null,
 ) {
     init {
         require(sourceSystem.isNotBlank()) { "provenance requires a sourceSystem" }
@@ -41,7 +46,20 @@ data class Provenance(
         const val FULL_CONFIDENCE = 1.0
         const val MANUAL = "manual"
 
-        /** A fact stated directly through the API by a person: fully trusted and not inferred. */
-        fun manual(now: Instant = Instant.now()): Provenance = Provenance(sourceSystem = MANUAL, ingestedAt = now, validFrom = now)
+        /**
+         * A fact stated directly through the API by a person: fully trusted and not inferred, and
+         * recording who stated it when [by] is known.
+         */
+        fun manual(
+            now: Instant = Instant.now(),
+            by: Principal? = null,
+        ): Provenance =
+            Provenance(
+                sourceSystem = MANUAL,
+                ingestedAt = now,
+                validFrom = now,
+                writtenBy = by?.subject,
+                principalType = by?.type?.wireName,
+            )
     }
 }

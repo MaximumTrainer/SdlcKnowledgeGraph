@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { http, HttpResponse, delay } from 'msw'
 import { server } from '@/test/msw/server'
+import { ref } from 'vue'
+import { AUTH_SESSION, type AuthSession } from '@/auth/session'
 import AppLayout from './AppLayout.vue'
 
 /**
@@ -42,14 +44,16 @@ const serve = ({
 }: { ontologyReply?: Reply; infoReply?: Reply } = {}) =>
   server.use(http.get('/api/v1/ontology', ontologyReply), http.get('/actuator/info', infoReply))
 
-const mountLayout = async (path = '/') => {
+const mountLayout = async (path = '/', session: AuthSession | null = null) => {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/:any(.*)*', component: { template: '<p>page</p>' } }]
   })
   router.push(path)
   await router.isReady()
-  return mount(AppLayout, { global: { plugins: [router] } })
+  return mount(AppLayout, {
+    global: { plugins: [router], provide: { [AUTH_SESSION as symbol]: session } }
+  })
 }
 
 const navLinks = (wrapper: Awaited<ReturnType<typeof mountLayout>>) =>
@@ -139,5 +143,34 @@ describe('AppLayout', () => {
     await flushPromises()
 
     expect(wrapper.find('footer').text()).toContain('build unknown')
+  })
+
+  /** Signed in through the identity provider, the shell says as whom (#114). */
+  it('names the signed-in user and offers to sign out', async () => {
+    serve()
+    const signOut = vi.fn(async () => undefined)
+    const session: AuthSession = {
+      username: ref('dan'),
+      accessToken: async () => 'access-token',
+      signIn: async () => undefined,
+      completeSignIn: async () => '/',
+      signOut
+    }
+
+    const wrapper = await mountLayout('/', session)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="signed-in-user"]').text()).toBe('dan')
+    await wrapper.find('[data-test="sign-out"]').trigger('click')
+    expect(signOut).toHaveBeenCalled()
+  })
+
+  it('shows no user when the deployment has no login', async () => {
+    serve()
+
+    const wrapper = await mountLayout('/')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="signed-in-user"]').exists()).toBe(false)
   })
 })
