@@ -202,6 +202,54 @@ nodes:
       - { name: format, type: string, required: true, enum: [terraform, cdk, bicep, cloudformation] }
       - { name: resourceRefs, type: "string[]", required: false, description: "Identifiers the file names literally, for the link engine to match on" }
 
+  # A change and the intent behind it (#85). A Change is a commit range or merge in a repository; a
+  # PullRequest proposed and merged it; an ExternalWorkItem is the task, ticket or issue that asked
+  # for it. Together with an Artifact that CONTAINS the change they answer "where is this work item
+  # live" and "what did this deployment carry", which is the join between intent and operations.
+  Change:
+    description: A commit range or merge in a repository, identified there by its head sha.
+    # Keyed inside its repository: the same sha in a fork is a different change to a different
+    # repository. The repository is named by its key, and the server stores it in that form whatever
+    # remote notation the caller used, so a change lands beside the Repository node it belongs to.
+    identity: [repositoryKey, sha]
+    displayProperty: sha
+    properties:
+      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the change was made in, e.g. github.com/acme/payments" }
+      - { name: sha, type: string, required: true, description: "The commit the change ends at, stored in lower case" }
+      - { name: baseSha, type: string, required: false, description: "The commit the change starts from, for a range" }
+      - { name: title, type: string, required: false }
+      - { name: author, type: string, required: false }
+      - { name: committedAt, type: instant, required: true }
+      - { name: url, type: string, required: false, description: "Where the change can be read, e.g. the commit or compare page" }
+
+  PullRequest:
+    description: A proposal to merge a change into a repository, as the forge records it.
+    identity: [repositoryKey, number]
+    displayProperty: number
+    properties:
+      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the pull request targets" }
+      - { name: number, type: int, required: true, description: "The forge's number for it within the repository" }
+      - { name: url, type: string, required: true }
+      - { name: title, type: string, required: false }
+      - { name: state, type: string, required: false, enum: [open, merged, closed] }
+      - { name: mergedAt, type: instant, required: false }
+      - { name: branch, type: string, required: false, description: "The head branch, e.g. chorus/CH-42-retry-webhook" }
+
+  # A reference, not a copy (ADR-0012): the description, acceptance criteria and decisions of a work
+  # item stay authoritative in the system that owns it. The graph holds its URI and enough to show it.
+  ExternalWorkItem:
+    description: A task, ticket or issue in the system that owns it, referred to by its URI.
+    # The URI exactly as the owning system writes it. Opaque: not lowercased, not parsed, not
+    # normalised, because only that system knows which parts of it are case-sensitive.
+    identity: [uri]
+    displayProperty: externalKey
+    properties:
+      - { name: uri, type: string, required: true, description: "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42" }
+      - { name: system, type: string, required: true, description: "The system that owns the work item", enum: [chorus, jira, linear, github, other] }
+      # Not `key`: every node already has one, its identity, which this is not.
+      - { name: externalKey, type: string, required: false, description: "Its human-facing identifier there, e.g. CH-42" }
+      - { name: title, type: string, required: false }
+
   # Meta types: these describe the graph itself rather than the software it models.
   Ontology:
     description: Records which ontology version the graph was built with.

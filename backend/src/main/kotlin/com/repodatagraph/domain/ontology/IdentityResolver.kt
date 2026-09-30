@@ -17,6 +17,8 @@ import java.time.Instant
 class IdentityResolver(
     private val gitRemoteParser: GitRemoteParser = GitRemoteParser(),
 ) {
+    private val changeIdentity = ChangeIdentity(gitRemoteParser)
+
     fun keyFor(
         type: String,
         props: Map<String, Any?>,
@@ -34,6 +36,7 @@ class IdentityResolver(
             "Team", "Service" -> NodeKey(type, required(props, "name", type).lowercase().trim())
             "Library" -> NodeKey(type, libraryKey(props))
             "IacFile" -> NodeKey(type, iacFileKey(props))
+            "Change", "PullRequest" -> NodeKey(type, changeIdentity.keyFor(type, props))
             in KEYED_BY_ONE_PROPERTY -> NodeKey(type, required(props, KEYED_BY_ONE_PROPERTY.getValue(type), type).trim())
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
         }
@@ -142,7 +145,10 @@ class IdentityResolver(
         /**
          * Types whose key is one property's value exactly as given, case and all. A ServicePrincipal's
          * name is the client id its tokens carry, and Keycloak's client ids are case-sensitive (#115).
+         * An ExternalWorkItem's URI is opaque (#85): only the system that owns it knows which of its
+         * parts are case-sensitive, so it is neither lowercased nor parsed.
          */
-        val KEYED_BY_ONE_PROPERTY = mapOf("Ontology" to "version", "SyncRun" to "id", "ServicePrincipal" to "name")
+        val KEYED_BY_ONE_PROPERTY =
+            mapOf("Ontology" to "version", "SyncRun" to "id", "ServicePrincipal" to "name", "ExternalWorkItem" to "uri")
     }
 }

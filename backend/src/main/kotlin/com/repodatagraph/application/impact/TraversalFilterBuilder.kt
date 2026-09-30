@@ -1,6 +1,7 @@
 package com.repodatagraph.application.impact
 
 import com.repodatagraph.domain.model.ImpactDirection
+import com.repodatagraph.domain.model.LineageTraversal
 import com.repodatagraph.domain.model.Traversal
 import com.repodatagraph.domain.ontology.EdgeImpact
 import com.repodatagraph.domain.ontology.EdgeOwnership
@@ -47,6 +48,29 @@ class TraversalFilterBuilder(
             .filter { it.impact == EdgeImpact.PROPAGATES && ENVIRONMENT in it.to }
             .mapTo(linkedSetOf()) { it.name }
 
+    /**
+     * The edges from a deployment to the intent it carries (#85), each found by the node types it
+     * connects rather than by its name: an Artifact's deployments, the Changes an Artifact contains,
+     * the ExternalWorkItems a Change implements, and [placement]. A registry without those types has
+     * an empty lineage, which carries nothing.
+     */
+    fun lineage(): LineageTraversal =
+        LineageTraversal(
+            deployedAs = connecting(ARTIFACT, DEPLOYMENT),
+            contains = connecting(ARTIFACT, CHANGE),
+            implements = connecting(CHANGE, WORK_ITEM),
+            placement = placement(),
+        )
+
+    private fun connecting(
+        from: String,
+        to: String,
+    ): Set<String> =
+        registry
+            .allEdgeTypes()
+            .filter { it.connects(from, to) }
+            .mapTo(linkedSetOf()) { it.name }
+
     private fun traversal(
         edges: List<EdgeTypeDef>,
         reversed: Boolean,
@@ -60,3 +84,7 @@ class TraversalFilterBuilder(
 }
 
 private const val ENVIRONMENT = "Environment"
+private const val ARTIFACT = "Artifact"
+private const val DEPLOYMENT = "Deployment"
+private const val CHANGE = "Change"
+private const val WORK_ITEM = "ExternalWorkItem"

@@ -58,7 +58,7 @@ test.describe('change lineage nodes', () => {
     await page.goto('/nodes/ExternalWorkItem/new')
     await page.getByLabel('uri').fill(uri)
     await page.getByLabel('system').fill('chorus')
-    await page.getByLabel('key', { exact: true }).fill('CH-42')
+    await page.getByLabel('externalKey').fill('CH-42')
     await save(page, new RegExp(`/nodes/ExternalWorkItem/${escaped(encodeURIComponent(uri))}$`))
 
     await expect(page.getByRole('heading', { name: uri })).toBeVisible()

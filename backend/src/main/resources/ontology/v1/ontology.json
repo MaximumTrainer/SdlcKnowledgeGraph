@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "nodeTypes": [
     {
       "name": "Repository",
@@ -208,6 +208,51 @@
       ],
       "meta": false,
       "displayProperty": "path"
+    },
+    {
+      "name": "Change",
+      "description": "A commit range or merge in a repository, identified there by its head sha.",
+      "identity": ["repositoryKey", "sha"],
+      "properties": [
+        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the change was made in, e.g. github.com/acme/payments" },
+        { "name": "sha", "type": "string", "required": true, "description": "The commit the change ends at, stored in lower case" },
+        { "name": "baseSha", "type": "string", "required": false, "description": "The commit the change starts from, for a range" },
+        { "name": "title", "type": "string", "required": false, "description": null },
+        { "name": "author", "type": "string", "required": false, "description": null },
+        { "name": "committedAt", "type": "instant", "required": true, "description": null },
+        { "name": "url", "type": "string", "required": false, "description": "Where the change can be read, e.g. the commit or compare page" }
+      ],
+      "meta": false,
+      "displayProperty": "sha"
+    },
+    {
+      "name": "PullRequest",
+      "description": "A proposal to merge a change into a repository, as the forge records it.",
+      "identity": ["repositoryKey", "number"],
+      "properties": [
+        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the pull request targets" },
+        { "name": "number", "type": "int", "required": true, "description": "The forge's number for it within the repository" },
+        { "name": "url", "type": "string", "required": true, "description": null },
+        { "name": "title", "type": "string", "required": false, "description": null },
+        { "name": "state", "type": "string", "required": false, "description": null, "enum": ["open", "merged", "closed"] },
+        { "name": "mergedAt", "type": "instant", "required": false, "description": null },
+        { "name": "branch", "type": "string", "required": false, "description": "The head branch, e.g. chorus/CH-42-retry-webhook" }
+      ],
+      "meta": false,
+      "displayProperty": "number"
+    },
+    {
+      "name": "ExternalWorkItem",
+      "description": "A task, ticket or issue in the system that owns it, referred to by its URI.",
+      "identity": ["uri"],
+      "properties": [
+        { "name": "uri", "type": "string", "required": true, "description": "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42" },
+        { "name": "system", "type": "string", "required": true, "description": "The system that owns the work item", "enum": ["chorus", "jira", "linear", "github", "other"] },
+        { "name": "externalKey", "type": "string", "required": false, "description": "Its human-facing identifier there, e.g. CH-42" },
+        { "name": "title", "type": "string", "required": false, "description": null }
+      ],
+      "meta": false,
+      "displayProperty": "externalKey"
     },
     {
       "name": "Ontology",
@@ -426,10 +471,70 @@
       ]
     },
     {
+      "name": "INTRODUCED_IN",
+      "description": "A change was made in a repository.",
+      "from": ["Change"],
+      "to": ["Repository"],
+      "inverse": "HAS_CHANGE",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
+      "properties": [
+      ]
+    },
+    {
+      "name": "MERGES",
+      "description": "A pull request merged a change.",
+      "from": ["PullRequest"],
+      "to": ["Change"],
+      "inverse": "MERGED_BY",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
+      "properties": [
+      ]
+    },
+    {
+      "name": "CONTAINS",
+      "description": "An artifact was built with a change in it.",
+      "from": ["Artifact"],
+      "to": ["Change"],
+      "inverse": "CONTAINED_IN",
+      "impact": "propagates",
+      "downstream": "inverse",
+      "ownership": "none",
+      "properties": [
+      ]
+    },
+    {
+      "name": "IMPLEMENTS",
+      "description": "A change implements a work item in the system that owns it.",
+      "from": ["Change"],
+      "to": ["ExternalWorkItem"],
+      "inverse": "IMPLEMENTED_BY",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
+      "properties": [
+      ]
+    },
+    {
+      "name": "TRACKED_IN",
+      "description": "A work item is tracked by a team.",
+      "from": ["ExternalWorkItem"],
+      "to": ["Team"],
+      "inverse": "TRACKS",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
+      "properties": [
+      ]
+    },
+    {
       "name": "PRODUCED",
       "description": "A sync run asserted this node.",
       "from": ["SyncRun"],
-      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile", "ChangeRequest", "Incident"],
+      "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile", "ChangeRequest", "Incident", "Change", "PullRequest", "ExternalWorkItem"],
       "inverse": "PRODUCED_BY",
       "impact": "none",
       "downstream": "forward",

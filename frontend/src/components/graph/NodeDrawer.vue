@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SubgraphNode } from '@/services/api'
+import { nodeRoute } from '@/lib/nodeRoute'
 
 /**
  * The drawer a tapped node opens on the graph view (#9, FR7): what the node says and who said it,
@@ -13,7 +14,7 @@ const props = defineProps<{ node: SubgraphNode; expanding?: boolean }>()
 const emit = defineEmits<{ expand: [id: string]; close: [] }>()
 
 // The key goes in as path segments: the node routes read a key with slashes that way.
-const openHref = computed(() => `/nodes/${props.node.type}/${props.node.key}`)
+const openHref = computed(() => nodeRoute(props.node.type, props.node.key))
 
 const display = (value: unknown): string => {
   if (value === null || value === undefined) return '—'

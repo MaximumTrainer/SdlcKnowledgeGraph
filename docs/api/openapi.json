@@ -58,6 +58,54 @@
         "required" : [ "details", "eventType", "id", "timestamp" ],
         "type" : "object"
       },
+      "CarriedChangeResponse" : {
+        "properties" : {
+          "artifact" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "repositoryKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "sha" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "artifact", "id" ],
+        "type" : "object"
+      },
+      "CarriedWorkItemResponse" : {
+        "properties" : {
+          "changes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "externalKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "system" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "changes", "id", "uri" ],
+        "type" : "object"
+      },
       "ChangeImpactRequest" : {
         "properties" : {
           "depth" : {
@@ -89,7 +137,7 @@
             "type" : [ "string", "null" ]
           },
           "sha" : {
-            "description" : "The commit of the change. Answered with changeScope unknown until Change nodes exist (#85)",
+            "description" : "The commit of the change, 4 to 64 hex characters. Keeps only deployments whose Artifact CONTAINS a Change it names (changeScope applied); unknown when no Change in the repository matches it (#85)",
             "type" : [ "string", "null" ]
           }
         },
@@ -134,6 +182,24 @@
           }
         },
         "required" : [ "changeScope", "depth", "hits", "limit", "matchedPaths", "pathFilter", "repository", "scoring", "truncated" ],
+        "type" : "object"
+      },
+      "ChangeRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "repositoryKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "sha" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "id" ],
         "type" : "object"
       },
       "CitationProvenance" : {
@@ -412,6 +478,55 @@
         "required" : [ "deployedAt", "id", "status" ],
         "type" : "object"
       },
+      "DeploymentRef" : {
+        "properties" : {
+          "deployedAt" : {
+            "description" : "ISO-8601 instant, absent when the deployment records none",
+            "type" : [ "string", "null" ]
+          },
+          "environment" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/EnvironmentRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "id" ],
+        "type" : "object"
+      },
+      "DeploymentWorkItemsResponse" : {
+        "properties" : {
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CarriedChangeResponse"
+            },
+            "type" : "array"
+          },
+          "deployment" : {
+            "$ref" : "#/components/schemas/DeploymentRef"
+          },
+          "lineage" : {
+            "description" : "known, or unknown when no artifact of the deployment CONTAINS a Change",
+            "enum" : [ "known", "unknown" ],
+            "type" : "string"
+          },
+          "workItems" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CarriedWorkItemResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "changes", "deployment", "lineage", "workItems" ],
+        "type" : "object"
+      },
       "EdgeListResponse" : {
         "properties" : {
           "items" : {
@@ -623,6 +738,15 @@
         "required" : [ "id", "key", "props", "type" ],
         "type" : "object"
       },
+      "IdRef" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id" ],
+        "type" : "object"
+      },
       "ImpactAnalysisResponse" : {
         "properties" : {
           "cloudResources" : {
@@ -766,6 +890,40 @@
             "type" : [ "string", "null" ]
           }
         },
+        "type" : "object"
+      },
+      "LiveDeploymentResponse" : {
+        "properties" : {
+          "artifacts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/IdRef"
+            },
+            "type" : "array"
+          },
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeRef"
+            },
+            "type" : "array"
+          },
+          "deployedAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "environment" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/EnvironmentRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "artifacts", "changes", "id" ],
         "type" : "object"
       },
       "NeighbourhoodResponse" : {
@@ -1646,6 +1804,42 @@
         },
         "required" : [ "changedDependencies", "deployedAt", "deployment", "reasons", "status" ],
         "type" : "object"
+      },
+      "WorkItemDeploymentsResponse" : {
+        "properties" : {
+          "deployments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LiveDeploymentResponse"
+            },
+            "type" : "array"
+          },
+          "workItem" : {
+            "$ref" : "#/components/schemas/WorkItemRef"
+          }
+        },
+        "required" : [ "deployments", "workItem" ],
+        "type" : "object"
+      },
+      "WorkItemRef" : {
+        "properties" : {
+          "externalKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "system" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "uri" ],
+        "type" : "object"
       }
     }
   },
@@ -1803,6 +1997,34 @@
         },
         "summary" : "Ask a connector to sync now",
         "tags" : [ "Connectors" ]
+      }
+    },
+    "/api/v1/deployments/work-items" : {
+      "get" : {
+        "description" : "deploymentId is Deployment:key or the bare key. lineage is known, or unknown when no artifact of the deployment CONTAINS a Change, in which case the lists are empty because nothing is known.",
+        "operationId" : "workItems",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "deploymentId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeploymentWorkItemsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "What a deployment carries: the changes its artifacts contain and the work items they implement",
+        "tags" : [ "Change Lineage" ]
       }
     },
     "/api/v1/edges" : {
@@ -1998,7 +2220,7 @@
     },
     "/api/v1/graph/deployments" : {
       "get" : {
-        "operationId" : "deployments",
+        "operationId" : "deployments_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "repoId",
@@ -2626,6 +2848,115 @@
           }
         },
         "summary" : "Create a node of a declared type, with a server-derived identity, as manual or a permitted source",
+        "tags" : [ "Nodes" ]
+      }
+    },
+    "/api/v1/nodes/{type}/by-key" : {
+      "delete" : {
+        "operationId" : "deleteByKey",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cascade",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a node addressed by its key as a query parameter (#85)",
+        "tags" : [ "Nodes" ]
+      },
+      "get" : {
+        "operationId" : "getByKey",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85)",
+        "tags" : [ "Nodes" ]
+      },
+      "put" : {
+        "operationId" : "updateByKey",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace the properties of a node addressed by its key as a query parameter (#85)",
         "tags" : [ "Nodes" ]
       }
     },
@@ -3261,20 +3592,42 @@
         "summary" : "Accept a signed webhook from a source system",
         "tags" : [ "Webhooks" ]
       }
+    },
+    "/api/v1/work-items/deployments" : {
+      "get" : {
+        "description" : "uri is the ExternalWorkItem's URI exactly as written. Most recent deployment first, each with its environment and the artifacts and changes that carry the work item there. A work item live nowhere has no deployments.",
+        "operationId" : "deployments",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "uri",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkItemDeploymentsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Where a work item is live: every deployment of an artifact containing a change that implements it",
+        "tags" : [ "Change Lineage" ]
+      }
     }
   },
   "tags" : [ {
     "description" : "Connectors and agents registered as principals of their own",
     "name" : "Service principals"
   }, {
-    "description" : "Traversals for nodes addressed by id",
-    "name" : "Graph traversal"
-  }, {
     "description" : "Git repository management",
     "name" : "Repositories"
-  }, {
-    "description" : "Ingestion from systems of record",
-    "name" : "Connectors"
   }, {
     "description" : "The declared contract for what may exist in the graph",
     "name" : "Ontology"
@@ -3282,22 +3635,31 @@
     "description" : "What each connector run did, newest first",
     "name" : "Sync runs"
   }, {
-    "description" : "Superseded by /api/v1/edges",
-    "name" : "Repositories (deprecated links)"
-  }, {
     "description" : "Typed relationships between nodes",
     "name" : "Edges"
   }, {
-    "description" : "Ontology-driven CRUD for every declared node type",
-    "name" : "Nodes"
-  }, {
-    "description" : "Push ingestion from the delivery pipeline",
-    "name" : "Ingest"
+    "description" : "Which deployments carry which work items",
+    "name" : "Change Lineage"
   }, {
     "description" : "Engineering knowledge graph queries",
     "name" : "Graph Queries"
   }, {
     "description" : "Push ingestion from systems of record",
     "name" : "Webhooks"
+  }, {
+    "description" : "Traversals for nodes addressed by id",
+    "name" : "Graph traversal"
+  }, {
+    "description" : "Ingestion from systems of record",
+    "name" : "Connectors"
+  }, {
+    "description" : "Superseded by /api/v1/edges",
+    "name" : "Repositories (deprecated links)"
+  }, {
+    "description" : "Ontology-driven CRUD for every declared node type",
+    "name" : "Nodes"
+  }, {
+    "description" : "Push ingestion from the delivery pipeline",
+    "name" : "Ingest"
   } ]
 }

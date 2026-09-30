@@ -46,7 +46,7 @@ class WorkItemControllerTest {
     private val workItem =
         node(
             "ExternalWorkItem:chorus://task/01JABC",
-            mapOf("uri" to "chorus://task/01JABC", "system" to "chorus", "key" to "CH-42", "title" to "Retry the webhook"),
+            mapOf("uri" to "chorus://task/01JABC", "system" to "chorus", "externalKey" to "CH-42", "title" to "Retry the webhook"),
         )
     private val change =
         node(
@@ -72,7 +72,7 @@ class WorkItemControllerTest {
             .andExpect(jsonPath("$.workItem.id").value(workItem.id))
             .andExpect(jsonPath("$.workItem.uri").value("chorus://task/01JABC"))
             .andExpect(jsonPath("$.workItem.system").value("chorus"))
-            .andExpect(jsonPath("$.workItem.key").value("CH-42"))
+            .andExpect(jsonPath("$.workItem.externalKey").value("CH-42"))
             .andExpect(jsonPath("$.workItem.title").value("Retry the webhook"))
             .andExpect(jsonPath("$.deployments.length()").value(1))
             .andExpect(jsonPath("$.deployments[0].id").value(deployment.id))

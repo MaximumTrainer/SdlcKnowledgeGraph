@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import TagInput from '@/components/fields/TagInput.vue'
 import { InvalidGitRemoteError, parseGitRemote } from '@/lib/gitRemote'
 import { refusalReason } from '@/auth/scopes'
+import { nodeRoute } from '@/lib/nodeRoute'
+import { toInstant } from '@/lib/time'
 import {
   nodeApi,
   ontologyApi,
@@ -67,6 +69,29 @@ const emptyFor = (property: OntologyProperty): unknown => {
 }
 
 /**
+ * A stored instant as a `datetime-local` input shows it: to the minute, in UTC, which is how the input
+ * is read back (#85). A value that is not an instant is left as it is, for the server to judge.
+ */
+const asLocalInput = (value: unknown): unknown => {
+  if (typeof value !== 'string' || value === '') return value
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 16)
+}
+
+const forInputs = (
+  properties: OntologyProperty[],
+  stored: Record<string, unknown>
+): Record<string, unknown> => {
+  const shown = { ...stored }
+  for (const property of properties) {
+    if (property.type === 'instant' && property.name in shown) {
+      shown[property.name] = asLocalInput(shown[property.name])
+    }
+  }
+  return shown
+}
+
+/**
  * The form is not rendered until both the shape and the values are in hand.
  *
  * Assigning them separately left a window where the inputs existed but the stored values had not
@@ -86,7 +111,7 @@ const load = async () => {
   const stored = editing.value ? (await nodeApi.get(props.type, props.id as string)).props : {}
 
   nodeType.value = found
-  values.value = { ...blank, ...stored }
+  values.value = { ...blank, ...forInputs(found.properties, stored) }
   ready.value = true
 }
 
@@ -108,7 +133,10 @@ const missingRequired = (): Record<string, string> => {
   return errors
 }
 
-/** Empty optional values are left out entirely, so a blank field is absence rather than an empty string. */
+/**
+ * Empty optional values are left out entirely, so a blank field is absence rather than an empty string.
+ * An instant is sent as the ISO-8601 instant the API takes, its zoneless input read as UTC (#85).
+ */
 const submitted = (): Record<string, unknown> => {
   const payload: Record<string, unknown> = {}
   for (const property of nodeType.value?.properties ?? []) {
@@ -116,6 +144,10 @@ const submitted = (): Record<string, unknown> => {
     if (value === '' && !property.required) continue
     if (property.type === 'int' && typeof value === 'string') {
       payload[property.name] = value === '' ? undefined : Number(value)
+      continue
+    }
+    if (property.type === 'instant' && typeof value === 'string') {
+      payload[property.name] = toInstant(value)
       continue
     }
     payload[property.name] = value
@@ -147,7 +179,7 @@ const save = async () => {
     const saved = editing.value
       ? await nodeApi.update(props.type, props.id as string, submitted())
       : await nodeApi.create(props.type, submitted())
-    await router.push(`/nodes/${props.type}/${saved.key}`)
+    await router.push(nodeRoute(props.type, saved.key))
   } catch (error) {
     const response = (error as { response?: { data?: Record<string, never> } }).response
     formError.value = describe(response?.data ?? {})

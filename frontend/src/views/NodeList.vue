@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { nodeApi, ontologyApi, type GraphNode, type OntologyNodeType } from '@/services/api'
 import { useCanWrite } from '@/auth/canWrite'
+import { nodeRoute } from '@/lib/nodeRoute'
 
 /**
  * The list of nodes of one type. Moving between types is the shell's navigation (#6); the ontology
@@ -67,7 +68,7 @@ const cell = (node: GraphNode, column: string): string => {
       <tbody>
         <tr v-for="node in nodes" :key="node.id">
           <td data-test="node-key">
-            <router-link :to="`/nodes/${type}/${node.key}`">{{ node.key }}</router-link>
+            <router-link :to="nodeRoute(type, node.key)">{{ node.key }}</router-link>
           </td>
           <td v-for="column in columns" :key="column">{{ cell(node, column) }}</td>
         </tr>

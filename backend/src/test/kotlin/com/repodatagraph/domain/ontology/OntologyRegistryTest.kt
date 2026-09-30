@@ -180,9 +180,9 @@ class OntologyRegistryTest {
 
         assertEquals(listOf("uri"), workItem.identity)
         assertRequired(workItem, "uri" to PropertyType.STRING, "system" to PropertyType.STRING)
-        assertOptional(workItem, "key", "title")
+        assertOptional(workItem, "externalKey", "title")
         assertEquals(listOf("chorus", "jira", "linear", "github", "other"), workItem.property("system")?.enum)
-        assertEquals("key", workItem.displayProperty)
+        assertEquals("externalKey", workItem.displayProperty)
     }
 
     @Test

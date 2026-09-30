@@ -6,6 +6,7 @@ import { nodeApi, type GraphNode } from '@/services/api'
 import { parseGitRemote } from '@/lib/gitRemote'
 import { useCanWrite } from '@/auth/canWrite'
 import { refusalReason } from '@/auth/scopes'
+import { nodeRoute } from '@/lib/nodeRoute'
 
 /**
  * One node: what it says, and who said it.
@@ -89,7 +90,7 @@ const remove = async (cascade: boolean) => {
           <h1>{{ node.key }}</h1>
         </div>
         <div v-if="canWrite" class="actions">
-          <router-link data-test="edit-node" :to="`/nodes/${type}/${id}/edit`">Edit</router-link>
+          <router-link data-test="edit-node" :to="nodeRoute(type, id, 'edit')">Edit</router-link>
           <button type="button" class="danger" data-test="delete-node" @click="remove(false)">
             Delete
           </button>

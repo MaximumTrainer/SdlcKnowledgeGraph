@@ -153,6 +153,73 @@ export const impactApi = {
     client.get('/graph/impact', { params: { nodeId, depth, minConfidence } }).then(r => r.data)
 }
 
+/** An environment a deployment targeted, with the tier it is weighted by. */
+export interface LineageEnvironment {
+  id: string
+  key: string
+  tier: string
+}
+
+/** A commit a deployment carries (#85). */
+export interface LineageChange {
+  id: string
+  sha?: string
+  repositoryKey?: string
+  title?: string
+}
+
+/** A work item as a reference to the system that owns it (ADR-0012). */
+export interface LineageWorkItem {
+  id: string
+  uri: string
+  system?: string
+  externalKey?: string
+  title?: string
+}
+
+/** A deployment a work item is live in, with the artifacts and changes that carry it there. */
+export interface LiveDeployment {
+  id: string
+  deployedAt?: string
+  status?: string
+  environment?: LineageEnvironment
+  artifacts: { id: string }[]
+  changes: LineageChange[]
+}
+
+/** Where a work item is live (#85), most recent deployment first. */
+export interface WorkItemDeployments {
+  workItem: LineageWorkItem
+  deployments: LiveDeployment[]
+}
+
+/**
+ * What a deployment carries (#85). `lineage` is `unknown` when no artifact of the deployment contains
+ * a change, and the empty lists then mean "not known", never "nothing".
+ */
+export interface DeploymentWorkItems {
+  deployment: {
+    id: string
+    deployedAt?: string
+    status?: string
+    environment?: LineageEnvironment
+  }
+  lineage: 'known' | 'unknown'
+  changes: (LineageChange & { artifact: string })[]
+  workItems: (LineageWorkItem & { changes: string[] })[]
+}
+
+/**
+ * Change lineage (#85). A work item's URI and a deployment's key hold `//`, `/` and `#`, so both
+ * travel as query parameters.
+ */
+export const lineageApi = {
+  deploymentsOfWorkItem: (uri: string): Promise<WorkItemDeployments> =>
+    client.get('/work-items/deployments', { params: { uri } }).then(r => r.data),
+  workItemsOfDeployment: (deploymentId: string): Promise<DeploymentWorkItems> =>
+    client.get('/deployments/work-items', { params: { deploymentId } }).then(r => r.data)
+}
+
 /** Which way a neighbourhood walk follows edges from each node: along them, against them, or both. */
 export type GraphDirection = 'in' | 'out' | 'both'
 
@@ -252,28 +319,45 @@ export interface ListOptions {
  * A node's key can contain slashes (`github.com/acme/payments`), and the server reads the segment
  * after the type as a path rather than as one encoded component, so keys are interpolated as-is.
  * That is safe here because a key only ever comes back from the server; nothing user-typed reaches
- * it without a round trip that would have failed first.
+ * it without a round trip that would have failed first. A key holding `//` - an ExternalWorkItem's
+ * URI (#85) - cannot travel in a path at all, so it is sent to `/by-key` as a query parameter.
  */
+const nodeAddress = (
+  type: NodeType | string,
+  key: string
+): { url: string; params?: Record<string, string> } =>
+  key.includes('//')
+    ? { url: `/nodes/${type}/by-key`, params: { key } }
+    : { url: `/nodes/${type}/${key}` }
+
 export const nodeApi = {
   list: (type: NodeType | string, options: ListOptions = {}): Promise<NodePage> =>
     client.get(`/nodes/${type}`, { params: options }).then(r => r.data),
-  get: (type: NodeType | string, key: string): Promise<GraphNode> =>
-    client.get(`/nodes/${type}/${key}`).then(r => r.data),
+  get: (type: NodeType | string, key: string): Promise<GraphNode> => {
+    const { url, params } = nodeAddress(type, key)
+    return client.get(url, { params }).then(r => r.data)
+  },
   create: (type: NodeType | string, props: Record<string, unknown>): Promise<GraphNode> =>
     client.post(`/nodes/${type}`, { props }).then(r => r.data),
   update: (
     type: NodeType | string,
     key: string,
     props: Record<string, unknown>
-  ): Promise<GraphNode> => client.put(`/nodes/${type}/${key}`, { props }).then(r => r.data),
+  ): Promise<GraphNode> => {
+    const { url, params } = nodeAddress(type, key)
+    return client.put(url, { props }, { params }).then(r => r.data)
+  },
   remove: (
     type: NodeType | string,
     key: string,
     options: { cascade?: boolean } = {}
-  ): Promise<void> =>
-    client
-      .delete(`/nodes/${type}/${key}`, { params: options.cascade ? { cascade: true } : undefined })
+  ): Promise<void> => {
+    const { url, params } = nodeAddress(type, key)
+    const cascade = options.cascade ? { cascade: true } : undefined
+    return client
+      .delete(url, { params: params || cascade ? { ...params, ...cascade } : undefined })
       .then(() => undefined)
+  }
 }
 
 /** A relationship as one end of it sees it. `displayName` is what to label it with on that page. */
