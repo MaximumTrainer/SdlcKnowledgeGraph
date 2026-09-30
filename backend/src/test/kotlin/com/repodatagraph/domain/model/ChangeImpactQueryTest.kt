@@ -107,4 +107,23 @@ class ChangeImpactQueryTest {
         assertEquals(EnvironmentTier.entries.map { it.wire }.toSet(), tier?.enum?.toSet())
         assertTrue(tier?.required == false, "tier is read as other where it is missing, so a graph written before it still reads")
     }
+
+    /** A GitHub App knows a repository by its id, not its remote (#88, FR5): either names it. */
+    @Test
+    fun `a provider id names the repository in place of its key, github unless another is named (#88)`() {
+        val byId = ChangeImpactQuery.of(null, null, null, null, null, provider = null, providerId = " 123456 ")
+        val onGitLab = ChangeImpactQuery.of(null, null, null, null, null, provider = "GitLab", providerId = "77")
+
+        assertEquals(mapOf("provider" to "github", "providerId" to "123456"), byId.alias)
+        assertEquals(mapOf("provider" to "gitlab", "providerId" to "77"), onGitLab.alias)
+        assertNull(ChangeImpactQuery("github.com/acme/payments").alias)
+    }
+
+    @Test
+    fun `without a repository key or a provider id the query is refused naming the repository key (#88)`() {
+        val refused = assertThrows<InvalidQueryParameterException> { ChangeImpactQuery.of(" ", null, null, null, null, "github", " ") }
+
+        assertEquals("repositoryKey", refused.field)
+        assertEquals("repositoryKey or providerId is required", refused.message)
+    }
 }

@@ -238,4 +238,37 @@ class OntologyRegistryTest {
     ) = names.forEach { name ->
         assertEquals(false, type.property(name)?.required ?: error("${type.name} declares no $name"), "${type.name}.$name optional")
     }
+
+    /**
+     * An alias is a second way to find a node, unique where present (#88): the Repository's provider
+     * id. It has to be declared, it cannot be part of the key it stands beside, and it cannot be
+     * required, since a node written before its alias was known has to stay writable.
+     */
+    @Test
+    fun `an alias must name optional properties the type declares, outside its identity (#88)`() {
+        val properties =
+            listOf(
+                PropertyDef("name", PropertyType.STRING, required = true),
+                PropertyDef("providerId", PropertyType.STRING, required = true),
+            )
+        val aliased = nodeType("Repository", properties = properties).copy(alias = listOf("name", "providerId", "provider"))
+
+        val error = assertThrows<InvalidOntologyException> { OntologyRegistry("1.0.0", listOf(aliased), emptyList()) }
+
+        assertEquals(
+            "node type 'Repository' alias references 'provider', which it does not declare; " +
+                "alias property 'name' is part of its identity; alias property 'providerId' is required",
+            error.message,
+        )
+    }
+
+    @Test
+    fun `the shipped registry aliases a repository by its provider and provider id (#88)`() {
+        val registry = YamlOntologyLoader(DefaultResourceLoader()).load()
+
+        assertEquals(listOf("provider", "providerId"), registry.nodeType("Repository")?.alias)
+        assertEquals(listOf("github", "gitlab", "other"), registry.nodeType("Repository")?.property("provider")?.enum)
+        assertEquals(emptyList<String>(), registry.nodeType("Team")?.alias)
+        assertEquals(PropertyType.STRING_ARRAY, registry.provenance.firstOrNull { it.name == "previousKeys" }?.type)
+    }
 }

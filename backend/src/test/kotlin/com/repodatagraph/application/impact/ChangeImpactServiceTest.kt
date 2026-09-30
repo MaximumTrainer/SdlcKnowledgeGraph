@@ -330,4 +330,38 @@ class ChangeImpactServiceTest {
 
         assertEquals(first, service.changeImpact(ChangeImpactQuery(payments.key.key)))
     }
+
+    /** The provider id is consulted first (#88, FR5): it is the name that survives a rename. */
+    @Test
+    fun `a provider id names the repository the walk starts from (#88)`() {
+        whenever(graphStore.findNodeByAlias("Repository", mapOf("provider" to "github", "providerId" to "123456"))).thenReturn(payments)
+
+        val result = service.changeImpact(ChangeImpactQuery.of(null, null, null, null, null, providerId = "123456"))
+
+        assertEquals(payments, result.repository)
+        verify(queries).paths(eq(payments.key), any(), any(), any())
+    }
+
+    @Test
+    fun `a provider id no repository holds is not found, naming no key it was not given (#88)`() {
+        val refused =
+            assertThrows<NodeNotFoundException> {
+                service.changeImpact(ChangeImpactQuery.of(null, null, null, null, null, providerId = "999"))
+            }
+
+        assertTrue(refused.message.orEmpty().contains("999")) { refused.message.orEmpty() }
+    }
+
+    /** A caller still holding the remote from before a rename lands on the renamed node (#88, FR3). */
+    @Test
+    fun `a repository key the repository had before a rename still names it (#88)`() {
+        val renamed = node("Repository:github.com/acme-platform/payments")
+        whenever(graphStore.findNode(payments.key)).thenReturn(null)
+        whenever(graphStore.findNodeByPreviousKey(payments.key)).thenReturn(renamed)
+
+        val result = service.changeImpact(ChangeImpactQuery(payments.key.key))
+
+        assertEquals(renamed, result.repository)
+        verify(queries).paths(eq(renamed.key), any(), any(), any())
+    }
 }

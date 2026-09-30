@@ -253,4 +253,52 @@ class IdentityResolverTest {
         assertThrows<IdentityResolutionException> { resolver.keyFor("PullRequest", mapOf("repositoryKey" to "github.com/acme/payments")) }
         assertThrows<IdentityResolutionException> { resolver.keyFor("ExternalWorkItem", mapOf("system" to "chorus")) }
     }
+
+    private val aliasedRepository =
+        NodeTypeDef(
+            name = "Repository",
+            description = null,
+            identity = listOf("host", "org", "name"),
+            properties =
+                listOf(
+                    PropertyDef("url", PropertyType.STRING, required = true),
+                    PropertyDef("provider", PropertyType.STRING),
+                    PropertyDef("providerId", PropertyType.STRING),
+                ),
+            alias = listOf("provider", "providerId"),
+        )
+
+    /** The provider id stands beside the key (#88): it finds the node, it does not name it. */
+    @Test
+    fun `a provider id is not part of a repository's key (#88)`() {
+        val bare = resolver.keyFor("Repository", mapOf("url" to "acme/payments"))
+        val aliased = resolver.keyFor("Repository", mapOf("url" to "acme/payments", "provider" to "github", "providerId" to "123456"))
+
+        assertEquals(bare, aliased)
+    }
+
+    @Test
+    fun `the alias is every property it names, in the order it names them, trimmed (#88)`() {
+        val alias =
+            resolver.aliasFor(
+                aliasedRepository,
+                mapOf("providerId" to " 123456 ", "provider" to "github", "url" to "acme/payments"),
+            )
+
+        assertEquals(listOf("provider" to "github", "providerId" to "123456"), alias?.toList())
+    }
+
+    @Test
+    fun `there is no alias unless every property it names has a value (#88)`() {
+        assertEquals(null, resolver.aliasFor(aliasedRepository, mapOf("url" to "acme/payments")))
+        assertEquals(null, resolver.aliasFor(aliasedRepository, mapOf("providerId" to "123456")))
+        assertEquals(null, resolver.aliasFor(aliasedRepository, mapOf("provider" to "github", "providerId" to " ")))
+    }
+
+    @Test
+    fun `a type that declares no alias has none (#88)`() {
+        val team = NodeTypeDef("Team", null, listOf("name"), listOf(PropertyDef("name", PropertyType.STRING, required = true)))
+
+        assertEquals(null, resolver.aliasFor(team, mapOf("name" to "platform")))
+    }
 }

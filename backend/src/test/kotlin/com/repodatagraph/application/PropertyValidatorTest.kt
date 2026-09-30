@@ -162,4 +162,36 @@ class PropertyValidatorTest {
 
         assertThat(errors).hasSize(1)
     }
+
+    private val aliased =
+        NodeTypeDef(
+            name = "Repository",
+            description = null,
+            identity = listOf("host", "org", "name"),
+            properties =
+                listOf(
+                    PropertyDef("url", PropertyType.STRING, required = true),
+                    PropertyDef("provider", PropertyType.STRING, enum = listOf("github", "gitlab", "other")),
+                    PropertyDef("providerId", PropertyType.STRING),
+                ),
+            alias = listOf("provider", "providerId"),
+        )
+
+    /** Half an alias finds nothing and would be stored unguarded by the constraint, so it is refused (#88). */
+    @Test
+    fun `half an alias is refused, naming the half that is missing (#88)`() {
+        assertThat(validator.validate(aliased, mapOf("url" to "x", "providerId" to "9")))
+            .containsExactly(PropertyError("provider", "provider is required with providerId"))
+        assertThat(validator.validate(aliased, mapOf("url" to "x", "provider" to "github"))).containsExactly(
+            PropertyError("providerId", "providerId is required with provider"),
+        )
+        assertThat(validator.validate(aliased, mapOf("url" to "x", "provider" to "github", "providerId" to "9"))).isEmpty()
+    }
+
+    /** `orgRepo` is refused as derived, which says what to send instead, rather than as unknown (#88, FR4). */
+    @Test
+    fun `orgRepo is refused as derived from url (#88)`() {
+        assertThat(validator.validate(aliased, mapOf("url" to "acme/payments", "orgRepo" to "acme/payments")))
+            .containsExactly(PropertyError("orgRepo", "orgRepo is derived from url and is not accepted"))
+    }
 }
