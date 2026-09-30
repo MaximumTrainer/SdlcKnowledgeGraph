@@ -708,6 +708,201 @@
       }
     },
     {
+      "description": "a request for the depth-1 neighbourhood of payments",
+      "providerStates": [
+        {
+          "name": "payments has a neighbourhood with an inferred edge"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/graph/neighbourhood",
+        "query": {
+          "depth": [
+            "1"
+          ],
+          "direction": [
+            "both"
+          ],
+          "nodeId": [
+            "Repository:github.com/acme/payments"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "edges": [
+            {
+              "confidence": 1,
+              "from": "Repository:github.com/acme/payments",
+              "id": "DEPENDS_ON:Repository:github.com/acme/payments>Repository:github.com/acme/shared-lib",
+              "inferred": false,
+              "inverse": "DEPENDED_ON_BY",
+              "to": "Repository:github.com/acme/shared-lib",
+              "type": "DEPENDS_ON"
+            }
+          ],
+          "nodes": [
+            {
+              "distance": 0,
+              "id": "Repository:github.com/acme/payments",
+              "key": "github.com/acme/payments",
+              "label": "payments",
+              "props": {
+                "name": "payments"
+              },
+              "provenance": {
+                "confidence": 1,
+                "inferred": false,
+                "sourceSystem": "manual"
+              },
+              "type": "Repository"
+            }
+          ],
+          "root": "Repository:github.com/acme/payments",
+          "truncated": false
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.edges": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.edges[*].confidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            },
+            "$.edges[*].from": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].inferred": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].inverse": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].to": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.nodes[*].distance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.nodes[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].label": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the edges of shared-lib",
       "providerStates": [
         {
@@ -804,6 +999,246 @@
           }
         },
         "status": 200
+      }
+    },
+    {
+      "description": "a request for the neighbourhood of a hub with more than 500 neighbours",
+      "providerStates": [
+        {
+          "name": "a hub repository depends on more than 500 others"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/graph/neighbourhood",
+        "query": {
+          "depth": [
+            "1"
+          ],
+          "direction": [
+            "both"
+          ],
+          "nodeId": [
+            "Repository:github.com/acme/hub"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "edges": [
+            {
+              "confidence": 1,
+              "from": "Repository:github.com/acme/payments",
+              "id": "DEPENDS_ON:Repository:github.com/acme/payments>Repository:github.com/acme/shared-lib",
+              "inferred": false,
+              "inverse": "DEPENDED_ON_BY",
+              "to": "Repository:github.com/acme/shared-lib",
+              "type": "DEPENDS_ON"
+            }
+          ],
+          "nodes": [
+            {
+              "distance": 0,
+              "id": "Repository:github.com/acme/payments",
+              "key": "github.com/acme/payments",
+              "label": "payments",
+              "props": {
+                "name": "payments"
+              },
+              "provenance": {
+                "confidence": 1,
+                "inferred": false,
+                "sourceSystem": "manual"
+              },
+              "type": "Repository"
+            }
+          ],
+          "root": "Repository:github.com/acme/hub",
+          "truncated": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.edges": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.edges[*].confidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            },
+            "$.edges[*].from": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].inferred": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].inverse": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].to": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.edges[*].type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.nodes[*].distance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.nodes[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].label": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodes[*].type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the neighbourhood of payments at depth 4",
+      "providerStates": [
+        {
+          "name": "payments has a neighbourhood with an inferred edge"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/graph/neighbourhood",
+        "query": {
+          "depth": [
+            "4"
+          ],
+          "direction": [
+            "both"
+          ],
+          "nodeId": [
+            "Repository:github.com/acme/payments"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "error": "depth must be between 1 and 3, was 4",
+          "field": "depth"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 400
       }
     },
     {

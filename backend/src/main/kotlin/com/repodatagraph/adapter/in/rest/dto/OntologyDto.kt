@@ -38,6 +38,8 @@ data class NodeTypeResponse(
     val properties: List<PropertyResponse>,
     /** True for a type that describes the graph itself, which a client browsing the software leaves out. */
     val meta: Boolean,
+    /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
+    val displayProperty: String?,
 ) {
     companion object {
         fun from(nodeType: NodeTypeDef): NodeTypeResponse =
@@ -47,6 +49,7 @@ data class NodeTypeResponse(
                 identity = nodeType.identity,
                 properties = nodeType.properties.map(PropertyResponse::from),
                 meta = nodeType.meta,
+                displayProperty = nodeType.displayProperty,
             )
     }
 }

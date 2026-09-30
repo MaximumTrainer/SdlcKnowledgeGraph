@@ -102,6 +102,14 @@ const remove = async (cascade: boolean) => {
         <button type="button" @click="confirming = false">Cancel</button>
       </div>
 
+      <p class="graph-link">
+        <router-link
+          data-test="view-in-graph"
+          :to="{ name: 'graph', params: { nodeId: [`${node.type}:${node.key}`] } }"
+          >View in graph</router-link
+        >
+      </p>
+
       <p v-if="remote" class="remote">
         <a :href="remote.href" target="_blank" rel="noopener noreferrer" data-test="open-remote"
           >Open in {{ remote.host }}</a

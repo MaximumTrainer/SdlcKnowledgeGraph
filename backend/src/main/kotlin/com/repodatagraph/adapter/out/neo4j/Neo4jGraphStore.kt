@@ -5,9 +5,9 @@ import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.IncidentEdge
-import com.repodatagraph.domain.model.NeighbourhoodSpec
+import com.repodatagraph.domain.model.NeighbourStep
+import com.repodatagraph.domain.model.Neighbours
 import com.repodatagraph.domain.model.NodeKey
-import com.repodatagraph.domain.model.Subgraph
 import com.repodatagraph.domain.port.out.GraphStore
 import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.stereotype.Repository
@@ -263,44 +263,74 @@ class Neo4jGraphStore(
                 IncidentEdge(GraphRowMapper.toEdge(type, from, to, row["edge"]), direction, other)
             }
 
+    /**
+     * One statement for the whole frontier. A label cannot be a parameter, so the frontier's nodes
+     * are found per type in a union and walked together, which is what lets one ORDER BY and one
+     * LIMIT bound the step rather than one per type. One extra row says whether the limit cut it.
+     */
     override fun neighbourhood(
-        key: NodeKey,
-        spec: NeighbourhoodSpec,
-    ): Subgraph {
-        val label = cypher.nodeLabel(key.type)
-        val relationshipFilter = spec.edgeTypes.joinToString("|") { cypher.edgeType(it) }
+        frontier: Collection<NodeKey>,
+        step: NeighbourStep,
+    ): Neighbours {
+        if (frontier.isEmpty()) return Neighbours(emptyList(), truncated = false)
+        val byType =
+            frontier
+                .distinct()
+                .groupBy { it.type }
+                .entries
+                .toList()
+        val starts =
+            byType.indices.joinToString("\n  UNION ALL\n") { index ->
+                "  UNWIND ${'$'}keys$index AS key MATCH (n:${cypher.nodeLabel(byType[index].key)} { key: key }) RETURN n"
+            }
+        val types = step.edgeTypes.joinToString("|") { cypher.edgeType(it) }.let { if (it.isEmpty()) "" else ":$it" }
         val pattern =
-            when (spec.direction) {
-                Direction.OUTGOING -> "-[r:$relationshipFilter*1..${spec.effectiveDepth}]->"
-                Direction.INCOMING -> "<-[r:$relationshipFilter*1..${spec.effectiveDepth}]-"
-                Direction.BOTH -> "-[r:$relationshipFilter*1..${spec.effectiveDepth}]-"
-            }.replace("[r:*", "[r*")
+            when (step.direction) {
+                Direction.OUTGOING -> "(n)-[r$types]->(o)"
+                Direction.INCOMING -> "(n)<-[r$types]-(o)"
+                Direction.BOTH -> "(n)-[r$types]-(o)"
+            }
+        val parameters =
+            byType.mapIndexed { index, (_, keys) -> "keys$index" to keys.map { it.key } }.toMap() +
+                mapOf(
+                    "nodeTypes" to step.nodeTypes.map { cypher.nodeLabel(it) },
+                    "restricted" to (step.within != null),
+                    "within" to step.within.orEmpty().toList(),
+                    "limit" to step.limit.toLong() + 1,
+                )
 
-        // One extra row tells us whether the limit truncated the answer.
         val rows =
             neo4jClient
                 .query(
                     """
-                    MATCH path = (start:$label { key: ${'$'}key })$pattern(other)
-                    WITH other, relationships(path) AS rels
-                    RETURN DISTINCT other { .* } AS other, rels
+                    CALL () {
+                    $starts
+                    }
+                    MATCH $pattern
+                    WHERE r.prov_validTo IS NULL AND o.prov_validTo IS NULL
+                      AND (size(${'$'}nodeTypes) = 0 OR labels(o)[0] IN ${'$'}nodeTypes)
+                      AND (NOT ${'$'}restricted OR o.id IN ${'$'}within)
+                    RETURN labels(n)[0] AS startType, n.key AS startKey, type(r) AS type, startNode(r) = n AS outgoing,
+                           r { .* } AS edge, labels(o)[0] AS otherType, o { .* } AS other
+                    ORDER BY o.id, type, n.id
                     LIMIT ${'$'}limit
                     """.trimIndent(),
-                ).bindAll(mapOf("key" to key.key, "limit" to spec.limit + 1))
+                ).bindAll(parameters)
                 .fetch()
                 .all()
                 .toList()
 
-        val truncated = rows.size > spec.limit
-        val kept = rows.take(spec.limit)
+        val hops = rows.take(step.limit).map(::hop)
+        return Neighbours(hops, truncated = rows.size > step.limit)
+    }
 
-        val nodes =
-            kept
-                .mapNotNull { row -> GraphRowMapper.toNodeOrNull(row["other"]) }
-                .filter { spec.nodeTypes.isEmpty() || it.type in spec.nodeTypes }
-                .distinctBy { it.id }
-
-        return Subgraph(nodes = nodes, edges = emptyList(), truncated = truncated)
+    private fun hop(row: Map<String, Any?>): IncidentEdge {
+        val start = NodeKey(row["startType"].toString(), row["startKey"].toString())
+        val other = GraphRowMapper.toNode(row["otherType"].toString(), row["other"])
+        val outgoing = row["outgoing"] == true
+        val (from, to) = if (outgoing) start to other.key else other.key to start
+        val edge = GraphRowMapper.toEdge(row["type"].toString(), from, to, row["edge"])
+        return IncidentEdge(edge, if (outgoing) Direction.OUTGOING else Direction.INCOMING, other)
     }
 
     /**
@@ -353,19 +383,6 @@ internal object GraphRowMapper {
             props = domainProperties(properties),
             provenance = ProvenanceMapper.fromProperties(properties),
         )
-    }
-
-    /** Null when the row carries no usable node, so a partial traversal result is skipped. */
-    fun toNodeOrNull(value: Any?): GraphNode? {
-        val properties = propertiesOf(value)
-        val nodeKey = properties["id"]?.toString()?.let { id -> runCatching { NodeKey.parse(id) }.getOrNull() }
-        return nodeKey?.let {
-            GraphNode(
-                key = it,
-                props = domainProperties(properties),
-                provenance = ProvenanceMapper.fromProperties(properties),
-            )
-        }
     }
 
     @Suppress("UNCHECKED_CAST")

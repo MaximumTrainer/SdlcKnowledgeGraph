@@ -93,7 +93,110 @@ export const graphApi = {
     client
       .get(`/graph/repositories/${repoId}/servicenow`)
       .then(r => r.data)
-      .catch(() => null)
+      .catch(() => null),
+  /**
+   * The neighbourhood of a node, for the graph view (#9, FR11). The node is a query parameter
+   * because its key holds '/'; type filters are sent comma separated, and only when there are any.
+   */
+  neighbourhood: (query: NeighbourhoodQuery): Promise<Subgraph> =>
+    client
+      .get('/graph/neighbourhood', {
+        params: {
+          nodeId: query.nodeId,
+          depth: query.depth ?? 1,
+          nodeTypes: query.nodeTypes?.length ? query.nodeTypes.join(',') : undefined,
+          edgeTypes: query.edgeTypes?.length ? query.edgeTypes.join(',') : undefined,
+          direction: query.direction ?? 'both'
+        }
+      })
+      .then(r => r.data)
+}
+
+/** One hop of the path that explains why a node is in a blast radius, named as it was walked. */
+export interface ImpactPathStep {
+  edge: string
+  from: string
+  to: string
+  confidence: number
+  inferred: boolean
+}
+
+/** A node a change reaches (#21), with the most confident path that reaches it. */
+export interface AffectedNode {
+  node: { id: string; type: string; key: string; props: Record<string, unknown> }
+  distance: number
+  confidence: number
+  inferred: boolean
+  path: ImpactPathStep[]
+}
+
+/**
+ * `GET /api/v1/graph/impact` (#21): what a change to `root` reaches downstream. `byType` counts every
+ * affected node by type, past the listing cap, and `excluded` those below `minConfidence`.
+ */
+export interface ImpactResult {
+  root: { id: string; type: string; key: string }
+  depth: number
+  direction: string
+  minConfidence: number
+  truncated: boolean
+  affected: AffectedNode[]
+  byType: Record<string, number>
+}
+
+/**
+ * The blast radius of #21, which the graph view overlays (#9, FR8). Its depth is 1 to 5 and its
+ * confidence floor 0 to 1; the view asks at its own depth, which is at most 3.
+ */
+export const impactApi = {
+  impact: (nodeId: string, depth: number, minConfidence: number): Promise<ImpactResult> =>
+    client.get('/graph/impact', { params: { nodeId, depth, minConfidence } }).then(r => r.data)
+}
+
+/** Which way a neighbourhood walk follows edges from each node: along them, against them, or both. */
+export type GraphDirection = 'in' | 'out' | 'both'
+
+/** What the graph view asks for (#9, FR1). Absent filters mean every type but the meta ones. */
+export interface NeighbourhoodQuery {
+  nodeId: string
+  depth?: number
+  nodeTypes?: string[]
+  edgeTypes?: string[]
+  direction?: GraphDirection
+}
+
+/** A node ready to draw: `label` is the registry's displayProperty of the node, or its key. */
+export interface SubgraphNode {
+  id: string
+  type: string
+  key: string
+  label: string
+  distance: number
+  props: Record<string, unknown>
+  /**
+   * Always sent by the neighbourhood. A node the graph view added from a blast radius (#21) has
+   * none, because the impact answer does not carry a node's provenance.
+   */
+  provenance?: Provenance
+}
+
+/** An edge ready to draw. `id` is `type:from>to`, the same on every answer, so expansions merge by it. */
+export interface SubgraphEdge {
+  id: string
+  type: string
+  inverse: string
+  from: string
+  to: string
+  confidence: number
+  inferred: boolean
+}
+
+/** A bounded neighbourhood (#9): at most 500 nodes, nearest first; `truncated` says there were more. */
+export interface Subgraph {
+  root: string
+  nodes: SubgraphNode[]
+  edges: SubgraphEdge[]
+  truncated: boolean
 }
 
 /**
@@ -247,6 +350,8 @@ export interface OntologyNodeType {
   properties: OntologyProperty[]
   /** Describes the graph itself (its ontology, its sync runs) rather than the software it models. */
   meta: boolean
+  /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
+  displayProperty?: string | null
 }
 
 export interface OntologyEdgeType {

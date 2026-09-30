@@ -19,7 +19,8 @@
         { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] },
         { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "Team",
@@ -29,7 +30,8 @@
         { "name": "name", "type": "string", "required": true, "description": null },
         { "name": "email", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "Service",
@@ -40,7 +42,8 @@
         { "name": "description", "type": "string", "required": false, "description": null },
         { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, e.g. gold" }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "Pipeline",
@@ -54,7 +57,8 @@
         { "name": "repoId", "type": "string", "required": true, "description": null },
         { "name": "lastRunStatus", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "Artifact",
@@ -69,7 +73,8 @@
         { "name": "repoId", "type": "string", "required": false, "description": null },
         { "name": "artifactType", "type": "string", "required": true, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "Deployment",
@@ -84,7 +89,8 @@
         { "name": "deployedBy", "type": "string", "required": false, "description": null },
         { "name": "status", "type": "string", "required": true, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "deployedAt"
     },
     {
       "name": "Environment",
@@ -95,7 +101,8 @@
         { "name": "type", "type": "string", "required": true, "description": null },
         { "name": "tier", "type": "string", "required": false, "description": "Criticality, for ranking impact; read as other where absent", "enum": ["production", "pre_production", "development", "other"] }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "CloudResource",
@@ -110,7 +117,8 @@
         { "name": "accountId", "type": "string", "required": false, "description": null },
         { "name": "repoId", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "ConfigurationItem",
@@ -130,7 +138,8 @@
         { "name": "supportGroup", "type": "string", "required": false, "description": null },
         { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one" }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "ciName"
     },
     {
       "name": "ChangeRequest",
@@ -151,7 +160,8 @@
         { "name": "requestedBy", "type": "string", "required": false, "description": null },
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "number"
     },
     {
       "name": "Incident",
@@ -171,7 +181,8 @@
         { "name": "closeCode", "type": "string", "required": false, "description": null },
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "number"
     },
     {
       "name": "Library",
@@ -182,7 +193,8 @@
         { "name": "name", "type": "string", "required": true, "description": "The package name as the manifest spells it" },
         { "name": "description", "type": "string", "required": false, "description": null }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "name"
     },
     {
       "name": "IacFile",
@@ -194,7 +206,8 @@
         { "name": "format", "type": "string", "required": true, "description": null, "enum": ["terraform", "cdk", "bicep", "cloudformation"] },
         { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on" }
       ],
-      "meta": false
+      "meta": false,
+      "displayProperty": "path"
     },
     {
       "name": "Ontology",
@@ -204,7 +217,8 @@
         { "name": "version", "type": "string", "required": true, "description": null },
         { "name": "loadedAt", "type": "instant", "required": false, "description": null }
       ],
-      "meta": true
+      "meta": true,
+      "displayProperty": "version"
     },
     {
       "name": "SyncRun",
@@ -225,7 +239,8 @@
         { "name": "watermark", "type": "instant", "required": false, "description": "Where the next incremental run should start" },
         { "name": "error", "type": "string", "required": false, "description": null }
       ],
-      "meta": true
+      "meta": true,
+      "displayProperty": "id"
     },
     {
       "name": "ConnectorState",
@@ -241,7 +256,8 @@
         { "name": "lastSuccessAt", "type": "instant", "required": false, "description": "When the last successful run finished" },
         { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
       ],
-      "meta": true
+      "meta": true,
+      "displayProperty": "connector"
     },
     {
       "name": "ServicePrincipal",
@@ -252,7 +268,8 @@
         { "name": "ownedBy", "type": "string", "required": true, "description": "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" },
         { "name": "description", "type": "string", "required": false, "description": null }
       ],
-      "meta": true
+      "meta": true,
+      "displayProperty": "name"
     }
   ],
   "edgeTypes": [

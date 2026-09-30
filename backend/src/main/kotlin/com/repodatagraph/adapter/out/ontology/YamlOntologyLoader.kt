@@ -77,6 +77,7 @@ class YamlOntologyLoader(
                 identity = definition.path("identity").map { it.asText() },
                 properties = readProperties(definition, "node type '$name'"),
                 meta = definition.path("meta").asBoolean(false),
+                displayProperty = definition.path("displayProperty").asTextOrNull(),
             )
         }
     }
