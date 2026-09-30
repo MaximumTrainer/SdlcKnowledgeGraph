@@ -116,10 +116,11 @@ between them. The web interface does all of this; the same three steps through t
 1. Open the **Team** tab, press **New**, enter a `name` such as `platform`, and **Save**. The
    node's page opens. Its key is the lowercased name.
 2. Open the **Repository** tab and press **New**. Fill in `url` with any git remote, for example
-   `https://github.com/acme/payments`, plus the properties marked `*`: `orgRepo` (`acme/payments`),
-   `defaultBranch` (`main`), and at least an empty `topics` and `codeowners`. **Save**. The key is
+   `https://github.com/acme/payments`, plus the properties marked `*`: `defaultBranch` (`main`), and at least an empty
+   `topics` and `codeowners`. **Save**. The key is
    derived from the remote as `github.com/acme/payments`, so the same repository given as
-   `git@github.com:acme/payments.git` would land on the same node.
+   `git@github.com:acme/payments.git` would land on the same node. `orgRepo` is derived from the
+   remote and is refused if sent.
 3. On the repository's page, press **Add relationship**, choose **OWNED_BY**, type `plat` in the
    target box, pick `platform` from the suggestions, and press **Add**. The relationship appears
    under **OWNED_BY** here and under **OWNS** on the team's page: one edge, read from both ends.
@@ -133,7 +134,7 @@ curl -s -X POST localhost:8080/api/v1/nodes/Team \
 
 curl -s -X POST localhost:8080/api/v1/nodes/Repository \
   -H 'content-type: application/json' \
-  -d '{"props":{"url":"https://github.com/acme/payments","orgRepo":"acme/payments","defaultBranch":"main","topics":[],"codeowners":[]}}'
+  -d '{"props":{"url":"https://github.com/acme/payments","defaultBranch":"main","topics":[],"codeowners":[]}}'
 
 curl -s -X POST localhost:8080/api/v1/edges \
   -H 'content-type: application/json' \

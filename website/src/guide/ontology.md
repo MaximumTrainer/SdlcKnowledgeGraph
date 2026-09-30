@@ -44,7 +44,7 @@ nodes:
       - { name: language, type: string, required: false }
 ```
 
-The registry's version lives in `version.yaml` (semver, currently `1.0.0`), not in `nodes.yaml`.
+The registry's version lives in `version.yaml` (semver, currently `1.2.0`), not in `nodes.yaml`.
 A node type may also say `meta: true` (the default is `false`), for a type that records the graph's
 own bookkeeping rather than something in the software estate. There is no `default` or
 `sensitivity` key; a property the loader does not recognise fails startup.
@@ -56,6 +56,13 @@ It must be one of the type's own properties, or startup fails with `node type 'T
 with its key, and so is every node of a type that names none, so no label is ever empty. Every type
 in the registry names one: `name` for most, `number` for a change request or an incident, `path` for
 an IaC file, `deployedAt` for a deployment. `GET /api/v1/ontology` serves it with each node type.
+
+A node type may also name an `alias`: properties that together identify one of its nodes beside its
+key, unique where all of them are present and consulted before the key
+([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)). An alias must name properties
+the type declares, none of them part of its identity and none of them required, or startup fails.
+Only Repository names one, `[provider, providerId]`; see
+[A repository's provider id survives a rename](#a-repositorys-provider-id-survives-a-rename).
 
 ### A Repository is identified by its git remote
 
@@ -87,6 +94,77 @@ git remote` with the reason, rather than as three missing properties the caller 
 `GET /api/v1/repositories/by-key?key=` normalises the key it is given through the same parser, so a
 connector holding `Acme/Payments` finds the node without normalising first.
 
+### A repository's provider id survives a rename
+
+The remote is the identity to show, and the wrong one to hold on to: GitHub keeps a repository's
+numeric id across a rename and a transfer between organisations, and a system that authenticates as
+a GitHub App addresses repositories by that id
+([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88),
+[ADR-0013](/adr/0013-provider-id-is-an-alias-not-the-key)). So a Repository has `provider`
+(`github`, `gitlab` or `other`) and `providerId` beside its key, and the registry declares them its
+**alias**:
+
+```yaml
+  Repository:
+    identity: [host, org, name]
+    alias: [provider, providerId]
+```
+
+An alias finds a node; it does not name it.
+
+- **Unique where present.** At startup a constraint is created over the alias's properties together,
+  for every type that declares one: `REQUIRE (n.provider, n.providerId) IS UNIQUE`. A repository with
+  no provider id is outside it, and the same number at GitHub and at GitLab is not a collision.
+- **The provider can be left out on github.com and gitlab.com**, where it is the host's. Anywhere
+  else it has to be named, and half an alias is `400` naming the missing half (`provider is required
+  with providerId`). A provider id sent as a JSON number is stored as the string it is.
+- **Consulted before the key.**
+  - A `POST` whose provider id another node holds is `409 {error: "node exists", existingId, alias}`.
+  - A `PUT` that carries the provider id the node already holds, with a url that derives a different
+    key, **renames the node in place** and answers `200` with the node under its new key. It may be
+    addressed at the old key, or at the new one while nothing holds it. The node keeps every edge, and
+    the key it left is added to `previousKeys` on its provenance.
+  - A connector's delta does the same.
+- **Only a node that already holds the id is renamed by it.** A `PUT` that sets a provider id and
+  changes the url at once is refused as a change of identity, as before, and a provider id once held
+  is not replaced by another (`409 identity properties are immutable`, naming `providerId`).
+- **A rename onto a key another node holds is refused**, naming that node. Two nodes for one
+  repository are a merge, which is the review queue's to propose
+  ([#74](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/74)). A connector's delta writes
+  the reported node without the alias instead, so the sync does not fail and the node that holds the
+  id keeps it.
+- **The old remote still finds it.** When nothing holds a key now, the node that held it before a
+  rename answers.
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/v1/repositories/by-provider/{provider}/{providerId}` | The repository, or `404`; a provider the ontology does not declare is `400 {error, field: "provider"}` |
+| `GET /api/v1/repositories?url=` | The repository the remote resolves to now or resolved to before a rename, as a list of at most one; `[]` when none does |
+| `GET /api/v1/repositories/by-key?key=` | As before, falling back to a key the repository had before a rename |
+
+The issue asked for `GET /api/v1/repositories?url=` to return the node. It returns a list of at most
+one, because without `url` the same route lists every repository and a route should answer one shape.
+Each repository in these answers carries `provider`, `providerId`, `previousKeys` and `orgRepo`. All
+three routes need `graph:read`.
+
+Whatever hangs off a repository by its key rather than by an edge keeps the old key after a rename:
+a Pipeline's `repoKey` and a Change's `repositoryKey`, and the keys derived from them. Changes are
+still found, because impact's sha scoping reads `previousKeys` too (below).
+
+### `orgRepo` is derived, not accepted
+
+Before [#8](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/8) a Repository was named by
+a free-text `orgRepo`. The registry no longer declares it, and #88 finishes the move:
+
+- **On input it is refused as derived.** A node write that sends it is `400` with `orgRepo is derived
+  from url and is not accepted`, rather than as an unknown property, so the caller is told what to
+  send instead. The seed ingest refuses it the same way.
+- **The GraphQL `RepositoryInput`** takes `url` in its place. It used to declare `orgRepo: String!`
+  while its resolver read `url`, so that mutation could not have succeeded.
+- **On output it is still emitted**, as `org/name`, by the repository endpoints and by the GraphQL
+  `Repository` type, until the typed Kotlin class is migrated off it. The node API does not emit it:
+  what a node read answers is what an edit sends back, and an edit sending it would be refused.
+
 `defaultBranch`, `topics` and `codeowners` are required because the typed Kotlin class carries them.
 
 Seven of the core types keep typed Kotlin classes (Repository, Team, Pipeline, Artifact, Deployment,
@@ -98,7 +176,9 @@ and are handled as generic nodes, so a new type does not require a new Kotlin cl
 The drift check is directional. Every **required** registry property must exist on the class, and
 every class property must be declared in the registry; an optional registry property may be absent
 from the class. That is what lets the registry describe the target identity model while the
-classes still carry legacy properties.
+classes still carry legacy properties. A class property is one its primary constructor takes, what
+the node stores: a property the class computes from those, like `Repository.orgRepo`, is not
+expected in the registry (#88).
 
 ## Core entity types
 
@@ -198,6 +278,7 @@ data class Provenance(
     val writtenBy: String?,      // the principal's subject or service principal's name (#114, #115)
     val principalType: String?,  // "user", or "service" for a connector or agent (#115)
     val onBehalfOfTeam: String?, // the Team key a service principal acts for (#115)
+    val previousKeys: List<String>, // keys the node had before a rename through its alias (#88)
 )
 ```
 
@@ -217,6 +298,12 @@ index on `prov_sourceSystem` is created for every type. Re-stating a node replac
 with that of the latest write; merging several sources' provenance on one node (accumulating
 `sourceSystems`, keeping the highest `confidence`) is part of the connector work
 ([#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22)).
+
+`previousKeys` lists the keys a node was known by before it was renamed through its alias, oldest
+first, each once ([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)). It is
+history rather than a statement of the latest write, so only a rename writes it, as
+`prov_previousKeys`, and every other write leaves it alone. It is empty for a node never renamed and
+always empty on an edge.
 
 A write through the API is `manual` unless it names another source, and then `confidence` is `1.0`,
 `inferred` is `false` and `syncRunId` is null; a connector's run stamps its own source and run. The
@@ -355,7 +442,11 @@ identical requests against an unchanged graph return byte-identical bodies.
 { "repositoryKey": "github.com/acme/payments", "paths": ["infra/db.tf"], "sha": "4f1c2d9", "depth": 2, "limit": 50 }
 ```
 
-Only `repositoryKey` is required. `depth` is 1 to 4 (default 2) and `limit` 1 to 500 (default 50);
+Only the repository is required, named by `repositoryKey` or by `providerId`
+([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)), with `provider` defaulting
+to `github`. A provider id is consulted first, since it survives a rename. A `repositoryKey` the
+repository had before a rename still names it. With neither, the request is `400` with `field:
+"repositoryKey"`. `depth` is 1 to 4 (default 2) and `limit` 1 to 500 (default 50);
 outside them the request is `400 {error, field}`, the error naming the bound, and a repository the
 graph does not hold is `404`. It is a POST because its input is a body, not because it writes: it
 needs `graph:read`, and a read-only instance answers it ([Authentication](/guide/auth#scopes)).
@@ -432,7 +523,9 @@ because what a manifest names is what the repository depends on - upstream of a 
 ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)).
 
 The sha names the Changes in the repository that it abbreviates, or that abbreviate it. It is read
-in lower case, as Changes are stored. A stored sha shorter than four characters names nothing.
+in lower case, as Changes are stored. A stored sha shorter than four characters names nothing. A
+Change keeps the `repositoryKey` it was written with, so the Changes written under a key the
+repository had before a rename count as its own (#88).
 
 When at least one Change matches:
 
@@ -545,7 +638,10 @@ seen by two different connectors has to land on one node.
 
 So `https://github.com/Acme/Payments.git`, `git@github.com:acme/payments.git` and `acme/payments`
 all resolve to `github.com/acme/payments`. A uniqueness constraint on `key` is created per label for
-every registry type at startup. Merging two existing nodes that turn out to be the same thing, with
+every registry type at startup, and one over the alias's properties for every type that declares an
+alias. A Repository's alias, its provider and provider id, is the one way a node's key changes: a
+rename through it moves the node and records the key it left
+([above](#a-repository-s-provider-id-survives-a-rename)). Merging two existing nodes that turn out to be the same thing, with
 an `aliases` list recording the keys folded in, is not implemented; today the derivation rules are
 what stop the duplicate being created in the first place.
 
@@ -584,7 +680,11 @@ trip.
 | Value of the wrong type | `400` with `message: "expected int"` (or the declared wire name) |
 | Property not declared | `400` with `message: "not in ontology"` |
 | Derived key already held | `409 {error: "node exists", existingId}` |
-| Update derives a different key | `409 {error: "identity properties are immutable", fields}` |
+| Alias already held by another node (#88) | `409 {error: "node exists", existingId, alias}` |
+| Part of an alias without the rest (#88) | `400` with `message: "provider is required with providerId"` |
+| A property the server derives, such as `orgRepo` (#88) | `400` with `message: "orgRepo is derived from url and is not accepted"` |
+| Update derives a different key, without the alias the node holds | `409 {error: "identity properties are immutable", fields}` |
+| Update replaces the alias the node holds (#88) | `409 {error: "identity properties are immutable", fields: ["providerId"]}` |
 | Delete while edges remain | `409 {error: "node has edges", edgeCount}` |
 
 A property the registry does not declare is refused rather than stored and ignored. Storing it would
@@ -647,7 +747,8 @@ offers the values rather than guessing them.
 ## Why identity cannot be edited
 
 Because the key is derived, changing an identity property does not rename a node — it describes a
-different thing. An update whose properties derive to a different key is therefore refused with the
+different thing. The one exception is a node renamed through its alias, a repository whose provider
+id says it is the same repository under a new remote (#88). An update whose properties derive to a different key is therefore refused with the
 properties responsible, and the editing form disables them rather than letting a user discover this
 on save. Creating that other thing is a create.
 
@@ -667,7 +768,12 @@ version bump and a migration of the data already in the graph; no migration mech
 PullRequest, ExternalWorkItem and their five edges. It is a minor bump, because nothing was renamed
 or removed. Once a 1.1.0 build has run against a graph, that graph records 1.1.0, and a 1.0.0 build
 refuses to start against it. So rolling back past 1.1.0 means restoring the graph from before it, or
-setting the version recorded on its `Ontology` node back by hand. `GET /api/v1/ontology`
+setting the version recorded on its `Ontology` node back by hand.
+
+1.2.0 ([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)) added Repository's
+`provider` and `providerId`, the `alias` they form, and `previousKeys` on the provenance envelope. It
+is also a minor bump, with the same caveat: a 1.1.0 build refuses to start against a graph a 1.2.0
+build has recorded. `GET /api/v1/ontology`
 returns the current registry as JSON, which is what drives the generic editing screen in the
 frontend.
 
