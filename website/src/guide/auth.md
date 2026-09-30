@@ -25,7 +25,7 @@ same gate, and what either may do is decided by the [scopes](#scopes) on its tok
 ([#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116)): `graph:read` to read the graph, `graph:write` to change it, and
 `graph:write:<source>` to state facts as a system of record rather than as oneself
 ([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117), [below](#source-scopes)), and `graph:admin` to run the data lifecycle's
-administrative jobs ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)). There is no anonymous writer: every write
+administrative jobs ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) and to merge nodes ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). There is no anonymous writer: every write
 through the API names the principal that made it.
 
 ## Getting a token
@@ -146,6 +146,7 @@ AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --buil
 | A GraphQL document holding a query and a mutation | both |
 | A node or edge write whose `provenance.sourceSystem` is not `manual` | `graph:write` and `graph:write:<source>` ([Source scopes](#source-scopes)) |
 | `POST` under `/api/v1/lifecycle`: applying ontology migrations, running the archive ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) | `graph:write` and `graph:admin` |
+| `POST /api/v1/nodes/{type}/{key}/merge`, merging one node into another ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)) | `graph:write` and `graph:admin` |
 | `GET /api/v1/ontology`, `GET /api/v1/ontology/nodes/{type}` | nothing: public, with or without a token |
 | The ingest endpoints, the webhook receivers | nothing: they have a credential of their own |
 
