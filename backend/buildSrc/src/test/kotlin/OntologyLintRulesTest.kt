@@ -223,6 +223,47 @@ class OntologyLintRulesTest {
     }
 
     @Test
+    fun `ONT012 an environment alias that names two environments`() {
+        val ontology =
+            valid().copy(
+                environments =
+                    listOf(
+                        GenEnvironment("production", "The environment customers use", listOf("prod", "live")),
+                        GenEnvironment("demo", "The environment prospects are shown", listOf("live")),
+                    ),
+            )
+
+        assertEquals(listOf("environments.demo: alias 'live' already names production [ONT012]"), lines(ontology))
+    }
+
+    @Test
+    fun `ONT012 an environment alias that is another environment's name, or a name without a description`() {
+        val ontology =
+            valid().copy(
+                environments =
+                    listOf(
+                        GenEnvironment("production", "The environment customers use", listOf("staging")),
+                        GenEnvironment("staging", null, emptyList()),
+                    ),
+            )
+
+        assertEquals(
+            listOf(
+                "environments.production: alias 'staging' is the name of another environment [ONT012]",
+                "environments.staging: missing description [ONT012]",
+            ),
+            lines(ontology),
+        )
+    }
+
+    @Test
+    fun `ONT013 a merge scope naming a property the type does not declare`() {
+        val ontology = valid().withType("Team") { it.copy(mergeScope = listOf("name", "colour")) }
+
+        assertEquals(listOf("nodes.Team: mergeScope names 'colour', which the type does not declare [ONT013]"), lines(ontology))
+    }
+
+    @Test
     fun `the report groups findings under the type they are about, errors counted`() {
         val ontology =
             valid()

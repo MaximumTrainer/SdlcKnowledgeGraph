@@ -48,6 +48,13 @@ class OntologyMarkdownTest {
     }
 
     @Test
+    fun `the environment names folded into each other are one line under Environment (#98)`() {
+        val environment = OntologyMarkdown.render(shipped).substringAfter("\n## Environment\n").substringBefore("\n## ")
+
+        assertThat(environment).contains("Also known as: production (prod, prd, live); staging (stg, stage);")
+    }
+
+    @Test
     fun `meta types and deprecated properties are left out`() {
         val markdown = OntologyMarkdown.render(shipped)
 

@@ -93,4 +93,27 @@ class DerivedPropertiesTest {
         assertEquals(mapOf("orgRepo" to "url"), DerivedProperties.derivedOnly("Repository"))
         assertEquals(emptyMap<String, String>(), DerivedProperties.derivedOnly("Team"))
     }
+
+    @Test
+    fun `an artifact with a digest is keyed by it, and says so (#98)`() {
+        val props = derived.expand("Artifact", mapOf("name" to "payments", "version" to "1.4.2", "digest" to "sha256:abc"))
+
+        assertEquals("digest", props["identityQuality"])
+    }
+
+    @Test
+    fun `an artifact without one is keyed by name and version only, and says so (#98)`() {
+        assertEquals("version-only", derived.expand("Artifact", mapOf("name" to "payments", "version" to "1.4.2"))["identityQuality"])
+        assertEquals(
+            "version-only",
+            derived.expand("Artifact", mapOf("name" to "payments", "version" to "1", "digest" to " "))["identityQuality"],
+        )
+    }
+
+    @Test
+    fun `how sure an artifact's key is, is the server's to say, whatever the caller sent (#98)`() {
+        val props = derived.expand("Artifact", mapOf("name" to "payments", "version" to "1.4.2", "identityQuality" to "digest"))
+
+        assertEquals("version-only", props["identityQuality"])
+    }
 }

@@ -14,7 +14,9 @@ import java.time.Instant
  * each was deployed, joined by the edges "why did the deployment fail" has to walk.
  */
 class DeploymentReportMapperTest {
-    private val mapper = DeploymentReportMapper(IdentityResolver(), GitRemoteParser(), YamlOntologyLoader(DefaultResourceLoader()).load())
+    private val registry = YamlOntologyLoader(DefaultResourceLoader()).load()
+    private val mapper =
+        DeploymentReportMapper(IdentityResolver(environmentAliases = registry.environmentAliases), GitRemoteParser(), registry)
 
     private val deployedAt = Instant.parse("2026-09-29T12:00:00Z")
     private val runUrl = "https://github.com/maximumtrainer/sdlcknowledgegraph/actions/runs/42"
