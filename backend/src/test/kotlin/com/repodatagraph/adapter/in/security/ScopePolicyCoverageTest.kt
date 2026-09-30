@@ -1,0 +1,113 @@
+package com.repodatagraph.adapter.`in`.security
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider
+import org.springframework.core.type.filter.AnnotationTypeFilter
+import org.springframework.graphql.data.method.annotation.MutationMapping
+import org.springframework.graphql.data.method.annotation.QueryMapping
+import org.springframework.stereotype.Controller
+import org.springframework.util.ClassUtils
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
+import java.lang.reflect.Method
+
+/**
+ * No route is left unguarded (#116, FR-4). Every handler any controller in the application maps is
+ * found by reading its mapping the way Spring MVC does, and [ScopePolicy] must declare a requirement
+ * for it or list it as public. A controller added without thinking about scopes fails here, before
+ * it can serve anyone.
+ *
+ * GraphQL is one route, so its operations are checked on their own: every query field the resolvers
+ * serve needs graph:read, and every mutation field graph:write.
+ */
+class ScopePolicyCoverageTest {
+    private data class Route(
+        val method: String,
+        val pattern: String,
+    ) {
+        val samplePath: String get() = pattern.replace(VARIABLE, "sample")
+
+        override fun toString() = "$method $pattern"
+    }
+
+    /** Exposes how Spring MVC reads a handler method's mapping, without starting an application. */
+    private class Mappings : RequestMappingHandlerMapping() {
+        fun of(
+            method: Method,
+            type: Class<*>,
+        ): RequestMappingInfo? = getMappingForMethod(method, type)
+    }
+
+    private val controllers: List<Class<*>> =
+        ClassPathScanningCandidateComponentProvider(false)
+            .apply { addIncludeFilter(AnnotationTypeFilter(Controller::class.java)) }
+            .findCandidateComponents("com.repodatagraph")
+            .map { ClassUtils.forName(checkNotNull(it.beanClassName), javaClass.classLoader) }
+
+    private val routes: List<Route> by lazy {
+        val mappings = Mappings()
+        controllers
+            .flatMap { type ->
+                type.methods.mapNotNull { mappings.of(it, type) }.flatMap { info ->
+                    val methods =
+                        info.methodsCondition.methods
+                            .map { it.name }
+                            .ifEmpty { ANY_METHOD }
+                    info.patternValues.flatMap { pattern -> methods.map { Route(it, pattern) } }
+                }
+            }.distinct()
+    }
+
+    @Test
+    fun `the walk finds the application's routes`() {
+        assertTrue(Route("POST", "/api/v1/nodes/{type}") in routes, "routes found: $routes")
+        assertTrue(Route("GET", "/api/v1/service-principals") in routes, "routes found: $routes")
+    }
+
+    @Test
+    fun `every mapped route has a scope requirement or is on the public allowlist`() {
+        val undeclared = routes.filter { ScopePolicy.requirementFor(it.method, it.samplePath) == null }
+
+        assertEquals(emptyList<Route>(), undeclared, "routes with no declared requirement")
+    }
+
+    @Test
+    fun `every read under the API needs graph read and every write graph write, unless it is public`() {
+        val wrong =
+            routes.filter { it.pattern.startsWith("/api/v1/") }.mapNotNull { route ->
+                val requirement = ScopePolicy.requirementFor(route.method, route.samplePath)
+                val expected = if (route.method in READ_METHODS) setOf(GraphScope.READ) else setOf(GraphScope.WRITE)
+                when (requirement) {
+                    is RouteRequirement.Public -> null
+                    is RouteRequirement.Scopes -> if (requirement.scopes == expected) null else "$route needs ${requirement.scopes}"
+                    else -> "$route is $requirement"
+                }
+            }
+
+        assertEquals(emptyList<String>(), wrong)
+    }
+
+    @Test
+    fun `the GraphQL endpoint is declared, by the operations its document holds`() {
+        assertEquals(RouteRequirement.ByGraphQlOperation, ScopePolicy.requirementFor("POST", "/graphql"))
+    }
+
+    @Test
+    fun `every GraphQL query field needs graph read and every mutation field graph write`() {
+        val resolvers = controllers.flatMap { it.methods.toList() }
+        val queries = resolvers.filter { it.isAnnotationPresent(QueryMapping::class.java) }.map { it.name }
+        val mutations = resolvers.filter { it.isAnnotationPresent(MutationMapping::class.java) }.map { it.name }
+        assertTrue(queries.isNotEmpty() && mutations.isNotEmpty(), "queries $queries, mutations $mutations")
+
+        queries.forEach { assertEquals(setOf(GraphScope.READ), GraphQlScopes.required("{ $it }"), "query $it") }
+        mutations.forEach { assertEquals(setOf(GraphScope.WRITE), GraphQlScopes.required("mutation { $it }"), "mutation $it") }
+    }
+
+    private companion object {
+        val ANY_METHOD = listOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
+        val READ_METHODS = setOf("GET", "HEAD")
+        val VARIABLE = Regex("\\{\\*?[^}]+}")
+    }
+}
