@@ -3045,6 +3045,125 @@
         "tags" : [ "Ingest" ]
       }
     },
+    "/api/v1/lifecycle" : {
+      "get" : {
+        "operationId" : "getLifecycleStatus",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The lifecycle at a glance: migrations, versioning, the archive, each connector's rules",
+        "tags" : [ "Lifecycle" ]
+      }
+    },
+    "/api/v1/lifecycle/archive" : {
+      "post" : {
+        "operationId" : "runArchive",
+        "parameters" : [ {
+          "description" : "true to count what the archive would take and change nothing",
+          "in" : "query",
+          "name" : "dryRun",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Rehearse the archive, or run it as configured",
+        "tags" : [ "Lifecycle" ]
+      }
+    },
+    "/api/v1/lifecycle/history" : {
+      "get" : {
+        "operationId" : "getNodeHistory",
+        "parameters" : [ {
+          "description" : "The node, as Type:key",
+          "in" : "query",
+          "name" : "nodeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "A node's current validity and its earlier versions, newest first",
+        "tags" : [ "Lifecycle" ]
+      }
+    },
+    "/api/v1/lifecycle/migrations" : {
+      "get" : {
+        "operationId" : "getOntologyMigrations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Which ontology version the graph is on, and the migrations pending and applied",
+        "tags" : [ "Lifecycle" ]
+      }
+    },
+    "/api/v1/lifecycle/migrations/apply" : {
+      "post" : {
+        "operationId" : "applyOntologyMigrations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Apply every pending ontology migration, in order, each in its own transaction",
+        "tags" : [ "Lifecycle" ]
+      }
+    },
     "/api/v1/nodes/{type}" : {
       "get" : {
         "operationId" : "list",
@@ -4013,6 +4132,9 @@
   }, {
     "description" : "Superseded by /api/v1/edges",
     "name" : "Repositories (deprecated links)"
+  }, {
+    "description" : "Versions, retirement, archival and ontology migrations",
+    "name" : "Lifecycle"
   }, {
     "description" : "Ontology-driven CRUD for every declared node type",
     "name" : "Nodes"

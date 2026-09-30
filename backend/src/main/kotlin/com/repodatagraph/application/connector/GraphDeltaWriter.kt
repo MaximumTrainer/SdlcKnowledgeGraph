@@ -1,6 +1,8 @@
 package com.repodatagraph.application.connector
 
 import com.repodatagraph.domain.identity.DerivedProperties
+import com.repodatagraph.domain.lifecycle.RetiredReason
+import com.repodatagraph.domain.lifecycle.TombstoneRules
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
@@ -133,18 +135,29 @@ class GraphDeltaWriter(
     }
 
     /**
-     * Closes what [descriptor]'s source asserted before a complete run began and did not report in it
-     * (#150). Closed, never deleted, for the same reason a tombstone is.
+     * Retires what [descriptor]'s source asserted before a complete run began and did not report in
+     * it (#150), by the connector's own [rules] (#33, FR3): not at all when it ignores what it stops
+     * reporting, and only what it last stated before its grace period otherwise. Retired, never
+     * deleted, for the same reason a tombstone is.
      *
-     * @return how many facts were closed
+     * @return how many facts were retired
      */
     fun reconcile(
         descriptor: ConnectorDescriptor,
         runStartedAt: Instant,
-    ): Int = factLifecycle.closeNodesNotReasserted(descriptor.sourceSystem, runStartedAt, Instant.now(clock))
+        rules: TombstoneRules = TombstoneRules(),
+    ): Int {
+        val statedBefore = rules.retireStatedBefore(runStartedAt) ?: return 0
+        return factLifecycle.closeNodesNotReasserted(
+            descriptor.sourceSystem,
+            statedBefore,
+            Instant.now(clock),
+            RetiredReason.MISSING_FROM_SYNC,
+        )
+    }
 
     /**
-     * Closes a fact rather than deleting it.
+     * Retires a fact rather than deleting it, with its current relationships (#33, FR4).
      *
      * "This used to be true" is itself worth keeping, and a connector having a bad day must not be
      * able to erase history: a source that stops reporting something is not the same as that thing
@@ -153,11 +166,7 @@ class GraphDeltaWriter(
     private fun close(
         key: NodeKey,
         now: Instant,
-    ): Boolean {
-        val existing = graphStore.findNode(key) ?: return false
-        graphStore.upsertNode(existing.copy(provenance = existing.provenance.copy(validTo = now)))
-        return true
-    }
+    ): Boolean = factLifecycle.retire(key, now, RetiredReason.SOURCE_DELETED)
 
     private fun linkToRun(
         syncRunId: String,

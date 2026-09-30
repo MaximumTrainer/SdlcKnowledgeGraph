@@ -15,6 +15,10 @@
       {
         "name": "graph-writer",
         "description": "May be issued the graph:write scope (#116)."
+      },
+      {
+        "name": "graph-admin",
+        "description": "May be issued the graph:admin scope: apply ontology migrations and run the archive (#33)."
       }
     ]
   },
@@ -31,6 +35,15 @@
     {
       "name": "graph:write",
       "description": "Change the graph: every POST, PUT and DELETE under /api/v1 and every GraphQL mutation (#116).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "graph:admin",
+      "description": "Administer the graph as a whole: apply ontology migrations and run the archive, with graph:write (#33).",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",
@@ -698,6 +711,12 @@
       "roles": [
         "graph-writer"
       ]
+    },
+    {
+      "clientScope": "graph:admin",
+      "roles": [
+        "graph-admin"
+      ]
     }
   ],
   "clients": [
@@ -735,7 +754,8 @@
         "acr",
         "basic",
         "graph:read",
-        "graph:write"
+        "graph:write",
+        "graph:admin"
       ],
       "optionalClientScopes": [
         "offline_access",
@@ -846,7 +866,8 @@
       ],
       "realmRoles": [
         "graph-reader",
-        "graph-writer"
+        "graph-writer",
+        "graph-admin"
       ]
     },
     {

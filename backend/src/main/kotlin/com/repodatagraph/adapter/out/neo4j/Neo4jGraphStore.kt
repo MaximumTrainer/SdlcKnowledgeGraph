@@ -1,6 +1,8 @@
 package com.repodatagraph.adapter.out.neo4j
 
 import com.repodatagraph.domain.exception.NodeNotFoundException
+import com.repodatagraph.domain.lifecycle.RetiredReason
+import com.repodatagraph.domain.lifecycle.VersioningPolicy
 import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
@@ -31,23 +33,71 @@ import java.time.Instant
 class Neo4jGraphStore(
     private val neo4jClient: Neo4jClient,
     private val cypher: CypherBuilder,
+    private val versioning: VersioningPolicy,
 ) : GraphStore {
+    /**
+     * One statement, so a version is cut from exactly the values this write replaces (#33, FR1). A
+     * version is kept when a current node's declared values change, or a retired node is stated as
+     * current again; stating the same values again keeps nothing. The versions of a node are linked by
+     * the id they are a version of rather than by a relationship, so no traversal of the current graph
+     * ever meets one.
+     */
     override fun upsertNode(node: GraphNode): GraphNode {
         val label = cypher.nodeLabel(node.type)
-        val properties =
-            storable(cypher.declaredProperties(node.type, node.props)) +
-                ProvenanceMapper.toProperties(node.provenance)
+        val domain = storable(cypher.declaredProperties(node.type, node.props))
+        val properties = domain + ProvenanceMapper.toProperties(node.provenance)
 
         neo4jClient
             .query(
                 """
                 MERGE (n:$label { key: ${'$'}key })
-                WITH n, ${ValidityCypher.began("n")}
+                WITH n, n { .* } AS before, ${ValidityCypher.began("n")}, n.prov_validTo AS endedAt,
+                     coalesce(n.prov_propsFrom, n.prov_validFrom, ${NodeVersions.EPOCH}) AS propsFrom
+                WITH n, before, began, wasCurrent, endedAt, propsFrom, size(keys(before)) > 1 AS existed,
+                     ${'$'}props.prov_validTo IS NULL AS writesCurrent,
+                     [k IN keys(${'$'}domain) WHERE (before[k] IS NULL) <> (${'$'}domain[k] IS NULL) OR before[k] <> ${'$'}domain[k]] AS changed
+                WITH n, before, began, wasCurrent, endedAt, propsFrom, existed,
+                     existed AND NOT wasCurrent AND writesCurrent AS resurrected,
+                     CASE WHEN wasCurrent THEN ${'$'}at ELSE endedAt END AS cutAt, changed
+                WITH n, before, began, wasCurrent, propsFrom, existed, resurrected, cutAt,
+                     ${'$'}versioned AND existed AND ((wasCurrent AND size(changed) > 0) OR resurrected)
+                       AND cutAt > propsFrom AS cut
+                FOREACH (_ IN CASE WHEN cut THEN [1] ELSE [] END |
+                  MERGE (v:${NodeVersions.LABEL} { key: n.id + '@' + toString(propsFrom) })
+                  SET v = before
+                  SET v.key = n.id + '@' + toString(propsFrom), v.id = '${NodeVersions.LABEL}:' + n.id + '@' + toString(propsFrom),
+                      v.versionOf = n.id, v.since = propsFrom, v.until = cutAt,
+                      v.retired = NOT wasCurrent, v.retiredReason = before.prov_retiredReason,
+                      v.prov_validFrom = propsFrom, v.prov_validTo = cutAt
+                )
                 SET n += ${'$'}props, n.id = ${'$'}id
                 ${ValidityCypher.keepBegan("n")}
+                SET n.prov_propsFrom = CASE WHEN NOT existed THEN ${'$'}props.prov_validFrom
+                                            WHEN cut OR resurrected THEN ${'$'}at
+                                            ELSE n.prov_propsFrom END,
+                    n.prov_resurrectedAt = CASE WHEN resurrected THEN ${'$'}at ELSE n.prov_resurrectedAt END,
+                    n.prov_retiredReason = CASE WHEN ${'$'}props.prov_validTo IS NULL THEN null
+                                                WHEN wasCurrent THEN '${RetiredReason.MANUAL.wireName}'
+                                                ELSE n.prov_retiredReason END
+                WITH n, cut
+                CALL (n, cut) {
+                  WITH n WHERE cut
+                  MATCH (v:${NodeVersions.LABEL} { versionOf: n.id })
+                  WITH v ORDER BY v.since DESC SKIP ${'$'}maxVersions
+                  DETACH DELETE v
+                }
                 """.trimIndent(),
-            ).bindAll(mapOf("key" to node.key.key, "id" to node.id, "props" to properties))
-            .run()
+            ).bindAll(
+                mapOf(
+                    "key" to node.key.key,
+                    "id" to node.id,
+                    "props" to properties,
+                    "domain" to domain,
+                    "at" to ProvenanceMapper.storable(node.provenance.ingestedAt),
+                    "versioned" to versioning.isVersioned(node.type),
+                    "maxVersions" to versioning.maxVersions.toLong(),
+                ),
+            ).run()
 
         return node
     }
@@ -101,9 +151,17 @@ class Neo4jGraphStore(
         asOf: Instant,
     ): GraphNode? {
         val label = cypher.nodeLabel(key.type)
+        // The values a node held at an instant are a version's when one held then (#33), and
+        // otherwise its own, when it held then.
         return neo4jClient
-            .query("MATCH (n:$label { key: ${'$'}key }) WHERE ${ValidityCypher.holds("n")} RETURN n { .* } AS n")
-            .bindAll(mapOf("key" to key.key, ValidityCypher.AS_OF to ProvenanceMapper.storable(asOf)))
+            .query(
+                """
+                MATCH (n:$label { key: ${'$'}key })
+                ${NodeVersions.heldAt("n", "o")}
+                WHERE o IS NOT NULL
+                RETURN o AS n
+                """.trimIndent(),
+            ).bindAll(mapOf("key" to key.key, ValidityCypher.AS_OF to ProvenanceMapper.storable(asOf)))
             .fetch()
             .one()
             .map { GraphRowMapper.toNode(key.type, it["n"]) }
@@ -153,7 +211,13 @@ class Neo4jGraphStore(
             .query(
                 """
                 MATCH (n:$label { key: ${'$'}from })
+                WITH n, n.id AS previousId
                 SET n += ${'$'}props, n.key = ${'$'}key, n.id = ${'$'}id
+                WITH n, previousId
+                CALL (n, previousId) {
+                  MATCH (v:${NodeVersions.LABEL} { versionOf: previousId })
+                  SET v.versionOf = n.id
+                }
                 RETURN n { .* } AS n
                 """.trimIndent(),
             ).bindAll(mapOf("from" to from.key, "key" to node.key.key, "id" to node.id, "props" to properties))
@@ -225,6 +289,10 @@ class Neo4jGraphStore(
                 .query(
                     """
                     MATCH (n:$label { key: ${'$'}key })
+                    CALL (n) {
+                      MATCH (v:${NodeVersions.LABEL} { versionOf: n.id })
+                      DETACH DELETE v
+                    }
                     WITH n, count(n) AS found
                     DETACH DELETE n
                     RETURN found
@@ -310,8 +378,15 @@ class Neo4jGraphStore(
     ): List<IncidentEdge> {
         val label = cypher.nodeLabel(key.type)
         val filter = edgeType?.let { ":" + cypher.edgeType(it) }.orEmpty()
-        // Both the edge and the node at its far end, for the reason findEdges(asOf) gives.
-        val valid = if (asOf == null) "" else "WHERE ${ValidityCypher.holds("r")} AND ${ValidityCypher.holds("o")}"
+        // Both the edge and the node at its far end, for the reason findEdges(asOf) gives; the far
+        // end with the values it held then, a version's when one held (#33).
+        val valid =
+            if (asOf == null) {
+                "WITH r, o { .* } AS other, labels(o)[0] AS otherType"
+            } else {
+                "WHERE ${ValidityCypher.holds("r")} WITH r, o, labels(o)[0] AS otherType\n" +
+                    NodeVersions.heldAt("o", "other", carry = "r, otherType") + "\nWHERE other IS NOT NULL"
+            }
 
         val outgoing =
             if (direction == Direction.INCOMING) {
@@ -339,7 +414,7 @@ class Neo4jGraphStore(
             .query(
                 """
                 $match
-                RETURN type(r) AS type, r { .* } AS edge, labels(o)[0] AS otherType, o { .* } AS other
+                RETURN type(r) AS type, r { .* } AS edge, otherType, other
                 """.trimIndent(),
             ).bindAll(mapOf("key" to key.key, ValidityCypher.AS_OF to ProvenanceMapper.storable(asOf)))
             .fetch()
@@ -477,6 +552,12 @@ internal object GraphRowMapper {
     @Suppress("UNCHECKED_CAST")
     private fun propertiesOf(value: Any?): Map<String, Any?> = (value as? Map<String, Any?>).orEmpty()
 
+    /**
+     * A stored node never holds a null, so a null here is a version's bookkeeping projected away by
+     * [NodeVersions.heldAt], and skipped.
+     */
     private fun domainProperties(properties: Map<String, Any?>): Map<String, Any?> =
-        properties.filterKeys { !ProvenanceMapper.isProvenanceProperty(it) && it != "key" && it != "id" }
+        properties.filter { (name, value) ->
+            value != null && !ProvenanceMapper.isProvenanceProperty(name) && name != "key" && name != "id"
+        }
 }

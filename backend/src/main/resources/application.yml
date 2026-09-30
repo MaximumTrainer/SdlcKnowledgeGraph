@@ -75,6 +75,31 @@ freshness:
   default-window: ${FRESHNESS_DEFAULT_WINDOW:PT24H}
   windows: {}
 
+# The data lifecycle (#33, docs/adr/0014-data-lifecycle.md). A node's changed values are kept as
+# versions, at most max-versions per node, so a read as of an instant sees the values of that moment.
+#
+# The archive NEVER deletes anything unless an operator opts in twice: LIFECYCLE_ARCHIVE_ENABLED=true
+# turns it on and schedules it, and on its own it only reports what it would take (dry-run). Only
+# LIFECYCLE_ARCHIVE_MODE=export writes closed facts older than the retention to a JSONL file in
+# directory, and only LIFECYCLE_ARCHIVE_MODE=purge also deletes them from the graph after writing them.
+#
+# Ontology migrations under ontology/migrations/ are applied as the application starts (auto); manual
+# leaves them for an admin to apply from the lifecycle page. Neither ever fails a health probe.
+lifecycle:
+  versioning:
+    enabled: ${LIFECYCLE_VERSIONING_ENABLED:true}
+    max-versions: ${LIFECYCLE_VERSIONING_MAX_VERSIONS:50}
+    exclude-types: []
+  archive:
+    enabled: ${LIFECYCLE_ARCHIVE_ENABLED:false}
+    mode: ${LIFECYCLE_ARCHIVE_MODE:dry-run}
+    retention: ${LIFECYCLE_ARCHIVE_RETENTION:P365D}
+    schedule: ${LIFECYCLE_ARCHIVE_SCHEDULE:0 0 4 * * *}
+    directory: ${LIFECYCLE_ARCHIVE_DIRECTORY:./archive}
+  migrations:
+    mode: ${LIFECYCLE_MIGRATIONS_MODE:auto}
+    location: classpath:ontology/migrations/
+
 # Ingestion from systems of record. Every connector is off until someone turns it on: a connector
 # reaches a real system with real credentials, so being on the classpath must not be the same as
 # being allowed to talk to anything (docs/ADAPTERS.md).

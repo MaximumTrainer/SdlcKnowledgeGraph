@@ -77,8 +77,8 @@ class Neo4jArchiveStoreIT {
         assertThat(sink.records.filter { it.kind == "node" }.map { it.data["id"] }).containsExactly(old.id)
         assertThat(sink.records.filter { it.kind == "edge" }.map { it.data["from"] }).containsExactlyInAnyOrder(old.id, recent.id)
         val exported = sink.records.first { it.kind == "node" }.data
-        assertThat(exported["props"] as Map<*, *>).containsEntry("name", old.key)
-        assertThat(exported["provenance"] as Map<*, *>).containsKey("validTo")
+        assertThat((exported["props"] as Map<*, *>)["name"]).isEqualTo(old.key)
+        assertThat((exported["provenance"] as Map<*, *>).keys).contains("validTo")
 
         assertThat(archiveStore.purge(cutoff)).isEqualTo(ArchiveCounts(nodes = 1, edges = 2))
 

@@ -154,8 +154,9 @@ class SeedIngestSteps(
         nodes: Int,
         edges: Int,
     ) {
-        assertThat(count("MATCH (n) WHERE n.prov_sourceSystem = 'dogfood-seed' AND NOT n:SyncRun RETURN count(n) AS n"))
-            .isEqualTo(nodes.toLong())
+        assertThat(
+            count("MATCH (n) WHERE n.prov_sourceSystem = 'dogfood-seed' AND NOT n:SyncRun AND NOT n:NodeVersion RETURN count(n) AS n"),
+        ).isEqualTo(nodes.toLong())
         assertThat(count("MATCH ()-[e]->() WHERE e.prov_sourceSystem = 'dogfood-seed' AND type(e) <> 'PRODUCED' RETURN count(e) AS n"))
             .isEqualTo(edges.toLong())
     }

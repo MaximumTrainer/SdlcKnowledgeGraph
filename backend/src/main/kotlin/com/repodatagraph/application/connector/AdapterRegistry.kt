@@ -1,6 +1,7 @@
 package com.repodatagraph.application.connector
 
 import com.repodatagraph.config.ConnectorsProperties
+import com.repodatagraph.domain.lifecycle.TombstoneRules
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.SourceConnector
@@ -18,6 +19,8 @@ data class RegisteredConnector(
     val enabled: Boolean,
     /** `connectors.settings.<name>.freshness-threshold`, when configuration sets one. */
     private val configuredFreshnessThreshold: Duration? = null,
+    /** `connectors.settings.<name>.lifecycle`: what it does with what a complete full sync stops reporting (#33). */
+    val tombstoneRules: TombstoneRules = TombstoneRules(),
 ) {
     val descriptor get() = connector.descriptor()
     val name get() = descriptor.name
@@ -80,7 +83,7 @@ class AdapterRegistry(
             connectors.associate { connector ->
                 val name = connector.descriptor().name
                 val settings = properties.settingsFor(name)
-                name to RegisteredConnector(connector, settings.enabled, settings.freshnessThreshold)
+                name to RegisteredConnector(connector, settings.enabled, settings.freshnessThreshold, settings.lifecycle.rules())
             }
     }
 

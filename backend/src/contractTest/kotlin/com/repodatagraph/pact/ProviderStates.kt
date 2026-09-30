@@ -21,6 +21,7 @@ import java.time.Instant
 class ProviderStates(
     private val graphStore: GraphStore,
     private val neo4jClient: Neo4jClient,
+    private val ontologyVersion: String = "1.4.0",
 ) {
     /**
      * One repository addressable as `R1`. The store derives ids as `Type:key`, and the repository
@@ -400,6 +401,74 @@ class ProviderStates(
         )
     }
 
+    /**
+     * The graph on the build's ontology, with nothing in it (#33): the lifecycle status as a fresh
+     * instance reports it, the archive off and every connector on its default rules.
+     */
+    fun lifecycleAtItsDefaults() {
+        emptyGraph()
+        onOntology(ontologyVersion)
+    }
+
+    /** A graph written by the previous ontology version, so applying the migrations moves it on. */
+    fun graphOnThePreviousOntologyVersion() {
+        emptyGraph()
+        onOntology(PREVIOUS_ONTOLOGY_VERSION)
+    }
+
+    /** One cloud resource retired two years ago, past any retention the archive might have. */
+    fun factRetiredLongAgo() {
+        lifecycleAtItsDefaults()
+        val began = Instant.now().minus(Duration.ofDays(THREE_YEARS_DAYS))
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("CloudResource", BUCKET_KEY),
+                props =
+                    mapOf(
+                        "provider" to "aws",
+                        "resourceId" to "arn:aws:s3:::acme-logs",
+                        "resourceType" to "s3-bucket",
+                        "name" to "acme-logs",
+                    ),
+                provenance =
+                    Provenance(
+                        sourceSystem = "aws",
+                        ingestedAt = began,
+                        validFrom = began,
+                        validTo = Instant.now().minus(Duration.ofDays(TWO_YEARS_DAYS)),
+                    ),
+            ),
+        )
+    }
+
+    /** github.com/acme/payments described "v1" in January and "v2" since February. */
+    fun paymentsHasOneEarlierVersion() {
+        lifecycleAtItsDefaults()
+        listOf("v1" to Instant.parse("2026-01-01T00:00:00Z"), "v2" to Instant.parse("2026-02-01T00:00:00Z")).forEach { (description, at) ->
+            graphStore.upsertNode(
+                GraphNode(
+                    key = NodeKey("Repository", REPOSITORY_KEY_OWNED),
+                    props =
+                        mapOf(
+                            "url" to "https://github.com/acme/payments",
+                            "host" to "github.com",
+                            "org" to "acme",
+                            "name" to "payments",
+                            "defaultBranch" to "main",
+                            "topics" to emptyList<String>(),
+                            "codeowners" to emptyList<String>(),
+                            "description" to description,
+                        ),
+                    provenance = Provenance(sourceSystem = Provenance.MANUAL, ingestedAt = at, validFrom = at),
+                ),
+            )
+        }
+    }
+
+    private fun onOntology(version: String) {
+        neo4jClient.query("CREATE (:Ontology { version: \$version })").bindAll(mapOf("version" to version)).run()
+    }
+
     private fun emptyGraph() {
         neo4jClient.query("MATCH (n) DETACH DELETE n").run()
     }
@@ -422,6 +491,10 @@ class ProviderStates(
         const val PAYMENTS_WAS_RENAMED =
             "repository with GitHub id 123456 was renamed from acme/payments to acme-platform/payments-service"
         const val GITHUB_SYNCED_THIRTY_HOURS_AGO = "the github source last synced thirty hours ago"
+        const val LIFECYCLE_AT_ITS_DEFAULTS = "the lifecycle is at its defaults"
+        const val GRAPH_ON_PREVIOUS_ONTOLOGY = "the graph is on the previous ontology version"
+        const val FACT_RETIRED_LONG_AGO = "a fact retired long ago"
+        const val PAYMENTS_HAS_ONE_EARLIER_VERSION = "the payments repository has one earlier version"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -438,6 +511,9 @@ class ProviderStates(
         private const val PRODUCTION = "production"
         private const val GITHUB_ID = "123456"
         private const val RENAMED_KEY = "github.com/acme-platform/payments-service"
+        private const val PREVIOUS_ONTOLOGY_VERSION = "1.3.0"
+        private const val TWO_YEARS_DAYS = 730L
+        private const val THREE_YEARS_DAYS = 1095L
 
         /** One more than the graph view's cap, counting the hub itself. */
         private const val HUB_DEPENDENCIES = 500
@@ -461,6 +537,10 @@ class ProviderStates(
                 PAYMENTS_HAS_GITHUB_ID,
                 PAYMENTS_WAS_RENAMED,
                 GITHUB_SYNCED_THIRTY_HOURS_AGO,
+                LIFECYCLE_AT_ITS_DEFAULTS,
+                GRAPH_ON_PREVIOUS_ONTOLOGY,
+                FACT_RETIRED_LONG_AGO,
+                PAYMENTS_HAS_ONE_EARLIER_VERSION,
             )
     }
 }

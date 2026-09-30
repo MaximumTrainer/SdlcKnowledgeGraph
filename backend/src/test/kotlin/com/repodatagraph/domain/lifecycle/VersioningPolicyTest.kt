@@ -2,6 +2,8 @@ package com.repodatagraph.domain.lifecycle
 
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
+import com.repodatagraph.domain.ontology.PropertyDef
+import com.repodatagraph.domain.ontology.PropertyType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -10,14 +12,16 @@ import org.junit.jupiter.api.Test
  * sync runs, connector state, the ontology - changes on every run and has no history worth keeping.
  */
 class VersioningPolicyTest {
+    private fun property(name: String) = PropertyDef(name = name, type = PropertyType.STRING)
+
     private val registry =
         OntologyRegistry(
             version = "1.4.0",
             nodeTypes =
                 listOf(
-                    NodeTypeDef("Team", "A team", listOf("name"), emptyList()),
-                    NodeTypeDef("Pipeline", "A pipeline", listOf("name"), emptyList()),
-                    NodeTypeDef("SyncRun", "A run", listOf("id"), emptyList(), meta = true),
+                    NodeTypeDef("Team", "A team", listOf("name"), listOf(property("name"))),
+                    NodeTypeDef("Pipeline", "A pipeline", listOf("name"), listOf(property("name"))),
+                    NodeTypeDef("SyncRun", "A run", listOf("id"), listOf(property("id")), meta = true),
                 ),
             edgeTypes = emptyList(),
         )

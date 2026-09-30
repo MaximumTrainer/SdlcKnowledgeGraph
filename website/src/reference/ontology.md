@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.3.0**. It is generated, so a type added to the registry appears here without
+**v1.4.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -529,14 +529,14 @@ Identity: `version`
 
 | Property | Type | Required | Description | Example |
 | --- | --- | --- | --- | --- |
-| `version` | `string`, format `semver` | yes | The ontology version, as version.yaml declares it | `1.3.0` |
+| `version` | `string`, format `semver` | yes | The ontology version, as version.yaml declares it | `1.4.0` |
 | `loadedAt` | `instant` | no | When a build first recorded this version | `2026-09-30T12:00:00Z` |
 
 Example:
 
 ```json
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "loadedAt": "2026-09-30T12:00:00Z"
 }
 ```
@@ -609,6 +609,59 @@ Example:
   "lastFinishedAt": "2026-09-30T12:01:30Z",
   "lastSuccessAt": "2026-09-30T12:01:30Z",
   "consecutiveFailures": 0
+}
+```
+
+### NodeVersion
+
+The values a node held for an interval before they were replaced.
+
+Identity: `versionOf, since`
+
+| Property | Type | Required | Description | Example |
+| --- | --- | --- | --- | --- |
+| `versionOf` | `string` | yes | The id of the node these values belonged to | `Repository:github.com/acme/payments` |
+| `since` | `instant` | yes | When the node began to hold these values | `2026-01-01T00:00:00Z` |
+| `until` | `instant` | yes | When a write replaced them, or the node was retired | `2026-02-01T00:00:00Z` |
+| `retired` | `boolean` | no | True when the values ended because the node was retired rather than changed | `false` |
+| `retiredReason` | `string`, one of `source-deleted`, `source-retired`, `missing-from-sync`, `manual` | no | Why the node was retired, where it was | `missing-from-sync` |
+
+Example:
+
+```json
+{
+  "versionOf": "Repository:github.com/acme/payments",
+  "since": "2026-01-01T00:00:00Z",
+  "until": "2026-02-01T00:00:00Z",
+  "retired": false
+}
+```
+
+### OntologyMigration
+
+A versioned migration of the graph's data, and when it was applied.
+
+Identity: `version`
+
+| Property | Type | Required | Description | Example |
+| --- | --- | --- | --- | --- |
+| `version` | `string`, format `semver` | yes | The ontology version the migration brings the graph to | `1.4.0` |
+| `name` | `string` | yes | The migration's name, from its file name | `rename_ci_legacy_name` |
+| `checksum` | `string` | yes | SHA-256 of the file that was applied | `9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08` |
+| `appliedAt` | `instant` | yes | When it was applied or recorded | `2026-09-30T12:00:00Z` |
+| `durationMs` | `int` | no | How long it took to run, in milliseconds | `12` |
+| `baseline` | `boolean` | no | True when recorded without running, because the graph never needed it | `false` |
+
+Example:
+
+```json
+{
+  "version": "1.4.0",
+  "name": "rename_ci_legacy_name",
+  "checksum": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "appliedAt": "2026-09-30T12:00:00Z",
+  "durationMs": 12,
+  "baseline": false
 }
 ```
 

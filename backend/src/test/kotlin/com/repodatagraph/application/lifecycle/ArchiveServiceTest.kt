@@ -75,6 +75,8 @@ class ArchiveServiceTest {
 
     @Test
     fun `the cutoff is the retention before now`() {
+        eligible(0, 0)
+
         assertThat(service().status().cutoff).isEqualTo(cutoff)
     }
 

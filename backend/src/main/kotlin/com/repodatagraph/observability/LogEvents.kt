@@ -127,6 +127,59 @@ object LogEvents {
     ) =
         EventLog.emit("ontology.version.recorded", Level.INFO, "ontology version recorded", mapOf("version" to version))
 
+    /** A shipped migration was recorded as applied without running, because the graph began on its version or a newer one and never held the shape it repairs (#33). */
+    fun ontologyMigrationBaselined(
+        migration: String,
+    ) =
+        EventLog.emit("ontology.migration.baselined", Level.INFO, "ontology migration recorded as a baseline", mapOf("migration" to migration))
+
+    /** A migration ran in a transaction of its own and was recorded on the graph with its checksum (#33). */
+    fun ontologyMigrationApplied(
+        migration: String,
+        statements: Int,
+        durationMs: Int,
+    ) =
+        EventLog.emit("ontology.migration.applied", Level.INFO, "ontology migration applied", mapOf("migration" to migration, "statements" to statements, "durationMs" to durationMs))
+
+    /** A migration failed; its transaction was rolled back, so the graph is as it was before it, and nothing after it ran. At startup the application stops (#33). */
+    fun ontologyMigrationFailed(
+        migration: String,
+        cause: Throwable,
+    ) =
+        EventLog.emit("ontology.migration.failed", Level.ERROR, "ontology migration failed and was rolled back", mapOf("migration" to migration), cause = cause)
+
+    /** In manual mode the application started with migrations the graph has not had; an admin applies them from the lifecycle page. Health is not affected (#33). */
+    fun ontologyMigrationsPending(
+        dbVersion: String,
+        registryVersion: String,
+        pending: List<String>,
+    ) =
+        EventLog.emit("ontology.migrations.pending", Level.WARN, "ontology migrations are pending", mapOf("dbVersion" to dbVersion, "registryVersion" to registryVersion, "pending" to pending))
+
+    /** The archive is enabled and will run on a schedule, in the mode it names (#33). */
+    fun lifecycleArchiveScheduled(
+        cron: String,
+        mode: String,
+    ) =
+        EventLog.emit("lifecycle.archive.scheduled", Level.INFO, "archive scheduled", mapOf("cron" to cron, "mode" to mode))
+
+    /** An archive run finished. A dry run changed nothing; export wrote the file; purge wrote the file and then deleted what it wrote (#33). */
+    fun lifecycleArchiveFinished(
+        mode: String,
+        dryRun: Boolean,
+        cutoff: java.time.Instant,
+        nodes: Int,
+        edges: Int,
+    ) =
+        EventLog.emit("lifecycle.archive.finished", Level.INFO, "archive run finished", mapOf("mode" to mode, "dryRun" to dryRun, "cutoff" to cutoff, "nodes" to nodes, "edges" to edges))
+
+    /** A scheduled archive run could not finish. Nothing is purged that was not first written; the next run retries (#33). */
+    fun lifecycleArchiveFailed(
+        mode: String,
+        cause: Throwable,
+    ) =
+        EventLog.emit("lifecycle.archive.failed", Level.WARN, "archive run failed", mapOf("mode" to mode), cause = cause)
+
     /** A connector will sync on a schedule. */
     fun connectorScheduled(
         connector: String,

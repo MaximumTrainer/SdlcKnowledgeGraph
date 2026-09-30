@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.3.0'
+export const ONTOLOGY_VERSION = '1.4.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -713,7 +713,7 @@ export interface Ontology {
   id: string
   /**
    * The ontology version, as version.yaml declares it
-   * @example "1.3.0"
+   * @example "1.4.0"
    */
   version: string
   /**
@@ -841,6 +841,74 @@ export interface ConnectorState {
   consecutiveFailures?: number
 }
 
+export type NodeVersionRetiredReason =
+  'source-deleted' | 'source-retired' | 'missing-from-sync' | 'manual'
+
+/** The values a node held for an interval before they were replaced. */
+export interface NodeVersion {
+  id: string
+  /**
+   * The id of the node these values belonged to
+   * @example "Repository:github.com/acme/payments"
+   */
+  versionOf: string
+  /**
+   * When the node began to hold these values
+   * @example "2026-01-01T00:00:00Z"
+   */
+  since: string
+  /**
+   * When a write replaced them, or the node was retired
+   * @example "2026-02-01T00:00:00Z"
+   */
+  until: string
+  /**
+   * True when the values ended because the node was retired rather than changed
+   * @example false
+   */
+  retired?: boolean
+  /**
+   * Why the node was retired, where it was
+   * @example "missing-from-sync"
+   */
+  retiredReason?: NodeVersionRetiredReason
+}
+
+/** A versioned migration of the graph's data, and when it was applied. */
+export interface OntologyMigration {
+  id: string
+  /**
+   * The ontology version the migration brings the graph to
+   * @example "1.4.0"
+   */
+  version: string
+  /**
+   * The migration's name, from its file name
+   * @example "rename_ci_legacy_name"
+   */
+  name: string
+  /**
+   * SHA-256 of the file that was applied
+   * @example "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+   */
+  checksum: string
+  /**
+   * When it was applied or recorded
+   * @example "2026-09-30T12:00:00Z"
+   */
+  appliedAt: string
+  /**
+   * How long it took to run, in milliseconds
+   * @example 12
+   */
+  durationMs?: number
+  /**
+   * True when recorded without running, because the graph never needed it
+   * @example false
+   */
+  baseline?: boolean
+}
+
 /** A connector or agent registered as a principal of its own, owned by a team. */
 export interface ServicePrincipal {
   id: string
@@ -881,6 +949,8 @@ export type NodeType =
   | 'Ontology'
   | 'SyncRun'
   | 'ConnectorState'
+  | 'NodeVersion'
+  | 'OntologyMigration'
   | 'ServicePrincipal'
 
 export const NODE_TYPES: readonly NodeType[] = [
@@ -903,6 +973,8 @@ export const NODE_TYPES: readonly NodeType[] = [
   'Ontology',
   'SyncRun',
   'ConnectorState',
+  'NodeVersion',
+  'OntologyMigration',
   'ServicePrincipal'
 ]
 

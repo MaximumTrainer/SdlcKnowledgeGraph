@@ -51,7 +51,10 @@ class Neo4jGraphStoreVersioningIT {
     private fun stateTeam(
         tier: String,
         instant: Instant,
-    ) = graphStore.upsertNode(GraphNode(team, mapOf("name" to team.key, "tier" to tier), at(instant)))
+    ) = graphStore.upsertNode(GraphNode(team, mapOf("name" to team.key, "email" to "$tier@acme.example"), at(instant)))
+
+    /** The tier each test states, carried in a declared property: the part of the email before the @. */
+    private fun Map<String, Any?>.tier(): String? = this["email"]?.toString()?.substringBefore("@")
 
     private fun versionCount(key: NodeKey): Long =
         neo4jClient
@@ -66,9 +69,9 @@ class Neo4jGraphStoreVersioningIT {
         stateTeam("gold", january)
         stateTeam("silver", february)
 
-        assertThat(graphStore.findNode(team)!!.props["tier"]).isEqualTo("silver")
-        assertThat(graphStore.findNode(team, midJanuary)!!.props["tier"]).isEqualTo("gold")
-        assertThat(graphStore.findNode(team, midFebruary)!!.props["tier"]).isEqualTo("silver")
+        assertThat(graphStore.findNode(team)!!.props.tier()).isEqualTo("silver")
+        assertThat(graphStore.findNode(team, midJanuary)!!.props.tier()).isEqualTo("gold")
+        assertThat(graphStore.findNode(team, midFebruary)!!.props.tier()).isEqualTo("silver")
         assertThat(graphStore.findNode(team, Instant.parse("2025-12-01T00:00:00Z"))).isNull()
     }
 
@@ -99,11 +102,11 @@ class Neo4jGraphStoreVersioningIT {
         stateTeam("bronze", march)
 
         val history = factLifecycle.history(team)!!
-        assertThat(history.current.props["tier"]).isEqualTo("bronze")
+        assertThat(history.current.props.tier()).isEqualTo("bronze")
         assertThat(history.current.propsFrom).isEqualTo(march)
-        assertThat(history.versions.map { it.props["tier"] }).containsExactly("silver", "gold")
+        assertThat(history.versions.map { it.props.tier() }).containsExactly("silver", "gold")
         assertThat(history.versions.map { it.validFrom to it.validTo }).containsExactly(february to march, january to february)
-        assertThat(graphStore.findNode(team, midMarch)!!.props["tier"]).isEqualTo("bronze")
+        assertThat(graphStore.findNode(team, midMarch)!!.props.tier()).isEqualTo("bronze")
     }
 
     @Test
@@ -144,12 +147,13 @@ class Neo4jGraphStoreVersioningIT {
         stateTeam("silver", february)
 
         val then = graphStore.findEdges(repo, Direction.OUTGOING, "OWNED_BY", midJanuary).single()
-        assertThat(then.other.props["tier"]).isEqualTo("gold")
+        assertThat(then.other.props.tier()).isEqualTo("gold")
         assertThat(
             graphStore
                 .findEdges(repo, Direction.OUTGOING, "OWNED_BY")
                 .single()
-                .other.props["tier"],
+                .other.props
+                .tier(),
         ).isEqualTo("silver")
     }
 

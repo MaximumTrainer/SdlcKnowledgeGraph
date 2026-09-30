@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import RelationshipPanel from '@/components/RelationshipPanel.vue'
+import NodeHistory from '@/components/NodeHistory.vue'
 import { nodeApi, type GraphNode } from '@/services/api'
 import { parseGitRemote } from '@/lib/gitRemote'
 import { useCanWrite } from '@/auth/canWrite'
@@ -126,6 +127,7 @@ const remove = async (cascade: boolean) => {
       </dl>
 
       <RelationshipPanel :type="node.type" :node-key="node.key" />
+      <NodeHistory :node-id="`${node.type}:${node.key}`" />
 
       <h2>
         Provenance

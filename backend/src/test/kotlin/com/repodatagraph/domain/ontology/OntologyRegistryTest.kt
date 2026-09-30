@@ -147,8 +147,8 @@ class OntologyRegistryTest {
     private val shipped by lazy { YamlOntologyLoader(DefaultResourceLoader()).load() }
 
     @Test
-    fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88)`() {
-        assertEquals("1.3.0", shipped.version)
+    fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88, #33)`() {
+        assertEquals("1.4.0", shipped.version)
     }
 
     @Test

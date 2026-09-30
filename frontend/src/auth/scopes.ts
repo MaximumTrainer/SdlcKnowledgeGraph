@@ -1,12 +1,14 @@
 /**
  * What the signed-in user may do to the graph, read from the graph scopes on their access token
- * (#116): graph:read to read it, graph:write to change it.
+ * (#116): graph:read to read it, graph:write to change it, graph:admin to administer it as a whole
+ * (#33).
  *
  * The web interface uses this only to decide what to offer. The API checks the same token on every
  * request, so reading it here needs no signature check: a token read wrongly costs a refused request,
  * never a write that should not have happened.
  */
 export const GRAPH_WRITE = 'graph:write'
+export const GRAPH_ADMIN = 'graph:admin'
 
 const PREFIX = 'graph:'
 

@@ -6,6 +6,7 @@ import au.com.dius.pact.provider.junitsupport.Provider
 import au.com.dius.pact.provider.junitsupport.State
 import au.com.dius.pact.provider.junitsupport.loader.PactFolder
 import au.com.dius.pact.provider.spring.junit5.PactVerificationSpringProvider
+import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.support.Neo4jTestcontainersConfig
 import com.repodatagraph.support.TestPrincipalConfig
@@ -45,7 +46,10 @@ class GraphApiContractTest {
     @Autowired
     private lateinit var neo4jClient: Neo4jClient
 
-    private val states: ProviderStates by lazy { ProviderStates(graphStore, neo4jClient) }
+    @Autowired
+    private lateinit var registry: OntologyRegistry
+
+    private val states: ProviderStates by lazy { ProviderStates(graphStore, neo4jClient, registry.version) }
 
     @BeforeEach
     fun setTarget(context: PactVerificationContext) {
@@ -111,4 +115,16 @@ class GraphApiContractTest {
 
     @State(ProviderStates.GITHUB_SYNCED_THIRTY_HOURS_AGO)
     fun githubSyncedThirtyHoursAgo() = states.githubSyncedThirtyHoursAgo()
+
+    @State(ProviderStates.LIFECYCLE_AT_ITS_DEFAULTS)
+    fun lifecycleAtItsDefaults() = states.lifecycleAtItsDefaults()
+
+    @State(ProviderStates.GRAPH_ON_PREVIOUS_ONTOLOGY)
+    fun graphOnThePreviousOntologyVersion() = states.graphOnThePreviousOntologyVersion()
+
+    @State(ProviderStates.FACT_RETIRED_LONG_AGO)
+    fun factRetiredLongAgo() = states.factRetiredLongAgo()
+
+    @State(ProviderStates.PAYMENTS_HAS_ONE_EARLIER_VERSION)
+    fun paymentsHasOneEarlierVersion() = states.paymentsHasOneEarlierVersion()
 }

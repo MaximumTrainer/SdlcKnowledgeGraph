@@ -203,6 +203,10 @@ class NodeService(
     private fun writable(type: String): NodeTypeDef {
         val nodeType = declared(type)
         if (type == ServicePrincipal.NODE_TYPE) throw ManagedNodeTypeException(type, ServicePrincipal.API_PATH)
+        // The lifecycle's own records (#33): a version is cut by the store as it replaces values, and a
+        // migration is recorded by the migrator as it runs one. Writing either by hand would be a
+        // history nothing happened in.
+        if (type in LIFECYCLE_MANAGED) throw ManagedNodeTypeException(type, LIFECYCLE_API_PATH)
         return nodeType
     }
 
@@ -249,5 +253,8 @@ class NodeService(
     private companion object {
         /** Where a refused validTo is reported, as the request body names it. */
         const val VALID_TO = "provenance.validTo"
+
+        val LIFECYCLE_MANAGED = setOf("NodeVersion", "OntologyMigration")
+        const val LIFECYCLE_API_PATH = "/api/v1/lifecycle"
     }
 }

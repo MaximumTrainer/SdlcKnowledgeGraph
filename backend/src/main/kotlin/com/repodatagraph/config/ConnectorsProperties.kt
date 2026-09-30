@@ -1,5 +1,7 @@
 package com.repodatagraph.config
 
+import com.repodatagraph.domain.lifecycle.MissingFromFullSync
+import com.repodatagraph.domain.lifecycle.TombstoneRules
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue
 import java.time.Duration
@@ -36,6 +38,8 @@ data class ConnectorSettings(
      * decides: it depends on the connector's capabilities, which configuration cannot see.
      */
     val freshnessThreshold: Duration? = null,
+    /** What the connector does with what a complete full sync stops reporting (#33, FR3). */
+    val lifecycle: ConnectorLifecycleSettings = ConnectorLifecycleSettings(),
 ) {
     private companion object {
         const val DEFAULT_SCHEDULE = "0 */15 * * * *"
@@ -43,3 +47,16 @@ data class ConnectorSettings(
 }
 
 private const val DEFAULT_SCHEDULE = "0 */15 * * * *"
+
+/**
+ * `connectors.settings.<name>.lifecycle.*` (#33, FR3). By default a complete full sync retires what
+ * it no longer mentions at once, as #150 did; a connector whose source is flaky can wait a grace
+ * period first, and one whose full sync is not a statement about everything can ignore it.
+ */
+data class ConnectorLifecycleSettings(
+    /** `tombstone` or `ignore`. */
+    @DefaultValue("tombstone") val missingFromFullSync: String = "tombstone",
+    @DefaultValue("PT0S") val gracePeriod: Duration = Duration.ZERO,
+) {
+    fun rules(): TombstoneRules = TombstoneRules(MissingFromFullSync.fromWire(missingFromFullSync), gracePeriod)
+}
