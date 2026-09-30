@@ -41,6 +41,10 @@ class Neo4jGraphStore(
      * current again; stating the same values again keeps nothing. The versions of a node are linked by
      * the id they are a version of rather than by a relationship, so no traversal of the current graph
      * ever meets one.
+     *
+     * A node a merge retired (#98) takes no write: its key names the node it went into, and stating
+     * it again would bring back the duplicate the merge removed. The write is absorbed, not refused,
+     * so a connector still reporting the old key does not fail its run.
      */
     override fun upsertNode(node: GraphNode): GraphNode {
         val label = cypher.nodeLabel(node.type)
@@ -51,6 +55,7 @@ class Neo4jGraphStore(
             .query(
                 """
                 MERGE (n:$label { key: ${'$'}key })
+                WITH n WHERE n.${Neo4jNodeMergeStore.MERGED_INTO} IS NULL
                 WITH n, n { .* } AS before, ${ValidityCypher.began("n")}, n.prov_validTo AS endedAt,
                      coalesce(n.prov_propsFrom, n.prov_validFrom, ${NodeVersions.EPOCH}) AS propsFrom
                 WITH n, before, began, wasCurrent, endedAt, propsFrom, size(keys(before)) > 1 AS existed,
@@ -115,19 +120,27 @@ class Neo4jGraphStore(
             neo4jClient
                 .query(
                     """
-                    MATCH (a:$fromLabel { key: ${'$'}fromKey })
-                    MATCH (b:$toLabel { key: ${'$'}toKey })
-                    MERGE (a)-[r:$relationship]->(b)
-                    WITH r, ${ValidityCypher.began("r")}
-                    SET r += ${'$'}props
-                    ${ValidityCypher.keepBegan("r")}
-                    RETURN count(r) AS written
+                    MATCH (a0:$fromLabel { key: ${'$'}fromKey })
+                    MATCH (b0:$toLabel { key: ${'$'}toKey })
+                    OPTIONAL MATCH (am:$fromLabel { key: a0.${Neo4jNodeMergeStore.MERGED_INTO} })
+                    OPTIONAL MATCH (bm:$toLabel { key: b0.${Neo4jNodeMergeStore.MERGED_INTO} })
+                    WITH coalesce(am, a0) AS a, coalesce(bm, b0) AS b
+                    CALL (a, b) {
+                      WITH a, b WHERE a <> b
+                      MERGE (a)-[r:$relationship]->(b)
+                      WITH r, ${ValidityCypher.began("r")}
+                      SET r += ${'$'}props
+                      ${ValidityCypher.keepBegan("r")}
+                    }
+                    RETURN count(*) AS written
                     """.trimIndent(),
                 ).bindAll(mapOf("fromKey" to edge.from.key, "toKey" to edge.to.key, "props" to properties))
                 .fetchAs(Long::class.javaObjectType)
                 .one()
                 .orElse(0L)
 
+        // An end a merge retired (#98) is written as the node it went into; one that the merge made the
+        // same node as the other end is a loop, and is not written, as a merge drops such an edge.
         // A MATCH that finds nothing makes the whole statement a no-op. Reporting which side is
         // missing is the difference between a caught mistake and a silently absent relationship.
         if (written == 0L) throw NodeNotFoundException(missingOf(edge.from, edge.to))
@@ -190,6 +203,18 @@ class Neo4jGraphStore(
             .one()
             .map { GraphRowMapper.toNode(key.type, it["n"]) }
             .orElse(null)
+    }
+
+    override fun mergedInto(key: NodeKey): NodeKey? {
+        val label = cypher.nodeLabel(key.type)
+        return neo4jClient
+            .query("MATCH (n:$label { key: ${'$'}key }) RETURN n.${Neo4jNodeMergeStore.MERGED_INTO} AS into")
+            .bindAll(mapOf("key" to key.key))
+            .fetch()
+            .one()
+            .map { it["into"]?.toString() }
+            .orElse(null)
+            ?.let { NodeKey(key.type, it) }
     }
 
     /**

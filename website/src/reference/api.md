@@ -48,8 +48,10 @@ thing interactively at `/swagger-ui.html`.
 | `DELETE` | `/api/v1/nodes/{type}/by-key` | Delete a node addressed by its key as a query parameter (#85) | 200 |
 | `GET` | `/api/v1/nodes/{type}/by-key` | Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85) | 200 |
 | `PUT` | `/api/v1/nodes/{type}/by-key` | Replace the properties of a node addressed by its key as a query parameter (#85) | 200 |
+| `POST` | `/api/v1/nodes/{type}/by-key/merge` | Merge the node at a key no path can carry into another of its type (#98); needs graph:admin | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
 | `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id, now or as of an instant (#93) | 200 |
+| `POST` | `/api/v1/nodes/{type}/{key}` | Merge a node into another of its type: POST /{type}/{key}/merge (#98); needs graph:admin | 200 |
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity; provenance.validTo closes it (#93) | 200 |
 | `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200, 400 |
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |

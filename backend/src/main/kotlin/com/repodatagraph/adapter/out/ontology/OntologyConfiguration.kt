@@ -7,6 +7,7 @@ import com.repodatagraph.domain.model.Environment
 import com.repodatagraph.domain.model.Pipeline
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.Team
+import com.repodatagraph.domain.ontology.EnvironmentAliases
 import com.repodatagraph.domain.ontology.OntologyDriftValidator
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import org.springframework.beans.factory.annotation.Value
@@ -30,6 +31,13 @@ class OntologyConfiguration {
         OntologyDriftValidator(registry).validate(TYPED_MODEL)
         return registry
     }
+
+    /**
+     * The environment alias table the registry read from environments.yaml (#98, FR-3), for the
+     * IdentityResolver that derives an Environment's key through it.
+     */
+    @Bean
+    fun environmentAliases(registry: OntologyRegistry): EnvironmentAliases = registry.environmentAliases
 
     private companion object {
         /**

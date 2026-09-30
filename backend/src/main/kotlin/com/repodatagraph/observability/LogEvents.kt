@@ -26,6 +26,26 @@ object LogEvents {
     ) =
         EventLog.emit("node.renamed", Level.INFO, "node renamed", mapOf("type" to type, "from" to from, "to" to to))
 
+    /** One node was merged into another of its type (#98), by a person through the API or automatically when an artifact's digest was seen. Names both keys, how many edges moved, and who merged it. */
+    fun nodeMerged(
+        type: String,
+        from: String,
+        into: String,
+        edgesMoved: Int,
+        automatic: Boolean,
+        by: String,
+    ) =
+        EventLog.emit("node.merged", Level.INFO, "node merged", mapOf("type" to type, "from" to from, "into" to into, "edgesMoved" to edgesMoved, "automatic" to automatic, "by" to by))
+
+    /** An automatic merge found when an artifact's digest was seen was not made, because the graph changed under it (#98). Names both keys and the refusal; the write that found it stands. */
+    fun nodeMergeSkipped(
+        type: String,
+        from: String,
+        into: String,
+        reason: String,
+    ) =
+        EventLog.emit("node.merge.skipped", Level.WARN, "node merge skipped", mapOf("type" to type, "from" to from, "into" to into, "reason" to reason))
+
     /** A node write was refused by the ontology. Names the fields at fault, never their values. */
     fun nodeRejected(
         type: String,

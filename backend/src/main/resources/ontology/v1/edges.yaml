@@ -53,7 +53,7 @@ edges:
         description: "What sort of dependency this is"
         enum: [library, api, event, data, cmdb]
         examples: [library]
-      - { name: manifest, type: string, required: false, description: "File the dependency was read from, e.g. build.gradle.kts", examples: [frontend/package.json] }
+      - { name: manifest, type: string, required: false, description: "File the dependency was read from, with its path from the repository root in a monorepo", examples: [frontend/package.json, services/billing/build.gradle.kts] }
       - { name: version, type: string, required: false, description: "The version the manifest asks for, as written", examples: [^3.5.0] }
       - { name: scope, type: string, required: false, description: "Whether the dependency is needed to run or only to build", enum: [runtime, dev], examples: [runtime] }
       - { name: relType, type: string, required: false, description: "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'", examples: ["Depends on::Used by"] }
@@ -127,6 +127,10 @@ edges:
     inverse: PROVIDED_BY
     impact: propagates
     ownership: inherits
+    # A monorepo provides several services, each from a directory of its own (#98), so the edge says
+    # which: a change under that path is a change to that service.
+    properties:
+      - { name: path, type: string, required: false, description: "The directory the service is built from, relative to the repository root; absent for the whole repository", examples: [services/billing] }
 
   # A change and the intent behind it (#85). CONTAINS is the join both lineage questions cross:
   # "where is this work item live" walks IMPLEMENTS back to its changes, CONTAINS back to the

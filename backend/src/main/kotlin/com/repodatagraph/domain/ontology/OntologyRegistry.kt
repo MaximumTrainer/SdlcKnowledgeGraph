@@ -22,7 +22,16 @@ class OntologyRegistry(
      * knows `manual` alone, which is what a write naming no source states.
      */
     val sources: List<SourceSystemDef> = listOf(SourceSystemDef(Provenance.MANUAL)),
+    /**
+     * The canonical environment names and the spellings folded into each (#98), in declaration order.
+     * Validated here, with the rest of the registry, so a table that folds one spelling into two
+     * environments stops the application at startup.
+     */
+    val environments: List<EnvironmentDef> = emptyList(),
 ) {
+    /** [environments] as the table an Environment's key is derived through. */
+    val environmentAliases: EnvironmentAliases = EnvironmentAliases(environments)
+
     private val nodesByName: Map<String, NodeTypeDef>
     private val edgesByName: Map<String, EdgeTypeDef>
 
@@ -86,6 +95,10 @@ class OntologyRegistry(
                 property.required -> problems += "alias property '$name' is required"
             }
         }
+        // What two nodes must share to be merged (#98) is something the type holds.
+        nodeType.mergeScope
+            .filter { nodeType.property(it) == null }
+            .forEach { problems += "mergeScope references '$it', which it does not declare" }
 
         reject("node type '${nodeType.name}'", problems)
     }

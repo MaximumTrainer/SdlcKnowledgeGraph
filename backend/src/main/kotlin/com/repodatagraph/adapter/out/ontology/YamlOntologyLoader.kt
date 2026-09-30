@@ -7,6 +7,7 @@ import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeImpact
 import com.repodatagraph.domain.ontology.EdgeOwnership
 import com.repodatagraph.domain.ontology.EdgeTypeDef
+import com.repodatagraph.domain.ontology.EnvironmentDef
 import com.repodatagraph.domain.ontology.ImpactAlong
 import com.repodatagraph.domain.ontology.InvalidOntologyException
 import com.repodatagraph.domain.ontology.NodeTypeDef
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component
  * deliberately broken registry and assert that startup fails.
  */
 @Component
+@Suppress("TooManyFunctions") // One reader per registry file and per shape within one.
 class YamlOntologyLoader(
     private val resourceLoader: ResourceLoader,
 ) {
@@ -39,7 +41,28 @@ class YamlOntologyLoader(
             edgeTypes = readEdgeTypes("$basePath/edges.yaml"),
             provenance = readProvenance("$basePath/provenance.yaml"),
             sources = readSources("$basePath/sources.yaml"),
+            environments = readEnvironments("$basePath/environments.yaml"),
         )
+    }
+
+    /**
+     * The environment alias table (#98, FR-3). Optional like the source list: a registry without the
+     * file folds no environment names, and one with it is validated by the registry as it is built.
+     */
+    private fun readEnvironments(path: String): List<EnvironmentDef> {
+        if (!resourceLoader.getResource("classpath:$path").exists()) return emptyList()
+        val environments = read(path).path("environments")
+        if (!environments.isArray) throw InvalidOntologyException("$path declares no 'environments' list")
+        return environments.map { environment ->
+            val name =
+                environment.path("name").asTextOrNull() ?: throw InvalidOntologyException("$path declares an environment with no name")
+            environment.requireOnly(ENVIRONMENT_KEYS, "$path environment '$name'")
+            EnvironmentDef(
+                name = name,
+                description = environment.path("description").asTextOrNull(),
+                aliases = environment.path("aliases").map { it.asText() },
+            )
+        }
     }
 
     /**
@@ -84,6 +107,7 @@ class YamlOntologyLoader(
                 alias = definition.path("alias").map { it.asText() },
                 examples = readExamples(definition),
                 questions = definition.path("questions").map { it.asText() },
+                mergeScope = definition.path("mergeScope").map { it.asText() },
             )
         }
     }
@@ -167,11 +191,12 @@ class YamlOntologyLoader(
         const val DEFAULT_BASE_PATH = "ontology/v1"
 
         private val NODE_KEYS =
-            setOf("description", "identity", "alias", "displayProperty", "meta", "properties", "examples", "questions")
+            setOf("description", "identity", "alias", "mergeScope", "displayProperty", "meta", "properties", "examples", "questions")
         private val EDGE_KEYS =
             setOf("description", "from", "to", "inverse", "impact", "downstream", "ownership", "properties", "examples", "questions")
         private val PROPERTY_KEYS =
             setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
         private val DEPRECATED_KEYS = setOf("since", "replacedBy")
+        private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
     }
 }

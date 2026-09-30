@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.4.0**. It is generated, so a type added to the registry appears here without
+**v1.5.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -160,6 +160,7 @@ Answers:
 | `commitSha` | `string` | no | The commit it was built from | `9fceb02d0ae598e95dc970b74767f19372d61af8` |
 | `repoId` | `string` | no | **Deprecated** since 1.3.0, use `BUILT_FROM`. Key of the repository it was built from, from before BUILT_FROM | `github.com/acme/payments` |
 | `artifactType` | `string`, one of `container-image`, `jar`, `npm-package`, `python-wheel`, `helm-chart`, `terraform-module`, `binary`, `other` | yes | What kind of artifact it is | `container-image` |
+| `identityQuality` | `string`, one of `digest`, `version-only` | no | How sure its key is: digest, or version-only when it is keyed name:version for want of one. Derived | `digest` |
 
 Example:
 
@@ -624,7 +625,7 @@ Identity: `versionOf, since`
 | `since` | `instant` | yes | When the node began to hold these values | `2026-01-01T00:00:00Z` |
 | `until` | `instant` | yes | When a write replaced them, or the node was retired | `2026-02-01T00:00:00Z` |
 | `retired` | `boolean` | no | True when the values ended because the node was retired rather than changed | `false` |
-| `retiredReason` | `string`, one of `source-deleted`, `source-retired`, `missing-from-sync`, `manual` | no | Why the node was retired, where it was | `missing-from-sync` |
+| `retiredReason` | `string`, one of `source-deleted`, `source-retired`, `missing-from-sync`, `manual`, `merged` | no | Why the node was retired, where it was | `missing-from-sync` |
 
 Example:
 
@@ -720,11 +721,12 @@ second relationship.
 | `OWNED_BY` | `pathPatterns` | `string[]` | no | CODEOWNERS patterns the owner was named against, where ownership came from a file | `["*","/docs/"]` |
 | `OWNS_RESOURCE` | `rule` | `string`, one of `manual`, `tag`, `deployment`, `iac`, `naming` | no | What the ownership rests on: stated by hand, or the link rule that proposed it | `tag` |
 | `DEPENDS_ON` | `kind` | `string`, one of `library`, `api`, `event`, `data`, `cmdb` | yes | What sort of dependency this is | `library` |
-| `DEPENDS_ON` | `manifest` | `string` | no | File the dependency was read from, e.g. build.gradle.kts | `frontend/package.json` |
+| `DEPENDS_ON` | `manifest` | `string` | no | File the dependency was read from, with its path from the repository root in a monorepo | `frontend/package.json` |
 | `DEPENDS_ON` | `version` | `string` | no | The version the manifest asks for, as written | `^3.5.0` |
 | `DEPENDS_ON` | `scope` | `string`, one of `runtime`, `dev` | no | Whether the dependency is needed to run or only to build | `runtime` |
 | `DEPENDS_ON` | `relType` | `string` | no | The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by' | `Depends on::Used by` |
 | `BUILT_FROM` | `commitSha` | `string` | no | The commit the artifact was built from | `9fceb02d0ae598e95dc970b74767f19372d61af8` |
+| `PROVIDES` | `path` | `string` | no | The directory the service is built from, relative to the repository root; absent for the whole repository | `services/billing` |
 
 ## Source systems
 

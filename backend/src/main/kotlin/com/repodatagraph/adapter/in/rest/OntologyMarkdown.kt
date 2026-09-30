@@ -19,6 +19,7 @@ import com.repodatagraph.domain.ontology.PropertyDef
  */
 object OntologyMarkdown {
     private val json = ObjectMapper()
+    private const val ENVIRONMENT = "Environment"
 
     fun render(registry: OntologyRegistry): String {
         val nodeTypes = registry.allNodeTypes().filterNot { it.meta }
@@ -32,7 +33,7 @@ object OntologyMarkdown {
         return buildString {
             append("# SDLC knowledge graph ontology v${registry.version}\n\n")
             append(INTRODUCTION).append("\n")
-            nodeTypes.forEach { appendNodeType(it) }
+            nodeTypes.forEach { appendNodeType(it, registry) }
             if (edgeTypes.isNotEmpty()) {
                 append("\n## Relationships\n")
                 edgeTypes.forEach { appendEdgeType(it) }
@@ -40,10 +41,18 @@ object OntologyMarkdown {
         }
     }
 
-    private fun StringBuilder.appendNodeType(type: NodeTypeDef) {
+    private fun StringBuilder.appendNodeType(
+        type: NodeTypeDef,
+        registry: OntologyRegistry,
+    ) {
         append("\n## ${type.name}\n")
         append(listOfNotNull(type.description, "Key: ${type.identity.joinToString()}.").joinToString(" ")).append("\n")
         if (type.questions.isNotEmpty()) append("Answers: ${type.questions.joinToString(" ")}\n")
+        // One line for the whole alias table (#98), so an agent writes `prod` knowing it is production.
+        if (type.name == ENVIRONMENT && registry.environments.any { it.aliases.isNotEmpty() }) {
+            val known = registry.environments.filter { it.aliases.isNotEmpty() }
+            append("Also known as: ${known.joinToString("; ") { "${it.name} (${it.aliases.joinToString()})" }}.\n")
+        }
         type.properties.filter { it.deprecated == null }.forEach { append("- ${line(it)}\n") }
     }
 

@@ -21,6 +21,12 @@ enum class RetiredReason(
 
     /** A person closed it through the API (#93). */
     MANUAL("manual"),
+
+    /**
+     * It was merged into another node of its type, found to be the same thing (#98): its edges moved
+     * there and its key resolves there. The node records which one.
+     */
+    MERGED("merged"),
     ;
 
     companion object {

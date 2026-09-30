@@ -67,6 +67,13 @@ interface GraphStore {
     fun findNodeByPreviousKey(key: NodeKey): GraphNode?
 
     /**
+     * The key of the node the node at [key] was merged into (#98), or null when it was never merged or
+     * does not exist. A merge chain is kept one hop long: merging the target on points every node
+     * merged into it at the new target too.
+     */
+    fun mergedInto(key: NodeKey): NodeKey?
+
+    /**
      * Moves the node at [from] to [node]'s key, with [node]'s properties and provenance, keeping its
      * relationships: the one write in which a node's key changes (#88). [node]'s provenance carries the
      * keys it had, which this stores as they are; any other write leaves them where they are.

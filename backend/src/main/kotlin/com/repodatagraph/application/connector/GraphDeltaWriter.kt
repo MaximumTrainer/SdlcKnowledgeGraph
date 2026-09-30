@@ -1,5 +1,6 @@
 package com.repodatagraph.application.connector
 
+import com.repodatagraph.application.IdentityFolding
 import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.lifecycle.RetiredReason
 import com.repodatagraph.domain.lifecycle.TombstoneRules
@@ -50,6 +51,8 @@ class GraphDeltaWriter(
     private val derivedProperties: DerivedProperties,
     private val clock: Clock,
     private val registry: OntologyRegistry,
+    /** Offered every node written, to fold a digest-less artifact into its digest's node (#98, FR-2). */
+    private val folding: IdentityFolding = IdentityFolding.NONE,
 ) {
     fun apply(
         delta: GraphDelta,
@@ -123,15 +126,18 @@ class GraphDeltaWriter(
         val nodeType = registry.nodeType(node.type)
         val alias = nodeType?.let { identityResolver.aliasFor(it, node.props) }
         val holder = alias?.let { graphStore.findNodeByAlias(node.type, it) }
-        when {
-            holder == null || holder.key == node.key -> graphStore.upsertNode(node)
-            graphStore.findNode(node.key) != null -> graphStore.upsertNode(node.copy(props = node.props - alias.keys))
-            else -> {
-                val provenance = node.provenance.afterRename(holder.provenance, holder.key.key, node.key.key)
-                graphStore.renameNode(holder.key, node.copy(provenance = provenance))
-                LogEvents.nodeRenamed(node.type, holder.key.key, node.key.key)
+        val written =
+            when {
+                holder == null || holder.key == node.key -> node.also { graphStore.upsertNode(it) }
+                graphStore.findNode(node.key) != null -> node.copy(props = node.props - alias.keys).also { graphStore.upsertNode(it) }
+                else -> {
+                    val provenance = node.provenance.afterRename(holder.provenance, holder.key.key, node.key.key)
+                    graphStore.renameNode(holder.key, node.copy(provenance = provenance))
+                    LogEvents.nodeRenamed(node.type, holder.key.key, node.key.key)
+                    node.copy(provenance = provenance)
+                }
             }
-        }
+        folding.afterWrite(written)
     }
 
     /**

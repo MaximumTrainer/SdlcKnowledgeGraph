@@ -14,7 +14,8 @@ import org.springframework.web.util.pattern.PathPatternParser
  * - Everything under `/api/v1` needs `graph:read` to read (GET, HEAD) and `graph:write` to change
  *   anything (POST, PUT, PATCH, DELETE). That includes the service principal registry, which is
  *   additionally for users only (#115). Changing anything under `/api/v1/lifecycle` - applying
- *   ontology migrations, running the archive - needs `graph:admin` as well (#33). The exception is [ReadsOverPost]: a query sent as a POST
+ *   ontology migrations, running the archive - needs `graph:admin` as well (#33), as does merging
+ *   one node into another, a POST under a node (#98). The exception is [ReadsOverPost]: a query sent as a POST
  *   because its input is a body, which reads only and so needs `graph:read` (#87).
  * - `/graphql` needs what the operations in its document need: `graph:read` for a query,
  *   `graph:write` for a mutation, both for a document holding both ([GraphQlScopes]).
@@ -90,6 +91,9 @@ object ScopePolicy {
             Family(setOf("POST"), ReadsOverPost.PATHS.toList(), RouteRequirement.Scopes(setOf(GraphScope.READ))),
             // Applying migrations and running the archive change the graph as a whole (#33).
             Family(WRITES, listOf("/api/v1/lifecycle/**"), RouteRequirement.Scopes(setOf(GraphScope.WRITE, GraphScope.ADMIN))),
+            // Merging a node into another (#98): a POST under a node, which is only ever a merge. It
+            // moves every edge and retires a node, which no later write can undo.
+            Family(setOf("POST"), listOf("/api/v1/nodes/*/*/**"), RouteRequirement.Scopes(setOf(GraphScope.WRITE, GraphScope.ADMIN))),
             Family(WRITES, listOf("/api/v1/**"), RouteRequirement.Scopes(setOf(GraphScope.WRITE))),
             Family(setOf("GET", "POST"), listOf("/graphql"), RouteRequirement.ByGraphQlOperation),
         )

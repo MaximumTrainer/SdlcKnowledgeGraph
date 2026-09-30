@@ -6,7 +6,7 @@ import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.port.out.GraphStore
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -58,7 +58,7 @@ class ArtifactFoldingTest {
         vararg digests: GraphNode,
     ) {
         whenever(graphStore.findNode(versionOnlyKey)).thenReturn(versionOnly)
-        whenever(graphStore.findNodes(eq("Artifact"), eq(mapOf("name" to "payments", "version" to "1.4.2")), any(), any()))
+        whenever(graphStore.findNodes(eq("Artifact"), eq(mapOf("name" to "payments", "version" to "1.4.2")), anyOrNull(), anyOrNull()))
             .thenReturn(listOfNotNull(versionOnly) + digests)
     }
 

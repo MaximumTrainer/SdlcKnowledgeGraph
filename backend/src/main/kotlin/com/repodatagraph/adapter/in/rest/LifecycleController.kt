@@ -177,6 +177,9 @@ internal object LifecycleResponses {
                     "retired" to history.current.retired,
                     "retiredReason" to history.current.retiredReason?.wireName,
                     "resurrectedAt" to history.current.resurrectedAt?.toString(),
+                    // Where a merge sent it and who merged it (#98); null for a node never merged.
+                    "mergedInto" to history.current.mergedInto?.id,
+                    "mergedBy" to history.current.mergedBy,
                     "props" to history.current.props,
                 ),
             "versions" to

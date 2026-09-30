@@ -48,7 +48,7 @@ class TombstoneRulesTest {
     @Test
     fun `reasons and policies have the names configuration and the API use`() {
         assertThat(RetiredReason.entries.map { it.wireName })
-            .containsExactly("source-deleted", "source-retired", "missing-from-sync", "manual")
+            .containsExactly("source-deleted", "source-retired", "missing-from-sync", "manual", "merged")
         assertThat(RetiredReason.fromWire("missing-from-sync")).isEqualTo(RetiredReason.MISSING_FROM_SYNC)
         assertThat(RetiredReason.fromWire("nonsense")).isNull()
         assertThat(RetiredReason.fromWire(null)).isNull()

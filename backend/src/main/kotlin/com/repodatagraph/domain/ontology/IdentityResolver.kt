@@ -17,6 +17,11 @@ import java.time.Instant
 @Suppress("TooManyFunctions") // Key, identity and alias resolution share one set of rules.
 class IdentityResolver(
     private val gitRemoteParser: GitRemoteParser = GitRemoteParser(),
+    /**
+     * The spellings of an environment's name folded into one (#98, FR-3): environments.yaml, read with
+     * the registry. None by default, so a resolver built without the registry keys `prod` as `prod`.
+     */
+    private val environmentAliases: EnvironmentAliases = EnvironmentAliases.NONE,
 ) {
     private val changeIdentity = ChangeIdentity(gitRemoteParser)
 
@@ -130,10 +135,7 @@ class IdentityResolver(
         return "$name:$version"
     }
 
-    private fun environmentKey(name: String): String {
-        val normalised = name.lowercase().trim()
-        return ENVIRONMENT_ALIASES[normalised] ?: normalised
-    }
+    private fun environmentKey(name: String): String = environmentAliases.canonical(name)
 
     private fun deploymentKey(props: Map<String, Any?>): String {
         val artifactKey = required(props, "artifactKey", "Deployment")
@@ -156,17 +158,6 @@ class IdentityResolver(
             ?: throw IdentityResolutionException("$type needs '$name' to derive its identity")
 
     private companion object {
-        val ENVIRONMENT_ALIASES =
-            mapOf(
-                "prod" to "production",
-                "prd" to "production",
-                "live" to "production",
-                "stg" to "staging",
-                "stage" to "staging",
-                "dev" to "development",
-                "test" to "testing",
-            )
-
         /**
          * Types whose key is one property's value exactly as given, case and all. A ServicePrincipal's
          * name is the client id its tokens carry, and Keycloak's client ids are case-sensitive (#115).
