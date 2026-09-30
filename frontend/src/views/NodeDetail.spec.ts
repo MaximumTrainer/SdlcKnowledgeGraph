@@ -131,6 +131,38 @@ describe('NodeDetail', () => {
     expect(link.attributes('href')).toBe('/graph/Repository:github.com%2Facme%2Fpayments')
   })
 
+  /** An ExternalWorkItem is keyed by its URI, which no path can carry (#85). */
+  it('reads a node keyed by a URI by key, and links to its edit page by the encoded key', async () => {
+    const workItem = {
+      id: 'ExternalWorkItem:chorus://task/01JABC',
+      type: 'ExternalWorkItem',
+      key: 'chorus://task/01JABC',
+      props: { uri: 'chorus://task/01JABC', system: 'chorus' },
+      provenance: { sourceSystem: 'manual', confidence: 1, inferred: false }
+    }
+    let askedFor: string | null = null
+    server.use(
+      http.get('/api/v1/nodes/ExternalWorkItem/by-key', ({ request }) => {
+        askedFor = new URL(request.url).searchParams.get('key')
+        return HttpResponse.json(workItem)
+      })
+    )
+    const r = router()
+    await r.push('/nodes/ExternalWorkItem/chorus%3A%2F%2Ftask%2F01JABC')
+    await r.isReady()
+    const wrapper = mount(NodeDetail, {
+      global: { plugins: [r], provide: providing(sessionWith(READ_WRITE)) },
+      props: { type: 'ExternalWorkItem', id: 'chorus://task/01JABC' }
+    })
+    await flushPromises()
+
+    expect(askedFor).toBe('chorus://task/01JABC')
+    expect(wrapper.find('h1').text()).toBe('chorus://task/01JABC')
+    expect(wrapper.find('[data-test="edit-node"]').attributes('href')).toBe(
+      '/nodes/ExternalWorkItem/chorus%3A%2F%2Ftask%2F01JABC/edit'
+    )
+  })
+
   it('shows no link on a node type that has no remote', async () => {
     const wrapper = await mountDetail('Team', 'platform')
 

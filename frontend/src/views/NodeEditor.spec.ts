@@ -186,6 +186,97 @@ describe('NodeEditor', () => {
 })
 
 /**
+ * An instant is entered in a `datetime-local` input, which has no zone and no seconds; the API takes
+ * an ISO-8601 instant. The input is read as UTC, as the run history's filters are, so a Change's
+ * `committedAt` means the same moment whoever typed it (#85).
+ */
+describe('NodeEditor, an instant', () => {
+  const sample = {
+    id: 'Sample:s1',
+    type: 'Sample',
+    key: 's1',
+    props: { name: 's1', seenAt: '2026-09-13T10:00:00Z' },
+    provenance: { sourceSystem: 'manual', confidence: 1, inferred: false }
+  }
+
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/nodes/Sample/s1', () => HttpResponse.json(sample))
+    )
+  })
+
+  it('is sent as the UTC instant its input names', async () => {
+    let sent: Record<string, unknown> = {}
+    server.use(
+      http.post('/api/v1/nodes/Sample', async ({ request }) => {
+        sent = ((await request.json()) as { props: Record<string, unknown> }).props
+        return HttpResponse.json(sample, { status: 201 })
+      })
+    )
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    await wrapper.find('input[name="name"]').setValue('s1')
+    await wrapper.find('input[name="seenAt"]').setValue('2026-09-13T10:00')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sent.seenAt).toBe('2026-09-13T10:00:00Z')
+  })
+
+  it('is shown in its input when editing, to the minute, in UTC', async () => {
+    const wrapper = await editorFor({ type: 'Sample', id: 's1' })
+
+    expect((wrapper.find('input[name="seenAt"]').element as HTMLInputElement).value).toBe(
+      '2026-09-13T10:00'
+    )
+  })
+
+  it('left empty is left out, not sent as an empty string', async () => {
+    let sent: Record<string, unknown> = {}
+    server.use(
+      http.post('/api/v1/nodes/Sample', async ({ request }) => {
+        sent = ((await request.json()) as { props: Record<string, unknown> }).props
+        return HttpResponse.json(sample, { status: 201 })
+      })
+    )
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    await wrapper.find('input[name="name"]').setValue('s1')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect('seenAt' in sent).toBe(false)
+  })
+})
+
+/** A node keyed by a URI opens at its key encoded as one segment, which a route can match (#85). */
+describe('NodeEditor, a key holding a double slash', () => {
+  it('opens the saved node at its key encoded as one segment', async () => {
+    const saved = {
+      id: 'Sample:chorus://task/01JABC',
+      type: 'Sample',
+      key: 'chorus://task/01JABC',
+      props: { name: 'chorus://task/01JABC' },
+      provenance: { sourceSystem: 'manual', confidence: 1, inferred: false }
+    }
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.post('/api/v1/nodes/Sample', () => HttpResponse.json(saved, { status: 201 }))
+    )
+    const r = router()
+    const wrapper = mount(NodeEditor, { props: { type: 'Sample' }, global: { plugins: [r] } })
+    await flushPromises()
+
+    await wrapper.find('input[name="name"]').setValue('chorus://task/01JABC')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(r.currentRoute.value.fullPath).toBe('/nodes/Sample/chorus%3A%2F%2Ftask%2F01JABC')
+  })
+})
+
+/**
  * The remote is the one thing a person types, and the key it resolves to is what the graph will
  * store it under. Showing that key as they type is the difference between finding out now and
  * finding out after saving - and it is the same parser the API uses, so what is previewed is what
