@@ -160,6 +160,60 @@ looked, and the first count runs at startup, possibly before the application wri
 `Ontology` node. A count that fails, because Neo4j is unreachable say, keeps every last value
 rather than half of them and logs `graph.count.failed`.
 
+## Archival
+
+Closed facts stay in the graph, so "what held on 1 March" stays answerable, but they would also
+accumulate for ever. The archive job moves those that ended longer ago than a retention period out
+of it ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33), [ADR-0014](/adr/0014-data-lifecycle)). It is **off by default**,
+and every step towards deleting anything is a separate, explicit setting:
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `lifecycle.archive.enabled` (`LIFECYCLE_ARCHIVE_ENABLED`) | `false` | Off: no schedule, and `POST /api/v1/lifecycle/archive` only rehearses |
+| `lifecycle.archive.mode` (`LIFECYCLE_ARCHIVE_MODE`) | `dry-run` | `dry-run` counts and changes nothing; `export` writes the archive file and changes nothing; `purge` writes the file, then deletes what it wrote |
+| `lifecycle.archive.retention` (`LIFECYCLE_ARCHIVE_RETENTION`) | `P365D` | How long after its `validTo` a fact is kept |
+| `lifecycle.archive.schedule` (`LIFECYCLE_ARCHIVE_SCHEDULE`) | `0 0 4 * * *` | Spring cron; `-` enables the endpoint without a schedule |
+| `lifecycle.archive.directory` (`LIFECYCLE_ARCHIVE_DIRECTORY`) | `./archive` | Where the files go |
+
+A fact is eligible when it is a node of a domain type whose `validTo` is before the cutoff (now less
+the retention), or a relationship that ended before it or touches such a node. Meta types
+(`SyncRun`, `Ontology` and the rest) are never archived; sync runs have their own
+[retention](#sync-run-retention). A node's earlier versions go with it.
+
+An export or a purge writes one file, `archive-<yyyyMMddTHHmmssZ>.jsonl`, one JSON object per line
+(`{"kind": "node" | "edge", "type", "data"}`, a node's `data` holding its values, provenance and
+versions). A purge deletes only after that file has been written and closed, so a full disk or an
+unwritable directory deletes nothing. A run that writes a file is recorded as a sync run of the
+connector `lifecycle-archive`, so it shows on the Sync runs page beside the connectors.
+
+To opt in, on the compose stack or the dogfood:
+
+```bash
+LIFECYCLE_ARCHIVE_ENABLED=true                          # schedule it; still only counts
+LIFECYCLE_ARCHIVE_ENABLED=true LIFECYCLE_ARCHIVE_MODE=export  # also write the archive file
+LIFECYCLE_ARCHIVE_ENABLED=true LIFECYCLE_ARCHIVE_MODE=purge   # write it, then delete from the graph
+```
+
+(`fly secrets set` or `[env]` in `fly.toml` on Fly; neither the dogfood nor compose sets any of them.)
+On Fly the directory must be on a volume, or the file is lost with the machine.
+
+Each run logs `lifecycle.archive.finished` with the mode, whether it was a dry run, the cutoff and the
+node and edge counts; a scheduled run that fails logs `lifecycle.archive.failed` and is retried on the
+next schedule. Enabling the job logs `lifecycle.archive.scheduled` at startup. Like the sync-run prune
+it is an internal write, so it runs on a read-only instance too if enabled there; the HTTP trigger
+does not, since the read-only posture refuses it.
+
+## Ontology migrations
+
+Migrations run at startup ([Ontology](/guide/ontology#migrations)). Each logs
+`ontology.migration.applied` (with `statements` and `durationMs`) or, on a new graph,
+`ontology.migration.baselined`. A failure logs `ontology.migration.failed` at `ERROR`, naming the
+migration, and stops the application, so a deploy fails visibly rather than serving a half-migrated
+graph. In `manual` mode, pending migrations log `ontology.migrations.pending` at `WARN` on every
+start, with both versions and the pending ids. None of them touches health: `/actuator/health`,
+readiness and liveness answer as before, and `GET /api/v1/lifecycle` is where "is the graph behind?"
+is read.
+
 ## Health
 
 `/actuator/health` is the API's health as a whole, one component per thing it depends on. Three of

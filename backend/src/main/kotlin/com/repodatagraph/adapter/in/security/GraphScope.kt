@@ -2,7 +2,7 @@ package com.repodatagraph.adapter.`in`.security
 
 /**
  * The OAuth 2 scopes that decide what a principal may do to the graph (#116, ADR-0005): one to read
- * it and one to change it. Deliberately coarse. A write naming a source system other than `manual`
+ * it, one to change it, and one to administer it as a whole (#33). Deliberately coarse. A write naming a source system other than `manual`
  * also needs that source's `graph:write:<source>` ([SourceScopes], #117), and anything finer than
  * that is policy (#95), not scopes.
  */
@@ -11,6 +11,12 @@ enum class GraphScope(
 ) {
     READ("graph:read"),
     WRITE("graph:write"),
+
+    /**
+     * Administering the graph's data as a whole (#33): applying ontology migrations and running the
+     * archive, each of which changes every node it touches. Held with graph:write, never instead.
+     */
+    ADMIN("graph:admin"),
 }
 
 /** What a request must present, as [ScopePolicy] declares it for the request's route family. */

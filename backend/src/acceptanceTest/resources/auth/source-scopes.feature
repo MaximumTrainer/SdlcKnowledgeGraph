@@ -31,9 +31,9 @@ Feature: connectors can only assert their own facts
     Then the response is 403 with required ["graph:write", "graph:write:servicenow"] and held ["graph:read", "graph:write", "graph:write:github", "graph:write:github-actions"]
 
   Scenario: a user cannot impersonate a system of record
-    Given "dan" holds graph:read and graph:write
+    Given "dan" holds graph:write and graph:admin
     When he POSTs a Repository with sourceSystem "github"
-    Then the response is 403 with required ["graph:write", "graph:write:github"] and held ["graph:read", "graph:write"]
+    Then the response is 403 with required ["graph:write", "graph:write:github"] and held ["graph:admin", "graph:read", "graph:write"]
 
   Scenario: a user may name manual, which is what a write naming no source is
     Given "dan" holds graph:read and graph:write

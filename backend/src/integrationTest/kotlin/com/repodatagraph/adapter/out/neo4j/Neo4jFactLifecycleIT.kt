@@ -1,5 +1,8 @@
 package com.repodatagraph.adapter.out.neo4j
 
+import com.repodatagraph.domain.lifecycle.RetiredReason
+import com.repodatagraph.domain.model.Direction
+import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
@@ -94,5 +97,71 @@ class Neo4jFactLifecycleIT {
 
         assertThat(factLifecycle.closeNodesNotReasserted(source, runStarted, closedAt)).isZero()
         assertThat(validTo(alreadyClosed)).isEqualTo(earlier)
+    }
+
+    private fun reason(key: NodeKey): RetiredReason? = factLifecycle.history(key)!!.current.retiredReason
+
+    private fun ownedBy(
+        repo: NodeKey,
+        team: NodeKey,
+    ) = graphStore.upsertEdge(
+        GraphEdge("OWNED_BY", repo, team, emptyMap(), Provenance(sourceSystem = source, ingestedAt = before, validFrom = before)),
+    )
+
+    private fun repository(name: String): NodeKey {
+        val key = NodeKey("Repository", "github.com/$source/$name")
+        graphStore.upsertNode(
+            GraphNode(
+                key,
+                mapOf(
+                    "url" to "https://${key.key}",
+                    "defaultBranch" to "main",
+                    "topics" to emptyList<String>(),
+                    "codeowners" to emptyList<String>(),
+                ),
+                Provenance(sourceSystem = source, ingestedAt = before, validFrom = before),
+            ),
+        )
+        return key
+    }
+
+    @Test
+    fun `reconciling records why it closed a fact, and closes the fact's current edges`() {
+        val team = team("owner", ingestedAt = during)
+        val repo = repository("gone")
+        ownedBy(repo, team)
+
+        factLifecycle.closeNodesNotReasserted(source, runStarted, closedAt, RetiredReason.MISSING_FROM_SYNC)
+
+        assertThat(reason(repo)).isEqualTo(RetiredReason.MISSING_FROM_SYNC)
+        val edge = graphStore.findEdge("OWNED_BY", repo, team)!!
+        assertThat(edge.provenance.validTo).isEqualTo(closedAt)
+    }
+
+    @Test
+    fun `retiring one node closes it and its current edges, and leaves a closed edge's date alone`() {
+        val team = team("owner", ingestedAt = during)
+        val repo = repository("deleted")
+        ownedBy(repo, team)
+
+        assertThat(factLifecycle.retire(repo, closedAt, RetiredReason.SOURCE_DELETED)).isTrue()
+
+        assertThat(validTo(repo)).isEqualTo(closedAt)
+        assertThat(reason(repo)).isEqualTo(RetiredReason.SOURCE_DELETED)
+        assertThat(
+            graphStore
+                .findEdges(repo, Direction.OUTGOING, "OWNED_BY")
+                .single()
+                .edge.provenance.validTo,
+        ).isEqualTo(closedAt)
+        assertThat(validTo(team)).describedAs("the other end is not retired").isNull()
+
+        factLifecycle.retire(repo, Instant.parse("2026-09-02T00:00:00Z"), RetiredReason.SOURCE_DELETED)
+        assertThat(validTo(repo)).describedAs("retiring again moves nothing").isEqualTo(closedAt)
+    }
+
+    @Test
+    fun `retiring a node the graph never held is a no`() {
+        assertThat(factLifecycle.retire(NodeKey("Team", "$source-never"), closedAt, RetiredReason.SOURCE_DELETED)).isFalse()
     }
 }

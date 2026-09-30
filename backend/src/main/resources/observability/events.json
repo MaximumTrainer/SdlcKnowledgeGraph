@@ -227,6 +227,110 @@
       "type" : "string"
     } ]
   }, {
+    "name" : "ontology.migration.baselined",
+    "level" : "INFO",
+    "message" : "ontology migration recorded as a baseline",
+    "description" : "A shipped migration was recorded as applied without running, because the graph began on its version or a newer one and never held the shape it repairs (#33).",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "migration",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "ontology.migration.applied",
+    "level" : "INFO",
+    "message" : "ontology migration applied",
+    "description" : "A migration ran in a transaction of its own and was recorded on the graph with its checksum (#33).",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "migration",
+      "type" : "string"
+    }, {
+      "name" : "statements",
+      "type" : "int"
+    }, {
+      "name" : "durationMs",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "ontology.migration.failed",
+    "level" : "ERROR",
+    "message" : "ontology migration failed and was rolled back",
+    "description" : "A migration failed; its transaction was rolled back, so the graph is as it was before it, and nothing after it ran. At startup the application stops (#33).",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "migration",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "ontology.migrations.pending",
+    "level" : "WARN",
+    "message" : "ontology migrations are pending",
+    "description" : "In manual mode the application started with migrations the graph has not had; an admin applies them from the lifecycle page. Health is not affected (#33).",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "dbVersion",
+      "type" : "string"
+    }, {
+      "name" : "registryVersion",
+      "type" : "string"
+    }, {
+      "name" : "pending",
+      "type" : "string[]"
+    } ]
+  }, {
+    "name" : "lifecycle.archive.scheduled",
+    "level" : "INFO",
+    "message" : "archive scheduled",
+    "description" : "The archive is enabled and will run on a schedule, in the mode it names (#33).",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "cron",
+      "type" : "string"
+    }, {
+      "name" : "mode",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "lifecycle.archive.finished",
+    "level" : "INFO",
+    "message" : "archive run finished",
+    "description" : "An archive run finished. A dry run changed nothing; export wrote the file; purge wrote the file and then deleted what it wrote (#33).",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "mode",
+      "type" : "string"
+    }, {
+      "name" : "dryRun",
+      "type" : "boolean"
+    }, {
+      "name" : "cutoff",
+      "type" : "instant"
+    }, {
+      "name" : "nodes",
+      "type" : "int"
+    }, {
+      "name" : "edges",
+      "type" : "int"
+    } ]
+  }, {
+    "name" : "lifecycle.archive.failed",
+    "level" : "WARN",
+    "message" : "archive run failed",
+    "description" : "A scheduled archive run could not finish. Nothing is purged that was not first written; the next run retries (#33).",
+    "security" : false,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "mode",
+      "type" : "string"
+    } ]
+  }, {
     "name" : "connector.scheduled",
     "level" : "INFO",
     "message" : "connector scheduled",

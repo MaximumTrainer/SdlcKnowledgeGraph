@@ -27,7 +27,9 @@ export const ONTOLOGY_COLOURS: Record<NodeType, string> = {
   Ontology: '#4a5568',
   SyncRun: '#718096',
   ConnectorState: '#2d3748',
-  ServicePrincipal: '#b794f4'
+  ServicePrincipal: '#b794f4',
+  NodeVersion: '#a0aec0',
+  OntologyMigration: '#1a202c'
 }
 
 /** For a type the server knows and this build does not yet: drawn, just not told apart. */

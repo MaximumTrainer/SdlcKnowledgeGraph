@@ -38,6 +38,16 @@ class IdentityResolver(
             "Library" -> NodeKey(type, libraryKey(props))
             "IacFile" -> NodeKey(type, iacFileKey(props))
             "Change", "PullRequest" -> NodeKey(type, changeIdentity.keyFor(type, props))
+            else -> metaKey(type, props)
+        }
+
+    /** The graph's own types: keyed by one property, or - a version (#33) - by its node and when it began. */
+    private fun metaKey(
+        type: String,
+        props: Map<String, Any?>,
+    ): NodeKey =
+        when (type) {
+            "NodeVersion" -> NodeKey(type, "${required(props, "versionOf", type)}@${required(props, "since", type)}")
             in KEYED_BY_ONE_PROPERTY -> NodeKey(type, required(props, KEYED_BY_ONE_PROPERTY.getValue(type), type).trim())
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
         }
@@ -164,6 +174,12 @@ class IdentityResolver(
          * parts are case-sensitive, so it is neither lowercased nor parsed.
          */
         val KEYED_BY_ONE_PROPERTY =
-            mapOf("Ontology" to "version", "SyncRun" to "id", "ServicePrincipal" to "name", "ExternalWorkItem" to "uri")
+            mapOf(
+                "Ontology" to "version",
+                "OntologyMigration" to "version",
+                "SyncRun" to "id",
+                "ServicePrincipal" to "name",
+                "ExternalWorkItem" to "uri",
+            )
     }
 }

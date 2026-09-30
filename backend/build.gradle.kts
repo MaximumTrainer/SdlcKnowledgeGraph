@@ -14,6 +14,8 @@ version = "0.0.1-SNAPSHOT"
 // META-INF/build-info.properties, so /actuator/info can report the version it was built as (#48, D2).
 // Without the time, so an unchanged build stays up to date instead of rebuilding for a timestamp.
 springBoot {
+    // Named, since the ontology migration dry run (#33) is a second `main` on the classpath.
+    mainClass.set("com.repodatagraph.RepoDataGraphApplicationKt")
     buildInfo {
         excludes.set(setOf("time"))
     }
@@ -196,6 +198,25 @@ val logEventDriftCheck by tasks.registering(LogEventDriftCheckTask::class) {
     registryFile.set(eventRegistry)
     kotlinOutput.set(generatedLogEvents)
     jsonOutput.set(generatedEventsJson)
+}
+
+/**
+ * `./gradlew ontologyMigrateDryRun [-Pfrom=1.3.0] [-Pmigrations=classpath:ontology/migrations/]`
+ * (#33): prints the Cypher each shipped ontology migration would run, and with `from` which a graph
+ * on that version would run or record as a baseline. Connects to nothing and changes nothing.
+ */
+val ontologyMigrateDryRun by tasks.registering(JavaExec::class) {
+    group = "ontology"
+    description = "Prints what each ontology migration would run, without connecting to a graph"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.repodatagraph.tools.OntologyMigrateDryRunKt")
+    val from = providers.gradleProperty("from")
+    val migrations = providers.gradleProperty("migrations")
+    argumentProviders.add(
+        CommandLineArgumentProvider {
+            listOfNotNull(from.orNull?.let { "--from=$it" }, migrations.orNull?.let { "--location=$it" })
+        },
+    )
 }
 
 tasks.named("check") { dependsOn(logEventDriftCheck) }

@@ -45,7 +45,7 @@ nodes:
       - { name: serviceId, type: string, required: false, description: "The service it provides, from before PROVIDES", examples: [payments-api], deprecated: { since: 1.3.0, replacedBy: PROVIDES } }
 ```
 
-The registry's version lives in `version.yaml` (semver, currently `1.3.0`), not in `nodes.yaml`.
+The registry's version lives in `version.yaml` (semver, currently `1.4.0`), not in `nodes.yaml`.
 A node type may also say `meta: true` (the default is `false`), for a type that records the graph's
 own bookkeeping rather than something in the software estate. There is no `default` or
 `sensitivity` key: a key the reader does not recognise, at any level, fails startup and fails the
@@ -541,9 +541,9 @@ as `2026-09-30T01:30:00Z`, and answer as the graph held then:
 
 Anything but an instant, a bare date included, is `400 {error, field: "asOf"}`, the error saying
 what was wrong (in GraphQL a `BAD_REQUEST` naming it). Without `asOf` every read is the current view,
-closed facts included, exactly as before. A later history of property versions
-([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) selects versions by the same
-interval and the same parameter.
+closed facts included, exactly as before. A node read with `asOf` answers with the property values
+that held at the instant, from its [history](#history-retirement-and-archival), not only with whether
+it existed then.
 
 **Closing a fact.** A `PUT` on a node that carries `provenance.validTo`, an instant, beside its
 `props` says it ended then, or keeps it ended. A `validTo` before the node's `validFrom` is `400`
@@ -553,6 +553,49 @@ Closing a node does not remove it or its edges, so a closed node with edges is s
 `DELETE`. A write that leaves `validTo` out states the fact holds now: restated while current, it
 keeps the `validFrom` it began with; restated after it was closed, it begins again, with `validFrom`
 the time of that write.
+
+## History, retirement and archival
+
+A fact's validity says *whether* it held; its history says *what* it said while it held
+([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33),
+[ADR-0014](adr/0014-data-lifecycle.md)).
+
+**Versions.** When a write changes a node's registry properties, the values it replaces are kept as a
+`NodeVersion`: a meta node holding the earlier values and provenance, with `versionOf` (the node's id),
+`since` and `until` (the interval those values held) and, when the version ended because the node was
+closed, `retired` and `retiredReason`. The node itself stays the current view, so every current read,
+and every response shape, is unchanged. A write that restates the same values cuts no version, nor
+does a change to provenance alone. Reopening a closed node cuts one, so the values it held before it
+was closed stay readable. A node keeps its newest `lifecycle.versioning.max-versions` versions (50);
+older ones are dropped at the next write. Versioning can be turned off
+(`LIFECYCLE_VERSIONING_ENABLED=false`) or skipped for named types
+(`lifecycle.versioning.exclude-types`); meta types are never versioned.
+
+The node carries three hidden bookkeeping fields no read returns: `prov_propsFrom`, when its current
+values began; `prov_resurrectedAt`, when it was last reopened; and `prov_retiredReason`, why it was
+closed. A read with `asOf` before `prov_propsFrom` answers from the version that held then, with that
+version's values and provenance. `GET /api/v1/lifecycle/history?nodeId=Type:key` returns the node's
+current validity and values and its earlier versions, newest first; the web interface shows it as the
+History panel on a node's page.
+
+**Retirement.** A closed fact records why it was closed:
+
+| Reason | When |
+| --- | --- |
+| `source-deleted` | A connector's tombstone: the source said the thing was deleted |
+| `source-retired` | The source said it was retired or archived |
+| `missing-from-sync` | Reconciliation: a complete full sync stopped reporting it |
+| `manual` | A `PUT` that carried `provenance.validTo` |
+
+Retiring a node through a tombstone or reconciliation also closes its current edges at the same
+instant (an edge that began later is closed at the instant it began, never before). A `PUT` that closes a node leaves its edges as
+they are. Which facts reconciliation retires is set per connector
+([ADAPTERS.md](ADAPTERS.md#per-connector-rules-and-grace-periods)).
+
+**Archival.** Closed facts can be moved out of the graph once they are older than a retention period,
+by a job that is **off by default** and, when turned on, **only reports** unless told otherwise. It
+is described, with how to opt in, in [ADR-0014](adr/0014-data-lifecycle.md) and
+[OBSERVABILITY.md](OBSERVABILITY.md#archival).
 
 ## Traversal semantics
 
@@ -987,8 +1030,7 @@ starts consulting a different property stays correctly reported.
 `version.yaml` declares the registry version, and an `Ontology` node records which version the
 graph was built with; the application refuses to start against a graph written by a newer registry
 than its own. Adding a type or an optional property is free. Renaming or removing anything needs a
-version bump and a migration of the data already in the graph; no migration mechanism exists yet
-([#33](../../issues/33)), so today that means not renaming or removing.
+version bump and a migration of the data already in the graph ([Migrations](#migrations)).
 
 1.1.0 ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)) added Change,
 PullRequest, ExternalWorkItem and their five edges. It is a minor bump, because nothing was renamed
@@ -1008,6 +1050,62 @@ bump: nothing was renamed or removed, and a value stored before its enum still r
 rollback caveat applies. `GET /api/v1/ontology`
 returns the current registry as JSON, which is what drives the generic editing screen in the
 frontend.
+
+1.4.0 ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) added the meta types
+`NodeVersion` and `OntologyMigration`. It is a minor bump; no data needed migrating, so it ships no
+migration.
+
+### Migrations
+
+A migration brings the data in the graph to a registry version. Each is a file under
+`backend/src/main/resources/ontology/migrations/`, named for the version it reaches:
+`V<major>_<minor>_<patch>__<lower_snake_name>.yaml`, or `.cypher` for a raw one. A YAML migration is
+a list of operations, each checked against the registry it migrates to:
+
+```yaml
+description: Rename the legacy CI name
+operations:
+  - renameProperty: { type: ConfigurationItem, from: name, to: ciName }   # moves the value; spares a node holding both
+  - addProperty: { type: Team, property: tier, default: bronze }           # only where it is missing
+  - dropProperty: { type: Team, property: slug }                           # refused if still declared
+  - renameType: { from: Group, to: Squad }                                 # relabels and restates the id
+  - mergeTypes: { from: [Group, Guild], into: Squad }
+  - renameEdge: { from: BELONGS_TO, to: OWNED_BY }                         # recreates each, with its properties
+```
+
+Every operation is idempotent, the target it names must be declared, and a name that is not a plain
+identifier is refused, since labels and property names cannot be Cypher parameters. A `.cypher`
+migration is its statements, split at a `;` that ends a line; writing it idempotently is its author's
+job.
+
+At startup, after the schema is in place, the application compares the graph's `Ontology` version with
+the build's:
+
+- **A newer graph** stops startup, as before.
+- **No recorded version**, a new graph, is baselined: every shipped migration is recorded as applied
+  without running, since the graph never held the shape it repairs, and the build's version is
+  recorded. A migration at or below an older graph's version is baselined the same way.
+- **An older graph** is migrated. Every migration newer than the graph's version and not yet applied
+  runs in version order, each in one transaction together with its `OntologyMigration` record (its
+  id, version, checksum, when and how long). The version moves to the build's once none is pending.
+- **A failing migration** rolls its own transaction back, logs `ontology.migration.failed` naming it,
+  and stops startup; the migrations before it stay applied and recorded.
+- **An applied migration whose file has changed** (its SHA-256, taken after normalising line endings,
+  differs from the recorded one), two files for one version, or a migration newer than the registry,
+  stops startup naming the file.
+
+`LIFECYCLE_MIGRATIONS_MODE=manual` applies nothing at startup and only logs
+`ontology.migrations.pending`; an administrator then applies them with
+`POST /api/v1/lifecycle/migrations/apply` (`graph:admin`). Health is unaffected either way.
+
+To see what would run, without a database:
+
+```bash
+cd backend && ./gradlew ontologyMigrateDryRun -Pfrom=1.3.0
+# -Pmigrations=<dir> reads another directory
+```
+
+It prints each pending migration and the statements it compiles to.
 
 ## Regenerating types
 

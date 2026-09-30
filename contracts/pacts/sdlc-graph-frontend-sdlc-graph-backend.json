@@ -115,6 +115,83 @@
       }
     },
     {
+      "description": "a request for an archive dry run",
+      "providerStates": [
+        {
+          "name": "a fact retired long ago"
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/lifecycle/archive",
+        "query": {
+          "dryRun": [
+            "true"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "cutoff": "2025-09-30T12:00:00Z",
+          "dryRun": true,
+          "mode": "dry-run",
+          "wouldArchive": {
+            "edges": 0,
+            "nodes": 1
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.cutoff": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.dryRun": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.mode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.wouldArchive.edges": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.wouldArchive.nodes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for how far behind each source is",
       "providerStates": [
         {
@@ -1317,6 +1394,142 @@
       }
     },
     {
+      "description": "a request for the history of the payments repository",
+      "providerStates": [
+        {
+          "name": "the payments repository has one earlier version"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/lifecycle/history",
+        "query": {
+          "nodeId": [
+            "Repository:github.com/acme/payments"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "current": {
+            "props": {
+              "description": "v2"
+            },
+            "propsFrom": "2026-02-01T00:00:00Z",
+            "retired": false,
+            "validFrom": "2026-01-01T00:00:00Z"
+          },
+          "nodeId": "Repository:github.com/acme/payments",
+          "versions": [
+            {
+              "props": {
+                "description": "v1"
+              },
+              "provenance": {
+                "sourceSystem": "manual"
+              },
+              "retired": false,
+              "validFrom": "2026-01-01T00:00:00Z",
+              "validTo": "2026-02-01T00:00:00Z"
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.current.props.description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.current.propsFrom": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.current.retired": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.current.validFrom": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.versions": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.versions[*].props.description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.versions[*].provenance.sourceSystem": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.versions[*].retired": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.versions[*].validFrom": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.versions[*].validTo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the impact of repository R1",
       "providerStates": [
         {
@@ -1344,6 +1557,267 @@
               "matchers": [
                 {
                   "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the lifecycle status",
+      "providerStates": [
+        {
+          "name": "the lifecycle is at its defaults"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/lifecycle"
+      },
+      "response": {
+        "body": {
+          "archive": {
+            "cutoff": "2025-09-30T12:00:00Z",
+            "eligible": {
+              "edges": 0,
+              "nodes": 0
+            },
+            "enabled": false,
+            "mode": "dry-run",
+            "retention": "P365D",
+            "schedule": "0 0 4 * * *"
+          },
+          "connectors": [
+            {
+              "fullSyncIsComplete": true,
+              "gracePeriod": "P0D",
+              "missingFromFullSync": "tombstone",
+              "name": "github",
+              "requireSuccessfulRun": true,
+              "sourceSystem": "github"
+            }
+          ],
+          "migrations": {
+            "applied": [],
+            "dbVersion": "1.4.0",
+            "mode": "auto",
+            "pending": [],
+            "registryVersion": "1.4.0",
+            "upToDate": true
+          },
+          "registryVersion": "1.4.0",
+          "versioning": {
+            "enabled": true,
+            "excludedTypes": [
+              "SyncRun"
+            ],
+            "maxVersions": 50
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.archive.cutoff": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.archive.eligible.edges": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.archive.eligible.nodes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.archive.enabled": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.archive.mode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.archive.retention": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^P(\\d+D|T.+)$"
+                }
+              ]
+            },
+            "$.archive.schedule": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.connectors": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.connectors[*].fullSyncIsComplete": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.connectors[*].gracePeriod": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^P(\\d+D|T.+)$"
+                }
+              ]
+            },
+            "$.connectors[*].missingFromFullSync": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.connectors[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.connectors[*].requireSuccessfulRun": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.connectors[*].sourceSystem": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.migrations.applied": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.migrations.dbVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d+\\.\\d+$"
+                }
+              ]
+            },
+            "$.migrations.mode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.migrations.pending": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.migrations.registryVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d+\\.\\d+$"
+                }
+              ]
+            },
+            "$.migrations.upToDate": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.registryVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d+\\.\\d+$"
+                }
+              ]
+            },
+            "$.versioning.enabled": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.versioning.excludedTypes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.versioning.maxVersions": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
                 }
               ]
             }
@@ -2042,6 +2516,49 @@
               "matchers": [
                 {
                   "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to apply the pending ontology migrations",
+      "providerStates": [
+        {
+          "name": "the graph is on the previous ontology version"
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/lifecycle/migrations/apply"
+      },
+      "response": {
+        "body": {
+          "applied": [],
+          "dbVersion": "1.4.0"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.applied": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.dbVersion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d+\\.\\d+$"
                 }
               ]
             }

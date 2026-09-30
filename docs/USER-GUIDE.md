@@ -134,6 +134,14 @@ A **stale** badge beside the heading means the node's source has not stated it a
 source's freshness window, so it may no longer match reality (#93). A node you wrote by hand turns
 stale a day after you last saved it; saving it again, unchanged, is how to say it still holds.
 
+### History
+
+Under Provenance, **History** lists the node's earlier sets of values, newest first (#33). Each entry
+says when those values held and, for each property that differs from the version after it, what it
+was then, as `name: value`; one that ended because the node was closed says so and why
+(`source-deleted`, `missing-from-sync`, `manual` and so on). Saving a node unchanged adds nothing to
+its history. A node that never changed shows only when its current values began.
+
 ### Signing in
 
 An instance with an identity provider sends you to its login page before showing anything, and back
@@ -182,6 +190,24 @@ inferred is dashed and fainter the less confident it is. The legend under the ca
   `Showing 500 of more nodes; narrow the filters`.
 
 It works signed in and on an instance without a login alike: it only reads.
+
+### The lifecycle page
+
+**Lifecycle** in the header (`/admin/lifecycle`) shows how the graph keeps its data over time
+([Ontology](ONTOLOGY.md#history-retirement-and-archival)):
+
+- **Ontology migrations**: whether the graph is on the build's ontology version and, if not, which
+  migrations are pending. Someone holding `graph:admin` sees **Apply**.
+- **Archive**: whether archival is on, in which mode and on what schedule, and how many closed nodes
+  and relationships are older than the retention. With archival on, `graph:admin` sees
+  **Rehearse the archive**, which counts what a run would take and changes nothing. The page never
+  runs a real archive; that is the schedule's job, or an administrator's through the API.
+- **Versions**: how many earlier sets of values a node keeps, and for which types none are kept.
+- **What each connector stops reporting**: each connector's rule for what a full sync no longer
+  mentions, and its grace period ([Adapters](ADAPTERS.md#per-connector-rules-and-grace-periods)).
+
+Anyone who can read the graph can read the page. Without a login it offers no controls; signed in
+to a [read-only instance](#read-only-instances), they are refused like any other write.
 
 ### What the interface does not do yet
 
@@ -450,6 +476,24 @@ The last two also find a repository under a remote it had before a rename. Each 
 `provider`, `providerId`, `previousKeys` and the derived `orgRepo`.
 [ADR-0013](adr/0013-provider-id-is-an-alias-not-the-key.md) explains why the provider id sits beside
 the key rather than replacing it.
+
+### Lifecycle
+
+`/api/v1/lifecycle` reports and runs the data lifecycle (#33,
+[ADR-0014](adr/0014-data-lifecycle.md)). Reading needs `graph:read`; the two `POST`s need
+`graph:write` and `graph:admin`, and are refused on a read-only instance.
+
+| Request | Result |
+| --- | --- |
+| `GET /api/v1/lifecycle` | `{registryVersion, migrations, versioning, archive, connectors}`: what the lifecycle page shows |
+| `GET /api/v1/lifecycle/migrations` | `{registryVersion, dbVersion, mode, upToDate, pending, applied}` |
+| `POST /api/v1/lifecycle/migrations/apply` | Applies every pending migration in order: `{applied, dbVersion}`, or `409` naming the one that failed (and rolled back) or the file whose checksum changed |
+| `POST /api/v1/lifecycle/archive?dryRun=true` | Counts what the archive would take: `{dryRun: true, mode, cutoff, wouldArchive}`. Allowed with archival off |
+| `POST /api/v1/lifecycle/archive` | Runs it in its configured mode; `409 {error: "archival is disabled", setting}` while it is off. An `export` or `purge` adds `archived`, `purged` (purge only), `file` and `syncRunId` |
+| `GET /api/v1/lifecycle/history?nodeId=Type:key` | `{nodeId, current, versions}`: the node's validity and values, and its earlier versions newest first; `404` for no such node |
+
+`NodeVersion` and `OntologyMigration` are written only by the lifecycle: a write to either through
+`/api/v1/nodes` is refused and points here.
 
 ## GraphQL
 

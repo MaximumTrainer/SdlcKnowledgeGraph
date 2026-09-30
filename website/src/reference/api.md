@@ -38,6 +38,11 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/impact` | Impact of a change: what a change to a repository reaches, ranked, with owners and a citation per hit | 200 |
 | `POST` | `/api/v1/ingest/deployment` | Record a deployment reported by the deploy pipeline | 200 |
 | `POST` | `/api/v1/ingest/seed` | Record repositories, teams, pipelines and dependencies read by the dogfood seed | 200 |
+| `GET` | `/api/v1/lifecycle` | The lifecycle at a glance: migrations, versioning, the archive, each connector's rules | 200 |
+| `POST` | `/api/v1/lifecycle/archive` | Rehearse the archive, or run it as configured | 200 |
+| `GET` | `/api/v1/lifecycle/history` | A node's current validity and its earlier versions, newest first | 200 |
+| `GET` | `/api/v1/lifecycle/migrations` | Which ontology version the graph is on, and the migrations pending and applied | 200 |
+| `POST` | `/api/v1/lifecycle/migrations/apply` | Apply every pending ontology migration, in order, each in its own transaction | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |
 | `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity, as manual or a permitted source | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/by-key` | Delete a node addressed by its key as a query parameter (#85) | 200 |

@@ -210,7 +210,7 @@ class SyncService(
         // incremental or partial run that closed what it did not see would erase the estate it failed
         // to read.
         if (!partial && mode == SyncMode.FULL && registered.descriptor.fullSyncIsComplete) {
-            totals += DeltaResult(tombstones = writer.reconcile(registered.descriptor, startedAt))
+            totals += DeltaResult(tombstones = writer.reconcile(registered.descriptor, startedAt, registered.tombstoneRules))
         }
 
         return RunOutcome(

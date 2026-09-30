@@ -1,0 +1,7 @@
+# A fixture migration for the acceptance suite (#33), not one the application ships.
+#
+# A ConfigurationItem written before ciName was its name carried the name as `name`. This moves it
+# where the registry says it belongs, leaving any node that already has a ciName alone.
+description: Move a ConfigurationItem's legacy name property into ciName
+operations:
+  - renameProperty: { type: ConfigurationItem, from: name, to: ciName }

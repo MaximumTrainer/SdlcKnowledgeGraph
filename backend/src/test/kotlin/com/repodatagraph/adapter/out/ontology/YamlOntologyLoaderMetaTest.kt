@@ -20,7 +20,7 @@ class YamlOntologyLoaderMetaTest {
                 .map { it.name }
                 .toSet()
 
-        assertEquals(setOf("Ontology", "SyncRun", "ConnectorState", "ServicePrincipal"), meta)
+        assertEquals(setOf("Ontology", "SyncRun", "ConnectorState", "ServicePrincipal", "NodeVersion", "OntologyMigration"), meta)
     }
 
     @Test

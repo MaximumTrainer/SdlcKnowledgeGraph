@@ -21,6 +21,7 @@ import java.time.ZonedDateTime
  * These are meta nodes - the graph describing itself - so their provenance names this application
  * rather than any source system.
  */
+@Suppress("TooManyFunctions") // Runs and connector state, and their reads; the archive's run (#33) is one more way in.
 @Component
 class SyncRunRecorder(
     private val graphStore: GraphStore,
@@ -35,18 +36,45 @@ class SyncRunRecorder(
         watermark: Instant?,
         error: String?,
         sourceId: String? = null,
+    ) = write(runId, registered.name, registered.descriptor.sourceSystem, mode, status, totals, watermark, error, sourceId)
+
+    /**
+     * A run of the application's own - the archive (#33) - recorded as a connector's is, so every bulk
+     * change to the graph is answered from one list. Its source is this application.
+     */
+    fun recordInternalRun(
+        runId: String,
+        name: String,
+        status: RunStatus,
+        totals: DeltaResult,
+        startedAt: Instant,
+        error: String?,
+    ) = write(runId, name, SELF, SyncMode.FULL, status, totals, null, error, null, startedAt)
+
+    @Suppress("LongParameterList")
+    private fun write(
+        runId: String,
+        connector: String,
+        sourceSystem: String,
+        mode: SyncMode,
+        status: RunStatus,
+        totals: DeltaResult,
+        watermark: Instant?,
+        error: String?,
+        sourceId: String?,
+        startedAtIfNew: Instant? = null,
     ) {
         val now = Instant.now(clock)
         // Kept from the first write, so a finished run still says when it began.
-        val startedAt = graphStore.findNode(NodeKey(SYNC_RUN, runId))?.props?.get("startedAt") ?: now
+        val startedAt = graphStore.findNode(NodeKey(SYNC_RUN, runId))?.props?.get("startedAt") ?: startedAtIfNew ?: now
         graphStore.upsertNode(
             GraphNode(
                 key = NodeKey(SYNC_RUN, runId),
                 props =
                     mapOf(
                         "id" to runId,
-                        "connector" to registered.name,
-                        "sourceSystem" to registered.descriptor.sourceSystem,
+                        "connector" to connector,
+                        "sourceSystem" to sourceSystem,
                         "mode" to mode.name,
                         "sourceId" to sourceId,
                         "status" to status.name,

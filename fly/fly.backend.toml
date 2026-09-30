@@ -26,6 +26,10 @@ swap_size_mb = 512
   # from cold and stays inside its memory.
   JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
   # NEO4J_PASSWORD is a secret, set by fly/bootstrap.sh from the dogfood environment.
+  # No LIFECYCLE_ARCHIVE_* here: the archive job (#33, docs/adr/0014-data-lifecycle.md) stays off, so
+  # the dogfood never archives or deletes a fact. Opting in means LIFECYCLE_ARCHIVE_ENABLED = "true"
+  # and, to write or delete anything, LIFECYCLE_ARCHIVE_MODE = "export" or "purge", with
+  # LIFECYCLE_ARCHIVE_DIRECTORY on a volume.
 
 [http_service]
   internal_port = 8080

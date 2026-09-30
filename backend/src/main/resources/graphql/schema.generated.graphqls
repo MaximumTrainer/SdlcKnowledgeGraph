@@ -618,6 +618,53 @@ type ConnectorStateNode implements GraphNode {
   provenance: Provenance!
 }
 
+"""The values NodeVersion.retiredReason may take."""
+enum NodeVersionRetiredReason {
+  """Stored as source-deleted."""
+  source_deleted
+  """Stored as source-retired."""
+  source_retired
+  """Stored as missing-from-sync."""
+  missing_from_sync
+  manual
+}
+
+"""The values a node held for an interval before they were replaced."""
+type NodeVersionNode implements GraphNode {
+  id: ID!
+  key: String!
+  """The id of the node these values belonged to"""
+  versionOf: String!
+  """When the node began to hold these values"""
+  since: String!
+  """When a write replaced them, or the node was retired"""
+  until: String!
+  """True when the values ended because the node was retired rather than changed"""
+  retired: Boolean
+  """Why the node was retired, where it was. One of NodeVersionRetiredReason."""
+  retiredReason: String
+  provenance: Provenance!
+}
+
+"""A versioned migration of the graph's data, and when it was applied."""
+type OntologyMigrationNode implements GraphNode {
+  id: ID!
+  key: String!
+  """The ontology version the migration brings the graph to"""
+  version: String!
+  """The migration's name, from its file name"""
+  name: String!
+  """SHA-256 of the file that was applied"""
+  checksum: String!
+  """When it was applied or recorded"""
+  appliedAt: String!
+  """How long it took to run, in milliseconds"""
+  durationMs: Int
+  """True when recorded without running, because the graph never needed it"""
+  baseline: Boolean
+  provenance: Provenance!
+}
+
 """A connector or agent registered as a principal of its own, owned by a team."""
 type ServicePrincipalNode implements GraphNode {
   id: ID!

@@ -6,6 +6,7 @@ import NodeDetail from './views/NodeDetail.vue'
 import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
 import SyncRunsView from './views/SyncRunsView.vue'
+import LifecycleView from './views/LifecycleView.vue'
 import NotFound from './views/NotFound.vue'
 import AuthCallback from './views/AuthCallback.vue'
 import { apiClient } from './services/api'
@@ -54,6 +55,8 @@ const router = createRouter({
     },
     { path: '/connectors', component: ConnectorsView },
     { path: '/sync-runs', component: SyncRunsView },
+    // The data lifecycle's administration (#33): migrations, the archive, each connector's rules.
+    { path: '/admin/lifecycle', component: LifecycleView },
     { path: CALLBACK_PATH, component: AuthCallback },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },

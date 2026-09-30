@@ -35,6 +35,12 @@ and every other request is refused with `403 {"error": "this instance is read-on
 exceptions are the ingest endpoints above, which the pipeline and the seed use, each behind the
 ingest token (D6). The API logs `auth.anonymous.readonly` on every start to say so.
 
+Nothing on it is archived or deleted by the data lifecycle either ([#33](../../issues/33)): the
+archive job is off unless `LIFECYCLE_ARCHIVE_ENABLED` is set, and `fly/fly.backend.toml` does not set
+it. The lifecycle's admin endpoints are writes, so the read-only posture refuses them; the Lifecycle
+page reads its status and offers no controls. Ontology migrations still run at startup, since they
+keep the graph readable by the build that was deployed ([ADR-0014](adr/0014-data-lifecycle.md)).
+
 ## Its data is re-derived, not backed up
 
 Every fact carries provenance and can be written again by re-running what wrote it. So the database

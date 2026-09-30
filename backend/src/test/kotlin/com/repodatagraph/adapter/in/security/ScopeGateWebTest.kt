@@ -155,6 +155,16 @@ class ScopeGateWebTest {
     }
 
     @Test
+    fun `archiving with a write token that is not an admin's is refused, naming graph admin`() {
+        mockMvc
+            .perform(post("/api/v1/lifecycle/archive").header("Authorization", userToken("scope" to "graph:read graph:write")))
+            .refusedFor(required = listOf("graph:admin", "graph:write"), held = listOf("graph:read", "graph:write"))
+        mockMvc
+            .perform(post("/api/v1/lifecycle/migrations/apply").header("Authorization", userToken("scope" to "graph:write")))
+            .refusedFor(required = listOf("graph:admin", "graph:write"), held = listOf("graph:write"))
+    }
+
+    @Test
     fun `PUT and DELETE need graph write too`() {
         val bearer = userToken("scope" to "graph:read")
 

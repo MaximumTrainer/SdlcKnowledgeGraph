@@ -1,5 +1,6 @@
 package com.repodatagraph.acceptance
 
+import com.repodatagraph.acceptance.support.FakeItsmConnectorConfig
 import com.repodatagraph.acceptance.support.GraphStoreFaults
 import com.repodatagraph.support.Neo4jTestcontainersConfig
 import com.repodatagraph.support.TestPrincipalConfig
@@ -33,6 +34,7 @@ import org.springframework.test.context.DynamicPropertySource
 @Import(
     Neo4jTestcontainersConfig::class,
     FakeConnectorConfig::class,
+    FakeItsmConnectorConfig::class,
     FakeGitHubConfig::class,
     FakeServiceNowConfig::class,
     GraphStoreFaults::class,

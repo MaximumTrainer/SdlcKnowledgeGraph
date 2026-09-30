@@ -7,7 +7,7 @@ Feature: Ontology registry
     Given the application is running
     When I GET "/api/v1/ontology"
     Then the response status is 200
-    And the ontology version is "1.3.0"
+    And the ontology version is "1.4.0"
     And the ontology declares the node types:
       | Repository        |
       | Team              |
@@ -29,6 +29,8 @@ Feature: Ontology registry
       | SyncRun           |
       | ConnectorState    |
       | ServicePrincipal  |
+      | NodeVersion       |
+      | OntologyMigration |
     And every edge type declares a non-empty inverse
 
   Scenario: An edge type states what it connects and how to traverse it backwards
@@ -39,7 +41,7 @@ Feature: Ontology registry
 
   Scenario: Types that describe the graph itself are marked, so a client can leave them out
     When I GET "/api/v1/ontology"
-    Then the meta node types are "Ontology, SyncRun, ConnectorState, ServicePrincipal"
+    Then the meta node types are "Ontology, SyncRun, ConnectorState, ServicePrincipal, NodeVersion, OntologyMigration"
     And every other node type is not meta
 
   Scenario: A known node type can be fetched on its own
@@ -63,4 +65,4 @@ Feature: Ontology registry
   Scenario: The graph records which ontology version built it
     Given the application is running
     When I count the Ontology nodes in the graph
-    Then there is exactly one Ontology node with version "1.3.0"
+    Then there is exactly one Ontology node with version "1.4.0"

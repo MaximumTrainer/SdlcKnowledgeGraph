@@ -54,6 +54,11 @@ services:
       # mode, which the API starts only with SDLC_READ_ONLY=true.
       AUTH_ISSUER_URI: ${AUTH_ISSUER_URI-http://localhost:8081/realms/sdlc}
       AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI-http://keycloak:8080/realms/sdlc/protocol/openid-connect/certs}
+      # The archive job (#33, docs/adr/0014-data-lifecycle.md) is off unless LIFECYCLE_ARCHIVE_ENABLED is
+      # true, and then only counts unless LIFECYCLE_ARCHIVE_MODE is export or purge. Nothing here sets
+      # either, so this stack never archives or deletes anything unless you opt in, for instance:
+      # LIFECYCLE_ARCHIVE_ENABLED: "true"
+      # LIFECYCLE_ARCHIVE_MODE: export
     ports:
       - "8080:8080"
     depends_on:
@@ -95,7 +100,7 @@ services:
   # Local OIDC provider (docs/adr/0005-auth-oidc-github-first.md, docs/AUTH.md), part of the default
   # stack since authentication is on by default (#118). Admin console: http://localhost:8081 (admin /
   # admin). It imports the development realm the acceptance suite signs in against: realm "sdlc", the
-  # public PKCE client "sdlc-ui" for the web interface, the users "dan" (both graph scopes), "reader"
+  # public PKCE client "sdlc-ui" for the web interface, the users "dan" (graph:read, graph:write and graph:admin), "reader"
   # (graph:read) and "visitor" (neither), each with their name as password, and the
   # client-credentials clients "github-connector" and "triage-agent". Development values only.
   keycloak:

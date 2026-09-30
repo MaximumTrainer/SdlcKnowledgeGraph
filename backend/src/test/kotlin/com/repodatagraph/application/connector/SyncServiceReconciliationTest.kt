@@ -1,5 +1,6 @@
 package com.repodatagraph.application.connector
 
+import com.repodatagraph.domain.lifecycle.TombstoneRules
 import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.ConnectorDescriptor
 import com.repodatagraph.domain.port.out.connector.GraphDelta
@@ -18,6 +19,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -37,6 +39,7 @@ class SyncServiceReconciliationTest {
     private fun service(
         pages: List<() -> GraphDelta>,
         fullSyncIsComplete: Boolean = true,
+        rules: TombstoneRules = TombstoneRules(),
     ): Pair<SyncService, ConnectorDescriptor> {
         val descriptor =
             ConnectorDescriptor(
@@ -51,7 +54,7 @@ class SyncServiceReconciliationTest {
         whenever(connector.descriptor()).thenReturn(descriptor)
         whenever(connector.sync(any())).thenAnswer { pages.asSequence().map { it() } }
         val registry: AdapterRegistry = mock()
-        whenever(registry.find("scripted")).thenReturn(RegisteredConnector(connector, enabled = true))
+        whenever(registry.find("scripted")).thenReturn(RegisteredConnector(connector, enabled = true, tombstoneRules = rules))
         whenever(writer.apply(any(), any(), any())).thenReturn(DeltaResult(nodesUpserted = 1))
         return SyncService(registry, writer, recorder, SyncMetrics(SimpleMeterRegistry(), clock), clock) to descriptor
     }
@@ -86,7 +89,7 @@ class SyncServiceReconciliationTest {
 
         service.execute("scripted", "run-1", SyncMode.FULL)
 
-        verify(writer, never()).reconcile(any(), any())
+        verify(writer, never()).reconcile(any(), any(), any())
     }
 
     @Test
@@ -95,7 +98,7 @@ class SyncServiceReconciliationTest {
 
         service.execute("scripted", "run-1", SyncMode.INCREMENTAL)
 
-        verify(writer, never()).reconcile(any(), any())
+        verify(writer, never()).reconcile(any(), any(), any())
     }
 
     @Test
@@ -104,6 +107,16 @@ class SyncServiceReconciliationTest {
 
         service.execute("scripted", "run-1", SyncMode.FULL)
 
-        verify(writer, never()).reconcile(any(), any())
+        verify(writer, never()).reconcile(any(), any(), any())
+    }
+
+    @Test
+    fun `a full run reconciles by the connector's own rules`() {
+        val rules = TombstoneRules(gracePeriod = Duration.ofDays(7))
+        val (service, descriptor) = service(onePage, rules = rules)
+
+        service.execute("scripted", "run-1", SyncMode.FULL)
+
+        verify(writer).reconcile(descriptor, runStarted, rules)
     }
 }
