@@ -76,6 +76,8 @@ class ScopePolicyTest {
     @Test
     fun `a query sent as a POST because its input is a body needs graph read, not graph write`() {
         assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("POST", "/api/v1/impact"))
+        // #96: a context pack's start node, template and budget are a body too.
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("POST", "/api/v1/context-pack"))
     }
 
     @ParameterizedTest
@@ -84,6 +86,9 @@ class ScopePolicyTest {
         "PUT, /api/v1/impact",
         "DELETE, /api/v1/impact",
         "POST, /api/v1/impact/extra",
+        "PUT, /api/v1/context-pack",
+        "DELETE, /api/v1/context-pack",
+        "POST, /api/v1/context-pack/extra",
     )
     fun `a read over POST covers only the method and the path it names`(
         method: String,

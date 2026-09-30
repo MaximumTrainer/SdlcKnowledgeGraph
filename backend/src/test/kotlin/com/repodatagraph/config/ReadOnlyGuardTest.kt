@@ -88,6 +88,13 @@ class ReadOnlyGuardTest {
     }
 
     @Test
+    fun `a context pack is answered too, because it only reads (#96)`() {
+        assert(guard().handle(MockHttpServletRequest("POST", "/api/v1/context-pack")).passed)
+        assertRefused(guard().handle(MockHttpServletRequest("PUT", "/api/v1/context-pack")))
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/context-pack/extra")))
+    }
+
+    @Test
     fun `a websocket upgrade is refused, because a GraphQL mutation can travel over one`() {
         val upgrade = MockHttpServletRequest("GET", "/graphql").apply { addHeader("Upgrade", "websocket") }
 
