@@ -90,7 +90,7 @@ Connectors replace hand-entered data, and code gets linked to infrastructure.
 | [#30](../../issues/30) | RBAC and policy-as-code with OPA | |
 | [#31](../../issues/31) | AI-agent query API and MCP server | |
 | [#32](../../issues/32) | Answer-quality evaluation harness | |
-| [#33](../../issues/33) | Data lifecycle: history, tombstones, archival, migrations | |
+| [#33](../../issues/33) | Data lifecycle: history, tombstones, archival, migrations | Done |
 | [#34](../../issues/34) | Observability and incident connector | |
 | [#35](../../issues/35) | Jira Service Management connector | |
 | [#36](../../issues/36) | Requirements connector | |

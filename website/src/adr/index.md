@@ -21,3 +21,4 @@ record, not an edit to the old one.
 | [0011](./0011-impact-scoring-versioned-and-deterministic) | Impact scoring is versioned and deterministic | Accepted |
 | [0012](./0012-external-work-items-are-references-not-copies) | External work items are references, not copies | Accepted |
 | [0013](./0013-provider-id-is-an-alias-not-the-key) | Provider id is an alias, not the key | Accepted |
+| [0014](./0014-data-lifecycle) | The data lifecycle: versions, retirement, archival and ontology migrations | Accepted |

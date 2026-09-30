@@ -92,7 +92,7 @@ Connectors replace hand-entered data, and code gets linked to infrastructure.
 | [#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30) | RBAC and policy-as-code with OPA | |
 | [#31](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/31) | AI-agent query API and MCP server | |
 | [#32](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/32) | Answer-quality evaluation harness | |
-| [#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33) | Data lifecycle: history, tombstones, archival, migrations | |
+| [#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33) | Data lifecycle: history, tombstones, archival, migrations | Done |
 | [#34](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/34) | Observability and incident connector | |
 | [#35](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/35) | Jira Service Management connector | |
 | [#36](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/36) | Requirements connector | |

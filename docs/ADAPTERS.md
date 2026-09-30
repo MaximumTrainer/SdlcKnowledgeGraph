@@ -517,6 +517,33 @@ It does not run:
 Selecting by "asserted before the run began", rather than by what the run itself wrote, also spares a
 node that a webhook asserted while the run was going.
 
+### Per-connector rules and grace periods
+
+What reconciliation retires can be tuned per connector
+([#33](../../issues/33), [ADR-0014](adr/0014-data-lifecycle.md)), under
+`connectors.settings.<name>.lifecycle`:
+
+```yaml
+connectors:
+  settings:
+    github:
+      lifecycle:
+        missing-from-full-sync: tombstone   # or ignore: retire nothing the run stops reporting
+        grace-period: P7D                   # spare what the source last stated within the last 7 days
+```
+
+`tombstone` with no grace (`PT0S`) is the default and is exactly the behaviour above. A grace period
+moves the line from "asserted before the run began" to "asserted before the run began, less the
+grace", so a fact a source drops for one run and reports again in the next is never closed; it is
+closed by the first successful full sync after the grace has passed. `ignore` leaves the connector's
+facts to its tombstones alone. A negative grace period stops startup. There is no setting that lets a
+`PARTIAL` or `FAILED` run retire anything: `requireSuccessfulRun` is always true.
+
+Everything a tombstone or reconciliation closes records why (`source-deleted` or
+`missing-from-sync`), and its current edges are closed with it
+([ONTOLOGY.md](ONTOLOGY.md#history-retirement-and-archival)). `GET /api/v1/lifecycle` lists each
+connector's rules, and the web interface's Lifecycle page shows them.
+
 ### What a run records
 
 `SyncRun` holds the connector, the mode (`FULL`, `INCREMENTAL`, `WEBHOOK`), the counts, the

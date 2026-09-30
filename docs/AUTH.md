@@ -22,7 +22,8 @@ Both present a bearer JWT from the instance's identity provider (`AUTH_ISSUER_UR
 same gate, and what either may do is decided by the [scopes](#scopes) on its token
 ([#116](../../issues/116)): `graph:read` to read the graph, `graph:write` to change it, and
 `graph:write:<source>` to state facts as a system of record rather than as oneself
-([#117](../../issues/117), [below](#source-scopes)). There is no anonymous writer: every write
+([#117](../../issues/117), [below](#source-scopes)), and `graph:admin` to run the data lifecycle's
+administrative jobs ([#33](../../issues/33)). There is no anonymous writer: every write
 through the API names the principal that made it.
 
 ## Getting a token
@@ -94,7 +95,7 @@ nginx the same issuer and its public client:
 | `OIDC_AUTHORITY` | The issuer, as the browser reaches it |
 | `OIDC_CLIENT_ID` | A public client with the authorization code flow and PKCE, whose redirect URI is `https://<web interface>/auth/callback` (default `sdlc-ui`) |
 
-Then, in that provider: issue the scopes `graph:read`, `graph:write` and `graph:write:<source>` in
+Then, in that provider: issue the scopes `graph:read`, `graph:write`, `graph:admin` and `graph:write:<source>` in
 the token's `scope` (or `scp`) claim ([Issuing them in Keycloak](#issuing-them-in-keycloak) shows one
 way), make sure the token has a `sub`, and give each connector or agent a confidential client with
 the client-credentials grant. If the provider marks its machine tokens differently from Keycloak and
@@ -142,6 +143,7 @@ AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --buil
 | A GraphQL mutation | `graph:write` |
 | A GraphQL document holding a query and a mutation | both |
 | A node or edge write whose `provenance.sourceSystem` is not `manual` | `graph:write` and `graph:write:<source>` ([Source scopes](#source-scopes)) |
+| `POST` under `/api/v1/lifecycle`: applying ontology migrations, running the archive ([#33](../../issues/33)) | `graph:write` and `graph:admin` |
 | `GET /api/v1/ontology`, `GET /api/v1/ontology/nodes/{type}` | nothing: public, with or without a token |
 | The ingest endpoints, the webhook receivers | nothing: they have a credential of their own |
 
@@ -254,7 +256,8 @@ lower-case words joined by hyphens, because it ends a scope. Which scope each co
 ### In the web interface
 
 The web interface reads the scopes from the signed-in user's access token and offers only what they
-allow: a user holding `graph:read` alone sees no New, Edit, Delete, relationship or Sync controls.
+allow: a user holding `graph:read` alone sees no New, Edit, Delete, relationship or Sync controls,
+and one without `graph:admin` sees the Lifecycle page without its Apply and Rehearse controls.
 If a refusal gets through anyway (the token changed, or a page was reached by its address), the page
 shows what the request needed and what the user holds in its usual error line. Without a login (the
 [anonymous read-only mode](#without-an-identity-provider-the-anonymous-read-only-mode)) nothing that
@@ -262,16 +265,17 @@ changes the graph is offered, since the API would refuse it.
 
 ### Issuing them in Keycloak
 
-`graph:read` and `graph:write` are client scopes with *Include in token scope* on. Each has a role
-scope mapping, to the realm roles `graph-reader` and `graph-writer`, and Keycloak only puts a scope
-with role mappings into a token when the user (or the client's service account) holds one of those
-roles. So the same client, `sdlc-ui`, issues `dan` both scopes and `reader` only `graph:read`:
+`graph:read`, `graph:write` and `graph:admin` are client scopes with *Include in token scope* on.
+Each has a role scope mapping, to the realm roles `graph-reader`, `graph-writer` and `graph-admin`,
+and Keycloak only puts a scope with role mappings into a token when the user (or the client's service
+account) holds one of those roles. So the same client, `sdlc-ui`, issues `dan` all three scopes and
+`reader` only `graph:read`:
 
-| Client | `graph:read` | `graph:write` | Source scopes |
-| --- | --- | --- | --- |
-| `sdlc-ui` | default | default | none |
-| `github-connector` | default | default | `graph:write:github`, `graph:write:github-actions`, default |
-| `triage-agent` | default | optional: only when the token request asks for `scope=graph:write` | none |
+| Client | `graph:read` | `graph:write` | `graph:admin` | Source scopes |
+| --- | --- | --- | --- | --- |
+| `sdlc-ui` | default | default | default (issued only to a holder of `graph-admin`) | none |
+| `github-connector` | default | default | none | `graph:write:github`, `graph:write:github-actions`, default |
+| `triage-agent` | default | optional: only when the token request asks for `scope=graph:write` | none | none |
 
 A default scope is in every token the client is issued; an optional one only when asked for, which
 is how the same agent gets a read-only token for a task that only reads:
