@@ -192,6 +192,30 @@ describe('NodeDetail', () => {
     expect(wrapper.find('[data-test="provenance-on-behalf-of-team"]').exists()).toBe(false)
   })
 
+  /** A fact its source has not stated again within the source's window is marked stale (#93, FR-6). */
+  it('marks a stale node stale, in words', async () => {
+    server.use(
+      http.get('/api/v1/nodes/Team/platform', () =>
+        HttpResponse.json({ ...team, provenance: { ...team.provenance, stale: true } })
+      )
+    )
+    const wrapper = await mountDetail('Team', 'platform')
+
+    expect(wrapper.find('[data-test="provenance-stale"]').text()).toMatch(/stale/i)
+  })
+
+  it('does not mark a fresh node stale', async () => {
+    server.use(
+      http.get('/api/v1/nodes/Team/platform', () =>
+        HttpResponse.json({ ...team, provenance: { ...team.provenance, stale: false } })
+      )
+    )
+    const wrapper = await mountDetail('Team', 'platform')
+
+    expect(wrapper.find('[data-test="provenance"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="provenance-stale"]').exists()).toBe(false)
+  })
+
   it('says so when a fact predates recording who wrote it', async () => {
     const wrapper = await mountDetail('Repository', 'github.com/acme/payments')
 
