@@ -54,7 +54,7 @@ class RepositoryControllerTest {
     @Test
     fun `POST repositories registers through the node use case and returns 201`() {
         val request = CreateRepositoryRequest(url = "acme/payments")
-        whenever(nodeUseCase.create(eq("Repository"), any())).thenReturn(
+        whenever(nodeUseCase.create(eq("Repository"), any(), any())).thenReturn(
             GraphNode(
                 key = NodeKey("Repository", "github.com/acme/payments"),
                 props = mapOf("url" to "https://github.com/acme/payments", "host" to "github.com", "org" to "acme", "name" to "payments"),
@@ -88,7 +88,7 @@ class RepositoryControllerTest {
      */
     @Test
     fun `POST repositories hands the remote to the use case as written`() {
-        whenever(nodeUseCase.create(eq("Repository"), any())).thenReturn(
+        whenever(nodeUseCase.create(eq("Repository"), any(), any())).thenReturn(
             GraphNode(
                 key = NodeKey("Repository", "github.com/acme/payments"),
                 props = emptyMap(),
@@ -104,7 +104,7 @@ class RepositoryControllerTest {
             ).andExpect(status().isCreated)
 
         val props = argumentCaptor<Map<String, Any?>>()
-        verify(nodeUseCase).create(eq("Repository"), props.capture())
+        verify(nodeUseCase).create(eq("Repository"), props.capture(), eq("manual"))
         assertThat(props.firstValue["url"]).isEqualTo("Acme/Payments")
     }
 

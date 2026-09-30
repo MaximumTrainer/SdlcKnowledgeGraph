@@ -146,7 +146,7 @@ class ScopeGateWebTest {
         createTeam(userToken("scope" to "openid profile graph:read"))
             .refusedFor(required = listOf("graph:write"), held = listOf("graph:read"))
 
-        verify(nodeUseCase, never()).create(any(), any())
+        verify(nodeUseCase, never()).create(any(), any(), any())
     }
 
     @Test
