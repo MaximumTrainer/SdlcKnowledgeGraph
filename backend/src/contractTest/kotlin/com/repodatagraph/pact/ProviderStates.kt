@@ -333,6 +333,46 @@ class ProviderStates(
         )
     }
 
+    /** acme/payments, holding the GitHub id 123456 as its provider id alias (#88). */
+    fun paymentsHasGitHubId() {
+        emptyGraph()
+        graphStore.upsertNode(githubRepository(REPOSITORY_KEY_OWNED))
+    }
+
+    /**
+     * The same repository after GitHub renamed it and moved it to another organisation (#88): one
+     * node, under its new key, remembering the old one. Seeded as the rename leaves it rather than
+     * by renaming, so the state does not depend on the behaviour an interaction is checking.
+     */
+    fun paymentsWasRenamed() {
+        emptyGraph()
+        graphStore.upsertNode(githubRepository(RENAMED_KEY))
+        neo4jClient
+            .query("MATCH (n:Repository { key: \$key }) SET n.prov_previousKeys = [\$previous]")
+            .bindAll(mapOf("key" to RENAMED_KEY, "previous" to REPOSITORY_KEY_OWNED))
+            .run()
+    }
+
+    private fun githubRepository(key: String): GraphNode {
+        val (host, org, name) = key.split('/')
+        return GraphNode(
+            key = NodeKey("Repository", key),
+            props =
+                mapOf(
+                    "url" to "https://$key",
+                    "host" to host,
+                    "org" to org,
+                    "name" to name,
+                    "defaultBranch" to "main",
+                    "topics" to emptyList<String>(),
+                    "codeowners" to emptyList<String>(),
+                    "provider" to "github",
+                    "providerId" to GITHUB_ID,
+                ),
+            provenance = Provenance.manual(),
+        )
+    }
+
     private fun emptyGraph() {
         neo4jClient.query("MATCH (n) DETACH DELETE n").run()
     }
@@ -351,6 +391,9 @@ class ProviderStates(
         const val WORK_ITEM_IS_LIVE = "work item chorus://task/01JABC is live in production"
         const val DEPLOYMENT_WITHOUT_LINEAGE = "a deployment whose artifact contains no changes"
         const val NO_WORK_ITEMS_EXIST = "no work items exist"
+        const val PAYMENTS_HAS_GITHUB_ID = "repository github.com/acme/payments has GitHub id 123456"
+        const val PAYMENTS_WAS_RENAMED =
+            "repository with GitHub id 123456 was renamed from acme/payments to acme-platform/payments-service"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -363,6 +406,8 @@ class ProviderStates(
         private const val CHANGE_SHA = "a1b2c3"
         private const val WORK_ITEM_URI = "chorus://task/01JABC"
         private const val PRODUCTION = "production"
+        private const val GITHUB_ID = "123456"
+        private const val RENAMED_KEY = "github.com/acme-platform/payments-service"
 
         /** One more than the graph view's cap, counting the hub itself. */
         private const val HUB_DEPENDENCIES = 500
@@ -383,6 +428,8 @@ class ProviderStates(
                 WORK_ITEM_IS_LIVE,
                 DEPLOYMENT_WITHOUT_LINEAGE,
                 NO_WORK_ITEMS_EXIST,
+                PAYMENTS_HAS_GITHUB_ID,
+                PAYMENTS_WAS_RENAMED,
             )
     }
 }

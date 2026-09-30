@@ -76,6 +76,15 @@ class ScopePolicyCoverageTest {
     }
 
     @Test
+    fun `the repository lookup by provider id is mapped, and is a read (#88)`() {
+        assertTrue(Route("GET", "/api/v1/repositories/by-provider/{provider}/{providerId}") in routes, "routes found: $routes")
+        assertEquals(
+            RouteRequirement.Scopes(setOf(GraphScope.READ)),
+            ScopePolicy.requirementFor("GET", "/api/v1/repositories/by-provider/github/123456"),
+        )
+    }
+
+    @Test
     fun `the change lineage queries are mapped, and are reads (#85)`() {
         listOf("/api/v1/work-items/deployments", "/api/v1/deployments/work-items").forEach { path ->
             assertTrue(Route("GET", path) in routes, "routes found: $routes")

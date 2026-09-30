@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
+import com.repodatagraph.domain.exception.InvalidQueryParameterException
 import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
@@ -191,7 +192,117 @@ class RepositoryControllerTest {
             .andExpect(jsonPath("$.error").value("invalid git remote"))
     }
 
-    private fun storedRepository() =
+    /**
+     * A repository addressed by the id its provider gives it (#88): the one identifier that survives a
+     * rename or a transfer, and the one a GitHub App holds. Found through the alias, rendered with the
+     * legacy `orgRepo` beside the current fields, since `orgRepo` is emitted though no longer accepted.
+     */
+    @Test
+    fun `GET by-provider returns the repository holding that provider id (#88)`() {
+        whenever(repositoryUseCase.findByProviderId("github", "123456")).thenReturn(storedRepository(withProviderId = true))
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-provider/github/123456"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value("Repository:github.com/acme/payments"))
+            .andExpect(jsonPath("$.key").value("github.com/acme/payments"))
+            .andExpect(jsonPath("$.provider").value("github"))
+            .andExpect(jsonPath("$.providerId").value("123456"))
+            .andExpect(jsonPath("$.orgRepo").value("acme/payments"))
+    }
+
+    @Test
+    fun `GET by-provider returns 404 when no repository holds that provider id (#88)`() {
+        whenever(repositoryUseCase.findByProviderId(any(), any())).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-provider/github/999"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `GET by-provider refuses a provider the ontology does not declare, naming it (#88)`() {
+        whenever(repositoryUseCase.findByProviderId(eq("bitbucket"), any()))
+            .thenThrow(InvalidQueryParameterException("provider", "provider must be one of github, gitlab, other"))
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-provider/bitbucket/1"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.field").value("provider"))
+    }
+
+    /**
+     * After a rename the node lives under its new key, and a caller still holding the old remote must
+     * land on it rather than on nothing (#88, FR3): the old key is one of its previous keys.
+     */
+    @Test
+    fun `GET by-key falls back to a key the repository had before a rename (#88)`() {
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(null)
+        whenever(repositoryUseCase.findByPreviousKey("github.com/acme/payments")).thenReturn(renamedRepository())
+
+        mockMvc
+            .perform(get("/api/v1/repositories/by-key").param("key", "acme/payments"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.key").value("github.com/acme-platform/payments-service"))
+            .andExpect(jsonPath("$.previousKeys[0]").value("github.com/acme/payments"))
+    }
+
+    @Test
+    fun `GET repositories with a url answers the one repository it resolves to, old or new (#88)`() {
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme/payments"))).thenReturn(null)
+        whenever(repositoryUseCase.findByPreviousKey("github.com/acme/payments")).thenReturn(renamedRepository())
+        whenever(nodeUseCase.get(eq("Repository"), eq("github.com/acme-platform/payments-service"))).thenReturn(renamedRepository())
+
+        listOf("https://github.com/acme/payments", "https://github.com/acme-platform/payments-service").forEach { url ->
+            mockMvc
+                .perform(get("/api/v1/repositories").param("url", url))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value("Repository:github.com/acme-platform/payments-service"))
+        }
+        verify(repositoryUseCase, never()).listRepositories()
+    }
+
+    @Test
+    fun `GET repositories with a url nothing resolves to answers an empty list (#88)`() {
+        whenever(nodeUseCase.get(eq("Repository"), any())).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/repositories").param("url", "https://github.com/acme/nothing"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(0))
+    }
+
+    @Test
+    fun `GET repositories with a url that is not a remote is 400 (#88)`() {
+        mockMvc
+            .perform(get("/api/v1/repositories").param("url", "https://example.com/page"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("invalid git remote"))
+    }
+
+    private fun renamedRepository() =
+        GraphNode(
+            key = NodeKey("Repository", "github.com/acme-platform/payments-service"),
+            props =
+                mapOf(
+                    "url" to "https://github.com/acme-platform/payments-service",
+                    "host" to "github.com",
+                    "org" to "acme-platform",
+                    "name" to "payments-service",
+                    "provider" to "github",
+                    "providerId" to "123456",
+                ),
+            provenance =
+                Provenance(
+                    sourceSystem = "manual",
+                    ingestedAt = Instant.EPOCH,
+                    validFrom = Instant.EPOCH,
+                    previousKeys = listOf("github.com/acme/payments"),
+                ),
+        )
+
+    private fun storedRepository(withProviderId: Boolean = false) =
         GraphNode(
             key = NodeKey("Repository", "github.com/acme/payments"),
             props =
@@ -203,7 +314,7 @@ class RepositoryControllerTest {
                     "defaultBranch" to "main",
                     "topics" to emptyList<String>(),
                     "codeowners" to emptyList<String>(),
-                ),
+                ) + if (withProviderId) mapOf("provider" to "github", "providerId" to "123456") else emptyMap(),
             provenance = Provenance(sourceSystem = "manual", ingestedAt = Instant.EPOCH, validFrom = Instant.EPOCH),
         )
 }

@@ -171,6 +171,69 @@ class NodeControllerTest {
             .andExpect(jsonPath("$.existingId").value("Team:platform"))
     }
 
+    /**
+     * A provider id is an alias beside the key (#88): a second node may not take one another holds,
+     * and the refusal names the node that holds it and the alias that collided, so a caller can tell
+     * this collision from a key collision and open the node that already exists.
+     */
+    @Test
+    fun `a provider id another node holds returns 409 with that node's id and the alias (#88)`() {
+        whenever(nodeUseCase.create(eq("Repository"), any(), any())).thenThrow(
+            NodeExistsException("Repository:github.com/acme/payments", mapOf("provider" to "github", "providerId" to "123456")),
+        )
+
+        mockMvc
+            .perform(
+                body(
+                    post("/api/v1/nodes/Repository"),
+                    mapOf("props" to mapOf("url" to "https://github.com/other/thing", "providerId" to "123456")),
+                ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.error").value("node exists"))
+            .andExpect(jsonPath("$.existingId").value("Repository:github.com/acme/payments"))
+            .andExpect(jsonPath("$.alias.provider").value("github"))
+            .andExpect(jsonPath("$.alias.providerId").value("123456"))
+    }
+
+    @Test
+    fun `a key collision says nothing about an alias (#88)`() {
+        whenever(nodeUseCase.create(eq("Team"), any(), any())).thenThrow(NodeExistsException("Team:platform"))
+
+        mockMvc
+            .perform(body(post("/api/v1/nodes/Team"), mapOf("props" to mapOf("name" to "platform"))))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.alias").doesNotExist())
+    }
+
+    /**
+     * A PUT carrying the provider id the node already holds, with a different url, renames it in
+     * place (#88, FR2): the answer is the node under its new key, with the old one recorded.
+     */
+    @Test
+    fun `a PUT that renames through the provider id answers the node under its new key (#88)`() {
+        val renamed =
+            GraphNode(
+                key = NodeKey("Repository", "github.com/acme-platform/payments-service"),
+                props = mapOf("url" to "https://github.com/acme-platform/payments-service", "providerId" to "123456"),
+                provenance =
+                    Provenance
+                        .manual(Instant.parse("2026-01-01T00:00:00Z"))
+                        .copy(previousKeys = listOf("github.com/acme/payments")),
+            )
+        whenever(nodeUseCase.update(eq("Repository"), eq("github.com/acme/payments"), any(), any())).thenReturn(renamed)
+
+        mockMvc
+            .perform(
+                body(
+                    put("/api/v1/nodes/Repository/github.com/acme/payments"),
+                    mapOf("props" to mapOf("url" to "https://github.com/acme-platform/payments-service", "providerId" to "123456")),
+                ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value("Repository:github.com/acme-platform/payments-service"))
+            .andExpect(jsonPath("$.key").value("github.com/acme-platform/payments-service"))
+            .andExpect(jsonPath("$.provenance.previousKeys[0]").value("github.com/acme/payments"))
+    }
+
     @Test
     fun `PUT returns 200 and the updated node`() {
         whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any())).thenReturn(platform)
