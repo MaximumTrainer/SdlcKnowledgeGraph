@@ -57,6 +57,12 @@ data class NodeTypeDef(
      * repository's `name` rather than its whole key. Null labels it with its key.
      */
     val displayProperty: String? = null,
+    /**
+     * Properties that together find a node beside its key (#88), such as a Repository's provider and
+     * provider id: unique where every one of them is present, and consulted before the key, but not
+     * part of it. Empty for a type with no alias.
+     */
+    val alias: List<String> = emptyList(),
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 

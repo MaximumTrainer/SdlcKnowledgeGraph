@@ -4,6 +4,21 @@
   },
   "interactions": [
     {
+      "description": "a request for a GitHub id no repository holds",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repositories/by-provider/github/999"
+      },
+      "response": {
+        "status": 404
+      }
+    },
+    {
       "description": "a request for a sync run that does not exist",
       "providerStates": [
         {
@@ -1572,6 +1587,77 @@
       }
     },
     {
+      "description": "a request for the repository at its old url",
+      "providerStates": [
+        {
+          "name": "repository with GitHub id 123456 was renamed from acme/payments to acme-platform/payments-service"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repositories",
+        "query": {
+          "url": [
+            "https://github.com/acme/payments"
+          ]
+        }
+      },
+      "response": {
+        "body": [
+          {
+            "id": "Repository:github.com/acme-platform/payments-service",
+            "key": "github.com/acme-platform/payments-service",
+            "previousKeys": [
+              "github.com/acme/payments"
+            ],
+            "providerId": "123456"
+          }
+        ],
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the repository with GitHub id 123456",
+      "providerStates": [
+        {
+          "name": "repository github.com/acme/payments has GitHub id 123456"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repositories/by-provider/github/123456"
+      },
+      "response": {
+        "body": {
+          "id": "Repository:github.com/acme/payments",
+          "key": "github.com/acme/payments",
+          "orgRepo": "acme/payments",
+          "provider": "github",
+          "providerId": "123456",
+          "url": "https://github.com/acme/payments"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the work items of a deployment with no change lineage",
       "providerStates": [
         {
@@ -2076,6 +2162,44 @@
       }
     },
     {
+      "description": "a request to create another repository with GitHub id 123456",
+      "providerStates": [
+        {
+          "name": "repository github.com/acme/payments has GitHub id 123456"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "codeowners": [],
+            "defaultBranch": "main",
+            "providerId": "123456",
+            "topics": [],
+            "url": "https://github.com/other/thing"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/nodes/Repository"
+      },
+      "response": {
+        "body": {
+          "alias": {
+            "provider": "github",
+            "providerId": "123456"
+          },
+          "error": "node exists",
+          "existingId": "Repository:github.com/acme/payments"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 409
+      }
+    },
+    {
       "description": "a request to delete a Team that still has edges",
       "providerStates": [
         {
@@ -2127,6 +2251,70 @@
       },
       "response": {
         "status": 204
+      }
+    },
+    {
+      "description": "a request to move the repository with GitHub id 123456 to a new url",
+      "providerStates": [
+        {
+          "name": "repository github.com/acme/payments has GitHub id 123456"
+        }
+      ],
+      "request": {
+        "body": {
+          "props": {
+            "codeowners": [],
+            "defaultBranch": "main",
+            "provider": "github",
+            "providerId": "123456",
+            "topics": [],
+            "url": "https://github.com/acme-platform/payments-service"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "PUT",
+        "path": "/api/v1/nodes/Repository/github.com/acme/payments"
+      },
+      "response": {
+        "body": {
+          "id": "Repository:github.com/acme-platform/payments-service",
+          "key": "github.com/acme-platform/payments-service",
+          "props": {
+            "providerId": "123456"
+          },
+          "provenance": {
+            "previousKeys": [
+              "github.com/acme/payments"
+            ]
+          },
+          "type": "Repository"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
       }
     },
     {

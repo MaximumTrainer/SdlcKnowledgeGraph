@@ -415,11 +415,24 @@ every response from it carries `Deprecation: true` and a `Link` header pointing 
 
 | Request | Successor |
 | --- | --- |
-| `POST /api/v1/repositories` with `{orgRepo, defaultBranch, topics, codeowners, …}` | `POST /api/v1/nodes/Repository` |
+| `POST /api/v1/repositories` with `{url, defaultBranch, topics, codeowners, …}` | `POST /api/v1/nodes/Repository` |
 | `GET /api/v1/repositories`, `GET`/`DELETE /api/v1/repositories/{id}` | the same under `/api/v1/nodes/Repository` |
 | `POST /api/v1/repositories/{repoId}/{teams,cloud-resources,pipelines,servicenow,dependencies}/{id}` | `POST /api/v1/edges` |
 
-New clients should not use them.
+New clients should not use them for writing. Three lookups on the same route answer questions the
+node API does not, and read with `graph:read`
+([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)):
+
+| Request | Answers |
+| --- | --- |
+| `GET /api/v1/repositories/by-provider/{provider}/{providerId}` | The repository holding that provider id, such as `github/123456`; `404` when none does, and `400` naming `provider` when it is not `github`, `gitlab` or `other` |
+| `GET /api/v1/repositories?url={remote}` | A list holding the repository that remote, in any written form, resolves to, or an empty list |
+| `GET /api/v1/repositories/by-key?key={host/org/name}` | The repository with that key, or `404` |
+
+The last two also find a repository under a remote it had before a rename. Each response carries
+`provider`, `providerId`, `previousKeys` and the derived `orgRepo`.
+[ADR-0013](/adr/0013-provider-id-is-an-alias-not-the-key) explains why the provider id sits beside
+the key rather than replacing it.
 
 ## GraphQL
 

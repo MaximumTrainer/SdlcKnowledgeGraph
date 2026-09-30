@@ -88,7 +88,9 @@ class Neo4jChangeLineageQueries(
 
     /**
      * A sha the caller gave may abbreviate a stored one, or a stored one may abbreviate it; a stored
-     * sha shorter than four characters abbreviates too much to name anything.
+     * sha shorter than four characters abbreviates too much to name anything. A Change keeps the
+     * repository key it was written with, so the repository's keys from before a rename count too
+     * (#88).
      */
     override fun changesMatching(
         repository: NodeKey,
@@ -97,8 +99,10 @@ class Neo4jChangeLineageQueries(
         neo4jClient
             .query(
                 """
-                MATCH (c:${label(CHANGE)} { repositoryKey: ${'$'}repository })
-                WHERE c.prov_validTo IS NULL
+                OPTIONAL MATCH (r:${label(REPOSITORY)} { key: ${'$'}repository })
+                WITH [${'$'}repository] + coalesce(r.${ProvenanceMapper.PREVIOUS_KEYS}, []) AS keys
+                MATCH (c:${label(CHANGE)})
+                WHERE c.repositoryKey IN keys AND c.prov_validTo IS NULL
                   AND (c.sha STARTS WITH ${'$'}sha OR (${'$'}sha STARTS WITH c.sha AND size(c.sha) >= $MIN_SHA))
                 RETURN c.key AS key ORDER BY key
                 """.trimIndent(),
@@ -137,6 +141,7 @@ class Neo4jChangeLineageQueries(
         const val ARTIFACT = "Artifact"
         const val DEPLOYMENT = "Deployment"
         const val CHANGE = "Change"
+        const val REPOSITORY = "Repository"
         const val WORK_ITEM = "ExternalWorkItem"
         const val MIN_SHA = 4
     }

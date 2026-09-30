@@ -53,6 +53,16 @@ export interface ImpactAnalysis {
  */
 export type NewRepository = Omit<Repository, 'id' | 'host' | 'org' | 'name'>
 
+/**
+ * A repository as the repository endpoints render it (#88): its key, the keys it had before a rename,
+ * and `orgRepo`, still emitted for callers that read it though no longer accepted.
+ */
+export type RepositoryRecord = Repository & {
+  key: string
+  orgRepo: string
+  previousKeys: string[]
+}
+
 export const repositoryApi = {
   list: (): Promise<Repository[]> => client.get('/repositories').then(r => r.data),
   get: (id: string): Promise<Repository> => client.get(`/repositories/${id}`).then(r => r.data),
@@ -64,6 +74,22 @@ export const repositoryApi = {
    */
   byKey: (key: string): Promise<Repository> =>
     client.get('/repositories/by-key', { params: { key } }).then(r => r.data),
+  /**
+   * Finds a repository by the id its provider gives it, such as GitHub's repository id, which
+   * survives a rename or a transfer where the remote does not (#88).
+   */
+  byProvider: (provider: string, providerId: string): Promise<RepositoryRecord> =>
+    client
+      .get(
+        `/repositories/by-provider/${encodeURIComponent(provider)}/${encodeURIComponent(providerId)}`
+      )
+      .then(r => r.data),
+  /**
+   * The repository a remote resolves to, as a list of at most one: the remote may be one the
+   * repository had before a rename (#88).
+   */
+  byUrl: (url: string): Promise<RepositoryRecord[]> =>
+    client.get('/repositories', { params: { url } }).then(r => r.data),
   create: (repo: NewRepository): Promise<Repository> =>
     client.post('/repositories', repo).then(r => r.data),
   delete: (id: string): Promise<void> => client.delete(`/repositories/${id}`).then(() => undefined),
@@ -436,6 +462,8 @@ export interface OntologyNodeType {
   meta: boolean
   /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
   displayProperty?: string | null
+  /** Properties that together find a node beside its key, unique where all are present (#88). */
+  alias?: string[]
 }
 
 export interface OntologyEdgeType {

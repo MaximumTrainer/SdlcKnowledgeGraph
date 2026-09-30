@@ -30,7 +30,11 @@ type Mutation {
 
 type Repository {
     id: ID!
+    url: String!
+    "org/name, derived from url and emitted for compatibility; not accepted on input (#88)."
     orgRepo: String!
+    provider: String
+    providerId: String
     defaultBranch: String!
     topics: [String!]!
     codeowners: [String!]!
@@ -103,8 +107,10 @@ type ImpactAnalysis {
     deployments: [Deployment!]!
 }
 
+"orgRepo is derived from url and no longer accepted (#88); it is still emitted on Repository."
 input RepositoryInput {
-    orgRepo: String!
+    "The git remote, in any written form."
+    url: String!
     defaultBranch: String
     topics: [String!]
     codeowners: [String!]
@@ -187,8 +193,12 @@ type WhyFailed {
 # Impact analysis of a change (#87), ranked for an agent's context pack.
 
 input ChangeImpactInput {
-    "Key of the Repository that is about to change, e.g. github.com/acme/payments."
-    repositoryKey: String!
+    "Key of the Repository that is about to change, e.g. github.com/acme/payments. This or providerId is required."
+    repositoryKey: String
+    "The provider's id for the repository, consulted before repositoryKey; it survives a rename (#88)."
+    providerId: String
+    "Who assigns providerId: github (the default), gitlab or other."
+    provider: String
     "Paths the change touches, read against the repository's manifest and IaC index where it has one."
     paths: [String!]
     "The commit of the change, 4 to 64 hex characters. Keeps only deployments whose Artifact CONTAINS a matching Change (#85)."

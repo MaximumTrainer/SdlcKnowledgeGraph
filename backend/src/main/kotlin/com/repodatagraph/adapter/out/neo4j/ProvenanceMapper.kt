@@ -28,6 +28,13 @@ object ProvenanceMapper {
     private const val PRINCIPAL_TYPE = "${PREFIX}principalType"
     private const val ON_BEHALF_OF_TEAM = "${PREFIX}onBehalfOfTeam"
 
+    /** Written only by a rename, and so left out of [toProperties]: a later write must not erase it (#88). */
+    const val PREVIOUS_KEYS = "${PREFIX}previousKeys"
+
+    /**
+     * Every field but [Provenance.previousKeys], which is history a rename writes and no later write
+     * restates (#88): [Neo4jGraphStore.renameNode] stores it on its own.
+     */
     fun toProperties(provenance: Provenance): Map<String, Any?> =
         mapOf(
             SOURCE_SYSTEM to provenance.sourceSystem,
@@ -66,6 +73,7 @@ object ProvenanceMapper {
             writtenBy = properties[WRITTEN_BY]?.toString(),
             principalType = properties[PRINCIPAL_TYPE]?.toString(),
             onBehalfOfTeam = properties[ON_BEHALF_OF_TEAM]?.toString(),
+            previousKeys = (properties[PREVIOUS_KEYS] as? Collection<*>)?.map { it.toString() }.orEmpty(),
         )
 
     fun isProvenanceProperty(name: String): Boolean = name.startsWith(PREFIX)

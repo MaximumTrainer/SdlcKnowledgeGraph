@@ -76,6 +76,16 @@ class OntologyRegistry(
         nodeType.displayProperty
             ?.takeIf { nodeType.property(it) == null }
             ?.let { problems += "displays '$it', which it does not declare" }
+        // An alias finds a node written before it was known too, so it cannot be required, and it
+        // stands beside the key rather than inside it (#88).
+        nodeType.alias.forEach { name ->
+            val property = nodeType.property(name)
+            when {
+                property == null -> problems += "alias references '$name', which it does not declare"
+                name in nodeType.identity -> problems += "alias property '$name' is part of its identity"
+                property.required -> problems += "alias property '$name' is required"
+            }
+        }
 
         reject("node type '${nodeType.name}'", problems)
     }

@@ -14,9 +14,15 @@ data class ChangeImpactQuery(
     val sha: String? = null,
     val depth: Int = DEFAULT_DEPTH,
     val limit: Int = DEFAULT_LIMIT,
+    /** Who assigns [providerId]; github when not named (#88). */
+    val provider: String? = null,
+    /** The provider's id for the repository, consulted before [repositoryKey] (#88, FR5). */
+    val providerId: String? = null,
 ) {
     init {
-        if (repositoryKey.isBlank()) throw InvalidQueryParameterException("repositoryKey", "repositoryKey is required")
+        if (repositoryKey.isBlank() && providerId.isNullOrBlank()) {
+            throw InvalidQueryParameterException("repositoryKey", "repositoryKey or providerId is required")
+        }
         if (depth !in MIN_DEPTH..MAX_DEPTH) {
             throw InvalidQueryParameterException("depth", "depth must be between $MIN_DEPTH and $MAX_DEPTH, was $depth")
         }
@@ -34,8 +40,16 @@ data class ChangeImpactQuery(
         }
     }
 
-    /** The repository asked about, as the node key a Repository is stored under. */
-    val repository: NodeKey get() = NodeKey(REPOSITORY, repositoryKey.trim())
+    /** The repository asked about by key, as the node key a Repository is stored under; null when asked by provider id only. */
+    val repository: NodeKey? get() = repositoryKey.trim().takeIf { it.isNotEmpty() }?.let { NodeKey(REPOSITORY, it) }
+
+    /** The repository's alias when a provider id was given (#88): the provider in lower case, github by default. */
+    val alias: Map<String, String>?
+        get() {
+            val id = providerId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val by = provider?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: DEFAULT_PROVIDER
+            return mapOf("provider" to by, "providerId" to id)
+        }
 
     companion object {
         const val DEFAULT_DEPTH = 2
@@ -47,6 +61,7 @@ data class ChangeImpactQuery(
         const val MAX_PATHS = 100
         const val MAX_PATH_LENGTH = 1024
         private const val REPOSITORY = "Repository"
+        private const val DEFAULT_PROVIDER = "github"
         private val SHA = Regex("[0-9a-fA-F]{4,64}")
 
         /** Reads a query from a request body as given, each absent field taking its default. */
@@ -56,6 +71,8 @@ data class ChangeImpactQuery(
             sha: String?,
             depth: Int?,
             limit: Int?,
+            provider: String? = null,
+            providerId: String? = null,
         ): ChangeImpactQuery {
             if (paths != null && paths.any { it == null }) throw InvalidQueryParameterException("paths", "paths must not hold null")
             return ChangeImpactQuery(
@@ -64,6 +81,8 @@ data class ChangeImpactQuery(
                 sha = sha,
                 depth = depth ?: DEFAULT_DEPTH,
                 limit = limit ?: DEFAULT_LIMIT,
+                provider = provider,
+                providerId = providerId,
             )
         }
     }

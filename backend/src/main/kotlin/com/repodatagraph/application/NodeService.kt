@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service
  * different thing — so an update that would move the key is refused rather than quietly performed.
  */
 @Service
+@Suppress("TooManyFunctions") // One per node operation, plus the rename a provider id allows (#88).
 class NodeService(
     private val registry: OntologyRegistry,
     private val identityResolver: IdentityResolver,
@@ -54,6 +55,11 @@ class NodeService(
         validate(nodeType, expanded)
 
         val key = identityResolver.keyFor(type, expanded)
+        // The alias first (#88): a repository already known by its provider id is the same repository,
+        // whatever remote it is created under now.
+        identityResolver.aliasFor(nodeType, expanded)?.let { alias ->
+            graphStore.findNodeByAlias(type, alias)?.let { throw NodeExistsException(it.id, alias) }
+        }
         graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
 
         return graphStore.upsertNode(GraphNode(key, expanded, provenance)).also {
@@ -99,19 +105,47 @@ class NodeService(
     ): GraphNode {
         val nodeType = writable(type)
         val provenance = statedProvenance.forWrite(sourceSystem)
-        val existingKey = nodeKey(type, key)
-        val existing = graphStore.findNode(existingKey) ?: throw NodeNotFoundException(listOf(existingKey))
-
+        val addressed = nodeKey(type, key)
         val expanded = derivedProperties.expand(type, props)
         validate(nodeType, expanded)
 
-        val derived = identityResolver.keyFor(type, expanded)
-        if (derived != existingKey) {
-            throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existingKey))
+        // The alias is consulted before the key (#88), so a writer holding a repository's provider id
+        // and its new remote finds the node that has the id, wherever the path pointed.
+        val alias = identityResolver.aliasFor(nodeType, expanded)
+        val holder = alias?.let { graphStore.findNodeByAlias(type, it) }
+        val existing = graphStore.findNode(addressed) ?: holder ?: throw NodeNotFoundException(listOf(addressed))
+        if (holder != null && holder.key != existing.key) throw NodeExistsException(holder.id, alias)
+
+        val stored = identityResolver.aliasFor(nodeType, existing.props)
+        if (alias != null && stored != null && alias != stored) {
+            throw ImmutableIdentityException(alias.keys.filter { alias[it] != stored[it] })
         }
 
-        return graphStore.upsertNode(GraphNode(existingKey, expanded, provenance)).also {
-            metrics.node(type, WriteOutcome.UPDATED)
+        val derived = identityResolver.keyFor(type, expanded)
+        if (derived == existing.key) {
+            return graphStore.upsertNode(GraphNode(existing.key, expanded, provenance)).also {
+                metrics.node(type, WriteOutcome.UPDATED)
+            }
+        }
+        // A changed key renames the node only when the write carries the alias the node already
+        // holds: that is the provider saying it is the same repository. Claiming an alias and moving
+        // in one write would let any writer take any node, so without it the change is refused.
+        if (alias == null || alias != stored) {
+            throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existing.key))
+        }
+        return rename(existing, GraphNode(derived, expanded, provenance.afterRename(existing.provenance, existing.key.key, derived.key)))
+    }
+
+    /** Moves [existing] to [renamed]'s key, unless another node holds that key already (#88). */
+    private fun rename(
+        existing: GraphNode,
+        renamed: GraphNode,
+    ): GraphNode {
+        // Two nodes for one repository is a merge, which is the review queue's to propose (#74).
+        graphStore.findNode(renamed.key)?.let { throw NodeExistsException(it.id) }
+        return graphStore.renameNode(existing.key, renamed).also {
+            LogEvents.nodeRenamed(renamed.type, existing.key.key, renamed.key.key)
+            metrics.node(renamed.type, WriteOutcome.UPDATED)
         }
     }
 

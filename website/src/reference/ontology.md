@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.1.0**. It is generated, so a type added to the registry appears here without
+**v1.2.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -29,6 +29,8 @@ Identity: `host, org, name`
 | `description` | `string` | no |  |
 | `visibility` | `string` | no | public, private or internal, as the forge reports it |
 | `packageNames` | `string[]` | no | Package names this repository publishes |
+| `provider` | `string` | no | Who assigns providerId. Derived from url on github.com and gitlab.com |
+| `providerId` | `string` | no | The provider's stable id for the repository, such as GitHub's numeric repository id |
 
 ### Team
 

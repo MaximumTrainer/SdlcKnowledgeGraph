@@ -38,6 +38,18 @@ class InstrumentedGraphStore(
 
     override fun findNode(key: NodeKey) = observe("findNode") { delegate.findNode(key) }
 
+    override fun findNodeByAlias(
+        type: String,
+        alias: Map<String, Any?>,
+    ) = observe("findNodeByAlias") { delegate.findNodeByAlias(type, alias) }
+
+    override fun findNodeByPreviousKey(key: NodeKey) = observe("findNodeByPreviousKey") { delegate.findNodeByPreviousKey(key) }
+
+    override fun renameNode(
+        from: NodeKey,
+        node: GraphNode,
+    ) = observe("renameNode") { delegate.renameNode(from, node) }
+
     override fun findNodes(
         type: String,
         filter: Map<String, Any?>,

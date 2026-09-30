@@ -91,6 +91,59 @@ class Neo4jGraphStore(
             .orElse(null)
     }
 
+    override fun findNodeByAlias(
+        type: String,
+        alias: Map<String, Any?>,
+    ): GraphNode? {
+        val declared = cypher.declaredProperties(type, alias)
+        require(declared.isNotEmpty() && declared.size == alias.size) { "an alias names declared properties of $type: ${alias.keys}" }
+        return findNodes(type, declared, limit = 1).firstOrNull()
+    }
+
+    override fun findNodeByPreviousKey(key: NodeKey): GraphNode? {
+        val label = cypher.nodeLabel(key.type)
+        return neo4jClient
+            .query(
+                """
+                MATCH (n:$label) WHERE ${'$'}key IN n.${ProvenanceMapper.PREVIOUS_KEYS}
+                RETURN n { .* } AS n ORDER BY n.key LIMIT 1
+                """.trimIndent(),
+            ).bindAll(mapOf("key" to key.key))
+            .fetch()
+            .one()
+            .map { GraphRowMapper.toNode(key.type, it["n"]) }
+            .orElse(null)
+    }
+
+    /**
+     * One statement, so the node is never visible under neither key nor under both. The key's
+     * uniqueness constraint refuses a move onto a key another node holds, whatever raced to take it.
+     */
+    override fun renameNode(
+        from: NodeKey,
+        node: GraphNode,
+    ): GraphNode {
+        require(from.type == node.type) { "a rename keeps the node's type: ${from.type} is not ${node.type}" }
+        val label = cypher.nodeLabel(node.type)
+        val properties =
+            storable(cypher.declaredProperties(node.type, node.props)) +
+                ProvenanceMapper.toProperties(node.provenance) +
+                (ProvenanceMapper.PREVIOUS_KEYS to node.provenance.previousKeys)
+
+        return neo4jClient
+            .query(
+                """
+                MATCH (n:$label { key: ${'$'}from })
+                SET n += ${'$'}props, n.key = ${'$'}key, n.id = ${'$'}id
+                RETURN n { .* } AS n
+                """.trimIndent(),
+            ).bindAll(mapOf("from" to from.key, "key" to node.key.key, "id" to node.id, "props" to properties))
+            .fetch()
+            .one()
+            .map { GraphRowMapper.toNode(node.type, it["n"]) }
+            .orElseThrow { NodeNotFoundException(listOf(from)) }
+    }
+
     override fun findNodes(
         type: String,
         filter: Map<String, Any?>,

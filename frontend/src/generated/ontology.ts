@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.1.0'
+export const ONTOLOGY_VERSION = '1.2.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -16,6 +16,7 @@ export interface Provenance {
   writtenBy: string | null
   principalType: string | null
   onBehalfOfTeam: string | null
+  previousKeys: string[] | null
 }
 
 /** A git repository, the anchor for most of the graph. */
@@ -33,6 +34,8 @@ export interface Repository {
   description?: string
   visibility?: string
   packageNames?: string[]
+  provider?: string
+  providerId?: string
 }
 
 /** A group that owns repositories, services or infrastructure. */

@@ -19,3 +19,6 @@ provenance:
     - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write, or a service principal's name" }
     - { name: principalType, type: string, required: false, description: "The kind of that principal", enum: [user, service] }
     - { name: onBehalfOfTeam, type: string, required: false, description: "The key of the Team a service principal acted for; absent for a user" }
+    # The keys a node was known by before a rename through its alias (#88), oldest first. Carried
+    # across later writes rather than restated by them, and always empty on an edge.
+    - { name: previousKeys, type: "string[]", required: false, description: "Keys this node had before it was renamed, oldest first" }

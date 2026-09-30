@@ -6,10 +6,12 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.out.FactLifecycle
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.connector.ConnectorDescriptor
 import com.repodatagraph.domain.port.out.connector.GraphDelta
+import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Instant
@@ -45,6 +47,7 @@ class GraphDeltaWriter(
     private val identityResolver: IdentityResolver,
     private val derivedProperties: DerivedProperties,
     private val clock: Clock,
+    private val registry: OntologyRegistry,
 ) {
     fun apply(
         delta: GraphDelta,
@@ -57,7 +60,7 @@ class GraphDeltaWriter(
             delta.nodes.map { upsert ->
                 val props = derivedProperties.expand(upsert.type, upsert.props)
                 val key = identityResolver.keyFor(upsert.type, props)
-                graphStore.upsertNode(
+                write(
                     GraphNode(
                         key = key,
                         props = props,
@@ -103,6 +106,30 @@ class GraphDeltaWriter(
         val closed = delta.tombstones.count { close(it, now) }
 
         return DeltaResult(nodes.size, delta.edges.size, closed)
+    }
+
+    /**
+     * Writes a node where its alias says it already is (#88). A repository reported under a new remote
+     * with the provider id a node holds is that node renamed, so the node moves and keeps its edges.
+     *
+     * When another node already holds the new remote there are two nodes for one repository, which is
+     * a merge for the review queue to propose (#74) rather than something a sync decides: the reported
+     * node is written without the alias, so the constraint holds and the run does not fail, and the
+     * node holding the alias keeps it.
+     */
+    private fun write(node: GraphNode) {
+        val nodeType = registry.nodeType(node.type)
+        val alias = nodeType?.let { identityResolver.aliasFor(it, node.props) }
+        val holder = alias?.let { graphStore.findNodeByAlias(node.type, it) }
+        when {
+            holder == null || holder.key == node.key -> graphStore.upsertNode(node)
+            graphStore.findNode(node.key) != null -> graphStore.upsertNode(node.copy(props = node.props - alias.keys))
+            else -> {
+                val provenance = node.provenance.afterRename(holder.provenance, holder.key.key, node.key.key)
+                graphStore.renameNode(holder.key, node.copy(provenance = provenance))
+                LogEvents.nodeRenamed(node.type, holder.key.key, node.key.key)
+            }
+        }
     }
 
     /**

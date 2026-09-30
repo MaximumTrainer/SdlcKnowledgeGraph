@@ -15,6 +15,7 @@ type Provenance {
   writtenBy: String
   principalType: String
   onBehalfOfTeam: String
+  previousKeys: [String!]
 }
 
 """Anything addressable in the graph."""
@@ -40,6 +41,8 @@ type RepositoryNode implements GraphNode {
   description: String
   visibility: String
   packageNames: [String!]
+  provider: String
+  providerId: String
   provenance: Provenance!
 }
 

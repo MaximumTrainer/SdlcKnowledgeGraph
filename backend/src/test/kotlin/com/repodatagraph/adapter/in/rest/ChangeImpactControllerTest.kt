@@ -178,6 +178,33 @@ class ChangeImpactControllerTest {
             .andExpect(jsonPath("$.changeScope").value("applied"))
     }
 
+    /**
+     * An agent holding a GitHub App installation knows the repository by its id, not its remote
+     * (#88, FR5), so either one names the repository asked about.
+     */
+    @Test
+    fun `a provider id in place of a repository key becomes the query (#88)`() {
+        whenever(useCase.changeImpact(any())).thenReturn(result)
+
+        impact("""{"providerId":"123456"}""").andExpect(status().isOk)
+        impact("""{"provider":"gitlab","providerId":"77","depth":1}""").andExpect(status().isOk)
+
+        val queries = argumentCaptor<ChangeImpactQuery>()
+        verify(useCase, org.mockito.kotlin.times(2)).changeImpact(queries.capture())
+        assertEquals(ChangeImpactQuery(repositoryKey = "", providerId = "123456"), queries.firstValue)
+        assertEquals(ChangeImpactQuery(repositoryKey = "", depth = 1, provider = "gitlab", providerId = "77"), queries.secondValue)
+    }
+
+    @Test
+    fun `neither a repository key nor a provider id is 400 naming the repository key (#88)`() {
+        impact("""{"provider":"github"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.field").value("repositoryKey"))
+            .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("providerId")))
+
+        verify(useCase, never()).changeImpact(any())
+    }
+
     @Test
     fun `a missing repositoryKey is 400 naming it`() {
         impact("""{"depth":2}""")

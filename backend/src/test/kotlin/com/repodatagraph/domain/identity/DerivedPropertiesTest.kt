@@ -52,4 +52,45 @@ class DerivedPropertiesTest {
 
         assertEquals(props, derived.expand("ExternalWorkItem", props))
     }
+
+    /**
+     * A provider id means something only with its provider (#88). On the two hosts that are one
+     * provider each the provider is the host's, so a caller holding only GitHub's id need not say
+     * GitHub; anywhere else it has to be said.
+     */
+    @Test
+    fun `a provider id on github or gitlab takes its provider from the host (#88)`() {
+        val github = derived.expand("Repository", mapOf("url" to "acme/payments", "providerId" to "123456"))
+        val gitlab = derived.expand("Repository", mapOf("url" to "https://gitlab.com/acme/payments", "providerId" to "77"))
+        val elsewhere = derived.expand("Repository", mapOf("url" to "https://git.acme.test/acme/payments", "providerId" to "9"))
+
+        assertEquals("github", github["provider"])
+        assertEquals("gitlab", gitlab["provider"])
+        assertEquals(null, elsewhere["provider"])
+    }
+
+    @Test
+    fun `a provider the caller names is kept, in lower case, over the host's (#88)`() {
+        val props = derived.expand("Repository", mapOf("url" to "acme/payments", "provider" to " Other ", "providerId" to "5"))
+
+        assertEquals("other", props["provider"])
+    }
+
+    @Test
+    fun `a provider id sent as a number is stored as the string it is, trimmed (#88)`() {
+        assertEquals("123456", derived.expand("Repository", mapOf("url" to "acme/payments", "providerId" to 123456))["providerId"])
+        assertEquals("123456", derived.expand("Repository", mapOf("url" to "acme/payments", "providerId" to " 123456 "))["providerId"])
+    }
+
+    @Test
+    fun `no provider is invented for a repository without a provider id (#88)`() {
+        assertEquals(false, derived.expand("Repository", mapOf("url" to "acme/payments")).containsKey("provider"))
+    }
+
+    /** `orgRepo` is derived now (#88, FR4), so it is named as such rather than as an unknown property. */
+    @Test
+    fun `orgRepo is derived from url and is not accepted from a caller (#88)`() {
+        assertEquals(mapOf("orgRepo" to "url"), DerivedProperties.derivedOnly("Repository"))
+        assertEquals(emptyMap<String, String>(), DerivedProperties.derivedOnly("Team"))
+    }
 }

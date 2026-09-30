@@ -16,6 +16,7 @@ import com.repodatagraph.domain.model.NodeKey
  * the system instead of things each query has to remember, and it is why adding a node type no
  * longer means adding a class and a set of queries.
  */
+@Suppress("TooManyFunctions") // One per graph operation; each adapter implements them all.
 interface GraphStore {
     /**
      * Creates or updates a node, addressed by its derived key. Re-stating a known fact is therefore
@@ -36,6 +37,35 @@ interface GraphStore {
     fun upsertEdge(edge: GraphEdge): GraphEdge
 
     fun findNode(key: NodeKey): GraphNode?
+
+    /**
+     * The node of [type] whose alias properties hold exactly [alias] (#88), such as a Repository's
+     * provider and provider id, or null. A constraint keeps an alias unique, so there is at most one.
+     */
+    fun findNodeByAlias(
+        type: String,
+        alias: Map<String, Any?>,
+    ): GraphNode?
+
+    /**
+     * The node of [key]'s type that was known by [key] before a rename (#88), or null. Several nodes
+     * may once have had one key; the one of them that left it last is not tracked, so the first in
+     * key order answers.
+     */
+    fun findNodeByPreviousKey(key: NodeKey): GraphNode?
+
+    /**
+     * Moves the node at [from] to [node]'s key, with [node]'s properties and provenance, keeping its
+     * relationships: the one write in which a node's key changes (#88). [node]'s provenance carries the
+     * keys it had, which this stores as they are; any other write leaves them where they are.
+     *
+     * @return the node as stored
+     * @throws com.repodatagraph.domain.exception.NodeNotFoundException if nothing is at [from]
+     */
+    fun renameNode(
+        from: NodeKey,
+        node: GraphNode,
+    ): GraphNode
 
     /**
      * Nodes of a type, always in key order.

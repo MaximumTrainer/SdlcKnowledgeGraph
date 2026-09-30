@@ -163,4 +163,32 @@ class Neo4jChangeLineageQueriesIT {
         assertThat(queries.deploymentsCarrying(listOf(fix), traversals.lineage())).containsExactlyInAnyOrder(production, staging)
         assertThat(queries.deploymentsCarrying(emptyList(), traversals.lineage())).isEmpty()
     }
+
+    /**
+     * A Change keeps the repository key it was written with, so after the repository is renamed its
+     * earlier Changes name a key it no longer has (#88). They are still its Changes: the key is one of
+     * the renamed node's previous keys.
+     */
+    @Test
+    fun `a sha names the changes a repository had under a key it has since been renamed from (#88)`() {
+        val renamedKey = NodeKey("Repository", "github.com/acme-platform/$run")
+        graphStore.upsertNode(
+            GraphNode(
+                NodeKey("Repository", repositoryKey),
+                mapOf(
+                    "url" to "https://$repositoryKey",
+                    "defaultBranch" to "main",
+                    "topics" to emptyList<String>(),
+                    "codeowners" to emptyList<String>(),
+                ),
+                provenance(),
+            ),
+        )
+        graphStore.renameNode(
+            NodeKey("Repository", repositoryKey),
+            GraphNode(renamedKey, mapOf("url" to "https://${renamedKey.key}"), provenance().copy(previousKeys = listOf(repositoryKey))),
+        )
+
+        assertThat(queries.changesMatching(renamedKey, "a1b2c3")).containsExactly(fix)
+    }
 }

@@ -245,6 +245,8 @@ class Neo4jRepositoryAdapter(
             serviceId = strOrNull("serviceId"),
             language = strOrNull("language"),
             description = strOrNull("description"),
+            provider = strOrNull("provider"),
+            providerId = strOrNull("providerId"),
         )
 
     private fun Map<String, Any?>.stringList(name: String): List<String> =

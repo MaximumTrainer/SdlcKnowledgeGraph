@@ -47,9 +47,10 @@ thing interactively at `/swagger-ui.html`.
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity | 200 |
 | `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200 |
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |
-| `GET` | `/api/v1/repositories` | List all registered repositories | 200 |
+| `GET` | `/api/v1/repositories` | List all registered repositories, or find the one a git remote resolves to, before or after a rename | 200 |
 | `POST` | `/api/v1/repositories` | Register a repository in the graph | 200 |
 | `GET` | `/api/v1/repositories/by-key` | Find a repository by its canonical key, in any remote notation | 200 |
+| `GET` | `/api/v1/repositories/by-provider/{provider}/{providerId}` | Find a repository by the id its provider gives it, such as GitHub's repository id | 200 |
 | `DELETE` | `/api/v1/repositories/{id}` | Delete a repository from the graph | 200 |
 | `GET` | `/api/v1/repositories/{id}` | Get a repository by ID | 200 |
 | `POST` | `/api/v1/repositories/{repoId}/cloud-resources/{resourceId}` | Link repository to a cloud resource | 200 |

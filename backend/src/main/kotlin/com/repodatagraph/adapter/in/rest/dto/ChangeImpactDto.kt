@@ -8,13 +8,25 @@ import com.repodatagraph.domain.model.Provenance
 import io.swagger.v3.oas.annotations.media.Schema
 import java.util.SortedMap
 
-/** `POST /api/v1/impact` (#87). Every field optional but `repositoryKey`; absent ones take their defaults. */
+/**
+ * `POST /api/v1/impact` (#87). Every field optional but the repository, named by `repositoryKey` or
+ * `providerId` (#88); absent ones take their defaults.
+ */
 data class ChangeImpactRequest(
     @field:Schema(
-        description = "Key of the Repository that is about to change, e.g. github.com/acme/payments",
+        description = "Key of the Repository that is about to change, e.g. github.com/acme/payments. This or providerId is required",
         example = "github.com/acme/payments",
     )
     val repositoryKey: String? = null,
+    @field:Schema(
+        description =
+            "The provider's id for the repository, such as GitHub's repository id. " +
+                "Consulted before repositoryKey, and survives a rename (#88)",
+        example = "123456",
+    )
+    val providerId: String? = null,
+    @field:Schema(description = "Who assigns providerId: github, gitlab or other", defaultValue = "github")
+    val provider: String? = null,
     @field:Schema(description = "Paths in the repository the change touches; read against its manifest and IaC index where it has one")
     val paths: List<String?>? = null,
     @field:Schema(

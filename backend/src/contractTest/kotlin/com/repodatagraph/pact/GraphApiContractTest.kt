@@ -102,4 +102,10 @@ class GraphApiContractTest {
 
     @State(ProviderStates.NO_WORK_ITEMS_EXIST)
     fun noWorkItemsExist() = states.noWorkItemsExist()
+
+    @State(ProviderStates.PAYMENTS_HAS_GITHUB_ID)
+    fun paymentsHasGitHubId() = states.paymentsHasGitHubId()
+
+    @State(ProviderStates.PAYMENTS_WAS_RENAMED)
+    fun paymentsWasRenamed() = states.paymentsWasRenamed()
 }

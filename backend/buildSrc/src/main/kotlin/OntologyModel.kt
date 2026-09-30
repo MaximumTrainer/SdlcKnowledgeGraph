@@ -27,6 +27,8 @@ data class GenNodeType(
     val meta: Boolean = false,
     /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
     val displayProperty: String? = null,
+    /** Properties that together find a node beside its key, unique where all are present (#88). */
+    val alias: List<String> = emptyList(),
 )
 
 data class GenEdgeType(
@@ -85,6 +87,7 @@ object OntologyReader {
                         properties = definition.readProperties(),
                         meta = definition.path("meta").asBoolean(false),
                         displayProperty = definition.text("displayProperty"),
+                        alias = definition.path("alias").map { it.asText() },
                     )
                 }.toList()
 

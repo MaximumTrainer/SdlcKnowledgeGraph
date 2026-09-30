@@ -109,7 +109,8 @@ object OntologyCodegen {
                 appendProperties(nodeType.properties, indent = "        ")
                 appendLine("      ],")
                 appendLine("""      "meta": ${nodeType.meta},""")
-                appendLine("""      "displayProperty": ${jsonString(nodeType.displayProperty)}""")
+                appendLine("""      "displayProperty": ${jsonString(nodeType.displayProperty)},""")
+                appendLine("""      "alias": [${nodeType.alias.joinToString { "\"$it\"" }}]""")
                 appendLine("    }${if (index == ontology.nodeTypes.lastIndex) "" else ","}")
             }
             appendLine("  ],")

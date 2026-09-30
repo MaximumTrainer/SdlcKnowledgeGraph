@@ -7,7 +7,7 @@ Feature: Metrics a Prometheus server can scrape
 
   Scenario: The scrape says what the instance is running
     When I scrape the metrics
-    Then the metric "sdlc_build_info" has the value 1 with label "ontology_version" set to "1.1.0"
+    Then the metric "sdlc_build_info" has the value 1 with label "ontology_version" set to "1.2.0"
 
   Scenario: Request latency is recorded in buckets that include the latency objective
     Given I GET "/api/v1/ontology"

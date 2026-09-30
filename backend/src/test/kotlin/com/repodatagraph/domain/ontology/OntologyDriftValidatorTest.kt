@@ -18,6 +18,15 @@ class OntologyDriftValidatorTest {
         val email: String?,
     )
 
+    /** A class with a property computed from the stored ones, as Repository.orgRepo is (#88). */
+    private data class SampleRepository(
+        val id: String,
+        val org: String,
+        val name: String,
+    ) {
+        val orgRepo: String get() = "$org/$name"
+    }
+
     private fun registryWith(properties: List<PropertyDef>) =
         OntologyRegistry(
             version = "1.0.0",
@@ -142,5 +151,29 @@ class OntologyDriftValidatorTest {
             OntologyDriftValidator(registry).validate(mapOf("SampleTeam" to SampleTeam::class))
         }
         assertEquals(1, registry.allNodeTypes().size)
+    }
+
+    /**
+     * A computed property is derived from what the node stores, so the registry has nothing to
+     * declare for it: `orgRepo` is emitted for compatibility and refused on input (#88, FR4).
+     */
+    @Test
+    fun `a property the class computes rather than stores is not expected in the registry (#88)`() {
+        val registry =
+            OntologyRegistry(
+                version = "1.0.0",
+                nodeTypes =
+                    listOf(
+                        NodeTypeDef(
+                            name = "SampleRepository",
+                            description = null,
+                            identity = listOf("org", "name"),
+                            properties = listOf(PropertyDef("org", PropertyType.STRING), PropertyDef("name", PropertyType.STRING)),
+                        ),
+                    ),
+                edgeTypes = emptyList(),
+            )
+
+        assertDoesNotThrow { OntologyDriftValidator(registry).validate(mapOf("SampleRepository" to SampleRepository::class)) }
     }
 }

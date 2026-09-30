@@ -21,6 +21,9 @@ import java.time.Instant
  *   or a service principal's registered name (#115); null for a fact a scheduled connector run wrote
  * @param principalType the kind of that principal, as its wire name ("user" or "service")
  * @param onBehalfOfTeam the key of the Team a service principal acted for (#115); null for a user
+ * @param previousKeys the keys a node had before it was renamed through its alias (#88), oldest
+ *   first. History rather than a statement of the latest write, so a store carries it across writes;
+ *   always empty on an edge
  */
 data class Provenance(
     val sourceSystem: String,
@@ -35,6 +38,7 @@ data class Provenance(
     val writtenBy: String? = null,
     val principalType: String? = null,
     val onBehalfOfTeam: String? = null,
+    val previousKeys: List<String> = emptyList(),
 ) {
     init {
         require(sourceSystem.isNotBlank()) { "provenance requires a sourceSystem" }
@@ -44,6 +48,16 @@ data class Provenance(
 
     /** True while this fact has not been superseded. */
     val current: Boolean get() = validTo == null
+
+    /**
+     * This write's provenance for a node it moves from key [from] to key [to] (#88): the keys the node
+     * had under [previous], then [from], each once, and without [to], which is its key again.
+     */
+    fun afterRename(
+        previous: Provenance,
+        from: String,
+        to: String,
+    ): Provenance = copy(previousKeys = (previous.previousKeys + from).filter { it != to }.distinct())
 
     companion object {
         const val FULL_CONFIDENCE = 1.0

@@ -54,6 +54,13 @@ data class GraphDelta(
 Every upsert carries its `Provenance`, so the graph always knows which connector asserted a fact,
 when, and how confident it was. See [Ontology](/guide/ontology).
 
+A Repository upsert that carries `provider` and `providerId` lands on the node already holding that
+id, even under a new remote ([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)). A renamed or transferred repository is moved
+to its new key with its edges, its old key recorded in `previousKeys`, and a `node.renamed` event
+logged. When another node already holds the new remote, the upsert is written to that node without
+the id, so the sync does not fail; merging the two is left to a person.
+[ADR-0013](/adr/0013-provider-id-is-an-alias-not-the-key) has the reasoning.
+
 ## Two specialisations
 
 Service-management tools differ in their APIs but not in their concepts, so they share a shape.

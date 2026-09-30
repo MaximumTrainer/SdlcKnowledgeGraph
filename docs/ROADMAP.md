@@ -59,7 +59,7 @@ is enough to answer both target questions end to end.
 | [#19](../../issues/19) | Registry-driven GraphStore; write BUILT_FROM; 404 on missing link targets | Done |
 | [#20](../../issues/20) | Generate GraphQL SDL and TypeScript types from the registry | Done |
 | [#4](../../issues/4) | Ontology-driven CRUD for all core node types | Done |
-| [#8](../../issues/8) | Link Repository nodes to a real git remote | Partial: any remote form derives the key; the legacy `orgRepo` is still required |
+| [#8](../../issues/8) | Link Repository nodes to a real git remote | Done: any remote form derives the key, `orgRepo` is derived rather than accepted, and a provider id keeps the node through a rename ([#88](../../issues/88)) |
 | [#5](../../issues/5) | Registry-validated typed relationships via `/api/v1/edges` | Done |
 | [#21](../../issues/21) | Impact analysis and blast-radius queries | Done: registry-driven impact, why-failed and owners over REST and GraphQL, in plain Cypher rather than APOC; no visual overlay yet (#9) |
 | [#9](../../issues/9) | Interactive graph visualiser | |

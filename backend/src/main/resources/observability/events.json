@@ -18,6 +18,23 @@
       "type" : "string[]"
     } ]
   }, {
+    "name" : "node.renamed",
+    "level" : "INFO",
+    "message" : "node renamed",
+    "description" : "A node moved to a new key through its alias, such as a repository renamed on its provider (#88). Names the keys it left and took.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "type",
+      "type" : "string"
+    }, {
+      "name" : "from",
+      "type" : "string"
+    }, {
+      "name" : "to",
+      "type" : "string"
+    } ]
+  }, {
     "name" : "node.rejected",
     "level" : "INFO",
     "message" : "node rejected",

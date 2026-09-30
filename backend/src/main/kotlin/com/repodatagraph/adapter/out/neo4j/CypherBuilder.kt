@@ -65,6 +65,19 @@ class CypherBuilder(
         return props.filterKeys { it in declared && !ProvenanceMapper.isProvenanceProperty(it) }
     }
 
+    /**
+     * Returns [property] if [type] declares it, otherwise refuses: a property name reaches a schema
+     * statement, which takes no parameters, only from here.
+     */
+    fun propertyName(
+        type: String,
+        property: String,
+    ): String {
+        val nodeType = registry.nodeType(type) ?: throw UnknownNodeTypeException(type)
+        require(nodeType.property(property) != null) { "node type '$type' declares no property '$property'" }
+        return safe(property)
+    }
+
     fun declaredEdgeProperties(
         type: String,
         props: Map<String, Any?>,

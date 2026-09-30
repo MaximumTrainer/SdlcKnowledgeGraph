@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "nodeTypes": [
     {
       "name": "Repository",
@@ -17,10 +17,13 @@
         { "name": "language", "type": "string", "required": false, "description": null },
         { "name": "description", "type": "string", "required": false, "description": null },
         { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] },
-        { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" }
+        { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" },
+        { "name": "provider", "type": "string", "required": false, "description": "Who assigns providerId. Derived from url on github.com and gitlab.com", "enum": ["github", "gitlab", "other"] },
+        { "name": "providerId", "type": "string", "required": false, "description": "The provider's stable id for the repository, such as GitHub's numeric repository id" }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": ["provider", "providerId"]
     },
     {
       "name": "Team",
@@ -31,7 +34,8 @@
         { "name": "email", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "Service",
@@ -43,7 +47,8 @@
         { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, e.g. gold" }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "Pipeline",
@@ -58,7 +63,8 @@
         { "name": "lastRunStatus", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "Artifact",
@@ -74,7 +80,8 @@
         { "name": "artifactType", "type": "string", "required": true, "description": null }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "Deployment",
@@ -90,7 +97,8 @@
         { "name": "status", "type": "string", "required": true, "description": null }
       ],
       "meta": false,
-      "displayProperty": "deployedAt"
+      "displayProperty": "deployedAt",
+      "alias": []
     },
     {
       "name": "Environment",
@@ -102,7 +110,8 @@
         { "name": "tier", "type": "string", "required": false, "description": "Criticality, for ranking impact; read as other where absent", "enum": ["production", "pre_production", "development", "other"] }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "CloudResource",
@@ -118,7 +127,8 @@
         { "name": "repoId", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "ConfigurationItem",
@@ -139,7 +149,8 @@
         { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one" }
       ],
       "meta": false,
-      "displayProperty": "ciName"
+      "displayProperty": "ciName",
+      "alias": []
     },
     {
       "name": "ChangeRequest",
@@ -161,7 +172,8 @@
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "number"
+      "displayProperty": "number",
+      "alias": []
     },
     {
       "name": "Incident",
@@ -182,7 +194,8 @@
         { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "number"
+      "displayProperty": "number",
+      "alias": []
     },
     {
       "name": "Library",
@@ -194,7 +207,8 @@
         { "name": "description", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     },
     {
       "name": "IacFile",
@@ -207,7 +221,8 @@
         { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on" }
       ],
       "meta": false,
-      "displayProperty": "path"
+      "displayProperty": "path",
+      "alias": []
     },
     {
       "name": "Change",
@@ -223,7 +238,8 @@
         { "name": "url", "type": "string", "required": false, "description": "Where the change can be read, e.g. the commit or compare page" }
       ],
       "meta": false,
-      "displayProperty": "sha"
+      "displayProperty": "sha",
+      "alias": []
     },
     {
       "name": "PullRequest",
@@ -239,7 +255,8 @@
         { "name": "branch", "type": "string", "required": false, "description": "The head branch, e.g. chorus/CH-42-retry-webhook" }
       ],
       "meta": false,
-      "displayProperty": "number"
+      "displayProperty": "number",
+      "alias": []
     },
     {
       "name": "ExternalWorkItem",
@@ -252,7 +269,8 @@
         { "name": "title", "type": "string", "required": false, "description": null }
       ],
       "meta": false,
-      "displayProperty": "externalKey"
+      "displayProperty": "externalKey",
+      "alias": []
     },
     {
       "name": "Ontology",
@@ -263,7 +281,8 @@
         { "name": "loadedAt", "type": "instant", "required": false, "description": null }
       ],
       "meta": true,
-      "displayProperty": "version"
+      "displayProperty": "version",
+      "alias": []
     },
     {
       "name": "SyncRun",
@@ -285,7 +304,8 @@
         { "name": "error", "type": "string", "required": false, "description": null }
       ],
       "meta": true,
-      "displayProperty": "id"
+      "displayProperty": "id",
+      "alias": []
     },
     {
       "name": "ConnectorState",
@@ -302,7 +322,8 @@
         { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
       ],
       "meta": true,
-      "displayProperty": "connector"
+      "displayProperty": "connector",
+      "alias": []
     },
     {
       "name": "ServicePrincipal",
@@ -314,7 +335,8 @@
         { "name": "description", "type": "string", "required": false, "description": null }
       ],
       "meta": true,
-      "displayProperty": "name"
+      "displayProperty": "name",
+      "alias": []
     }
   ],
   "edgeTypes": [
@@ -556,7 +578,8 @@
       { "name": "syncRunId", "type": "string", "required": false, "description": null },
       { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name" },
       { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"] },
-      { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" }
+      { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" },
+      { "name": "previousKeys", "type": "string[]", "required": false, "description": "Keys this node had before it was renamed, oldest first" }
     ]
   },
   "sources": [

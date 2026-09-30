@@ -7,4 +7,6 @@
 # 1.1.0 (#85) added Change, PullRequest and ExternalWorkItem and the edges between them: a minor
 # bump, since nothing was renamed or removed. A build older than this refuses to start against a
 # graph it has recorded, so rolling back past it means rolling the graph back too.
-version: 1.1.0
+# 1.2.0 (#88) added Repository's provider and providerId, the alias they form, and previousKeys on
+# the provenance envelope: a minor bump for the same reason, and the same rollback caveat.
+version: 1.2.0
