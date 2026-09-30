@@ -30,7 +30,13 @@ const team = {
   type: 'Team',
   key: 'platform',
   props: { name: 'platform' },
-  provenance: { sourceSystem: 'manual', confidence: 1, inferred: false }
+  provenance: {
+    sourceSystem: 'manual',
+    confidence: 1,
+    inferred: false,
+    writtenBy: 'dan',
+    principalType: 'user'
+  }
 }
 
 const router = (): Router =>
@@ -95,5 +101,19 @@ describe('NodeDetail', () => {
     const wrapper = await mountDetail('Team', 'platform')
 
     expect(wrapper.find('[data-test="open-remote"]').exists()).toBe(false)
+  })
+
+  /** Who stated a fact is part of its provenance (#114, FR-3). */
+  it('says who wrote the node, and what kind of principal they were', async () => {
+    const wrapper = await mountDetail('Team', 'platform')
+
+    expect(wrapper.find('[data-test="provenance-written-by"]').text()).toBe('dan')
+    expect(wrapper.find('[data-test="provenance-principal-type"]').text()).toBe('user')
+  })
+
+  it('says so when a fact predates recording who wrote it', async () => {
+    const wrapper = await mountDetail('Repository', 'github.com/acme/payments')
+
+    expect(wrapper.find('[data-test="provenance-written-by"]').text()).toBe('not recorded')
   })
 })
