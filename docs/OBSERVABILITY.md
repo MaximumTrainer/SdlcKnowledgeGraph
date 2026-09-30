@@ -160,13 +160,14 @@ rather than half of them and logs `graph.count.failed`.
 
 ## Health
 
-`/actuator/health` is the API's health as a whole, one component per thing it depends on. Two of
+`/actuator/health` is the API's health as a whole, one component per thing it depends on. Three of
 them are this application's own:
 
 | Component | UP | DOWN |
 |---|---|---|
 | `neo4j` | The database answers. | It does not; `sdlc_dependency_up{dependency="neo4j"}` is 0 too. |
 | `connectors` | No enabled connector is stale, including when none is enabled at all. | At least one enabled connector has gone longer than its `freshness-threshold` without a successful run; `details.stale` names them ([ADAPTERS.md](ADAPTERS.md#freshness)). `UNKNOWN` when freshness cannot be read, usually because `neo4j` is down. |
+| `freshness` | Every source is within its freshness window. | Never DOWN: `WARN` while a source is behind its window, and `UNKNOWN` when lag cannot be read. See below. |
 
 A component that is DOWN makes the whole of `/actuator/health` DOWN, with status 503. The docker
 profile shows which components there are but not their details, so `details.stale` is only visible
@@ -179,6 +180,61 @@ that failed on it would take the instance out of service for something a restart
 `observability.freshness-affects-readiness=true` (`FRESHNESS_AFFECTS_READINESS`) to add it to
 readiness for a deployment that would rather serve nothing than serve stale answers; the probe then
 still answers only a status, never which connector is behind.
+
+### Source lag
+
+The `freshness` component ([#93](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/93))
+measures each source system, rather than each connector, against the freshness window its facts
+have ([ONTOLOGY.md](ONTOLOGY.md#freshness-and-reading-as-of-an-instant)): the time since the latest
+`finishedAt` of a `SUCCESS` sync run stamped with that source, of any mode. A webhook delivery counts
+here, unlike for a connector's own freshness, because the question is when the source's facts were
+last refreshed and a push refreshes them as a pull does. A source is listed once a run of it has
+succeeded or an enabled connector stamps it; one whose connector has never succeeded is measured from
+when the instance started, so a new deployment gets one window before it is called behind. Its
+details, where `show-details` allows:
+
+```json
+"freshness": {
+  "status": "WARN",
+  "description": "a source is behind its freshness window",
+  "details": {
+    "lagging": ["github"],
+    "sources": {
+      "github": {
+        "lastSuccessAt": "2026-09-29T06:00:00Z",
+        "lag": "PT30H", "lagSeconds": 108000,
+        "window": "PT24H", "windowSeconds": 86400,
+        "lagging": true
+      }
+    }
+  }
+}
+```
+
+Lag must never take an instance down: fly.io checks `/actuator/health/readiness` and the compose
+healthcheck runs `curl -fsS /actuator/health`, so a dogfood instance whose seed had not run for a day
+would be restarted, or never become healthy. So the component is built to be unable to fail either:
+
+- `WARN` is a status of its own, which Spring's status aggregation does not order. The overall status
+  is what the other components say, `UP` while they are, and a lagging source never makes it DOWN.
+- No HTTP status is mapped for `WARN`, so `/actuator/health` and `/actuator/health/freshness` answer
+  `200` with it. Mapping one is deliberately not done: `management.endpoint.health.status.http-mapping`
+  replaces Spring's defaults rather than adding to them, so mapping `WARN` alone would make `DOWN`
+  answer `200` as well.
+- Neither probe group includes it, and `observability.freshness-affects-readiness` adds only
+  `connectors` to readiness, never `freshness`.
+- A failure to read lag, Neo4j being down say, makes it `UNKNOWN`, which is not ordered either; the
+  `neo4j` component is what reports the outage.
+
+`FreshnessHealthIT` holds each of these against a real application context configured as the docker
+profile is. The web interface proxies no health details, so `GET /api/v1/freshness` (scope
+`graph:read`) answers the same per source, as `{sources: [{source, window, windowSeconds,
+lastSuccessAt, lagSeconds, lagging}]}`.
+
+There is no metric for it. `sdlc_sync_freshness_seconds` already gives each connector's age with its
+`sourceSystem` label, so `min by (sourceSystem) (sdlc_sync_freshness_seconds)` is a source's lag as
+its scheduled and manual runs see it, and a second gauge saying nearly the same would only disagree
+with it about webhook runs.
 
 ## Service objectives
 
