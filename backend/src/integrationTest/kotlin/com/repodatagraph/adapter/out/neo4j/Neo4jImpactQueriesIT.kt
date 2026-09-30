@@ -5,6 +5,7 @@ import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.ImpactDirection
 import com.repodatagraph.domain.model.NodeKey
+import com.repodatagraph.domain.model.PathIndexKind
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.port.out.GraphStore
@@ -169,6 +170,64 @@ class Neo4jImpactQueriesIT {
         val paths = queries.ownerPaths(sharedLib, traversals.ownershipInheritance(), traversals.ownerEdges(), 3)
 
         assertThat(paths.map { it.team.id to it.via.map { step -> step.edge } }).containsExactly(platform.id to listOf("OWNED_BY"))
+    }
+
+    @Test
+    fun `owners of several nodes are found in one call, each by its own paths (#87)`() {
+        val service = NodeKey("Service", "$run-checkout")
+        node(service, mapOf("name" to service.key))
+        edge("OWNED_BY", service, platform)
+
+        val owners =
+            queries.ownerPathsOf(
+                listOf(database, sharedLib, service, checkout),
+                traversals.ownershipInheritance(),
+                traversals.ownerEdges(),
+                3,
+            )
+
+        assertThat(owners[database]?.map { it.team.id }).containsExactly(paymentsTeam.id)
+        assertThat(owners[database]?.single()?.via?.map { it.edge }).containsExactly("OWNED_BY_REPO", "OWNED_BY")
+        assertThat(owners[sharedLib]?.map { it.team.id }).containsExactly(platform.id)
+        assertThat(owners[service]?.map { it.team.id }).containsExactly(platform.id)
+        assertThat(owners[checkout].orEmpty()).isEmpty()
+    }
+
+    @Test
+    fun `a deployment is placed in the environment it targeted, along the registry's placement edges (#87)`() {
+        val deployment = deploy(payments, "aaa", "c1", "SUCCESS", "2026-09-01T10:00:00Z")
+
+        val placements = queries.placements(listOf(deployment, payments), traversals.placement())
+
+        assertThat(placements[deployment]?.map { it.key.key }).containsExactly("$run-staging")
+        assertThat(placements[deployment]?.single()?.props?.get("type")).isEqualTo("staging")
+        assertThat(placements[payments].orEmpty()).isEmpty()
+    }
+
+    @Test
+    fun `the path index of a repository is its IaC files and the manifests its dependencies were read from (#87)`() {
+        val file = NodeKey("IacFile", "${payments.key}:infra/db.tf")
+        node(
+            file,
+            mapOf(
+                "repoKey" to payments.key,
+                "path" to "infra/db.tf",
+                "format" to "terraform",
+                "resourceRefs" to listOf("arn:$run:db"),
+            ),
+        )
+        edge("CONTAINS_IAC", payments, file)
+        val library = NodeKey("Library", "maven:$run:slf4j")
+        node(library, mapOf("ecosystem" to "maven", "name" to "$run:slf4j"))
+        edge("DEPENDS_ON", payments, library, props = mapOf("kind" to "library", "manifest" to "build.gradle.kts"))
+
+        val index = queries.pathIndex(payments)
+
+        assertThat(index.map { Triple(it.path, it.kind, it.names) }).containsExactlyInAnyOrder(
+            Triple("infra/db.tf", PathIndexKind.IAC, listOf("arn:$run:db")),
+            Triple("build.gradle.kts", PathIndexKind.MANIFEST, listOf(library.key)),
+        )
+        assertThat(queries.pathIndex(checkout)).isEmpty()
     }
 
     private fun deploy(
