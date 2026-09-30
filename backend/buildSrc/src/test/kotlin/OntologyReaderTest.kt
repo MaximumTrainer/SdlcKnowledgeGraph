@@ -54,6 +54,18 @@ class OntologyReaderTest {
     }
 
     @Test
+    fun `the impact and ownership flags are read, defaulting to none and forward (#21)`() {
+        val edges = ontology.edgeTypes.associateBy { it.name }
+
+        assertEquals(Triple("propagates", "inverse", "none"), edges.getValue("DEPENDS_ON").flags())
+        assertEquals(Triple("propagates", "forward", "inherits"), edges.getValue("OWNS_RESOURCE").flags())
+        assertEquals(Triple("none", "forward", "owner"), edges.getValue("OWNED_BY").flags())
+        assertEquals(Triple("none", "forward", "none"), edges.getValue("RELATES_TO_CI").flags())
+    }
+
+    private fun GenEdgeType.flags() = Triple(impact, downstream, ownership)
+
+    @Test
     fun `identity properties are read for the types the resolver derives keys from`() {
         val repository = ontology.nodeTypes.first { it.name == "Repository" }
 

@@ -39,6 +39,17 @@ class OntologyCodegenTest {
                         to = listOf("Repository"),
                         inverse = "BUILDS",
                         properties = listOf(GenProperty("commitSha", "string", required = true, description = null)),
+                        impact = "propagates",
+                        downstream = "inverse",
+                        ownership = "inherits",
+                    ),
+                    GenEdgeType(
+                        name = "RELATES_TO_CI",
+                        description = null,
+                        from = listOf("Repository"),
+                        to = listOf("ConfigurationItem"),
+                        inverse = "CI_OF",
+                        properties = emptyList(),
                     ),
                 ),
             provenance =
@@ -145,6 +156,13 @@ class OntologyCodegenTest {
         assertTrue(json.contains(""""name": "topics", "type": "string[]", "required": true"""), json)
         assertTrue(json.contains(""""inverse": "BUILDS","""), json)
         assertTrue(json.contains(""""description": null"""), json)
+    }
+
+    @Test
+    fun `the JSON snapshot says how a change travels along each edge and whether ownership does (#21)`() {
+        assertTrue(json.contains("\"impact\": \"propagates\",\n      \"downstream\": \"inverse\",\n      \"ownership\": \"inherits\","), json)
+        // An edge that says nothing is published as saying "none", so a consumer never has to guess a default.
+        assertTrue(json.contains("\"impact\": \"none\",\n      \"downstream\": \"forward\",\n      \"ownership\": \"none\","), json)
     }
 
     @Test
