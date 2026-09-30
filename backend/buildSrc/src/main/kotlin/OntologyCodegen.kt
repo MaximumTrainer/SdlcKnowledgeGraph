@@ -130,7 +130,13 @@ object OntologyCodegen {
             appendLine("""    "properties": [""")
             appendProperties(ontology.provenance, indent = "      ")
             appendLine("    ]")
-            appendLine("  }")
+            appendLine("  },")
+            appendLine("""  "sources": [""")
+            ontology.sources.forEachIndexed { index, source ->
+                val comma = if (index == ontology.sources.lastIndex) "" else ","
+                appendLine("""    { "name": ${jsonString(source.name)}, "description": ${jsonString(source.description)} }$comma""")
+            }
+            appendLine("  ]")
             appendLine("}")
         }
 

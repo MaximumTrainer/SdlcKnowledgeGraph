@@ -71,7 +71,7 @@ class ScopeGate(
             return
         }
         val needed = required.map { it.value }.sorted()
-        LogEvents.scopeRefused(principalOf(authentication), request.method, needed, held)
+        LogEvents.scopeRefused(InsufficientScope.principalOf(authentication), request.method, needed, held)
         refuse(response, needed, held)
     }
 
@@ -102,31 +102,23 @@ class ScopeGate(
             ?.takeIf { it.isTextual }
             ?.asText()
 
-    /** Who was refused, as provenance would name them: a service's registered name, a user's subject. */
-    private fun principalOf(authentication: JwtAuthenticationToken): String =
-        (authentication as? ServicePrincipalAuthenticationToken)?.registration?.name
-            ?: authentication.token.subject
-            ?: UNKNOWN
-
     private fun refuse(
         response: HttpServletResponse,
         required: List<String>,
         held: List<String>,
     ) {
         response.status = HttpStatus.FORBIDDEN.value()
-        response.setHeader("WWW-Authenticate", "Bearer error=\"insufficient_scope\", scope=\"${required.joinToString(" ")}\"")
+        response.setHeader(InsufficientScope.CHALLENGE_HEADER, InsufficientScope.challenge(required))
         response.contentType = MediaType.APPLICATION_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()
-        objectMapper.writeValue(response.outputStream, mapOf("error" to REFUSAL, "required" to required, "held" to held))
+        objectMapper.writeValue(response.outputStream, InsufficientScope.body(required, held))
     }
 
     companion object {
-        const val REFUSAL = "insufficient scope"
+        const val REFUSAL = InsufficientScope.REFUSAL
 
         /** A GraphQL body larger than this is not read into memory to be inspected; it needs both scopes. */
         const val MAX_INSPECTED_BODY_BYTES = 256 * 1024
-
-        private const val UNKNOWN = "unknown"
         private val PATHS = UrlPathHelper.defaultInstance
     }
 }

@@ -4,6 +4,7 @@ import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
+import com.repodatagraph.domain.ontology.SourceSystemDef
 
 /**
  * Wire form of the ontology. Consumers build their own editors and schemas from this, so property
@@ -15,6 +16,8 @@ data class OntologyResponse(
     val edgeTypes: List<EdgeTypeResponse>,
     /** The provenance envelope every node and edge carries, so a client can render it generically. */
     val provenance: ProvenanceEnvelopeResponse,
+    /** The source systems a write may name (#117), so a connector author can see which to stamp. */
+    val sources: List<SourceSystemResponse>,
 ) {
     companion object {
         fun from(registry: OntologyRegistry): OntologyResponse =
@@ -23,6 +26,7 @@ data class OntologyResponse(
                 nodeTypes = registry.allNodeTypes().map(NodeTypeResponse::from),
                 edgeTypes = registry.allEdgeTypes().map(EdgeTypeResponse::from),
                 provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
+                sources = registry.sources.map(SourceSystemResponse::from),
             )
     }
 }
@@ -65,6 +69,15 @@ data class EdgeTypeResponse(
                 inverse = edgeType.inverse,
                 properties = edgeType.properties.map(PropertyResponse::from),
             )
+    }
+}
+
+data class SourceSystemResponse(
+    val name: String,
+    val description: String?,
+) {
+    companion object {
+        fun from(source: SourceSystemDef): SourceSystemResponse = SourceSystemResponse(source.name, source.description)
     }
 }
 

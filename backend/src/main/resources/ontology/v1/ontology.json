@@ -396,5 +396,14 @@
       { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"] },
       { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" }
     ]
-  }
+  },
+  "sources": [
+    { "name": "manual", "description": "Stated through the API by the principal that made the write. Needs graph:write only" },
+    { "name": "github", "description": "Repositories, teams, manifests and ownership read from GitHub by the GitHub connector" },
+    { "name": "github-actions", "description": "Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment)" },
+    { "name": "servicenow", "description": "Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector" },
+    { "name": "aws", "description": "Cloud resources read from AWS. Declared for the AWS connector; none ships yet" },
+    { "name": "dogfood-seed", "description": "What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed)" },
+    { "name": "sdlc-knowledge-graph", "description": "The graph's record of itself: the sync runs and connector states it keeps" }
+  ]
 }

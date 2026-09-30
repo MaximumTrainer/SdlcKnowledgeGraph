@@ -76,6 +76,8 @@ data class EdgeRequest(
     val fromId: String,
     val toId: String,
     val props: Map<String, Any?> = emptyMap(),
+    /** The system of record the relationship is stated as (#117); `manual` when the caller names none. */
+    val sourceSystem: String = Provenance.MANUAL,
 )
 
 /**

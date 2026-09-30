@@ -10,7 +10,8 @@ import java.time.Instant
  * exists" from "a naming-convention rule guessed that these two things are related", and it is what
  * makes a bad sync reversible.
  *
- * @param sourceSystem the system of record, for example "github", "servicenow:prod", "aws:123456789012" or "manual"
+ * @param sourceSystem the system of record, one the registry declares in sources.yaml (#117): "manual", "github",
+ *   "servicenow", "aws" and so on
  * @param sourceId the identifier this fact has in that system, when it has one
  * @param observedAt when the source says the fact was true, which can be earlier than [ingestedAt]
  * @param confidence 1.0 when reported by the system of record, lower when derived by a rule
@@ -55,9 +56,19 @@ data class Provenance(
         fun manual(
             now: Instant = Instant.now(),
             by: Principal? = null,
+        ): Provenance = stated(MANUAL, now, by)
+
+        /**
+         * A fact stated through the API as [sourceSystem] (#117): `manual` for the principal's own word, or the system of
+         * record it speaks for, which its scopes must allow. Fully trusted, not inferred, and naming who stated it.
+         */
+        fun stated(
+            sourceSystem: String,
+            now: Instant = Instant.now(),
+            by: Principal? = null,
         ): Provenance =
             Provenance(
-                sourceSystem = MANUAL,
+                sourceSystem = sourceSystem,
                 ingestedAt = now,
                 validFrom = now,
                 writtenBy = by?.subject,

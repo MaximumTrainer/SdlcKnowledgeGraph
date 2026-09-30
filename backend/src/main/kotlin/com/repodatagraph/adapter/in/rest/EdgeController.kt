@@ -4,6 +4,7 @@ import com.repodatagraph.adapter.`in`.rest.dto.EdgeListResponse
 import com.repodatagraph.adapter.`in`.rest.dto.EdgeRequestBody
 import com.repodatagraph.adapter.`in`.rest.dto.EdgeResponse
 import com.repodatagraph.adapter.`in`.rest.dto.EdgeViewResponse
+import com.repodatagraph.adapter.`in`.rest.dto.ProvenanceRequest
 import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.EdgeRequest
 import com.repodatagraph.domain.model.NodeKey
@@ -38,11 +39,14 @@ class EdgeController(
     private val edgeUseCase: EdgeUseCase,
 ) {
     @PostMapping("/api/v1/edges")
-    @Operation(summary = "State a relationship between two existing nodes")
+    @Operation(summary = "State a relationship between two existing nodes, as manual or as a source the caller's scopes allow")
     fun create(
         @RequestBody body: EdgeRequestBody,
     ): ResponseEntity<EdgeResponse> {
-        val written = edgeUseCase.create(EdgeRequest(body.type, body.fromId, body.toId, body.props))
+        val written =
+            edgeUseCase.create(
+                EdgeRequest(body.type, body.fromId, body.toId, body.props, ProvenanceRequest.sourceOf(body.provenance)),
+            )
         // Stating a known fact again is not an error, but it is not a creation either.
         val status = if (written.created) HttpStatus.CREATED else HttpStatus.OK
         return ResponseEntity.status(status).body(EdgeResponse.from(written))

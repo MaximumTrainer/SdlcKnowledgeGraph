@@ -3,6 +3,7 @@ package com.repodatagraph.adapter.`in`.rest
 import com.repodatagraph.adapter.`in`.rest.dto.NodePageResponse
 import com.repodatagraph.adapter.`in`.rest.dto.NodeRequest
 import com.repodatagraph.adapter.`in`.rest.dto.NodeResponse
+import com.repodatagraph.adapter.`in`.rest.dto.ProvenanceRequest
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -39,12 +40,12 @@ class NodeController(
     private val nodeUseCase: NodeUseCase,
 ) {
     @PostMapping("/{type}")
-    @Operation(summary = "Create a node of a declared type, with a server-derived identity")
+    @Operation(summary = "Create a node of a declared type, with a server-derived identity, as manual or a permitted source")
     fun create(
         @PathVariable type: String,
         @RequestBody request: NodeRequest,
     ): ResponseEntity<NodeResponse> {
-        val created = nodeUseCase.create(type, request.props)
+        val created = nodeUseCase.create(type, request.props, ProvenanceRequest.sourceOf(request.provenance))
         return ResponseEntity
             .created(location(type, created.key.key))
             .body(NodeResponse.from(created))
@@ -75,7 +76,10 @@ class NodeController(
         @PathVariable type: String,
         @PathVariable key: String,
         @RequestBody request: NodeRequest,
-    ): ResponseEntity<NodeResponse> = ResponseEntity.ok(NodeResponse.from(nodeUseCase.update(type, trimmed(key), request.props)))
+    ): ResponseEntity<NodeResponse> =
+        ResponseEntity.ok(
+            NodeResponse.from(nodeUseCase.update(type, trimmed(key), request.props, ProvenanceRequest.sourceOf(request.provenance))),
+        )
 
     @DeleteMapping("/{type}/{*key}")
     @Operation(summary = "Delete a node, refusing while it still has relationships")

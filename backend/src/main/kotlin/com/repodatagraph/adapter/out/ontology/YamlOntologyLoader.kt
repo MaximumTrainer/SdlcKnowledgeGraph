@@ -2,12 +2,14 @@ package com.repodatagraph.adapter.out.ontology
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.InvalidOntologyException
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
+import com.repodatagraph.domain.ontology.SourceSystemDef
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Component
 
@@ -31,7 +33,24 @@ class YamlOntologyLoader(
             nodeTypes = readNodeTypes("$basePath/nodes.yaml"),
             edgeTypes = readEdgeTypes("$basePath/edges.yaml"),
             provenance = readProvenance("$basePath/provenance.yaml"),
+            sources = readSources("$basePath/sources.yaml"),
         )
+    }
+
+    /**
+     * The source systems a write may name (#117). Optional like the provenance envelope: a registry
+     * without the file knows `manual` alone, which the registry supplies.
+     */
+    private fun readSources(path: String): List<SourceSystemDef> {
+        if (!resourceLoader.getResource("classpath:$path").exists()) return listOf(SourceSystemDef(Provenance.MANUAL))
+        val sources = read(path).path("sources")
+        if (!sources.isArray) throw InvalidOntologyException("$path declares no 'sources' list")
+        return sources.map { source ->
+            SourceSystemDef(
+                name = source.path("name").asTextOrNull() ?: throw InvalidOntologyException("$path declares a source with no name"),
+                description = source.path("description").asTextOrNull(),
+            )
+        }
     }
 
     /**

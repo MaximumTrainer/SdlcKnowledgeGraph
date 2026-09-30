@@ -1,5 +1,7 @@
 package com.repodatagraph.domain.ontology
 
+import com.repodatagraph.domain.model.Provenance
+
 /**
  * The declared contract for what may exist in the graph.
  *
@@ -15,6 +17,11 @@ class OntologyRegistry(
     edgeTypes: List<EdgeTypeDef>,
     /** The provenance envelope every node and edge carries, in declaration order (#114). */
     val provenance: List<PropertyDef> = emptyList(),
+    /**
+     * The source systems a write may name, in declaration order (#117). A registry that declares none
+     * knows `manual` alone, which is what a write naming no source states.
+     */
+    val sources: List<SourceSystemDef> = listOf(SourceSystemDef(Provenance.MANUAL)),
 ) {
     private val nodesByName: Map<String, NodeTypeDef>
     private val edgesByName: Map<String, EdgeTypeDef>
@@ -27,7 +34,16 @@ class OntologyRegistry(
         edgesByName = edgeTypes.associateByUnique { it.name }
         nodeTypes.forEach(::validateNodeType)
         edgeTypes.forEach(::validateEdgeType)
+        reject("the source registry", sourceProblems(sources))
     }
+
+    private val sourceNames: Set<String> = sources.mapTo(linkedSetOf()) { it.name }
+
+    /** The names of the source systems a write may name, in declaration order (#117). */
+    fun knownSources(): List<String> = sourceNames.toList()
+
+    /** Whether a write may name [name] as its source system: exactly, not by case or prefix. */
+    fun isKnownSource(name: String): Boolean = name in sourceNames
 
     fun nodeType(name: String): NodeTypeDef? = nodesByName[name]
 
@@ -77,27 +93,49 @@ class OntologyRegistry(
         reject("edge type '${edgeType.name}'", problems)
     }
 
-    private fun reject(
-        subject: String,
-        problems: List<String>,
-    ) {
-        if (problems.isNotEmpty()) {
-            throw InvalidOntologyException(problems.joinToString(separator = "; ") { "$subject $it" })
-        }
-    }
-
-    private fun <T> List<T>.associateByUnique(key: (T) -> String): Map<String, T> {
-        val result = LinkedHashMap<String, T>(size)
-        forEach { item ->
-            val name = key(item)
-            if (result.put(name, item) != null) {
-                throw InvalidOntologyException("ontology declares '$name' more than once")
-            }
-        }
-        return result
-    }
-
     private companion object {
         val SEMVER = Regex("""^\d+\.\d+\.\d+$""")
     }
+}
+
+/** Reports every problem with [subject] at once, rather than only the first one found. */
+private fun reject(
+    subject: String,
+    problems: List<String>,
+) {
+    if (problems.isNotEmpty()) {
+        throw InvalidOntologyException(problems.joinToString(separator = "; ") { "$subject $it" })
+    }
+}
+
+private fun <T> List<T>.associateByUnique(key: (T) -> String): Map<String, T> {
+    val result = LinkedHashMap<String, T>(size)
+    forEach { item ->
+        val name = key(item)
+        if (result.put(name, item) != null) {
+            throw InvalidOntologyException("ontology declares '$name' more than once")
+        }
+    }
+    return result
+}
+
+/** What can follow `graph:write:` in a scope: no colon, no space, no capitals. */
+private val SOURCE_NAME = Regex("^[a-z0-9]+(-[a-z0-9]+)*$")
+
+/** Everything wrong with the declared source systems (#117), each as a sentence about the registry. */
+private fun sourceProblems(sources: List<SourceSystemDef>): List<String> {
+    val problems = mutableListOf<String>()
+    sources
+        .groupBy { it.name }
+        .filterValues { it.size > 1 }
+        .keys
+        .forEach { problems += "declares source '$it' more than once" }
+    sources
+        .map { it.name }
+        .filterNot { SOURCE_NAME.matches(it) }
+        .forEach { problems += "declares source '$it', which is not lower-case words joined by hyphens and so cannot end a scope" }
+    if (sources.none { it.name == Provenance.MANUAL }) {
+        problems += "does not declare source '${Provenance.MANUAL}', which a write naming no source states"
+    }
+    return problems
 }

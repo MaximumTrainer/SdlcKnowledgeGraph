@@ -36,12 +36,20 @@ data class GenEdgeType(
     val properties: List<GenProperty>,
 )
 
+/** A source system a fact's provenance may name (sources.yaml, #117). */
+data class GenSource(
+    val name: String,
+    val description: String?,
+)
+
 data class GenOntology(
     val version: String,
     val nodeTypes: List<GenNodeType>,
     val edgeTypes: List<GenEdgeType>,
     /** The provenance envelope every node and edge carries (provenance.yaml, #114). */
     val provenance: List<GenProperty> = emptyList(),
+    /** The source systems a write may name (sources.yaml, #117), in declaration order. */
+    val sources: List<GenSource> = emptyList(),
 )
 
 object OntologyReader {
@@ -92,7 +100,15 @@ object OntologyReader {
         val provenance =
             if (provenanceFile.exists()) yaml.readTree(provenanceFile).path("provenance").readProperties() else emptyList()
 
-        return GenOntology(version, nodes, edges, provenance)
+        val sourcesFile = baseDir.resolve("sources.yaml")
+        val sources =
+            if (sourcesFile.exists()) {
+                yaml.readTree(sourcesFile).path("sources").map { GenSource(it.path("name").asText(), it.text("description")) }
+            } else {
+                emptyList()
+            }
+
+        return GenOntology(version, nodes, edges, provenance, sources)
     }
 
     private fun JsonNode.readProperties(): List<GenProperty> =
