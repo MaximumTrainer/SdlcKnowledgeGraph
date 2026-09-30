@@ -23,3 +23,4 @@ record, not an edit to the old one.
 | [0013](./0013-provider-id-is-an-alias-not-the-key) | Provider id is an alias, not the key | Accepted |
 | [0014](./0014-data-lifecycle) | The data lifecycle: versions, retirement, archival and ontology migrations | Accepted |
 | [0015](./0015-merging-nodes-retires-with-a-pointer) | Merging two nodes retires one with a pointer to the other | Accepted |
+| [0016](./0016-context-pack-templates-are-registry-data) | Context pack templates are registry data, walked within a budget | Accepted |

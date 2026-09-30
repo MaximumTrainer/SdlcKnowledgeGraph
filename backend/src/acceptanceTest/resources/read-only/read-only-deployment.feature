@@ -78,6 +78,12 @@ Feature: A read-only deployment refuses every write
     When I send the impact query for "github.com/acme/nothing"
     Then the response status is 404
 
+  Scenario: The context pack is answered, although it is sent as a POST
+    # #96. Like the impact query, its input is a structured body, but it only reads, so a read-only
+    # instance - the dogfood one - answers it: here with 404, the start node not being there.
+    When I send the context pack query from "Repository:github.com/acme/nothing"
+    Then the response status is 404
+
   Scenario: GraphiQL is not served, so nothing invites writes that would be refused
     When I send a GET to "/graphiql"
     Then the response status is 404

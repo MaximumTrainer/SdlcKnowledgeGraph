@@ -245,7 +245,38 @@ export const ontologyPage = ontology => {
     lines.push('')
   }
 
+  // The traversal templates a context pack may name (#96), each step as the path it walks.
+  if (ontology.templates?.length) {
+    lines.push('## Context pack templates\n')
+    lines.push(
+      'What `POST /api/v1/context-pack` may name as its `template`. A step walks an edge by its name or',
+      'its inverse; `{min..max}` marks one repeated that many times (a min of 0 may skip it), `[current]`',
+      'one that keeps only the deployments still running, and `{key: value}` one narrowed to edges holding',
+      'that value.\n'
+    )
+    lines.push('| Template | Starts from | Owners | Walks | Description |')
+    lines.push('| --- | --- | --- | --- | --- |')
+    for (const template of ontology.templates) {
+      lines.push(
+        `| \`${template.name}\` | ${template.start.join(', ')} | ${template.owners ? 'yes' : 'no'} | ` +
+          `${cell(walks(template.steps))} | ${cell(template.description)} |`
+      )
+    }
+    lines.push('')
+  }
+
   return lines.join('\n')
+}
+
+/** A template's steps as paths, one per branch: `DEPENDED_ON_BY{0..4} > BUILDS > DEPLOYED_TO [current]`. */
+const walks = steps => steps.flatMap(step => paths(step)).map(path => `\`${path}\``).join('<br>')
+
+const paths = step => {
+  const repeat = step.min === 1 && step.max === 1 ? '' : `{${step.min}..${step.max}}`
+  const where = Object.entries(step.where ?? {}).map(([key, value]) => `${key}: ${value}`).join(', ')
+  const self = `${step.edge}${repeat}${where ? ` {${where}}` : ''}${step.current ? ' [current]' : ''}`
+  const rest = (step.then ?? []).flatMap(paths)
+  return rest.length ? rest.map(path => `${self} > ${path}`) : [self]
 }
 
 /** Headings are the node type name alone, so the acceptance test can look for a heading per type. */

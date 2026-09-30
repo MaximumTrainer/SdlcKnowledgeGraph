@@ -18,6 +18,11 @@ type Query {
     POST /api/v1/impact. Named changeImpact because impact is #21's blast radius, and GraphQL cannot overload a field.
     """
     changeImpact(input: ChangeImpactInput!): ChangeImpact!
+    """
+    The bounded subgraph a task needs (#96): a registry template walked from one node, ranked and cut to the budget.
+    The same answer as POST /api/v1/context-pack.
+    """
+    contextPack(input: ContextPackInput!): ContextPack!
 }
 
 type Mutation {
@@ -304,4 +309,77 @@ extend type Provenance {
     which GET /api/v1/ontology publishes (#93). Computed when read; a fact that has ended is never stale.
     """
     stale: Boolean!
+}
+
+# Context packs (#96): the bounded subgraph a task needs.
+
+input ContextPackInput {
+    "The node to start from, as Type:key."
+    startId: ID!
+    "The traversal template to walk; GET /api/v1/ontology lists them under templates."
+    template: String!
+    "The most nodes the pack may hold, the start left out: 1 to 500."
+    budget: Int!
+    "Read the graph as it was at this ISO-8601 instant, rather than now."
+    asOf: String
+}
+
+"A fact's provenance in one line: stale is judged now, against its source's freshness window."
+type ProvenanceSummary {
+    source: String!
+    observedAt: String
+    confidence: Float!
+    inferred: Boolean!
+    stale: Boolean!
+}
+
+type ContextPackNode {
+    id: ID!
+    type: String!
+    key: String!
+    label: String!
+    "Hops from the start along the nearest path, which via spells out."
+    distance: Int!
+    "The product of the confidences of the edges on the nearest path."
+    confidence: Float!
+    inferred: Boolean!
+    "min(1, 1 / (1 + hops) * tierWeight), scoring version 1: #87's impact score."
+    score: Float!
+    "production, pre_production, development or other: the environment the node runs in."
+    tier: String!
+    node: GraphNode!
+    via: [ImpactStep!]!
+    provenance: ProvenanceSummary!
+}
+
+"An edge between two nodes of a pack, with the evidence it rests on where it has any."
+type ContextPackEdge {
+    "type:from>to, stable across packs."
+    id: ID!
+    type: String!
+    inverse: String!
+    from: ID!
+    to: ID!
+    manifest: String
+    rule: String
+    commitSha: String
+    provenance: ProvenanceSummary!
+}
+
+type ContextPack {
+    template: String!
+    budget: Int!
+    asOf: String
+    scoring: ImpactScoring!
+    start: ContextPackNode!
+    "How many nodes the template reached, the start left out."
+    reached: Int!
+    "True when the budget cut nodes or the walk stopped short."
+    truncated: Boolean!
+    "How many reached nodes the budget left out."
+    cut: Int!
+    "Distance ascending, then confidence descending, then score descending, then id ascending."
+    nodes: [ContextPackNode!]!
+    "In id order."
+    edges: [ContextPackEdge!]!
 }

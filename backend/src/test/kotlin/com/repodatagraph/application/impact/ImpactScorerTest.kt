@@ -156,4 +156,17 @@ class ImpactScorerTest {
         to: GraphNode,
         confidence: Double,
     ) = PathStep(edge, from.id, to.id, confidence, inferred = false)
+
+    @Test
+    fun `a node runs in the most critical environment it is placed in, and an Environment in itself (#96)`() {
+        val staging = GraphNode(NodeKey.parse("Environment:staging"), mapOf("tier" to "pre_production"), stated)
+        val production = GraphNode(NodeKey.parse("Environment:production"), mapOf("tier" to "production"), stated)
+        val deployment = node("Deployment:d1")
+
+        assertEquals(production, ImpactScorer.environmentOf(deployment, listOf(staging, production)))
+        assertEquals(staging, ImpactScorer.environmentOf(staging, listOf(production)))
+        assertEquals(null, ImpactScorer.environmentOf(deployment, listOf(node("Team:platform"))))
+        assertEquals(EnvironmentTier.PRODUCTION, ImpactScorer.tierOf(production))
+        assertEquals(EnvironmentTier.OTHER, ImpactScorer.tierOf(null))
+    }
 }

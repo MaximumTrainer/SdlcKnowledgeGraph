@@ -264,6 +264,76 @@ class OntologyLintRulesTest {
     }
 
     @Test
+    fun `ONT014 a template walking an edge that is neither an edge type nor an inverse (#96)`() {
+        val ontology = valid().withTemplateSteps(GenTemplateStep("OWNED_BY_EVERYONE"))
+
+        assertEquals(
+            listOf("templates.ownership.steps[0]: walks 'OWNED_BY_EVERYONE', which is neither an edge type nor an edge's inverse [ONT014]"),
+            lines(ontology),
+        )
+    }
+
+    @Test
+    fun `ONT014 a template walking an edge from a type it cannot leave`() {
+        // OWNS is OWNED_BY read backwards: it leaves a Team, and this step stands on a Team already.
+        val ontology = valid().withTemplateSteps(GenTemplateStep("OWNED_BY", then = listOf(GenTemplateStep("OWNED_BY"))))
+
+        assertEquals(listOf("templates.ownership.steps[0].then[0]: cannot walk 'OWNED_BY' from Team [ONT014]"), lines(ontology))
+    }
+
+    @Test
+    fun `ONT014 a template filtering on a property the edge does not declare, or a value its enum refuses`() {
+        val ontology =
+            valid().withTemplateSteps(
+                GenTemplateStep("OWNED_BY", where = mapOf("rule" to "guess")),
+                GenTemplateStep("OWNED_BY", where = mapOf("colour" to "red")),
+            )
+
+        assertEquals(
+            listOf(
+                "templates.ownership.steps[0]: filters rule on 'guess', which is not one of manual, codeowners [ONT014]",
+                "templates.ownership.steps[1]: filters on 'colour', which OWNED_BY does not declare [ONT014]",
+            ),
+            lines(ontology),
+        )
+    }
+
+    @Test
+    fun `ONT014 a repeat out of bounds, and current asked of a step that reaches no deployments`() {
+        val ontology =
+            valid().withTemplateSteps(
+                GenTemplateStep("PROVIDES", min = 2, max = 1),
+                GenTemplateStep("OWNED_BY", current = true),
+            )
+
+        assertEquals(
+            listOf(
+                "templates.ownership.steps[0]: repeats 2 to 1 times; a repeat is 0 to 5 times, at least once at most [ONT014]",
+                "templates.ownership.steps[1]: marks current a step that reaches Team, not Deployment alone [ONT014]",
+            ),
+            lines(ontology),
+        )
+    }
+
+    @Test
+    fun `ONT014 a template starting nowhere declared, undescribed, without steps or badly named`() {
+        val ontology =
+            valid().copy(
+                templates = listOf(GenTemplate("Ownership", null, listOf("Galaxy"), owners = false, steps = emptyList())),
+            )
+
+        assertEquals(
+            listOf(
+                "templates.Ownership: name is not lower-case words joined by hyphens [ONT014]",
+                "templates.Ownership: missing description [ONT014]",
+                "templates.Ownership: starts from undeclared node type 'Galaxy' [ONT014]",
+                "templates.Ownership: declares no steps [ONT014]",
+            ),
+            lines(ontology),
+        )
+    }
+
+    @Test
     fun `the report groups findings under the type they are about, errors counted`() {
         val ontology =
             valid()
@@ -285,6 +355,9 @@ class OntologyLintRulesTest {
     }
 
     private fun lines(ontology: GenOntology): List<String> = OntologyLint.lint(ontology).map { it.line }
+
+    private fun GenOntology.withTemplateSteps(vararg steps: GenTemplateStep) =
+        copy(templates = templates.map { it.copy(steps = steps.toList()) })
 
     private fun GenOntology.withType(
         name: String,
@@ -356,6 +429,16 @@ class OntologyLintRulesTest {
                         to = listOf("Repository"),
                         inverse = "PROVIDED_BY",
                         properties = emptyList(),
+                    ),
+                ),
+            templates =
+                listOf(
+                    GenTemplate(
+                        name = "ownership",
+                        description = "Who owns a repository and what it provides",
+                        start = listOf("Repository"),
+                        owners = true,
+                        steps = listOf(GenTemplateStep("PROVIDES", min = 0, max = 2, then = listOf(GenTemplateStep("OWNED_BY")))),
                     ),
                 ),
         )

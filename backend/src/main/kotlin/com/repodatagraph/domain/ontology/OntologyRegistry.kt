@@ -11,6 +11,7 @@ import com.repodatagraph.domain.model.Provenance
  * construction, so an ontology that cannot be traversed sensibly fails at startup rather than
  * producing empty query results later.
  */
+@Suppress("TooManyFunctions") // One lookup per registry table, and the walk a template names (#96).
 class OntologyRegistry(
     val version: String,
     nodeTypes: List<NodeTypeDef>,
@@ -28,12 +29,19 @@ class OntologyRegistry(
      * environments stops the application at startup.
      */
     val environments: List<EnvironmentDef> = emptyList(),
+    /**
+     * The traversal templates of context packs (#96), in declaration order. Validated here against
+     * the edges they walk, so a template naming an edge that does not exist, or one it cannot walk
+     * from where it stands, stops the application at startup rather than answering an empty pack.
+     */
+    val templates: List<TemplateDef> = emptyList(),
 ) {
     /** [environments] as the table an Environment's key is derived through. */
     val environmentAliases: EnvironmentAliases = EnvironmentAliases(environments)
 
     private val nodesByName: Map<String, NodeTypeDef>
     private val edgesByName: Map<String, EdgeTypeDef>
+    private val templatesByName: Map<String, TemplateDef>
 
     init {
         require(SEMVER.matches(version)) {
@@ -44,6 +52,8 @@ class OntologyRegistry(
         nodeTypes.forEach(::validateNodeType)
         edgeTypes.forEach(::validateEdgeType)
         reject("the source registry", sourceProblems(sources))
+        templatesByName = templates.associateByUnique { it.name }
+        templates.forEach { reject("template '${it.name}'", templateProblems(it, ::isKnownNodeType, ::walkable)) }
     }
 
     private val sourceNames: Set<String> = sources.mapTo(linkedSetOf()) { it.name }
@@ -63,6 +73,18 @@ class OntologyRegistry(
     fun allEdgeTypes(): List<EdgeTypeDef> = edgesByName.values.toList()
 
     fun isKnownNodeType(name: String): Boolean = nodesByName.containsKey(name)
+
+    /** The traversal template named [name] (#96), or null when the registry declares none by that name. */
+    fun template(name: String): TemplateDef? = templatesByName[name]
+
+    /**
+     * The edge a traversal names (#96): an edge type's own name walks it as stored, and its inverse
+     * walks it backwards. Null when [name] is neither.
+     */
+    fun walkable(name: String): WalkableEdge? {
+        edgesByName[name]?.let { return WalkableEdge(it, alongStoredDirection = true) }
+        return edgesByName.values.firstOrNull { it.inverse == name }?.let { WalkableEdge(it, alongStoredDirection = false) }
+    }
 
     /** The inverse traversal name for [edgeName], or null when the edge is unknown. */
     fun inverseOf(edgeName: String): String? = edgesByName[edgeName]?.inverse

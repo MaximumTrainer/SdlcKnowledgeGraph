@@ -411,6 +411,25 @@ in any case. A production deployment outranks a staging one only when
 the environments say which is which: give each Environment a `tier` (`production`,
 `pre_production`, `development` or `other`; unset reads as `other`). It needs only `graph:read`.
 
+### A context pack for a task
+
+`POST /api/v1/context-pack` ([#96](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/96))
+answers with the bounded subgraph a task needs: a registry template walked from one node, at most
+`budget` nodes, nearest and most confident first, each node and edge with a one-line provenance
+summary and each edge with the manifest, rule or commit it rests on
+([Ontology](/guide/ontology#context-packs-the-subgraph-a-task-needs) has the templates and the order).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/context-pack \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"startId": "CloudResource:aws:arn:aws:s3:::ledger", "template": "data-consumers", "budget": 50}'
+```
+
+Three templates ship: `change-impact` from a Repository or Service, `incident-triage` and
+`data-consumers` from a CloudResource; `GET /api/v1/ontology` lists them under `templates`. `budget`
+is required, 1 to 500. The answer's `reached`, `cut` and `truncated` say how much the budget left
+out, and `asOf` reads the graph as it was at an instant. It needs only `graph:read`.
+
 ### Where a work item is live, and what a deployment carried
 
 Change lineage ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)) follows the
@@ -509,7 +528,8 @@ neighbours only; the generic node and edge operations are available through REST
 depth, minConfidence, direction)` and `whyDeploymentFailed(id)` answer as their REST counterparts
 do, and return the generated `<Type>Node` types from `schema.generated.graphqls`, provenance
 included, so select fields with `... on RepositoryNode { url }`. `changeImpact(input: {repositoryKey,
-paths, sha, depth, limit})` answers as `POST /api/v1/impact` does. `node(id, asOf)` and
+paths, sha, depth, limit})` answers as `POST /api/v1/impact` does, and `contextPack(input: {startId,
+template, budget, asOf})` as `POST /api/v1/context-pack` does. `node(id, asOf)` and
 `edges(nodeId, direction, edgeType, asOf)` read any node and its relationships, now or as of an
 instant, as `GET /api/v1/nodes` and `GET /api/v1/edges` do, and every `Provenance` has `stale`
 (#93).
@@ -527,7 +547,8 @@ where every read needs no token and nothing can be written by nobody. The dogfoo
   `POST /api/v1/ingest/deployment`, where the deploy pipeline reports what it deployed, and
   `POST /api/v1/ingest/seed`, where the dogfood seed records this repository. Both have their own
   bearer token and refuse anyone without it ([Adapters](/guide/adapters#self-ingestion-deployments-from-the-pipeline)).
-- `POST /api/v1/impact` is answered: it is a query whose input is a body, and it writes nothing.
+- `POST /api/v1/impact` and `POST /api/v1/context-pack` are answered: each is a query whose input is
+  a body, and neither writes anything.
 - `POST /graphql` is answered only when the document can be parsed and contains no mutation. A
   document that carries a mutation anywhere, whichever operation it names, is refused, and so is
   one that cannot be parsed or is larger than 256 KB.

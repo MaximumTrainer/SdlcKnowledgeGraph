@@ -2,6 +2,7 @@ package com.repodatagraph.application.impact
 
 import com.repodatagraph.domain.model.CandidatePath
 import com.repodatagraph.domain.model.EnvironmentTier
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.ImpactHit
 import com.repodatagraph.domain.model.ImpactScoring
 import com.repodatagraph.domain.model.NodeKey
@@ -25,6 +26,23 @@ object ImpactScorer {
         val boost = if (pathMatched) ImpactScoring.PATH_MATCH_BOOST else 1.0
         return (1.0 / (1 + hops) * weight * boost).coerceAtMost(1.0)
     }
+
+    /**
+     * The environment [node] runs in: an Environment is its own, and anything else runs in the most
+     * critical of the environments it is [placedIn], the id breaking a tie. Null when it is placed in none.
+     */
+    fun environmentOf(
+        node: GraphNode,
+        placedIn: List<GraphNode>,
+    ): GraphNode? {
+        if (node.type == ENVIRONMENT) return node
+        return placedIn
+            .filter { it.type == ENVIRONMENT }
+            .minWithOrNull(compareBy<GraphNode> { tierOf(it).ordinal }.thenBy { it.id })
+    }
+
+    /** How critical [environment] is: its declared tier, and [EnvironmentTier.OTHER] for none at all. */
+    fun tierOf(environment: GraphNode?): EnvironmentTier = environment?.let { EnvironmentTier.of(it.props[TIER]) } ?: EnvironmentTier.OTHER
 
     val ORDER: Comparator<ImpactHit> =
         compareByDescending<ImpactHit> { it.score }
@@ -53,4 +71,7 @@ object ImpactScorer {
             .thenByDescending { PathConfidence.of(it.steps) }
             .thenBy { path -> path.steps.any { it.inferred } }
             .thenBy { path -> path.steps.joinToString("|") { "${it.edge}>${it.to}" } }
+
+    private const val ENVIRONMENT = "Environment"
+    private const val TIER = "tier"
 }

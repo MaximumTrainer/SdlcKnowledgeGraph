@@ -82,6 +82,28 @@ data class GenSource(
     val description: String?,
 )
 
+/**
+ * A context pack's traversal template (templates.yaml, #96): the node types it starts from, whether
+ * the nodes it reaches bring their owners, and the steps it walks.
+ */
+data class GenTemplate(
+    val name: String,
+    val description: String?,
+    val start: List<String>,
+    val owners: Boolean,
+    val steps: List<GenTemplateStep>,
+)
+
+/** One edge a template walks, by its name or its inverse, [min] to [max] times, then on to [then]. */
+data class GenTemplateStep(
+    val edge: String,
+    val where: Map<String, String> = emptyMap(),
+    val min: Int = 1,
+    val max: Int = 1,
+    val current: Boolean = false,
+    val then: List<GenTemplateStep> = emptyList(),
+)
+
 data class GenOntology(
     val version: String,
     val nodeTypes: List<GenNodeType>,
@@ -92,6 +114,8 @@ data class GenOntology(
     val sources: List<GenSource> = emptyList(),
     /** The environment alias table (environments.yaml, #98), in declaration order. */
     val environments: List<GenEnvironment> = emptyList(),
+    /** The traversal templates of context packs (templates.yaml, #96), in declaration order. */
+    val templates: List<GenTemplate> = emptyList(),
 )
 
 object OntologyReader {
@@ -118,6 +142,8 @@ object OntologyReader {
         setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
     private val DEPRECATED_KEYS = setOf("since", "replacedBy")
     private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
+    private val TEMPLATE_KEYS = setOf("description", "start", "owners", "steps")
+    private val STEP_KEYS = setOf("edge", "where", "min", "max", "current", "then")
 
     fun read(baseDir: File): GenOntology {
         val version =
@@ -197,8 +223,40 @@ object OntologyReader {
                 emptyList()
             }
 
-        return GenOntology(version, nodes, edges, provenance, sources, environments)
+        val templatesFile = baseDir.resolve("templates.yaml")
+        val templates =
+            if (templatesFile.exists()) {
+                val mapping = yaml.readTree(templatesFile).path("templates")
+                require(mapping.isObject) { "templates.yaml declares no 'templates' mapping" }
+                mapping.properties().map { (name, definition) ->
+                    definition.requireOnly(TEMPLATE_KEYS, "templates.$name")
+                    GenTemplate(
+                        name = name,
+                        description = definition.text("description"),
+                        start = definition.path("start").map { it.asText() },
+                        owners = definition.path("owners").asBoolean(false),
+                        steps = definition.path("steps").readSteps("templates.$name.steps"),
+                    )
+                }
+            } else {
+                emptyList()
+            }
+
+        return GenOntology(version, nodes, edges, provenance, sources, environments, templates)
     }
+
+    private fun JsonNode.readSteps(path: String): List<GenTemplateStep> =
+        mapIndexed { index, step ->
+            step.requireOnly(STEP_KEYS, "$path[$index]")
+            GenTemplateStep(
+                edge = requireNotNull(step.text("edge")) { "$path[$index]: a step names no edge" },
+                where = step.path("where").properties().associate { (key, value) -> key to value.asText() },
+                min = step.path("min").asInt(1),
+                max = step.path("max").asInt(1),
+                current = step.path("current").asBoolean(false),
+                then = step.path("then").readSteps("$path[$index].then"),
+            )
+        }
 
     private fun JsonNode.readProperties(owner: String): List<GenProperty> =
         path("properties").map { property ->

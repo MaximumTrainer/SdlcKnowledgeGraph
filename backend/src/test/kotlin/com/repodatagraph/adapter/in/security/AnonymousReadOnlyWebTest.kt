@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.security
 
 import com.repodatagraph.adapter.`in`.rest.ChangeImpactController
+import com.repodatagraph.adapter.`in`.rest.ContextPackController
 import com.repodatagraph.adapter.`in`.rest.NodeController
 import com.repodatagraph.adapter.`in`.rest.NodeRestExceptionHandler
 import com.repodatagraph.adapter.`in`.rest.SeedIngestController
@@ -10,6 +11,7 @@ import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.port.`in`.ChangeImpactUseCase
+import com.repodatagraph.domain.port.`in`.ContextPackUseCase
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.SeedIngestOutcome
 import com.repodatagraph.domain.port.`in`.SeedIngestUseCase
@@ -45,7 +47,10 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
  * no issuer there are no keys to trust, so the API holds no decoder at all.
  */
 @WebMvcTest(
-    controllers = [NodeController::class, SeedIngestController::class, ServicePrincipalController::class, ChangeImpactController::class],
+    controllers = [
+        NodeController::class, SeedIngestController::class, ServicePrincipalController::class, ChangeImpactController::class,
+        ContextPackController::class,
+    ],
     properties = [
         "sdlc.read-only=true",
         "sdlc.auth.issuer-uri=",
@@ -76,6 +81,9 @@ class AnonymousReadOnlyWebTest {
     @MockitoBean
     private lateinit var changeImpact: ChangeImpactUseCase
 
+    @MockitoBean
+    private lateinit var contextPack: ContextPackUseCase
+
     @Test
     fun `a read needs no token`() {
         whenever(nodeUseCase.list(eq("Repository"), any(), anyOrNull())).thenReturn(NodePage(emptyList(), null))
@@ -94,6 +102,20 @@ class AnonymousReadOnlyWebTest {
             .andExpect(status().isNotFound)
 
         verify(changeImpact).changeImpact(any())
+    }
+
+    @Test
+    fun `a context pack needs no token either, because it only reads (#96)`() {
+        whenever(contextPack.contextPack(any())).thenThrow(NodeNotFoundException(listOf(NodeKey("Repository", "github.com/acme/x"))))
+
+        mockMvc
+            .perform(
+                post("/api/v1/context-pack")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"startId":"Repository:github.com/acme/x","template":"change-impact","budget":10}"""),
+            ).andExpect(status().isNotFound)
+
+        verify(contextPack).contextPack(any())
     }
 
     @Test

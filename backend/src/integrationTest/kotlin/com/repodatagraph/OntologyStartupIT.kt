@@ -23,7 +23,7 @@ class OntologyStartupIT {
     fun `the shipped ontology loads and declares the minimum viable graph`() {
         val registry = loader.load()
 
-        assertEquals("1.5.0", registry.version)
+        assertEquals("1.6.0", registry.version)
         val names = registry.allNodeTypes().map { it.name }.toSet()
 
         // Named rather than counted, and checked for presence rather than equality. An exact set also

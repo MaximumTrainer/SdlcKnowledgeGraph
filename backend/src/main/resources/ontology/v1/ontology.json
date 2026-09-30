@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "nodeTypes": [
     {
       "name": "Repository",
@@ -470,9 +470,9 @@
     },
     {
       "name": "DEPENDS_ON",
-      "description": "A dependency between repositories, services or third-party libraries.",
+      "description": "A dependency between repositories, services or third-party libraries, or on a data store.",
       "from": ["Repository", "Service", "ConfigurationItem"],
-      "to": ["Repository", "Service", "Library", "ConfigurationItem"],
+      "to": ["Repository", "Service", "Library", "ConfigurationItem", "CloudResource"],
       "inverse": "DEPENDED_ON_BY",
       "impact": "propagates",
       "downstream": "inverse",
@@ -731,5 +731,10 @@
     { "name": "staging", "description": "The last stop before production, run like it", "aliases": ["stg", "stage"] },
     { "name": "development", "description": "Where changes are first deployed and tried", "aliases": ["dev"] },
     { "name": "testing", "description": "Where automated and manual tests run against a deployment", "aliases": ["test"] }
+  ],
+  "templates": [
+    { "name": "change-impact", "description": "What a change to a repository or service reaches, where that is running now, and who owns it", "start": ["Repository", "Service"], "owners": true, "steps": [{"edge":"DEPENDED_ON_BY","where":{},"min":0,"max":4,"current":false,"then":[{"edge":"BUILDS","where":{},"min":1,"max":1,"current":false,"then":[{"edge":"DEPLOYED_TO","where":{},"min":1,"max":1,"current":true,"then":[{"edge":"TO_ENVIRONMENT","where":{},"min":1,"max":1,"current":false,"then":[]}]}]}]}] },
+    { "name": "incident-triage", "description": "What stands behind a failing cloud resource - the code that owns it, its pipelines, service records, what is deployed and the APIs it calls", "start": ["CloudResource"], "owners": false, "steps": [{"edge":"OWNED_BY_REPO","where":{},"min":1,"max":1,"current":false,"then":[{"edge":"HAS_PIPELINE","where":{},"min":1,"max":1,"current":false,"then":[]},{"edge":"RELATES_TO_CI","where":{},"min":1,"max":1,"current":false,"then":[]},{"edge":"BUILDS","where":{},"min":1,"max":1,"current":false,"then":[{"edge":"DEPLOYED_TO","where":{},"min":1,"max":1,"current":true,"then":[]}]},{"edge":"DEPENDS_ON","where":{"kind":"api"},"min":1,"max":1,"current":false,"then":[{"edge":"BUILDS","where":{},"min":1,"max":1,"current":false,"then":[{"edge":"DEPLOYED_TO","where":{},"min":1,"max":1,"current":true,"then":[]}]}]}]}] },
+    { "name": "data-consumers", "description": "Who reads a data store, and the teams that own them", "start": ["CloudResource"], "owners": true, "steps": [{"edge":"DEPENDED_ON_BY","where":{"kind":"data"},"min":1,"max":1,"current":false,"then":[]}] }
   ]
 }

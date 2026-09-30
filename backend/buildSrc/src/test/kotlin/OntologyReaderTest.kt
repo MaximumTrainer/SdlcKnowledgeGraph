@@ -122,4 +122,14 @@ class OntologyReaderTest {
         assertEquals(listOf("host"), ontology.nodeTypes.single { it.name == "Repository" }.mergeScope)
         assertEquals(emptyList<String>(), ontology.nodeTypes.single { it.name == "Team" }.mergeScope)
     }
+
+    @Test
+    fun `the traversal templates of context packs are read beside the registry (#96)`() {
+        assertEquals(listOf("change-impact", "incident-triage", "data-consumers"), ontology.templates.map { it.name })
+        val dependants = ontology.templates.first().steps.single()
+        assertEquals("DEPENDED_ON_BY", dependants.edge)
+        assertEquals(0, dependants.min)
+        assertTrue(dependants.then.single().then.single().current)
+        assertEquals(mapOf("kind" to "data"), ontology.templates.last().steps.single().where)
+    }
 }

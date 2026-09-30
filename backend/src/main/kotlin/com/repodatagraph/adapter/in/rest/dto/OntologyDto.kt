@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonPropertyOrder
 import com.repodatagraph.domain.model.FreshnessPolicy
 import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeTypeDef
@@ -9,6 +10,8 @@ import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.SourceSystemDef
+import com.repodatagraph.domain.ontology.TemplateDef
+import com.repodatagraph.domain.ontology.TemplateStepDef
 
 /**
  * Wire form of the ontology. Consumers build their own editors and schemas from this, so property
@@ -28,6 +31,11 @@ data class OntologyResponse(
      */
     val environments: List<EnvironmentResponse> = emptyList(),
     /**
+     * The traversal templates of context packs (#96, FR-1), every step spelt out, so an agent can see
+     * what a template walks before it asks POST /api/v1/context-pack for one.
+     */
+    val templates: List<TemplateResponse> = emptyList(),
+    /**
      * How long each source's facts stay fresh (#93, FR-2), so an agent can read the policy a `stale`
      * flag was judged by. Null only where no policy was given, which the snapshot is rendered without.
      */
@@ -46,6 +54,7 @@ data class OntologyResponse(
                 provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
                 sources = registry.sources.map(SourceSystemResponse::from),
                 environments = registry.environments.map(EnvironmentResponse::from),
+                templates = registry.templates.map(TemplateResponse::from),
                 freshness = freshness?.let(FreshnessPolicyResponse::from),
             )
     }
@@ -130,6 +139,41 @@ data class EnvironmentResponse(
     companion object {
         fun from(environment: EnvironmentDef): EnvironmentResponse =
             EnvironmentResponse(environment.name, environment.description, environment.aliases)
+    }
+}
+
+data class TemplateResponse(
+    val name: String,
+    val description: String?,
+    val start: List<String>,
+    val owners: Boolean,
+    val steps: List<TemplateStepResponse>,
+) {
+    companion object {
+        fun from(template: TemplateDef): TemplateResponse =
+            TemplateResponse(
+                template.name,
+                template.description,
+                template.start,
+                template.owners,
+                template.steps.map(TemplateStepResponse::from),
+            )
+    }
+}
+
+/** One step of a template, with every field and its default spelt out, as ontology.json has it. */
+@JsonPropertyOrder("edge", "where", "min", "max", "current", "then")
+data class TemplateStepResponse(
+    val edge: String,
+    val where: Map<String, String>,
+    val min: Int,
+    val max: Int,
+    val current: Boolean,
+    val then: List<TemplateStepResponse>,
+) {
+    companion object {
+        fun from(step: TemplateStepDef): TemplateStepResponse =
+            TemplateStepResponse(step.edge, step.where, step.min, step.max, step.current, step.then.map(::from))
     }
 }
 

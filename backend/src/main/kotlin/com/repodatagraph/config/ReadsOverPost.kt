@@ -15,5 +15,7 @@ object ReadsOverPost {
         setOf(
             // Impact analysis of a change: a repository, paths, a sha and bounds.
             "/api/v1/impact",
+            // A context pack (#96): a start node, a template, a budget and an instant.
+            "/api/v1/context-pack",
         )
 }

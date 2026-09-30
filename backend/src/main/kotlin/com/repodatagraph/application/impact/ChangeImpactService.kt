@@ -6,7 +6,6 @@ import com.repodatagraph.domain.model.ChangeImpactQuery
 import com.repodatagraph.domain.model.ChangeImpactResult
 import com.repodatagraph.domain.model.ChangeScope
 import com.repodatagraph.domain.model.Citation
-import com.repodatagraph.domain.model.EnvironmentTier
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.ImpactDirection
 import com.repodatagraph.domain.model.ImpactHit
@@ -130,8 +129,8 @@ class ChangeImpactService(
         namedByMatchedPaths: Set<String>,
     ): ImpactHit {
         val node = path.target
-        val environment = environmentOf(node, placedIn)
-        val tier = environment?.let { EnvironmentTier.of(it.props[TIER]) } ?: EnvironmentTier.OTHER
+        val environment = ImpactScorer.environmentOf(node, placedIn)
+        val tier = ImpactScorer.tierOf(environment)
         val matched = namesOf(node).any { it in namedByMatchedPaths }
         return ImpactHit(
             node = node,
@@ -145,17 +144,6 @@ class ChangeImpactService(
             owners = emptyList(),
             citation = Citation(node.id, path.steps, node.provenance),
         )
-    }
-
-    /** An Environment is its own; anything else runs in the most critical environment it is placed in. */
-    private fun environmentOf(
-        node: GraphNode,
-        placedIn: List<GraphNode>,
-    ): GraphNode? {
-        if (node.type == ENVIRONMENT) return node
-        return placedIn
-            .filter { it.type == ENVIRONMENT }
-            .minWithOrNull(compareBy<GraphNode> { EnvironmentTier.of(it.props[TIER]).ordinal }.thenBy { it.id })
     }
 
     /** What an index entry could name a node by: its key, or the resource id or name it has. */
@@ -199,10 +187,8 @@ class ChangeImpactService(
     }
 
     private companion object {
-        const val ENVIRONMENT = "Environment"
         const val REPOSITORY = "Repository"
         const val DEPLOYMENT = "Deployment"
-        const val TIER = "tier"
 
         /** As #21's blast radius: candidate paths read before the walk is cut short. */
         const val MAX_PATHS = 50_000

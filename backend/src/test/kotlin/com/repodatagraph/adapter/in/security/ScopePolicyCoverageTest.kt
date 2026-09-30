@@ -136,6 +136,7 @@ class ScopePolicyCoverageTest {
     fun `every read under the API needs graph read and every write graph write, unless it is public`() {
         assertTrue(Route("POST", "/api/v1/lifecycle/archive") in routes, "the archive is mapped: $routes")
         assertTrue(Route("POST", "/api/v1/impact") in routes, "the read over POST is mapped: $routes")
+        assertTrue(Route("POST", "/api/v1/context-pack") in routes, "the context pack (#96) is mapped: $routes")
         val wrong =
             routes.filter { it.pattern.startsWith("/api/v1/") }.mapNotNull { route ->
                 val requirement = ScopePolicy.requirementFor(route.method, route.samplePath)

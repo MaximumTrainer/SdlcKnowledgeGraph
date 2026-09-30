@@ -38,6 +38,12 @@ object OntologyMarkdown {
                 append("\n## Relationships\n")
                 edgeTypes.forEach { appendEdgeType(it) }
             }
+            if (registry.templates.isNotEmpty()) {
+                // One line each: an agent names a template, and the JSON spells out its steps (#96).
+                append("\n## Context pack templates\n")
+                append("POST /api/v1/context-pack {startId, template, budget} walks one from a node of a type it starts from.\n")
+                registry.templates.forEach { append("- ${it.name} (from ${it.start.joinToString()}): ${it.description}\n") }
+            }
         }
     }
 

@@ -12,7 +12,7 @@ Feature: Self-describing ontology
   Scenario: Every property is described with an example
     When I GET "/api/v1/ontology"
     Then the response status is 200
-    And the ontology version is "1.5.0"
+    And the ontology version is "1.6.0"
     And every property of every node and edge type has a description and at least one example
     And every node type has an example node
     And the core node types each name the questions they help answer

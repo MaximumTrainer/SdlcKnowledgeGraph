@@ -70,6 +70,12 @@ class ReadOnlySteps(
         response = restTemplate.exchange("/api/v1/impact", HttpMethod.POST, jsonEntity(payload), String::class.java)
     }
 
+    @When("I send the context pack query from {string}")
+    fun iSendTheContextPackQuery(startId: String) {
+        val payload = objectMapper.writeValueAsString(mapOf("startId" to startId, "template" to "change-impact", "budget" to 20))
+        response = restTemplate.exchange("/api/v1/context-pack", HttpMethod.POST, jsonEntity(payload), String::class.java)
+    }
+
     @Then("the response status is {int}")
     fun theResponseStatusIs(expected: Int) {
         assertEquals(expected, lastResponse().statusCode.value(), "body: ${lastResponse().body}")

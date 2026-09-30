@@ -8,6 +8,8 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.ontology.SourceSystemDef
+import com.repodatagraph.domain.ontology.TemplateDef
+import com.repodatagraph.domain.ontology.TemplateStepDef
 import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.nullValue
@@ -73,6 +75,16 @@ class OntologyControllerTest {
                     listOf(
                         EnvironmentDef("production", "Serves customers", listOf("prod", "live")),
                         EnvironmentDef("staging", "The last stop before production", listOf("stg")),
+                    ),
+                templates =
+                    listOf(
+                        TemplateDef(
+                            name = "ownership",
+                            description = "Who owns a repository",
+                            start = listOf("Repository"),
+                            owners = false,
+                            steps = listOf(TemplateStepDef("OWNED_BY", min = 0, max = 1)),
+                        ),
                     ),
             )
 
@@ -153,6 +165,24 @@ class OntologyControllerTest {
             .andExpect(jsonPath("$.environments[0].aliases[0]").value("prod"))
             .andExpect(jsonPath("$.environments[0].aliases[1]").value("live"))
             .andExpect(jsonPath("$.environments[1].name").value("staging"))
+    }
+
+    @Test
+    fun `the traversal templates of context packs are served, every step spelt out (#96)`() {
+        mockMvc
+            .perform(get("/api/v1/ontology"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.templates.length()").value(1))
+            .andExpect(jsonPath("$.templates[0].name").value("ownership"))
+            .andExpect(jsonPath("$.templates[0].description").value("Who owns a repository"))
+            .andExpect(jsonPath("$.templates[0].start", contains("Repository")))
+            .andExpect(jsonPath("$.templates[0].owners").value(false))
+            .andExpect(jsonPath("$.templates[0].steps[0].edge").value("OWNED_BY"))
+            .andExpect(jsonPath("$.templates[0].steps[0].where").isMap)
+            .andExpect(jsonPath("$.templates[0].steps[0].min").value(0))
+            .andExpect(jsonPath("$.templates[0].steps[0].max").value(1))
+            .andExpect(jsonPath("$.templates[0].steps[0].current").value(false))
+            .andExpect(jsonPath("$.templates[0].steps[0].then").isArray)
     }
 
     @Test
