@@ -7,6 +7,8 @@ import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
 import com.repodatagraph.domain.exception.NodeValidationException
+import com.repodatagraph.domain.exception.SourceNotPermittedException
+import com.repodatagraph.domain.exception.UnknownSourceSystemException
 import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.GraphNode
@@ -20,7 +22,9 @@ import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
+import com.repodatagraph.domain.ontology.SourceSystemDef
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.domain.port.out.SourceWriteAuthorization
 import com.repodatagraph.observability.GraphWriteMetrics
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -42,6 +46,15 @@ import org.mockito.kotlin.whenever
  */
 class NodeServiceTest {
     private val graphStore: GraphStore = mock()
+
+    /** Sources this principal may name (#117); the stand-in for the token's graph:write:<source> scopes. */
+    private val permitted = mutableSetOf("manual", "github")
+    private val authorization =
+        SourceWriteAuthorization { source ->
+            if (source !in permitted) {
+                throw SourceNotPermittedException(source, listOf("graph:write", "graph:write:$source"), listOf("graph:write"))
+            }
+        }
     private val registry =
         OntologyRegistry(
             version = "1.0.0",
@@ -60,6 +73,7 @@ class NodeServiceTest {
                 ),
             edgeTypes =
                 listOf(EdgeTypeDef("OWNED_BY", null, listOf("Team"), listOf("Team"), "OWNS")),
+            sources = listOf(SourceSystemDef("manual"), SourceSystemDef("github"), SourceSystemDef("aws")),
         )
     private val service =
         NodeService(
@@ -69,7 +83,7 @@ class NodeServiceTest {
             PropertyValidator(),
             graphStore,
             GraphWriteMetrics(SimpleMeterRegistry()),
-            { Principal("dan", PrincipalType.USER) },
+            StatedProvenance(registry, authorization) { Principal("dan", PrincipalType.USER) },
         )
 
     private val platformKey = NodeKey("Team", "platform")
@@ -115,6 +129,52 @@ class NodeServiceTest {
     }
 
     @Test
+    fun `a write states the source it names, for whoever made it (#117)`() {
+        whenever(graphStore.findNode(platformKey)).thenReturn(null)
+        whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
+
+        val created = service.create("Team", mapOf("name" to "platform"), "github")
+
+        assertThat(created.provenance.sourceSystem).isEqualTo("github")
+        assertThat(created.provenance.writtenBy).isEqualTo("dan")
+    }
+
+    @Test
+    fun `a write naming a source the registry does not declare is refused, listing the known ones (#117)`() {
+        assertThatThrownBy { service.create("Team", mapOf("name" to "platform"), "jira") }
+            .isInstanceOf(UnknownSourceSystemException::class.java)
+            .hasFieldOrPropertyWithValue("sourceSystem", "jira")
+            .hasFieldOrPropertyWithValue("known", listOf("manual", "github", "aws"))
+
+        verify(graphStore, never()).upsertNode(any())
+    }
+
+    @Test
+    fun `a write naming a source the principal may not speak for is refused before the store is asked (#117)`() {
+        assertThatThrownBy { service.create("Team", mapOf("name" to "platform"), "aws") }
+            .isInstanceOf(SourceNotPermittedException::class.java)
+            .hasFieldOrPropertyWithValue("required", listOf("graph:write", "graph:write:aws"))
+
+        verify(graphStore, never()).findNode(any())
+        verify(graphStore, never()).upsertNode(any())
+    }
+
+    @Test
+    fun `an update is held to the source it names as well (#117)`() {
+        whenever(graphStore.findNode(platformKey)).thenReturn(platform)
+        whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
+
+        assertThatThrownBy { service.update("Team", "platform", mapOf("name" to "platform"), "aws") }
+            .isInstanceOf(SourceNotPermittedException::class.java)
+        assertThatThrownBy { service.update("Team", "platform", mapOf("name" to "platform"), "jira") }
+            .isInstanceOf(UnknownSourceSystemException::class.java)
+        verify(graphStore, never()).upsertNode(any())
+
+        assertThat(service.update("Team", "platform", mapOf("name" to "platform"), "github").provenance.sourceSystem)
+            .isEqualTo("github")
+    }
+
+    @Test
     fun `a manual write records who made it (#114)`() {
         whenever(graphStore.findNode(platformKey)).thenReturn(null)
         whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
@@ -135,7 +195,9 @@ class NodeServiceTest {
                 PropertyValidator(),
                 graphStore,
                 GraphWriteMetrics(SimpleMeterRegistry()),
-                { Principal("triage-agent", PrincipalType.SERVICE, onBehalfOfTeam = "team-payments") },
+                StatedProvenance(registry, authorization) {
+                    Principal("triage-agent", PrincipalType.SERVICE, onBehalfOfTeam = "team-payments")
+                },
             )
         whenever(graphStore.findNode(platformKey)).thenReturn(null)
         whenever(graphStore.upsertNode(any())).thenAnswer { it.arguments[0] }
@@ -173,7 +235,7 @@ class NodeServiceTest {
                 PropertyValidator(),
                 graphStore,
                 GraphWriteMetrics(SimpleMeterRegistry()),
-                { Principal("dan", PrincipalType.USER) },
+                StatedProvenance(registry, authorization) { Principal("dan", PrincipalType.USER) },
             )
         val props = mapOf("name" to "rogue-agent", "ownedBy" to "team-payments")
 

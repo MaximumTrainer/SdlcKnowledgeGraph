@@ -35,6 +35,19 @@ class OntologyDriftCheckTaskTest {
     }
 
     @Test
+    fun `a source system declared without regenerated output fails too (#117)`() {
+        val fixture = fixture()
+        fixture.ontologyDir.resolve("sources.yaml").writeText("sources:\n  - { name: manual }\n")
+        fixture.generate()
+
+        fixture.ontologyDir.resolve("sources.yaml").appendText("  - { name: jira, description: \"Tickets\" }\n")
+
+        val failure = assertThrows<IllegalStateException> { fixture.driftCheck() }
+
+        assertTrue(failure.message!!.contains("ontology.json"), failure.message)
+    }
+
+    @Test
     fun `freshly generated output passes`() {
         val fixture = fixture()
         fixture.generate()

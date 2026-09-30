@@ -3,7 +3,9 @@ package com.repodatagraph.application
 import com.repodatagraph.domain.exception.EdgeNotAllowedException
 import com.repodatagraph.domain.exception.EdgeValidationException
 import com.repodatagraph.domain.exception.SelfEdgeException
+import com.repodatagraph.domain.exception.SourceNotPermittedException
 import com.repodatagraph.domain.exception.UnknownEdgeTypeException
+import com.repodatagraph.domain.exception.UnknownSourceSystemException
 import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.EdgeRequest
 import com.repodatagraph.domain.model.GraphEdge
@@ -18,7 +20,9 @@ import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
+import com.repodatagraph.domain.ontology.SourceSystemDef
 import com.repodatagraph.domain.port.out.GraphStore
+import com.repodatagraph.domain.port.out.SourceWriteAuthorization
 import com.repodatagraph.observability.GraphWriteMetrics
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -41,6 +45,15 @@ import org.mockito.kotlin.whenever
  */
 class EdgeServiceTest {
     private val graphStore: GraphStore = mock()
+
+    /** Sources this principal may name (#117); the stand-in for the token's graph:write:<source> scopes. */
+    private val permitted = mutableSetOf("manual", "github")
+    private val authorization =
+        SourceWriteAuthorization { source ->
+            if (source !in permitted) {
+                throw SourceNotPermittedException(source, listOf("graph:write", "graph:write:$source"), listOf("graph:write"))
+            }
+        }
 
     private val registry =
         OntologyRegistry(
@@ -72,6 +85,7 @@ class EdgeServiceTest {
                     ),
                     EdgeTypeDef("OWNED_BY", null, listOf("Repository"), listOf("Team"), "OWNS"),
                 ),
+            sources = listOf(SourceSystemDef("manual"), SourceSystemDef("github"), SourceSystemDef("aws")),
         )
 
     private val service =
@@ -80,7 +94,8 @@ class EdgeServiceTest {
             PropertyValidator(),
             graphStore,
             GraphWriteMetrics(SimpleMeterRegistry()),
-        ) { Principal("dan", PrincipalType.USER) }
+            StatedProvenance(registry, authorization) { Principal("dan", PrincipalType.USER) },
+        )
 
     private val payments = NodeKey("Repository", "acme/payments")
     private val sharedLib = NodeKey("Repository", "acme/shared-lib")
@@ -91,7 +106,38 @@ class EdgeServiceTest {
         from: NodeKey = payments,
         to: NodeKey = sharedLib,
         props: Map<String, Any?> = library,
-    ) = EdgeRequest(type, from.id, to.id, props)
+        sourceSystem: String = "manual",
+    ) = EdgeRequest(type, from.id, to.id, props, sourceSystem)
+
+    @Test
+    fun `an edge states the source the request names (#117)`() {
+        whenever(graphStore.findEdge(any(), any(), any())).thenReturn(null)
+        whenever(graphStore.upsertEdge(any())).thenAnswer { it.arguments[0] }
+
+        val written = service.create(request(sourceSystem = "github"))
+
+        assertThat(written.edge.provenance.sourceSystem).isEqualTo("github")
+        assertThat(written.edge.provenance.writtenBy).isEqualTo("dan")
+    }
+
+    @Test
+    fun `an edge naming a source the registry does not declare is refused, listing the known ones (#117)`() {
+        assertThatThrownBy { service.create(request(sourceSystem = "jira")) }
+            .isInstanceOf(UnknownSourceSystemException::class.java)
+            .hasFieldOrPropertyWithValue("known", listOf("manual", "github", "aws"))
+
+        verify(graphStore, never()).upsertEdge(any())
+    }
+
+    @Test
+    fun `an edge naming a source the principal may not speak for is refused before anything is written (#117)`() {
+        assertThatThrownBy { service.create(request(sourceSystem = "aws")) }
+            .isInstanceOf(SourceNotPermittedException::class.java)
+            .hasFieldOrPropertyWithValue("required", listOf("graph:write", "graph:write:aws"))
+
+        verify(graphStore, never()).upsertEdge(any())
+        verify(graphStore, never()).findEdge(any(), any(), any())
+    }
 
     @Test
     fun `an undeclared edge type is refused before anything is written`() {

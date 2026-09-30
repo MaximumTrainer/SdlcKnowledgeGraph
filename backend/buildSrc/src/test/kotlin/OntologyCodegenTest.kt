@@ -47,6 +47,11 @@ class OntologyCodegenTest {
                     GenProperty("confidence", "float", required = true, description = null),
                     GenProperty("writtenBy", "string", required = false, description = "Who made the write"),
                 ),
+            sources =
+                listOf(
+                    GenSource("manual", "Stated through the API"),
+                    GenSource("github", null),
+                ),
         )
 
     private val sdl = OntologyCodegen.graphqlSdl(ontology)
@@ -64,6 +69,13 @@ class OntologyCodegenTest {
         )
         assertTrue(json.contains("\"provenance\": {"), json)
         assertTrue(json.contains("""{ "name": "writtenBy", "type": "string", "required": false, "description": "Who made the write" }"""), json)
+    }
+
+    @Test
+    fun `the JSON snapshot lists the source systems, as the ontology endpoint does (#117)`() {
+        assertTrue(json.contains("  \"sources\": [\n"), json)
+        assertTrue(json.contains("""    { "name": "manual", "description": "Stated through the API" },"""), json)
+        assertTrue(json.contains("""    { "name": "github", "description": null }""" + "\n  ]"), json)
     }
 
     @Test
