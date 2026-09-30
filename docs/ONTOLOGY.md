@@ -20,9 +20,11 @@ class, a REST DTO, a block of GraphQL schema, and a TypeScript interface. Adding
 touching all five and writing new Cypher, which is why half the declared model could not be created
 through the API at all.
 
-The registry inverts that. A YAML file is the source of truth. This is the real shape of an entry in
-`nodes.yaml` — properties are a list, each with a `name`, a `type` (`string`, `int`, `boolean`,
-`instant` or `string[]`), `required`, an optional `description` and an optional `enum`:
+The registry inverts that. A YAML file is the source of truth. This is the shape of an entry in
+`nodes.yaml` — properties are a list, each with a `name`, a `type` (`string`, `int`, `float`,
+`boolean`, `instant` or `string[]`), `required`, a `description` and `examples`, and where they apply
+an `enum`, a `format` and a `deprecated` marker. A type also carries whole example nodes and the
+questions it helps answer; [Describing a property](#describing-a-property) says what each key is for:
 
 ```yaml
 # backend/src/main/resources/ontology/v1/nodes.yaml
@@ -30,22 +32,24 @@ nodes:
   Repository:
     description: A git repository, the anchor for most of the graph.
     identity: [host, org, name]
+    questions:
+      - Which team owns this repository?
+    examples:
+      - { url: "https://github.com/acme/payments", defaultBranch: main, topics: [billing], codeowners: ["@acme/payments"] }
     properties:
-      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com" }
-      - { name: url, type: string, required: true, description: "The git remote, in any form" }
-      - { name: host, type: string, required: false, description: "Host of the remote. Derived from url" }
-      - { name: org, type: string, required: false, description: "Owning organisation. Derived from url" }
-      - { name: name, type: string, required: false, description: "Repository name. Derived from url" }
-      - { name: defaultBranch, type: string, required: true }
-      - { name: topics, type: "string[]", required: true }
-      - { name: codeowners, type: "string[]", required: true }
-      - { name: language, type: string, required: false }
+      - { name: url, type: string, required: true, format: url, description: "The git remote, in any form", examples: ["https://github.com/acme/payments"] }
+      - { name: host, type: string, required: false, description: "Host of the remote. Derived from url", examples: [github.com] }
+      - { name: defaultBranch, type: string, required: true, description: "The branch changes are merged into", examples: [main] }
+      - { name: topics, type: "string[]", required: true, description: "Topics the forge lists for the repository", examples: [[billing]] }
+      - { name: visibility, type: string, required: false, description: "Who may read it", enum: [public, private, internal], examples: [private] }
+      - { name: serviceId, type: string, required: false, description: "The service it provides, from before PROVIDES", examples: [payments-api], deprecated: { since: 1.3.0, replacedBy: PROVIDES } }
 ```
 
-The registry's version lives in `version.yaml` (semver, currently `1.2.0`), not in `nodes.yaml`.
+The registry's version lives in `version.yaml` (semver, currently `1.3.0`), not in `nodes.yaml`.
 A node type may also say `meta: true` (the default is `false`), for a type that records the graph's
 own bookkeeping rather than something in the software estate. There is no `default` or
-`sensitivity` key; a property the loader does not recognise fails startup.
+`sensitivity` key: a key the reader does not recognise, at any level, fails startup and fails the
+build (#81), rather than being read past as it once was.
 
 A node type may name a `displayProperty`: the property that labels one of its nodes where a person
 reads it, such as the graph view ([#9](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/9)).
@@ -177,6 +181,162 @@ from the class. That is what lets the registry describe the target identity mode
 classes still carry legacy properties. A class property is one its primary constructor takes, what
 the node stores: a property the class computes from those, like `Repository.orgRepo`, is not
 expected in the registry (#88).
+
+## Describing a property
+
+The registry is the contract an agent reads to know what it may ask
+([#81](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/81)). A property named `status`
+with no description, no example and no allowed values leaves a reader guessing, and a guess is a
+query for a value that does not exist. So every property says what it is and shows a value, and a
+closed set says so:
+
+| Key | Says | Enforced |
+| --- | --- | --- |
+| `description` | What the property holds, in a phrase of at least 20 characters that is more than its name | by the lint |
+| `examples` | Values the API accepts; the first is shown wherever one is (a JSDoc `@example`, the editor's placeholder, the Markdown) | by the lint, and every example is held to the API's own validator by `ShippedOntologyDescriptionTest` |
+| `enum` | The only values allowed, in one naming convention per enum (snake_case, kebab-case or UPPER_SNAKE_CASE) | on write: `status must be one of PENDING, IN_PROGRESS, ...` |
+| `format` | A string's shape: `url`, `email`, `sha256`, `arn`, `semver`, `iana-tz`, `rrule` or `instant` | on write, only when there is a value: `expected url` |
+| `formatWhen` | The sibling values under which the format applies, such as `{ provider: aws }` for an ARN | with the format |
+| `deprecated` | `{ since, replacedBy }`: kept for old writers and data, and what to use instead, a property of the same type or an edge type | in generated code, as `@deprecated` |
+
+A node type adds `examples`, whole nodes the API accepts, and `questions`, what a reader answers with
+it. An edge type may carry both too, and its properties describe themselves like a node's.
+
+### What reads it
+
+- `GET /api/v1/ontology` serves all of it, and `ontology.json` is its committed copy.
+- The generated GraphQL puts each description on its field as a docstring, generates an enum type per
+  enum property (`DeploymentStatus`, with `container-image` spelt `container_image` and a docstring
+  saying how it is stored), names it in the field's docstring, and marks a deprecated field
+  `@deprecated(reason: "since 1.3.0, replaced by environmentKey")`. The fields themselves stay
+  `String`, so a value stored before its enum existed still reads.
+- The generated TypeScript declares a union per enum property (`DeploymentStatus`), types the property
+  with it, and documents every property with its description, first example and deprecation.
+- The node editor offers an enum as a select, shows the description as the field's help, tied to it
+  with `aria-describedby`, and the first example as a text field's placeholder. A stored value outside
+  the enum stays visible as an extra option rather than silently changing.
+- The [ontology reference](https://maximumtrainer.github.io/SdlcKnowledgeGraph/reference/ontology)
+  shows each property's values, format, deprecation and example, each type's questions and one
+  example node.
+- `GET /api/v1/ontology?format=markdown` renders it as prompt text, below.
+
+### The Markdown rendering
+
+`GET /api/v1/ontology?format=markdown` returns `text/markdown`, cacheable like the JSON, and the same
+bytes on every call, so a prompt built from it stays cached. `format=json` is the default and may be
+named; any other format is `400 {error: "unknown format", format, supported: ["json", "markdown"]}`.
+An agent tool that hands this on, `describe_ontology`, belongs to the MCP server
+([#31](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/31)), which is not built yet.
+
+It must stay under 12,000 characters, so it leaves room for the question, and a test holds the
+shipped registry to that. To fit, it carries what a query needs and leaves the rest to the JSON:
+
+- meta types, and relationships with no end left once they are gone (`PRODUCED`), are left out;
+- deprecated properties are left out;
+- property descriptions are left out: each property is one line of its type (`!` when required), its
+  allowed values `a|b`, its `[format]` and `e.g.` its first example;
+- each relationship is listed once, under Relationships, with its ends and inverse, not again beside
+  each type it connects.
+
+When the registry grows past the bound, the rule is to trim what the rendering carries, in that
+spirit, and record it here, not to raise the bound.
+
+### The lint
+
+`./gradlew ontologyLint` fails the build on any finding, naming its registry path and rule code, and
+groups findings under the type they are about. It runs in `./gradlew check`, in the pre-commit hook
+when the registry is staged, and so in CI. `--warn-only` reports ONT009 without failing; every other
+rule is a fact about the registry, not a matter of taste.
+
+| Code | Finding |
+| --- | --- |
+| ONT001 | A property or node type without a description |
+| ONT002 | A property without examples |
+| ONT003 | An example the API would refuse: the wrong type, outside the enum, not of the format; or an example node that lacks a required property or sets an undeclared one |
+| ONT004 | A node type without an example node |
+| ONT005 | A core type (the nine below) that names no questions it helps answer |
+| ONT006 | An enum with a duplicated value, a value in no naming convention, or values in more than one |
+| ONT007 | An unknown format, or a `formatWhen` naming a property the type does not declare |
+| ONT008 | A deprecation replaced by something that is neither a property of the same type nor an edge type |
+| ONT009 | A description under 20 characters, or one that only repeats the property's name (a warning with `--warn-only`) |
+| ONT010 | An edge type without a description, or naming an undeclared node type at either end |
+| ONT011 | A deprecated identity property |
+
+```text
+Ontology lint: 1 errors, 0 warnings
+nodes.Repository
+  nodes.Repository.properties.topics: missing description [ONT001]
+```
+
+The lint's rules are tested against small fixture registries in buildSrc, which CI runs as its own
+step (`./gradlew -p buildSrc test`), because the main build cannot reach buildSrc's tests.
+
+### Enums, and the writers they had to agree with
+
+An enum is enforced on write through the node, edge and seed APIs, so declaring one must not make a
+real writer start failing. Each set below is what the writers already send, and where the issue's
+list and the code disagreed the code won or both changed together:
+
+| Property | Values | Where it differs from the issue, and why |
+| --- | --- | --- |
+| `Deployment.status` | `PENDING`, `IN_PROGRESS`, `SUCCESS`, `FAILED`, `ROLLED_BACK`, `CANCELLED` | Upper case: the deployment ingest, why-failed and every fixture already speak `SUCCESS` and `FAILED`, so the lint allows UPPER_SNAKE_CASE |
+| `Pipeline.lastRunStatus` | `success`, `failure`, `cancelled`, `in_progress`, `unknown` | Writers changed with it: the deployment ingest maps its report's `SUCCESS` to `success` and `FAILED` to `failure`, and the dogfood seed folds GitHub's conclusions onto these (`timed_out` is `failure`, `queued` is `in_progress`, `skipped` is `unknown`) |
+| `Pipeline.provider` | `github-actions`, `gitlab-ci`, `azure-pipelines`, `jenkins`, `other` | The deployment ingest writes a report's provider as given, without the validator: it is part of the key, so folding an unknown one into `other` would merge pipelines. The conformance report lists any such value |
+| `Environment.type` | `development`, `test`, `staging`, `production`, `ephemeral`, `other` | `other` added: the deployment ingest used to copy the environment's name into its type, so `dogfood` was a type. It now types an environment by its name where the name is one of these, and as `other` where it is not |
+| `Artifact.artifactType` | `container-image`, `jar`, `npm-package`, `python-wheel`, `helm-chart`, `terraform-module`, `binary`, `other` | kebab-case, because the ingest writes `container-image` |
+| `SyncRun.status` | `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED` | Upper case, as the sync recorder writes them |
+| `SyncRun.mode` | `FULL`, `INCREMENTAL`, `WEBHOOK` | As above |
+| `ConnectorState.lastStatus`, `lastRunStatus` | `SUCCESS`, `PARTIAL`, `FAILED` | As above |
+| `CloudResource.provider` | `aws`, `azure`, `gcp` | |
+| `sourceSystem` of ConfigurationItem, ChangeRequest, Incident | `servicenow`, `jsm` | |
+| `Service.tier` | `platinum`, `gold`, `silver`, `bronze` | No writer sets it yet |
+| `OWNS_RESOURCE.rule` | `manual`, `tag`, `deployment`, `iac`, `naming` | |
+
+The enums the registry already had (`visibility`, `Repository.provider`, `Environment.tier`,
+`changeType`, `ecosystem`, `IacFile.format`, `PullRequest.state`, `ExternalWorkItem.system`,
+`DEPENDS_ON.kind` and `scope`, `principalType`) are unchanged.
+
+A value is checked against its enum only on write. Data written before the enum was declared, or by
+a writer that does not go through the validator (the deployment ingest, the connectors' graph
+deltas, the sync recorder), is left as it is and still reads: the GraphQL fields stay strings for
+that reason. `./gradlew ontologyLint --report-data` lists it, against the graph named by `NEO4J_URI`,
+`NEO4J_USERNAME` and `NEO4J_PASSWORD`: each property, each value outside its enum and how many facts
+hold it. The report is informational and never fails the build; it is what a migration
+([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) would be written from.
+
+### Formats, and what they accept
+
+A format is declared only where every current writer conforms, and checked only when there is a value:
+
+| Property | Format | Accepts |
+| --- | --- | --- |
+| `Repository.url`, `PullRequest.url`, `Change.url` | `url` | any `scheme://…`, which covers https, ssh, git and `chorus://`, and the scp-like `git@host:org/name` form |
+| `Team.email` | `email` | `name@host.tld` |
+| `Artifact.digest` | `sha256` | `sha256:` and 64 lower-case hex digits |
+| `CloudResource.resourceId` | `arn`, when `provider` is `aws` | `arn:partition:service:region:account:resource`; an Azure id or GCP asset name is not held to it |
+| `Ontology.version` | `semver` | `1.3.0`, with an optional pre-release and build |
+
+A Repository's `url` is judged as it will be stored, canonicalised to `https://host/org/name`, so any
+remote GitRemoteParser reads (`github.com/acme/payments`, `acme/payments`) passes, through the seed
+as well as the node API. `ExternalWorkItem.uri` declares no format: it is opaque to everything but the
+system that owns it. An `instant` property needs none, since its type already says it.
+
+### Deprecations
+
+Deprecated in 1.3.0, and kept until a major version removes them with a migration:
+
+| Property | Use instead |
+| --- | --- |
+| `Repository.serviceId` | the `PROVIDES` edge |
+| `Pipeline.repoId` | `repoKey` |
+| `Artifact.repoId` | the `BUILT_FROM` edge |
+| `CloudResource.repoId` | the `OWNS_RESOURCE` edge |
+| `Deployment.artifactId` | `artifactKey` |
+| `Deployment.environmentId` | `environmentKey` |
+| `ConfigurationItem.serviceId` | the `RELATES_TO_CI` edge |
+
+`Pipeline.repoId` and the two Deployment ids stay required of a writer, because the typed classes
+still read them. `Repository.orgRepo` is not deprecated: it is not a registry property at all.
 
 ## Core entity types
 
@@ -676,6 +836,8 @@ trip.
 | Type not in the registry | `404 {error: "unknown node type", type}` |
 | Required property missing or blank | `400 {errors: [{field, message: "<name> is required"}]}` |
 | Value of the wrong type | `400` with `message: "expected int"` (or the declared wire name) |
+| Value outside its enum (#81) | `400` with `message: "status must be one of PENDING, IN_PROGRESS, SUCCESS, FAILED, ROLLED_BACK, CANCELLED"` |
+| Value not of its format (#81) | `400` with `message: "expected url"` (or `email`, `sha256`, `arn`, ...), only when there is a value |
 | Property not declared | `400` with `message: "not in ontology"` |
 | Derived key already held | `409 {error: "node exists", existingId}` |
 | Alias already held by another node (#88) | `409 {error: "node exists", existingId, alias}` |
@@ -736,11 +898,13 @@ caller renders what it is given rather than working out which way round it is.
 
 ### Constrained values
 
-A property may declare an `enum`, and `DEPENDS_ON.kind` is the first to use it — `library`, `api`,
-`event` or `data`, required. A free-text kind is barely worth storing: nobody can ask for "the
+A property may declare an `enum`, and `DEPENDS_ON.kind` was the first to use it — `library`, `api`,
+`event`, `data` or `cmdb`, required. A free-text kind is barely worth storing: nobody can ask for "the
 event-driven dependencies" if half of them say `events` and the rest say `async`. Declaring the set
 is what makes the property answerable, and it is published through `GET /api/v1/ontology` so a form
-offers the values rather than guessing them.
+offers the values rather than guessing them. Since 1.3.0 every status-like property declares one;
+[Enums, and the writers they had to agree with](#enums-and-the-writers-they-had-to-agree-with) lists
+them and why each set is what it is.
 
 ## Why identity cannot be edited
 
@@ -771,7 +935,13 @@ setting the version recorded on its `Ontology` node back by hand.
 1.2.0 ([#88](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/88)) added Repository's
 `provider` and `providerId`, the `alias` they form, and `previousKeys` on the provenance envelope. It
 is also a minor bump, with the same caveat: a 1.1.0 build refuses to start against a graph a 1.2.0
-build has recorded. `GET /api/v1/ontology`
+build has recorded.
+
+1.3.0 ([#81](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/81)) made the registry
+self-describing: descriptions, examples, formats and deprecations on every property, example nodes and
+questions on every type, and enums on the status-like properties, enforced on write. It is a minor
+bump: nothing was renamed or removed, and a value stored before its enum still reads. The same
+rollback caveat applies. `GET /api/v1/ontology`
 returns the current registry as JSON, which is what drives the generic editing screen in the
 frontend.
 
@@ -782,8 +952,8 @@ of a node is generated from it:
 
 | Generated file | Consumer |
 | --- | --- |
-| `backend/src/main/resources/graphql/schema.generated.graphqls` | GraphQL types, one `<Type>Node` per registry type, all implementing `GraphNode` |
-| `frontend/src/generated/ontology.ts` | Frontend interfaces, `NODE_TYPES`, `EDGE_TYPES`, `ONTOLOGY_VERSION` |
+| `backend/src/main/resources/graphql/schema.generated.graphqls` | GraphQL types, one `<Type>Node` per registry type, all implementing `GraphNode`, with docstrings, `@deprecated` and an enum type per enum property |
+| `frontend/src/generated/ontology.ts` | Frontend interfaces with JSDoc, a union per enum property, `NODE_TYPES`, `EDGE_TYPES`, `ONTOLOGY_VERSION` |
 | `backend/src/main/resources/ontology/v1/ontology.json` | The exact payload `GET /api/v1/ontology` returns, usable as a test fixture |
 
 After changing anything under `ontology/v1/`:

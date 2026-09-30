@@ -1,0 +1,278 @@
+import com.fasterxml.jackson.databind.ObjectMapper
+import java.time.DateTimeException
+import java.time.Instant
+import java.time.ZoneId
+
+/**
+ * The shapes a string property may declare with `format:` (#81), as the build reads them.
+ *
+ * The application enforces the same rules on write (FormatValidator); buildSrc cannot import it, so
+ * the two are kept together by ExampleValidatorTest here and FormatValidatorTest there, which accept
+ * and refuse the same values.
+ */
+object FormatRules {
+    private val SEMVER =
+        Regex(
+            """^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$""",
+        )
+    private val URL = Regex("""^[a-zA-Z][a-zA-Z0-9+.-]*://\S+$""")
+    private val SCP_LIKE = Regex("""^[\w.-]+@[\w.-]+:\S+$""")
+    private val EMAIL = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
+    private val SHA256 = Regex("""^sha256:[0-9a-f]{64}$""")
+    private val ARN = Regex("""^arn:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]*:[0-9]*:.+$""")
+    private val RRULE = Regex("""^(RRULE:)?(.+;)?FREQ=(SECONDLY|MINUTELY|HOURLY|DAILY|WEEKLY|MONTHLY|YEARLY)(;.*)?$""")
+
+    val KNOWN = linkedSetOf("instant", "url", "email", "iana-tz", "rrule", "semver", "sha256", "arn")
+
+    fun matches(
+        format: String,
+        value: String,
+    ): Boolean =
+        when (format) {
+            "instant" -> isInstant(value)
+            "url" -> URL.matches(value) || SCP_LIKE.matches(value)
+            "email" -> EMAIL.matches(value)
+            "iana-tz" -> value.contains('/') && isZone(value) || value == "UTC"
+            "rrule" -> RRULE.matches(value)
+            "semver" -> SEMVER.matches(value)
+            "sha256" -> SHA256.matches(value)
+            "arn" -> ARN.matches(value)
+            else -> false
+        }
+
+    fun isInstant(value: String): Boolean =
+        try {
+            Instant.parse(value)
+            true
+        } catch (_: DateTimeException) {
+            false
+        }
+
+    private fun isZone(value: String): Boolean =
+        try {
+            ZoneId.of(value)
+            true
+        } catch (_: DateTimeException) {
+            false
+        }
+}
+
+/** Whether a value is one its property would accept: of its type, in its enum, of its format. */
+object ExampleValidator {
+    fun problems(
+        property: GenProperty,
+        value: Any?,
+        siblings: Map<String, Any?> = emptyMap(),
+    ): List<String> {
+        if (!ofType(property.type, value)) return listOf("is not of type ${property.type}")
+        val enum = property.enum
+        if (enum != null && value.toString() !in enum) return listOf("is not one of ${enum.joinToString()}")
+        val format = property.format ?: return emptyList()
+        val applies = property.formatWhen.isEmpty() || property.formatWhen.all { (key, expected) -> siblings[key]?.toString() == expected }
+        return if (applies && value is String && format in FormatRules.KNOWN && !FormatRules.matches(format, value)) {
+            listOf("is not of format $format")
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun ofType(
+        type: String,
+        value: Any?,
+    ): Boolean =
+        when (type) {
+            "int" -> value is Int || value is Long
+            "float" -> value is Number
+            "boolean" -> value is Boolean
+            "instant" -> value is String && FormatRules.isInstant(value)
+            "string[]" -> value is List<*> && value.all { it is String }
+            else -> value is String
+        }
+}
+
+/** One thing the lint found, locatable by its registry path. */
+data class LintFinding(
+    val path: String,
+    val message: String,
+    val code: String,
+) {
+    val line: String get() = "$path: $message [$code]"
+
+    /** The type the finding is about, `nodes.Repository` or `edges.OWNED_BY`, for grouping. */
+    val group: String get() = path.split('.').take(2).joinToString(".")
+}
+
+/**
+ * Whether the registry describes itself well enough for a machine to read it (#81).
+ *
+ * Every rule has a code, documented in docs/ONTOLOGY.md, so a failure can be looked up rather than
+ * guessed at. ONT009 (a description too thin to help) is the only rule that `--warn-only` relaxes:
+ * the rest are facts about the registry, not matters of taste.
+ */
+object OntologyLint {
+    /** The types an agent reaches for first; each must say which questions it answers. */
+    val CORE_TYPES =
+        setOf("Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem")
+
+    private const val WARNING = "ONT009"
+    private const val MIN_DESCRIPTION = 20
+    private val JSON = ObjectMapper()
+
+    private val SNAKE = Regex("^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
+    private val KEBAB = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+    private val UPPER_SNAKE = Regex("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$")
+
+    fun lint(ontology: GenOntology): List<LintFinding> {
+        val nodeNames = ontology.nodeTypes.map { it.name }.toSet()
+        val edgeNames = ontology.edgeTypes.map { it.name }.toSet()
+        val nodes =
+            ontology.nodeTypes.flatMap { type ->
+                val path = "nodes.${type.name}"
+                typeFindings(type, path) +
+                    type.properties.flatMap { propertyFindings(it, "$path.properties.${it.name}", type.name, type.properties, edgeNames) } +
+                    type.properties
+                        .filter { it.name in type.identity && it.deprecated != null }
+                        .map { LintFinding("$path.properties.${it.name}", "identity property is deprecated", "ONT011") } +
+                    type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
+            }
+        val edges =
+            ontology.edgeTypes.flatMap { type ->
+                val path = "edges.${type.name}"
+                edgeFindings(type, path, nodeNames) +
+                    type.properties.flatMap { propertyFindings(it, "$path.properties.${it.name}", type.name, type.properties, edgeNames) } +
+                    type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
+            }
+        return nodes + edges
+    }
+
+    fun errors(
+        findings: List<LintFinding>,
+        warnOnly: Boolean,
+    ): List<LintFinding> = findings.filter { !(warnOnly && it.code == WARNING) }
+
+    /** A count, then each type's findings under its name, in the order the registry declares them. */
+    fun report(
+        findings: List<LintFinding>,
+        warnOnly: Boolean,
+    ): String {
+        val errors = errors(findings, warnOnly).size
+        return buildString {
+            append("Ontology lint: $errors errors, ${findings.size - errors} warnings")
+            findings.groupBy { it.group }.forEach { (group, inGroup) ->
+                append("\n").append(group)
+                inGroup.forEach { append("\n  ").append(it.line) }
+            }
+        }
+    }
+
+    private fun typeFindings(
+        type: GenNodeType,
+        path: String,
+    ): List<LintFinding> =
+        listOfNotNull(
+            LintFinding(path, "missing description", "ONT001").takeIf { type.description.isNullOrBlank() },
+            LintFinding(path, "no example node", "ONT004").takeIf { type.examples.isEmpty() },
+            LintFinding(path, "a core type names no questions it helps answer", "ONT005")
+                .takeIf { type.name in CORE_TYPES && type.questions.isEmpty() },
+        )
+
+    private fun edgeFindings(
+        type: GenEdgeType,
+        path: String,
+        nodeNames: Set<String>,
+    ): List<LintFinding> =
+        listOfNotNull(LintFinding(path, "missing description", "ONT010").takeIf { type.description.isNullOrBlank() }) +
+            listOf("from" to type.from, "to" to type.to).flatMap { (end, names) ->
+                names.filter { it !in nodeNames }.map { LintFinding(path, "$end names undeclared node type '$it'", "ONT010") }
+            }
+
+    @Suppress("LongParameterList")
+    private fun propertyFindings(
+        property: GenProperty,
+        path: String,
+        owner: String,
+        siblings: List<GenProperty>,
+        edgeNames: Set<String>,
+    ): List<LintFinding> {
+        val findings = mutableListOf<LintFinding>()
+        val description = property.description
+        if (description.isNullOrBlank()) {
+            findings += LintFinding(path, "missing description", "ONT001")
+        } else {
+            if (description.trim().length < MIN_DESCRIPTION) findings += LintFinding(path, "description is under 20 characters", WARNING)
+            if (description.trim().trimEnd('.').equals(property.name, ignoreCase = true)) {
+                findings += LintFinding(path, "description only repeats the property name", WARNING)
+            }
+        }
+        if (property.examples.isEmpty()) findings += LintFinding(path, "missing examples", "ONT002")
+        property.examples.forEach { example ->
+            ExampleValidator.problems(property, example).forEach {
+                findings += LintFinding(path, "example ${JSON.writeValueAsString(example)} $it", "ONT003")
+            }
+        }
+        findings += enumFindings(property.enum.orEmpty(), path)
+        property.format?.takeIf { it !in FormatRules.KNOWN }?.let { findings += LintFinding(path, "unknown format '$it'", "ONT007") }
+        property.formatWhen.keys.filter { key -> siblings.none { it.name == key } }.forEach {
+            findings += LintFinding(path, "formatWhen names '$it', which the type does not declare", "ONT007")
+        }
+        property.deprecated?.replacedBy?.let { replacement ->
+            if (siblings.none { it.name == replacement } && replacement !in edgeNames) {
+                findings +=
+                    LintFinding(
+                        path,
+                        "deprecated in favour of '$replacement', which is neither a property of $owner nor an edge type",
+                        "ONT008",
+                    )
+            }
+        }
+        return findings
+    }
+
+    private fun enumFindings(
+        values: List<String>,
+        path: String,
+    ): List<LintFinding> {
+        if (values.isEmpty()) return emptyList()
+        val duplicates =
+            values.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.map {
+                LintFinding(path, "enum value '$it' appears more than once", "ONT006")
+            }
+        val conventions = listOf(SNAKE, KEBAB, UPPER_SNAKE)
+        val outside =
+            values.distinct().filter { value -> conventions.none { it.matches(value) } }.map {
+                LintFinding(path, "enum value '$it' is not snake_case, kebab-case or UPPER_SNAKE_CASE", "ONT006")
+            }
+        val conforming = values.distinct().filter { value -> conventions.any { it.matches(value) } }
+        val shared = conventions.filter { convention -> conforming.all { convention.matches(it) } }
+        val mixed =
+            if (conforming.isNotEmpty() && shared.isEmpty()) {
+                listOf(LintFinding(path, "enum mixes naming conventions: ${conforming.joinToString()}", "ONT006"))
+            } else {
+                emptyList()
+            }
+        return duplicates + outside + mixed
+    }
+
+    private fun exampleFindings(
+        example: Map<String, Any?>,
+        path: String,
+        properties: List<GenProperty>,
+    ): List<LintFinding> {
+        val declared = properties.associateBy { it.name }
+        val missing =
+            properties.filter { it.required && example[it.name] == null }.map {
+                LintFinding(path, "example node lacks required property ${it.name}", "ONT003")
+            }
+        val undeclared =
+            example.keys.filter { it !in declared }.map {
+                LintFinding(path, "example node sets $it, which the type does not declare", "ONT003")
+            }
+        val invalid =
+            example.entries.filter { it.key in declared && it.value != null }.flatMap { (name, value) ->
+                ExampleValidator.problems(declared.getValue(name), value, example).map {
+                    LintFinding(path, "example node's $name ${JSON.writeValueAsString(value)} $it", "ONT003")
+                }
+            }
+        return missing + undeclared + invalid
+    }
+}

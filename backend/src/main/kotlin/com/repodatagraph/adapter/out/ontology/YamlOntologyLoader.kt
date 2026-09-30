@@ -3,6 +3,7 @@ package com.repodatagraph.adapter.out.ontology
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.repodatagraph.domain.model.Provenance
+import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeImpact
 import com.repodatagraph.domain.ontology.EdgeOwnership
 import com.repodatagraph.domain.ontology.EdgeTypeDef
@@ -11,6 +12,7 @@ import com.repodatagraph.domain.ontology.InvalidOntologyException
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
+import com.repodatagraph.domain.ontology.PropertyFormat
 import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.ontology.SourceSystemDef
 import org.springframework.core.io.ResourceLoader
@@ -71,6 +73,7 @@ class YamlOntologyLoader(
             throw InvalidOntologyException("$path declares no 'nodes' mapping")
         }
         return nodes.properties().map { (name, definition) ->
+            definition.requireOnly(NODE_KEYS, "node type '$name'")
             NodeTypeDef(
                 name = name,
                 description = definition.path("description").asTextOrNull(),
@@ -79,6 +82,8 @@ class YamlOntologyLoader(
                 meta = definition.path("meta").asBoolean(false),
                 displayProperty = definition.path("displayProperty").asTextOrNull(),
                 alias = definition.path("alias").map { it.asText() },
+                examples = readExamples(definition),
+                questions = definition.path("questions").map { it.asText() },
             )
         }
     }
@@ -89,6 +94,7 @@ class YamlOntologyLoader(
             throw InvalidOntologyException("$path declares no 'edges' mapping")
         }
         return edges.properties().map { (name, definition) ->
+            definition.requireOnly(EDGE_KEYS, "edge type '$name'")
             EdgeTypeDef(
                 name = name,
                 description = definition.path("description").asTextOrNull(),
@@ -99,6 +105,8 @@ class YamlOntologyLoader(
                 impact = definition.path("impact").asTextOrNull()?.let(EdgeImpact::fromWireName) ?: EdgeImpact.NONE,
                 downstream = definition.path("downstream").asTextOrNull()?.let(ImpactAlong::fromWireName) ?: ImpactAlong.FORWARD,
                 ownership = definition.path("ownership").asTextOrNull()?.let(EdgeOwnership::fromWireName) ?: EdgeOwnership.NONE,
+                examples = readExamples(definition),
+                questions = definition.path("questions").map { it.asText() },
             )
         }
     }
@@ -111,13 +119,40 @@ class YamlOntologyLoader(
             val name =
                 property.path("name").asTextOrNull()
                     ?: throw InvalidOntologyException("$owner declares a property with no name")
+            property.requireOnly(PROPERTY_KEYS, "$owner property '$name'")
             PropertyDef(
                 name = name,
                 type = PropertyType.fromWireName(property.path("type").asTextOrNull() ?: "string"),
                 required = property.path("required").asBoolean(false),
                 description = property.path("description").asTextOrNull(),
                 enum = property.path("enum").takeIf { it.isArray }?.map { it.asText() },
+                format = property.path("format").asTextOrNull()?.let(PropertyFormat::fromWireName),
+                formatWhen =
+                    property
+                        .path("formatWhen")
+                        .properties()
+                        .associate { (key, value) -> key to value.asText() },
+                examples = property.path("examples").map { it.plain() },
+                deprecated = readDeprecation(property.path("deprecated"), "$owner property '$name'"),
             )
+        }
+
+    private fun readDeprecation(
+        node: JsonNode,
+        owner: String,
+    ): Deprecation? {
+        if (node.isMissingNode || node.isNull) return null
+        node.requireOnly(DEPRECATED_KEYS, "$owner deprecation")
+        return Deprecation(
+            since = node.path("since").asTextOrNull() ?: throw InvalidOntologyException("$owner is deprecated since no version"),
+            replacedBy = node.path("replacedBy").asTextOrNull(),
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun readExamples(definition: JsonNode): List<Map<String, Any?>> =
+        definition.path("examples").map { example ->
+            example.plain() as? Map<String, Any?> ?: throw InvalidOntologyException("an example node must be a mapping: $example")
         }
 
     private fun read(path: String): JsonNode {
@@ -130,5 +165,13 @@ class YamlOntologyLoader(
 
     companion object {
         const val DEFAULT_BASE_PATH = "ontology/v1"
+
+        private val NODE_KEYS =
+            setOf("description", "identity", "alias", "displayProperty", "meta", "properties", "examples", "questions")
+        private val EDGE_KEYS =
+            setOf("description", "from", "to", "inverse", "impact", "downstream", "ownership", "properties", "examples", "questions")
+        private val PROPERTY_KEYS =
+            setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
+        private val DEPRECATED_KEYS = setOf("since", "replacedBy")
     }
 }

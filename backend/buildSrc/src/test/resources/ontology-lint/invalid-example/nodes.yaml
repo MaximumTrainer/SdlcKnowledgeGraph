@@ -1,0 +1,81 @@
+# A small registry that passes every lint rule. The other fixtures are this one with one thing wrong.
+nodes:
+  Repository:
+    description: A git repository, the anchor for most of the graph.
+    identity: [name]
+    displayProperty: name
+    questions:
+      - Which team owns this repository?
+    examples:
+      - { name: payments, url: "https://github.com/acme/payments", topics: [billing], visibility: private }
+    properties:
+      - name: name
+        type: string
+        required: true
+        description: "The repository's name, unique within its organisation"
+        examples: [payments]
+      - name: url
+        type: string
+        required: true
+        description: "Where the repository is served, as a canonical https URL"
+        format: url
+        examples: ["https://github.com/acme/payments"]
+      - name: topics
+        type: "string[]"
+        required: false
+        description: "Topics the forge lists for the repository, as labels"
+        examples: [[billing, payments]]
+      - name: visibility
+        type: string
+        required: false
+        description: "Who may read the repository, as the forge reports it"
+        enum: [public, private, internal]
+        examples: [private]
+      - name: serviceId
+        type: string
+        required: false
+        description: "The service this repository provides, before PROVIDES existed"
+        deprecated: { since: 1.0.0, replacedBy: PROVIDES }
+        examples: [payments-api]
+
+  Team:
+    description: A group that owns repositories and services.
+    identity: [name]
+    displayProperty: name
+    questions:
+      - Which repositories does this team own?
+    examples:
+      - { name: platform, email: platform@acme.example }
+    properties:
+      - name: name
+        type: string
+        required: true
+        description: "The team's name, as the organisation spells it"
+        examples: [platform]
+      - name: email
+        type: string
+        required: false
+        description: "Where the team is reached; one address, not a person's"
+        format: email
+        examples: [platform@acme.example]
+
+  Deployment:
+    description: One event of putting an artifact into an environment.
+    identity: [id]
+    displayProperty: id
+    questions:
+      - What was deployed where?
+    examples:
+      - { id: d1, status: succeeded }
+    properties:
+      - name: id
+        type: string
+        required: true
+        description: "An identifier for the deployment, unique in this graph"
+        examples: [d1]
+      - name: status
+        type: string
+        required: true
+        description: "Whether the deployment worked, as the pipeline reported it"
+        enum: [succeeded, failed]
+        examples: [done]

@@ -2,6 +2,7 @@ package com.repodatagraph.application.ingest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
 import com.repodatagraph.application.connector.SyncRunRecorder
 import com.repodatagraph.application.connector.SyncService
 import com.repodatagraph.config.IngestProperties
@@ -17,6 +18,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.core.io.DefaultResourceLoader
 
 /**
  * The order the ingest endpoint decides in (#7, FR5): whether it is on at all, then whether the caller
@@ -31,7 +33,7 @@ class DeploymentIngestServiceTest {
         DeploymentIngestService(
             IngestProperties(token),
             DeploymentReportParser(objectMapper),
-            DeploymentReportMapper(IdentityResolver(), GitRemoteParser()),
+            DeploymentReportMapper(IdentityResolver(), GitRemoteParser(), YamlOntologyLoader(DefaultResourceLoader()).load()),
             syncService,
             recorder,
         )

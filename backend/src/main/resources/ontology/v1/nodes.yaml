@@ -13,6 +13,18 @@
 # view (#9): a repository reads as `payments` rather than `github.com/acme/payments`. It must be a
 # property the type declares; a node without a value for it is labelled with its key.
 
+#
+# Every type and property describes itself for a machine reader (#81), and `./gradlew ontologyLint`
+# fails the build when one does not (docs/ONTOLOGY.md, "Describing a property"):
+#
+# - `description` says what the property holds, in at least 20 characters;
+# - `examples` lists values the API accepts, the first shown wherever one example is;
+# - `enum` closes a status-like property to the values its writers send, enforced on write;
+# - `format` names a string's shape (url, email, sha256, arn, semver, ...), checked on write where
+#   there is a value, and `formatWhen` limits it to nodes whose sibling properties match;
+# - `deprecated` marks a property kept for old writers and data, with what replaces it;
+# - a type's `examples` are whole nodes the API accepts, and `questions` say what it helps answer.
+
 nodes:
   Repository:
     description: A git repository, the anchor for most of the graph.
@@ -23,128 +35,214 @@ nodes:
     # the node that holds it instead of creating a second one.
     alias: [provider, providerId]
     displayProperty: name
+    questions:
+      - Which team owns this repository?
+      - What does it depend on, and what depends on it?
+      - Which pipelines build it and where is it deployed?
+    examples:
+      - url: "https://github.com/acme/payments"
+        defaultBranch: main
+        topics: [billing]
+        codeowners: ["@acme/payments"]
+        language: Kotlin
+        visibility: private
     properties:
-      - { name: url, type: string, required: true, description: "The git remote, in any form; stored canonicalised as https://host/org/name" }
+      # Any remote form is accepted and stored canonicalised, so the format admits ssh and scp-like
+      # remotes as well as https: every form GitRemoteParser reads.
+      - { name: url, type: string, required: true, format: url, description: "The git remote, in any form; stored canonicalised as https://host/org/name", examples: ["https://github.com/acme/payments", "git@github.com:acme/payments.git"] }
       # Not required of a caller: the server derives all three from url before anything is validated
       # or stored. They are the identity, so an editing screen shows them but cannot change them.
-      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com. Derived from url" }
-      - { name: org, type: string, required: false, description: "Owning organisation or user. Derived from url" }
-      - { name: name, type: string, required: false, description: "Repository name. Derived from url" }
-      - { name: defaultBranch, type: string, required: true }
-      - { name: topics, type: "string[]", required: true }
-      - { name: codeowners, type: "string[]", required: true }
-      - { name: serviceId, type: string, required: false }
-      - { name: language, type: string, required: false }
-      - { name: description, type: string, required: false }
-      - { name: visibility, type: string, required: false, description: "public, private or internal, as the forge reports it", enum: [public, private, internal] }
+      - { name: host, type: string, required: false, description: "Host of the remote, e.g. github.com. Derived from url", examples: [github.com] }
+      - { name: org, type: string, required: false, description: "Owning organisation or user. Derived from url", examples: [acme] }
+      - { name: name, type: string, required: false, description: "Repository name within its organisation. Derived from url", examples: [payments] }
+      - { name: defaultBranch, type: string, required: true, description: "The branch changes are merged into", examples: [main] }
+      - { name: topics, type: "string[]", required: true, description: "Topics the forge lists for the repository; may be empty", examples: [[billing, payments]] }
+      - { name: codeowners, type: "string[]", required: true, description: "Owners named in its CODEOWNERS file, as written there", examples: [["@acme/payments", "@acme/platform"]] }
+      - { name: serviceId, type: string, required: false, description: "The service it provides, as an id, from before the PROVIDES edge", examples: [payments-api], deprecated: { since: 1.3.0, replacedBy: PROVIDES } }
+      - { name: language, type: string, required: false, description: "Its main language, as the forge detects it", examples: [Kotlin] }
+      - { name: description, type: string, required: false, description: "The one-line description the forge shows for it", examples: [Card payments and refunds] }
+      - { name: visibility, type: string, required: false, description: "Who may read it, as the forge reports it", enum: [public, private, internal], examples: [private] }
       # What this repository publishes, so a dependency naming one of them resolves to it rather than
       # to a third-party Library with the same name.
-      - { name: packageNames, type: "string[]", required: false, description: "Package names this repository publishes" }
+      - { name: packageNames, type: "string[]", required: false, description: "Package names this repository publishes", examples: [["@acme/payments-client"]] }
       # Derived from the host when absent and the host is github.com or gitlab.com.
-      - { name: provider, type: string, required: false, description: "Who assigns providerId. Derived from url on github.com and gitlab.com", enum: [github, gitlab, other] }
-      - { name: providerId, type: string, required: false, description: "The provider's stable id for the repository, such as GitHub's numeric repository id" }
+      - { name: provider, type: string, required: false, description: "Who assigns providerId. Derived from url on github.com and gitlab.com", enum: [github, gitlab, other], examples: [github] }
+      - { name: providerId, type: string, required: false, description: "The provider's stable id for the repository, such as GitHub's numeric repository id", examples: ["123456789"] }
 
   Team:
     description: A group that owns repositories, services or infrastructure.
     identity: [name]
     displayProperty: name
+    questions:
+      - What does this team own?
+      - Which of its repositories changed or failed recently?
+    examples:
+      - { name: platform, email: platform@acme.example }
     properties:
-      - { name: name, type: string, required: true }
-      - { name: email, type: string, required: false }
+      - { name: name, type: string, required: true, description: "The team's name as its organisation spells it, or host/org/slug from GitHub", examples: [platform, github.com/acme/payments-team] }
+      - { name: email, type: string, required: false, format: email, description: "An address that reaches the whole team", examples: [platform@acme.example] }
 
   Service:
     description: A running logical component, which may span more than one repository.
     identity: [name]
     displayProperty: name
+    questions:
+      - Which repositories provide this service?
+      - What does it depend on, and who owns it?
+    examples:
+      - { name: payments-api, description: Takes card payments, tier: gold }
     properties:
-      - { name: name, type: string, required: true }
-      - { name: description, type: string, required: false }
-      - { name: tier, type: string, required: false, description: "Criticality tier, e.g. gold" }
+      - { name: name, type: string, required: true, description: "The service's name, unique across the organisation", examples: [payments-api] }
+      - { name: description, type: string, required: false, description: "What the service does, in a sentence", examples: [Takes card payments] }
+      - { name: tier, type: string, required: false, description: "Criticality tier, platinum the most critical", enum: [platinum, gold, silver, bronze], examples: [gold] }
 
   Pipeline:
     description: A CI/CD workflow definition.
     identity: [provider, repoKey, workflowPath]
     displayProperty: name
+    questions:
+      - Which pipelines build this repository?
+      - Did its last run succeed?
+    examples:
+      - provider: github-actions
+        repoKey: github.com/acme/payments
+        workflowPath: .github/workflows/ci.yml
+        name: CI
+        repoId: github.com/acme/payments
+        lastRunStatus: success
     properties:
-      - { name: provider, type: string, required: true, description: "e.g. github-actions" }
-      - { name: repoKey, type: string, required: false, description: "Key of the repository holding the workflow" }
-      - { name: workflowPath, type: string, required: false, description: "Path of the workflow file" }
-      - { name: name, type: string, required: true }
-      - { name: repoId, type: string, required: true }
-      - { name: lastRunStatus, type: string, required: false }
+      # A deployment report may name a CI system outside this list: the ingest writes it as reported,
+      # without the validator, because the provider is part of the key and folding it into `other`
+      # would merge two pipelines. The enum conformance report lists any such value (docs/ONTOLOGY.md).
+      - { name: provider, type: string, required: true, description: "The CI system that runs it", enum: [github-actions, gitlab-ci, azure-pipelines, jenkins, other], examples: [github-actions] }
+      - { name: repoKey, type: string, required: false, description: "Key of the repository holding the workflow", examples: [github.com/acme/payments] }
+      - { name: workflowPath, type: string, required: false, description: "Path of the workflow file in that repository", examples: [.github/workflows/ci.yml] }
+      - { name: name, type: string, required: true, description: "The workflow's display name, or its file name", examples: [CI] }
+      # Still required of a writer until a major version removes it: the typed Pipeline class reads it.
+      - { name: repoId, type: string, required: true, description: "Key of the repository holding the workflow, from before repoKey", examples: [github.com/acme/payments], deprecated: { since: 1.3.0, replacedBy: repoKey } }
+      # The deployment ingest maps its report's SUCCESS and FAILED onto these, and the dogfood seed
+      # folds GitHub's conclusions onto them (docs/ONTOLOGY.md).
+      - { name: lastRunStatus, type: string, required: false, description: "How its most recent run ended, as far as the graph was told", enum: [success, failure, cancelled, in_progress, unknown], examples: [success] }
 
   Artifact:
     description: A built, addressable output such as a container image.
     identity: [registry, name, digest]
     displayProperty: name
+    questions:
+      - Which commit and repository was this artifact built from?
+      - Where has it been deployed?
+    examples:
+      - registry: ghcr.io
+        name: acme/payments
+        digest: "sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"
+        version: 1.4.2
+        commitSha: 9fceb02d0ae598e95dc970b74767f19372d61af8
+        artifactType: container-image
     properties:
-      - { name: registry, type: string, required: false, description: "e.g. ghcr.io" }
-      - { name: name, type: string, required: true }
-      - { name: digest, type: string, required: false, description: "Immutable content digest, preferred for identity" }
-      - { name: version, type: string, required: true }
-      - { name: commitSha, type: string, required: false }
-      - { name: repoId, type: string, required: false }
-      - { name: artifactType, type: string, required: true }
+      - { name: registry, type: string, required: false, description: "The registry host it is published to, e.g. ghcr.io", examples: [ghcr.io] }
+      - { name: name, type: string, required: true, description: "Its name in the registry, without the host", examples: [acme/payments] }
+      - { name: digest, type: string, required: false, format: sha256, description: "Immutable content digest, preferred for identity", examples: ["sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"] }
+      - { name: version, type: string, required: true, description: "The tag or version it was published as, or its digest", examples: [1.4.2] }
+      - { name: commitSha, type: string, required: false, description: "The commit it was built from", examples: [9fceb02d0ae598e95dc970b74767f19372d61af8] }
+      - { name: repoId, type: string, required: false, description: "Key of the repository it was built from, from before BUILT_FROM", examples: [github.com/acme/payments], deprecated: { since: 1.3.0, replacedBy: BUILT_FROM } }
+      - { name: artifactType, type: string, required: true, description: "What kind of artifact it is", enum: [container-image, jar, npm-package, python-wheel, helm-chart, terraform-module, binary, other], examples: [container-image] }
 
   Deployment:
     description: One event of putting an artifact into an environment.
     identity: [artifactKey, environmentKey, deployedAt]
     displayProperty: deployedAt
+    questions:
+      - What was deployed where, and when?
+      - Why did this deployment fail?
+    examples:
+      - artifactKey: "ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"
+        environmentKey: production
+        deployedAt: "2026-09-30T12:00:00Z"
+        artifactId: "ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"
+        environmentId: production
+        deployedBy: octocat
+        status: SUCCESS
     properties:
-      - { name: artifactKey, type: string, required: false }
-      - { name: environmentKey, type: string, required: false }
-      - { name: deployedAt, type: instant, required: true }
-      - { name: artifactId, type: string, required: true }
-      - { name: environmentId, type: string, required: true }
-      - { name: deployedBy, type: string, required: false }
-      - { name: status, type: string, required: true }
+      - { name: artifactKey, type: string, required: false, description: "Key of the artifact that was deployed", examples: ["ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"] }
+      - { name: environmentKey, type: string, required: false, description: "Key of the environment it was deployed to", examples: [production] }
+      - { name: deployedAt, type: instant, required: true, description: "When the deployment happened, in UTC", examples: ["2026-09-30T12:00:00Z"] }
+      # Both still required of a writer until a major version removes them: the typed Deployment
+      # class reads them.
+      - { name: artifactId, type: string, required: true, description: "Key of the deployed artifact, from before artifactKey", examples: ["ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"], deprecated: { since: 1.3.0, replacedBy: artifactKey } }
+      - { name: environmentId, type: string, required: true, description: "Key of the target environment, from before environmentKey", examples: [production], deprecated: { since: 1.3.0, replacedBy: environmentKey } }
+      - { name: deployedBy, type: string, required: false, description: "Who or what started the deployment", examples: [octocat] }
+      # Upper case because the deployment ingest and why-failed already speak it: SUCCESS and FAILED.
+      - { name: status, type: string, required: true, description: "How the deployment ended, or that it has not yet", enum: [PENDING, IN_PROGRESS, SUCCESS, FAILED, ROLLED_BACK, CANCELLED], examples: [SUCCESS, FAILED] }
 
   Environment:
     description: A deployment target such as staging or production.
     identity: [name]
     displayProperty: name
+    questions:
+      - What is deployed to this environment?
+      - What would a change reaching it affect?
+    examples:
+      - { name: production, type: production, tier: production }
     properties:
-      - { name: name, type: string, required: true }
-      - { name: type, type: string, required: true }
+      - { name: name, type: string, required: true, description: "The environment's name; prod and production are one", examples: [production, staging] }
+      # `other` is for a name that is none of these, such as dogfood: the deployment ingest types an
+      # environment by its name where the name is one of these, and as other where it is not.
+      - { name: type, type: string, required: true, description: "What kind of environment this is", enum: [development, test, staging, production, ephemeral, other], examples: [production] }
       # How much a change reaching this environment matters (#87): impact analysis weights a hit by
       # it. Optional rather than required with a default, because there is no migration mechanism to
       # set it on environments already in the graph (#33); a missing tier is read as `other`, never
       # guessed from the name.
-      - { name: tier, type: string, required: false, description: "Criticality, for ranking impact; read as other where absent", enum: [production, pre_production, development, other] }
+      - { name: tier, type: string, required: false, description: "Criticality, for ranking impact; read as other where absent", enum: [production, pre_production, development, other], examples: [production] }
 
   CloudResource:
     description: An infrastructure object in AWS, Azure or GCP.
     identity: [provider, resourceId]
     displayProperty: name
+    questions:
+      - Which repository or team owns this resource?
+      - What would a change to it affect?
+    examples:
+      - { provider: aws, resourceId: "arn:aws:s3:::acme-logs", resourceType: s3-bucket, name: acme-logs, region: eu-west-1, accountId: "123456789012" }
     properties:
-      - { name: provider, type: string, required: true, description: "aws, azure or gcp" }
-      - { name: resourceId, type: string, required: false, description: "ARN, Azure resource id or GCP asset name" }
-      - { name: resourceType, type: string, required: true }
-      - { name: name, type: string, required: true }
-      - { name: region, type: string, required: false }
-      - { name: accountId, type: string, required: false }
-      - { name: repoId, type: string, required: false }
+      - { name: provider, type: string, required: true, description: "The cloud the resource lives in", enum: [aws, azure, gcp], examples: [aws] }
+      - { name: resourceId, type: string, required: false, format: arn, formatWhen: { provider: aws }, description: "ARN, Azure resource id or GCP asset name", examples: ["arn:aws:s3:::acme-logs"] }
+      - { name: resourceType, type: string, required: true, description: "The kind of resource, in the cloud's own terms", examples: [s3-bucket] }
+      - { name: name, type: string, required: true, description: "The resource's human-facing name", examples: [acme-logs] }
+      - { name: region, type: string, required: false, description: "The region it is deployed in, where it has one", examples: [eu-west-1] }
+      - { name: accountId, type: string, required: false, description: "The account, subscription or project that holds it", examples: ["123456789012"] }
+      - { name: repoId, type: string, required: false, description: "Key of the owning repository, from before OWNS_RESOURCE", examples: [github.com/acme/payments], deprecated: { since: 1.3.0, replacedBy: OWNS_RESOURCE } }
 
   ConfigurationItem:
     description: A configuration item from a service management system such as ServiceNow.
     identity: [sourceSystem, instance, sysId]
     displayProperty: ciName
+    questions:
+      - Which repository or service does this CI correspond to?
+      - Who supports it, and how critical is it?
+    examples:
+      - sourceSystem: servicenow
+        instance: acme.service-now.com
+        sysId: 3a7f1c2e1b2f4410a1b2c3d4e5f60718
+        ciName: payments-api
+        ciClass: cmdb_ci_service
+        operationalStatus: Operational
+        supportGroup: Payments Support
     properties:
-      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
-      - { name: instance, type: string, required: true, description: "Instance the CI belongs to" }
-      - { name: sysId, type: string, required: true, description: "Identifier in the source system" }
-      - { name: ciName, type: string, required: true }
-      - { name: ciClass, type: string, required: false, description: "e.g. cmdb_ci_service" }
-      - { name: serviceId, type: string, required: false }
+      - { name: sourceSystem, type: string, required: true, description: "The service-management tool it was read from", enum: [servicenow, jsm], examples: [servicenow] }
+      - { name: instance, type: string, required: true, description: "Instance of that tool the CI belongs to", examples: [acme.service-now.com] }
+      - { name: sysId, type: string, required: true, description: "Identifier of the CI in the source system", examples: [3a7f1c2e1b2f4410a1b2c3d4e5f60718] }
+      - { name: ciName, type: string, required: true, description: "The CI's name as the CMDB shows it", examples: [payments-api] }
+      - { name: ciClass, type: string, required: false, description: "The CMDB class of the CI, e.g. cmdb_ci_service", examples: [cmdb_ci_service] }
+      - { name: serviceId, type: string, required: false, description: "The service it corresponds to, from before RELATES_TO_CI", examples: [payments-api], deprecated: { since: 1.3.0, replacedBy: RELATES_TO_CI } }
       # What a CMDB is consulted for. Criticality and support group are the fields somebody actually
       # reads at three in the morning, and a graph that has the CI but not these sends them back to
       # the CMDB to look them up - which is the trip this graph exists to save.
-      - { name: operationalStatus, type: string, required: false, description: "As the CMDB reports it, e.g. Operational or Retired" }
-      - { name: environment, type: string, required: false }
-      - { name: businessCriticality, type: string, required: false, description: "e.g. 1 - most critical" }
-      - { name: ownerGroup, type: string, required: false }
-      - { name: supportGroup, type: string, required: false }
-      - { name: number, type: string, required: false, description: "The human-facing identifier, where the CI has one" }
+      - { name: operationalStatus, type: string, required: false, description: "As the CMDB reports it, e.g. Operational or Retired", examples: [Operational] }
+      - { name: environment, type: string, required: false, description: "The environment the CMDB places it in, as written there", examples: [Production] }
+      - { name: businessCriticality, type: string, required: false, description: "As the CMDB reports it, e.g. 1 - most critical", examples: [1 - most critical] }
+      - { name: ownerGroup, type: string, required: false, description: "The group the CMDB names as its owner", examples: [Payments Engineering] }
+      - { name: supportGroup, type: string, required: false, description: "The group that answers for it when it breaks", examples: [Payments Support] }
+      - { name: number, type: string, required: false, description: "The human-facing identifier, where the CI has one", examples: [CI0012345] }
 
   # A planned change, as the service-management tool records it. Not a deployment: a change request is
   # somebody's intention and its approval, and whether it actually reached production is a fact the
@@ -154,38 +252,56 @@ nodes:
     description: A change as a service-management tool records it, with its approval and window.
     identity: [sourceSystem, instance, sysId]
     displayProperty: number
+    examples:
+      - sourceSystem: servicenow
+        instance: acme.service-now.com
+        sysId: 9d3c2b1a0f9e8d7c6b5a493827160514
+        number: CHG0001234
+        shortDescription: Upgrade the payments database
+        state: Implement
+        changeType: normal
+        startDate: "2026-09-30T22:00:00Z"
+        endDate: "2026-09-30T23:00:00Z"
     properties:
-      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
-      - { name: instance, type: string, required: true }
-      - { name: sysId, type: string, required: true }
-      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. CHG0001" }
-      - { name: shortDescription, type: string, required: false }
-      - { name: state, type: string, required: false, description: "As the tool reports it, e.g. Implement or Closed" }
-      - { name: changeType, type: string, required: false, enum: [standard, normal, emergency] }
-      - { name: risk, type: string, required: false }
-      - { name: startDate, type: instant, required: false, description: "Start of the planned window" }
-      - { name: endDate, type: instant, required: false, description: "End of the planned window" }
-      - { name: closeCode, type: string, required: false }
-      - { name: requestedBy, type: string, required: false }
-      - { name: assignmentGroup, type: string, required: false }
+      - { name: sourceSystem, type: string, required: true, description: "The service-management tool it was read from", enum: [servicenow, jsm], examples: [servicenow] }
+      - { name: instance, type: string, required: true, description: "Instance of that tool the change belongs to", examples: [acme.service-now.com] }
+      - { name: sysId, type: string, required: true, description: "Identifier of the change in the source system", examples: [9d3c2b1a0f9e8d7c6b5a493827160514] }
+      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. CHG0001", examples: [CHG0001234] }
+      - { name: shortDescription, type: string, required: false, description: "The change's one-line summary", examples: [Upgrade the payments database] }
+      - { name: state, type: string, required: false, description: "As the tool reports it, e.g. Implement or Closed", examples: [Implement] }
+      - { name: changeType, type: string, required: false, description: "How the change is governed: pre-approved, assessed or urgent", enum: [standard, normal, emergency], examples: [normal] }
+      - { name: risk, type: string, required: false, description: "The risk the tool assessed for it, as written there", examples: [Moderate] }
+      - { name: startDate, type: instant, required: false, description: "Start of the planned window", examples: ["2026-09-30T22:00:00Z"] }
+      - { name: endDate, type: instant, required: false, description: "End of the planned window", examples: ["2026-09-30T23:00:00Z"] }
+      - { name: closeCode, type: string, required: false, description: "How the change was closed, as the tool reports it", examples: [Successful] }
+      - { name: requestedBy, type: string, required: false, description: "Who asked for the change, as the tool names them", examples: [Ada Lovelace] }
+      - { name: assignmentGroup, type: string, required: false, description: "The group assigned to carry out the change", examples: [Payments Engineering] }
 
   Incident:
     description: An operational failure as a service-management tool records it.
     identity: [sourceSystem, instance, sysId]
     displayProperty: number
+    examples:
+      - sourceSystem: servicenow
+        instance: acme.service-now.com
+        sysId: 1f2e3d4c5b6a79880716253443526170
+        number: INC0012345
+        shortDescription: Card payments failing
+        priority: 1 - Critical
+        openedAt: "2026-09-30T12:05:00Z"
     properties:
-      - { name: sourceSystem, type: string, required: true, description: "e.g. servicenow" }
-      - { name: instance, type: string, required: true }
-      - { name: sysId, type: string, required: true }
-      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. INC0001" }
-      - { name: shortDescription, type: string, required: false }
-      - { name: state, type: string, required: false }
-      - { name: priority, type: string, required: false }
-      - { name: severity, type: string, required: false }
-      - { name: openedAt, type: instant, required: false }
-      - { name: resolvedAt, type: instant, required: false }
-      - { name: closeCode, type: string, required: false }
-      - { name: assignmentGroup, type: string, required: false }
+      - { name: sourceSystem, type: string, required: true, description: "The service-management tool it was read from", enum: [servicenow, jsm], examples: [servicenow] }
+      - { name: instance, type: string, required: true, description: "Instance of that tool the incident belongs to", examples: [acme.service-now.com] }
+      - { name: sysId, type: string, required: true, description: "Identifier of the incident in the source system", examples: [1f2e3d4c5b6a79880716253443526170] }
+      - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. INC0001", examples: [INC0012345] }
+      - { name: shortDescription, type: string, required: false, description: "The incident's one-line summary", examples: [Card payments failing] }
+      - { name: state, type: string, required: false, description: "As the tool reports it, e.g. In Progress or Resolved", examples: [In Progress] }
+      - { name: priority, type: string, required: false, description: "The priority the tool gives it, as written there", examples: [1 - Critical] }
+      - { name: severity, type: string, required: false, description: "The severity the tool gives it, as written there", examples: [1 - High] }
+      - { name: openedAt, type: instant, required: false, description: "When the incident was opened", examples: ["2026-09-30T12:05:00Z"] }
+      - { name: resolvedAt, type: instant, required: false, description: "When the incident was resolved, if it has been", examples: ["2026-09-30T13:40:00Z"] }
+      - { name: closeCode, type: string, required: false, description: "How the incident was closed, as the tool reports it", examples: [Solved (Permanently)] }
+      - { name: assignmentGroup, type: string, required: false, description: "The group assigned to resolve the incident", examples: [Payments Support] }
 
   Library:
     description: A third-party package a repository depends on, as its ecosystem names it.
@@ -193,10 +309,13 @@ nodes:
     # packages and a shared key would merge two unrelated dependencies into one node.
     identity: [ecosystem, name]
     displayProperty: name
+    examples:
+      - { ecosystem: npm, name: vue }
     properties:
-      - { name: ecosystem, type: string, required: true, description: "npm, maven, pypi, go or gradle", enum: [npm, maven, pypi, go] }
-      - { name: name, type: string, required: true, description: "The package name as the manifest spells it" }
-      - { name: description, type: string, required: false }
+      # A Gradle manifest's dependencies are Maven coordinates, so they are recorded as maven.
+      - { name: ecosystem, type: string, required: true, description: "The package ecosystem; Gradle dependencies are maven", enum: [npm, maven, pypi, go], examples: [npm] }
+      - { name: name, type: string, required: true, description: "The package name as the manifest spells it", examples: [vue, "org.springframework.boot:spring-boot-starter-web"] }
+      - { name: description, type: string, required: false, description: "What the package does, in a sentence", examples: [The progressive JavaScript framework] }
 
   IacFile:
     description: An infrastructure-as-code file, and the resources it names.
@@ -204,11 +323,13 @@ nodes:
     # claims one should. Turning the claim into a link is the job of the link engine (#28).
     identity: [repoKey, path]
     displayProperty: path
+    examples:
+      - { repoKey: github.com/acme/payments, path: infra/db.tf, format: terraform, resourceRefs: ["arn:aws:rds:eu-west-1:123456789012:db:payments"] }
     properties:
-      - { name: repoKey, type: string, required: true, description: "Key of the repository holding the file" }
-      - { name: path, type: string, required: true, description: "Path within the default branch" }
-      - { name: format, type: string, required: true, enum: [terraform, cdk, bicep, cloudformation] }
-      - { name: resourceRefs, type: "string[]", required: false, description: "Identifiers the file names literally, for the link engine to match on" }
+      - { name: repoKey, type: string, required: true, description: "Key of the repository holding the file", examples: [github.com/acme/payments] }
+      - { name: path, type: string, required: true, description: "Path within the default branch", examples: [infra/db.tf] }
+      - { name: format, type: string, required: true, description: "The infrastructure-as-code language of the file", enum: [terraform, cdk, bicep, cloudformation], examples: [terraform] }
+      - { name: resourceRefs, type: "string[]", required: false, description: "Identifiers the file names literally, for the link engine to match on", examples: [["arn:aws:rds:eu-west-1:123456789012:db:payments"]] }
 
   # A change and the intent behind it (#85). A Change is a commit range or merge in a repository; a
   # PullRequest proposed and merged it; an ExternalWorkItem is the task, ticket or issue that asked
@@ -221,42 +342,64 @@ nodes:
     # remote notation the caller used, so a change lands beside the Repository node it belongs to.
     identity: [repositoryKey, sha]
     displayProperty: sha
+    questions:
+      - Where is this change live?
+    examples:
+      - repositoryKey: github.com/acme/payments
+        sha: 9fceb02d0ae598e95dc970b74767f19372d61af8
+        title: Retry the payment webhook
+        author: octocat
+        committedAt: "2026-09-30T10:00:00Z"
+        url: "https://github.com/acme/payments/commit/9fceb02d0ae598e95dc970b74767f19372d61af8"
     properties:
-      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the change was made in, e.g. github.com/acme/payments" }
-      - { name: sha, type: string, required: true, description: "The commit the change ends at, stored in lower case" }
-      - { name: baseSha, type: string, required: false, description: "The commit the change starts from, for a range" }
-      - { name: title, type: string, required: false }
-      - { name: author, type: string, required: false }
-      - { name: committedAt, type: instant, required: true }
-      - { name: url, type: string, required: false, description: "Where the change can be read, e.g. the commit or compare page" }
+      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the change was made in, e.g. github.com/acme/payments", examples: [github.com/acme/payments] }
+      - { name: sha, type: string, required: true, description: "The commit the change ends at, stored in lower case", examples: [9fceb02d0ae598e95dc970b74767f19372d61af8] }
+      - { name: baseSha, type: string, required: false, description: "The commit the change starts from, for a range", examples: [a1b2c3d4e5f60718293a4b5c6d7e8f9012345678] }
+      - { name: title, type: string, required: false, description: "The change's summary, such as its commit subject", examples: [Retry the payment webhook] }
+      - { name: author, type: string, required: false, description: "Who made the change, as the forge names them", examples: [octocat] }
+      - { name: committedAt, type: instant, required: true, description: "When the change was committed", examples: ["2026-09-30T10:00:00Z"] }
+      - { name: url, type: string, required: false, format: url, description: "Where the change can be read, e.g. the commit or compare page", examples: ["https://github.com/acme/payments/commit/9fceb02d0ae598e95dc970b74767f19372d61af8"] }
 
   PullRequest:
     description: A proposal to merge a change into a repository, as the forge records it.
     identity: [repositoryKey, number]
     displayProperty: number
+    examples:
+      - repositoryKey: github.com/acme/payments
+        number: 42
+        url: "https://github.com/acme/payments/pull/42"
+        title: Retry the payment webhook
+        state: merged
+        mergedAt: "2026-09-30T11:00:00Z"
+        branch: chorus/CH-42-retry-webhook
     properties:
-      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the pull request targets" }
-      - { name: number, type: int, required: true, description: "The forge's number for it within the repository" }
-      - { name: url, type: string, required: true }
-      - { name: title, type: string, required: false }
-      - { name: state, type: string, required: false, enum: [open, merged, closed] }
-      - { name: mergedAt, type: instant, required: false }
-      - { name: branch, type: string, required: false, description: "The head branch, e.g. chorus/CH-42-retry-webhook" }
+      - { name: repositoryKey, type: string, required: true, description: "Key of the repository the pull request targets", examples: [github.com/acme/payments] }
+      - { name: number, type: int, required: true, description: "The forge's number for it within the repository", examples: [42] }
+      - { name: url, type: string, required: true, format: url, description: "Where the pull request can be read on the forge", examples: ["https://github.com/acme/payments/pull/42"] }
+      - { name: title, type: string, required: false, description: "The pull request's title", examples: [Retry the payment webhook] }
+      - { name: state, type: string, required: false, description: "Whether it is open, merged or closed unmerged", enum: [open, merged, closed], examples: [merged] }
+      - { name: mergedAt, type: instant, required: false, description: "When it was merged, if it has been", examples: ["2026-09-30T11:00:00Z"] }
+      - { name: branch, type: string, required: false, description: "The head branch, e.g. chorus/CH-42-retry-webhook", examples: [chorus/CH-42-retry-webhook] }
 
   # A reference, not a copy (ADR-0012): the description, acceptance criteria and decisions of a work
   # item stay authoritative in the system that owns it. The graph holds its URI and enough to show it.
   ExternalWorkItem:
     description: A task, ticket or issue in the system that owns it, referred to by its URI.
     # The URI exactly as the owning system writes it. Opaque: not lowercased, not parsed, not
-    # normalised, because only that system knows which parts of it are case-sensitive.
+    # normalised, because only that system knows which parts of it are case-sensitive. For the same
+    # reason it declares no format.
     identity: [uri]
     displayProperty: externalKey
+    questions:
+      - Where is this work item live?
+    examples:
+      - { uri: "https://acme.atlassian.net/browse/PAY-42", system: jira, externalKey: PAY-42, title: Retry the payment webhook }
     properties:
-      - { name: uri, type: string, required: true, description: "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42" }
-      - { name: system, type: string, required: true, description: "The system that owns the work item", enum: [chorus, jira, linear, github, other] }
+      - { name: uri, type: string, required: true, description: "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42", examples: ["https://acme.atlassian.net/browse/PAY-42", "chorus://task/01J9ZQ"] }
+      - { name: system, type: string, required: true, description: "The system that owns the work item", enum: [chorus, jira, linear, github, other], examples: [jira] }
       # Not `key`: every node already has one, its identity, which this is not.
-      - { name: externalKey, type: string, required: false, description: "Its human-facing identifier there, e.g. CH-42" }
-      - { name: title, type: string, required: false }
+      - { name: externalKey, type: string, required: false, description: "Its human-facing identifier there, e.g. CH-42", examples: [PAY-42] }
+      - { name: title, type: string, required: false, description: "The work item's title in the owning system", examples: [Retry the payment webhook] }
 
   # Meta types: these describe the graph itself rather than the software it models.
   Ontology:
@@ -264,31 +407,44 @@ nodes:
     meta: true
     identity: [version]
     displayProperty: version
+    examples:
+      - { version: 1.3.0, loadedAt: "2026-09-30T12:00:00Z" }
     properties:
-      - { name: version, type: string, required: true }
-      - { name: loadedAt, type: instant, required: false }
+      - { name: version, type: string, required: true, format: semver, description: "The ontology version, as version.yaml declares it", examples: [1.3.0] }
+      - { name: loadedAt, type: instant, required: false, description: "When a build first recorded this version", examples: ["2026-09-30T12:00:00Z"] }
 
   SyncRun:
     description: One execution of a connector, for auditing what a sync changed.
     meta: true
     identity: [id]
     displayProperty: id
+    examples:
+      - id: 0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b
+        connector: github
+        sourceSystem: github
+        mode: INCREMENTAL
+        startedAt: "2026-09-30T12:00:00Z"
+        finishedAt: "2026-09-30T12:01:30Z"
+        status: SUCCESS
+        nodesUpserted: 42
+        edgesUpserted: 57
+        tombstones: 0
     properties:
-      - { name: id, type: string, required: true }
-      - { name: connector, type: string, required: true }
-      - { name: sourceSystem, type: string, required: false, description: "What this run stamped on the provenance of everything it wrote" }
-      - { name: mode, type: string, required: false, description: "FULL, INCREMENTAL or WEBHOOK" }
+      - { name: id, type: string, required: true, description: "The run's id, stamped on the provenance of what it wrote", examples: [0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b] }
+      - { name: connector, type: string, required: true, description: "The connector that ran, by its registered name", examples: [github] }
+      - { name: sourceSystem, type: string, required: false, description: "What this run stamped on the provenance of everything it wrote", examples: [github] }
+      - { name: mode, type: string, required: false, description: "Whether it read everything, what changed, or one delivery", enum: [FULL, INCREMENTAL, WEBHOOK], examples: [INCREMENTAL] }
       # The event that caused this run, as the source system numbered it. Present only for a webhook,
       # and the reason a redelivery is recognised rather than applied a second time.
-      - { name: sourceId, type: string, required: false, description: "The source system's id for the delivery that caused this run" }
-      - { name: startedAt, type: instant, required: false }
-      - { name: finishedAt, type: instant, required: false }
-      - { name: status, type: string, required: false, description: "RUNNING, SUCCESS, PARTIAL or FAILED" }
-      - { name: nodesUpserted, type: int, required: false }
-      - { name: edgesUpserted, type: int, required: false }
-      - { name: tombstones, type: int, required: false, description: "Facts this run closed because the source stopped reporting them" }
-      - { name: watermark, type: instant, required: false, description: "Where the next incremental run should start" }
-      - { name: error, type: string, required: false }
+      - { name: sourceId, type: string, required: false, description: "The source system's id for the delivery that caused this run", examples: [72d3162e-cc78-11e3-81ab-4c9367dc0958] }
+      - { name: startedAt, type: instant, required: false, description: "When the run started", examples: ["2026-09-30T12:00:00Z"] }
+      - { name: finishedAt, type: instant, required: false, description: "When the run finished, if it has", examples: ["2026-09-30T12:01:30Z"] }
+      - { name: status, type: string, required: false, description: "Whether the run is going, worked, partly worked or failed", enum: [RUNNING, SUCCESS, PARTIAL, FAILED], examples: [SUCCESS] }
+      - { name: nodesUpserted, type: int, required: false, description: "Nodes the run created or updated", examples: [42] }
+      - { name: edgesUpserted, type: int, required: false, description: "Edges the run created or updated", examples: [57] }
+      - { name: tombstones, type: int, required: false, description: "Facts this run closed because the source stopped reporting them", examples: [0] }
+      - { name: watermark, type: instant, required: false, description: "Where the next incremental run should start", examples: ["2026-09-30T12:00:00Z"] }
+      - { name: error, type: string, required: false, description: "Why the run failed or partly failed, where it did", examples: [GitHub returned 502 for acme/payments] }
 
   # Where the last successful run got to, per connector. Separate from SyncRun because a watermark
   # has to survive the runs that produced it: reading it back from the newest successful run would
@@ -298,17 +454,26 @@ nodes:
     meta: true
     identity: [connector]
     displayProperty: connector
+    examples:
+      - connector: github
+        watermark: "2026-09-30T12:00:00Z"
+        lastRunId: 0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b
+        lastStatus: SUCCESS
+        lastRunStatus: SUCCESS
+        lastFinishedAt: "2026-09-30T12:01:30Z"
+        lastSuccessAt: "2026-09-30T12:01:30Z"
+        consecutiveFailures: 0
     properties:
-      - { name: connector, type: string, required: true }
-      - { name: watermark, type: instant, required: false, description: "Reported by the last successful run" }
-      - { name: lastRunId, type: string, required: false, description: "The last scheduled or manual run to finish, whatever its status" }
-      - { name: lastStatus, type: string, required: false, description: "That run's status; the same as lastRunStatus, kept for states written before it" }
-      - { name: lastRunStatus, type: string, required: false, description: "SUCCESS, PARTIAL or FAILED" }
-      - { name: lastFinishedAt, type: instant, required: false }
+      - { name: connector, type: string, required: true, description: "The connector this state belongs to", examples: [github] }
+      - { name: watermark, type: instant, required: false, description: "Reported by the last successful run", examples: ["2026-09-30T12:00:00Z"] }
+      - { name: lastRunId, type: string, required: false, description: "The last scheduled or manual run to finish, whatever its status", examples: [0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b] }
+      - { name: lastStatus, type: string, required: false, description: "That run's status; the same as lastRunStatus, kept for states written before it", enum: [SUCCESS, PARTIAL, FAILED], examples: [SUCCESS] }
+      - { name: lastRunStatus, type: string, required: false, description: "How the last run to finish ended", enum: [SUCCESS, PARTIAL, FAILED], examples: [SUCCESS] }
+      - { name: lastFinishedAt, type: instant, required: false, description: "When the last run to finish finished", examples: ["2026-09-30T12:01:30Z"] }
       # Freshness counts from here (#29). Only a SUCCESS moves it; a PARTIAL run read part of the
       # estate and cannot vouch for the rest.
-      - { name: lastSuccessAt, type: instant, required: false, description: "When the last successful run finished" }
-      - { name: consecutiveFailures, type: int, required: false, description: "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
+      - { name: lastSuccessAt, type: instant, required: false, description: "When the last successful run finished", examples: ["2026-09-30T12:01:30Z"] }
+      - { name: consecutiveFailures, type: int, required: false, description: "Runs that ended PARTIAL or FAILED since the last SUCCESS", examples: [0] }
 
   # A connector or an agent the graph knows as a principal of its own (#115, ADR-0005). Written only
   # through /api/v1/service-principals, which only a user may call; the generic node API refuses it.
@@ -318,7 +483,9 @@ nodes:
     meta: true
     identity: [name]
     displayProperty: name
+    examples:
+      - { name: payments-deployer, ownedBy: platform, description: Reports deployments of the payments service }
     properties:
-      - { name: name, type: string, required: true, description: "The client id its tokens carry (azp, or client_id)" }
-      - { name: ownedBy, type: string, required: true, description: "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" }
-      - { name: description, type: string, required: false }
+      - { name: name, type: string, required: true, description: "The client id its tokens carry (azp, or client_id)", examples: [payments-deployer] }
+      - { name: ownedBy, type: string, required: true, description: "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam", examples: [platform] }
+      - { name: description, type: string, required: false, description: "What the principal is for, in a sentence", examples: [Reports deployments of the payments service] }

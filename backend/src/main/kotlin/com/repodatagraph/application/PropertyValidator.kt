@@ -91,11 +91,28 @@ class PropertyValidator {
                     }
                 }
 
+        // A format is checked only on a value of the right type, so a number sent for a URL is
+        // reported once, as the wrong type; and a conditional format only where its condition holds.
+        val wrongFormat =
+            supplied
+                .filter { matches(it.type, props[it.name]) && formatApplies(it, props) }
+                .mapNotNull { property ->
+                    property.format
+                        ?.takeUnless { FormatValidator.matches(it, props[property.name]) }
+                        ?.let { PropertyError(property.name, "expected ${it.wireName}") }
+                }
+
         // Reported in declaration order rather than submission order, so two clients sending the
         // same bad request get the same response.
-        return (missing + wrongType + outsideEnum)
+        return (missing + wrongType + outsideEnum + wrongFormat)
             .sortedBy { error -> declared.indexOfFirst { it.name == error.field } } + undeclared
     }
+
+    /** A conditional format holds only where every sibling it names has the value it names. */
+    private fun formatApplies(
+        property: PropertyDef,
+        props: Map<String, Any?>,
+    ): Boolean = property.formatWhen.all { (key, expected) -> props[key]?.toString() == expected }
 
     private fun isAbsent(
         props: Map<String, Any?>,

@@ -46,7 +46,7 @@ class EdgeSteps(
 
     @Given("the Environment {string} is registered")
     fun theEnvironmentIsRegistered(name: String) {
-        createNode("Environment", mapOf("name" to name, "type" to "cloud"))
+        createNode("Environment", mapOf("name" to name, "type" to "staging"))
     }
 
     @Given("the edge {string} exists from {string} to {string} with kind {string}")

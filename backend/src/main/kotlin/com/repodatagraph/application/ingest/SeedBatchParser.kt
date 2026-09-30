@@ -92,7 +92,13 @@ class SeedBatchParser(
             val type = node.path("type").asText("")
             val nodeType = registry.nodeType(type)?.takeIf { type in SEEDABLE_NODES }
             val props = propsOf(node)
-            val problems = nodeType?.let { validator.validate(it, props) }.orEmpty()
+            val stored = asStored(type, props)
+            // A remote that cannot be read is reported by keyed(), as before, not also as a format.
+            val problems =
+                nodeType
+                    ?.let { validator.validate(it, stored ?: props) }
+                    .orEmpty()
+                    .filterNot { stored == null && it.field == "url" && it.message == "expected url" }
             problems.forEach { errors["$path.props.${it.field}"] = it.message }
             return when {
                 nodeType == null -> fail("$path.type", "${type.ifBlank { "a node with no type" }} cannot be seeded")
@@ -100,6 +106,21 @@ class SeedBatchParser(
                 else -> keyed(path, type, props, node.path("sourceId").takeIf { it.isTextual }?.asText())
             }
         }
+
+        /**
+         * What the validator judges: the properties as they will be stored, so a remote in any form
+         * GitRemoteParser reads meets Repository.url's format as its canonical https form, as it does
+         * through the node API (#81). Null when the remote cannot be read at all.
+         */
+        private fun asStored(
+            type: String,
+            props: Map<String, Any?>,
+        ): Map<String, Any?>? =
+            try {
+                derivedProperties.expand(type, props)
+            } catch (_: InvalidGitRemoteException) {
+                null
+            }
 
         private fun keyed(
             path: String,

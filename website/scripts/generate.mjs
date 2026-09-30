@@ -133,6 +133,37 @@ export const rewriteLinks = (markdown, sourcePath) => {
 /** `yes`/`no` reads better in a table than a checkbox nobody can copy. */
 const required = property => (property.required ? 'yes' : 'no')
 
+/** A table cell's text, with the pipes that would end the cell escaped. */
+const cell = text => String(text ?? '').replaceAll('|', '\\|')
+
+/** An example as code: a string as it is, anything else as the JSON the API serves it as. */
+const exampleCell = property =>
+  property.examples?.length
+    ? `\`${cell(typeof property.examples[0] === 'string' ? property.examples[0] : JSON.stringify(property.examples[0]))}\``
+    : ''
+
+/** The type, then the closed set or the format it is held to (#81). */
+const typeCell = property => {
+  const parts = [`\`${property.type}\``]
+  if (property.enum?.length) parts.push(`one of ${property.enum.map(value => `\`${value}\``).join(', ')}`)
+  if (property.format) {
+    const when = Object.entries(property.formatWhen ?? {})
+      .map(([key, value]) => `\`${key}\` is \`${value}\``)
+      .join(' and ')
+    parts.push(`format \`${property.format}\`${when ? ` when ${when}` : ''}`)
+  }
+  return parts.join(', ')
+}
+
+/** The description, led by the deprecation where there is one, so nobody builds on it by mistake. */
+const descriptionCell = property => {
+  const deprecated = property.deprecated
+    ? `**Deprecated** since ${property.deprecated.since}` +
+      (property.deprecated.replacedBy ? `, use \`${property.deprecated.replacedBy}\`. ` : '. ')
+    : ''
+  return cell(deprecated + (property.description ?? ''))
+}
+
 export const ontologyPage = ontology => {
   const lines = [
     generatedFrom('backend/src/main/resources/ontology/v1/ontology.json'),
@@ -147,14 +178,24 @@ export const ontologyPage = ontology => {
     lines.push(`### ${nodeType.name}\n`)
     if (nodeType.description) lines.push(`${nodeType.description}\n`)
     lines.push(`Identity: \`${nodeType.identity.join(', ')}\`\n`)
-    lines.push('| Property | Type | Required | Description |')
-    lines.push('| --- | --- | --- | --- |')
+    if (nodeType.questions?.length) {
+      lines.push('Answers:\n')
+      for (const question of nodeType.questions) lines.push(`- ${question}`)
+      lines.push('')
+    }
+    lines.push('| Property | Type | Required | Description | Example |')
+    lines.push('| --- | --- | --- | --- | --- |')
     for (const property of nodeType.properties) {
       lines.push(
-        `| \`${property.name}\` | \`${property.type}\` | ${required(property)} | ${property.description ?? ''} |`
+        `| \`${property.name}\` | ${typeCell(property)} | ${required(property)} | ${descriptionCell(property)} | ${exampleCell(property)} |`
       )
     }
     lines.push('')
+    if (nodeType.examples?.length) {
+      lines.push('Example:\n')
+      lines.push('```json', JSON.stringify(nodeType.examples[0], null, 2), '```')
+      lines.push('')
+    }
   }
 
   lines.push('## Relationship types\n')
@@ -175,12 +216,13 @@ export const ontologyPage = ontology => {
   const withProperties = ontology.edgeTypes.filter(edge => edge.properties?.length)
   if (withProperties.length > 0) {
     lines.push('### Relationship properties\n')
-    lines.push('| Type | Property | Value | Required |')
-    lines.push('| --- | --- | --- | --- |')
+    lines.push('| Type | Property | Value | Required | Description | Example |')
+    lines.push('| --- | --- | --- | --- | --- | --- |')
     for (const edgeType of withProperties) {
       for (const property of edgeType.properties) {
         lines.push(
-          `| \`${edgeType.name}\` | \`${property.name}\` | \`${property.type}\` | ${required(property)} |`
+          `| \`${edgeType.name}\` | \`${property.name}\` | ${typeCell(property)} | ${required(property)} | ` +
+            `${descriptionCell(property)} | ${exampleCell(property)} |`
         )
       }
     }

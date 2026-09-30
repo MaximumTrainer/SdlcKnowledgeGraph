@@ -160,6 +160,20 @@ val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
 tasks.named("check") { dependsOn(ontologyDriftCheck) }
 
 /**
+ * Fails the build when the registry does not describe itself (#81): a property without a description
+ * or example, an example the API would refuse, an unknown format, a deprecation replaced by nothing.
+ * Every finding names its registry path and a rule code that docs/ONTOLOGY.md explains.
+ * `--warn-only` relaxes ONT009, the one rule about taste.
+ */
+val ontologyLint by tasks.registering(OntologyLintTask::class) {
+    ontologyDirectory.set(ontologyDir)
+    // ontology.json is generated into the same directory; the lint reads only the YAML beside it.
+    mustRunAfter(generateOntology)
+}
+
+tasks.named("check") { dependsOn(ontologyLint) }
+
+/**
  * The log event registry (#44) is the single declaration of what the application may log; these
  * render it into the only way to log (`LogEvents.kt`) and the JSON the website shows. Committed and
  * drift-checked like the ontology's outputs.
@@ -296,6 +310,31 @@ testing {
         }
     }
 }
+
+/**
+ * `./gradlew ontologyLint --report-data`: after the lint, list the values already stored against a
+ * running graph that fall outside their enums (#81), for a migration (#33) to be written from. The
+ * graph is named by NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD. Informational: it prints and never
+ * fails the build. Wired only when the flag is given, so a plain lint compiles no test code.
+ */
+val enumConformanceReport by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Lists stored values outside their enums in the graph NEO4J_URI names (ontologyLint --report-data)"
+    val suite = testing.suites.named<JvmTestSuite>("integrationTest").get()
+    testClassesDirs = suite.sources.output.classesDirs
+    classpath = suite.sources.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("*EnumConformanceDataReport") }
+    systemProperty("ontology.reportData.uri", providers.environmentVariable("NEO4J_URI").getOrElse(""))
+    systemProperty("ontology.reportData.username", providers.environmentVariable("NEO4J_USERNAME").getOrElse("neo4j"))
+    systemProperty("ontology.reportData.password", providers.environmentVariable("NEO4J_PASSWORD").getOrElse(""))
+    ignoreFailures = true
+    outputs.upToDateWhen { false }
+    testLogging { showStandardStreams = true }
+}
+
+val reportDataRequested = gradle.startParameter.taskRequests.any { request -> "--report-data" in request.args }
+if (reportDataRequested) ontologyLint { finalizedBy(enumConformanceReport) }
 
 // `./gradlew check` (and therefore the pre-push hook and CI) runs every suite.
 tasks.named("check") {

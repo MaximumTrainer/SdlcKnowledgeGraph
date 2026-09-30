@@ -5,20 +5,20 @@
 # a prov_ prefix (ProvenanceMapper), so none can collide with a domain property.
 provenance:
   properties:
-    - { name: sourceSystem, type: string, required: true, description: "The system of record, one sources.yaml declares: manual, github, servicenow and so on" }
-    - { name: sourceId, type: string, required: false, description: "The fact's identifier in that system, when it has one" }
-    - { name: ingestedAt, type: instant, required: true }
-    - { name: observedAt, type: instant, required: false, description: "When the source says the fact was true" }
-    - { name: confidence, type: float, required: true, description: "1.0 when reported by the system of record, lower when derived by a rule" }
-    - { name: inferred, type: boolean, required: true }
-    - { name: validFrom, type: instant, required: true }
-    - { name: validTo, type: instant, required: false, description: "Set when the fact is superseded" }
-    - { name: syncRunId, type: string, required: false }
+    - { name: sourceSystem, type: string, required: true, description: "The system of record, one sources.yaml declares: manual, github, servicenow and so on", examples: [github] }
+    - { name: sourceId, type: string, required: false, description: "The fact's identifier in that system, when it has one", examples: ["https://github.com/acme/payments"] }
+    - { name: ingestedAt, type: instant, required: true, description: "When the graph recorded the fact", examples: ["2026-09-30T12:00:05Z"] }
+    - { name: observedAt, type: instant, required: false, description: "When the source says the fact was true", examples: ["2026-09-30T12:00:00Z"] }
+    - { name: confidence, type: float, required: true, description: "1.0 when reported by the system of record, lower when derived by a rule", examples: [1.0] }
+    - { name: inferred, type: boolean, required: true, description: "True when a rule derived the fact rather than a source reporting it", examples: [false] }
+    - { name: validFrom, type: instant, required: true, description: "When the fact started to hold, as far as the graph knows", examples: ["2026-09-30T12:00:00Z"] }
+    - { name: validTo, type: instant, required: false, description: "Set when the fact is superseded", examples: ["2026-10-01T09:00:00Z"] }
+    - { name: syncRunId, type: string, required: false, description: "The sync run that wrote the fact, where a connector did", examples: [0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b] }
     # Who made the write (#114): a user's token subject, or a service principal's registered name
     # (#115). A scheduled connector run's facts name no writer: no one asked for them.
-    - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write, or a service principal's name" }
-    - { name: principalType, type: string, required: false, description: "The kind of that principal", enum: [user, service] }
-    - { name: onBehalfOfTeam, type: string, required: false, description: "The key of the Team a service principal acted for; absent for a user" }
+    - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write, or a service principal's name", examples: [payments-deployer] }
+    - { name: principalType, type: string, required: false, description: "The kind of that principal", enum: [user, service], examples: [service] }
+    - { name: onBehalfOfTeam, type: string, required: false, description: "The key of the Team a service principal acted for; absent for a user", examples: [platform] }
     # The keys a node was known by before a rename through its alias (#88), oldest first. Carried
     # across later writes rather than restated by them, and always empty on an edge.
-    - { name: previousKeys, type: "string[]", required: false, description: "Keys this node had before it was renamed, oldest first" }
+    - { name: previousKeys, type: "string[]", required: false, description: "Keys this node had before it was renamed, oldest first", examples: [["github.com/acme/payments-old"]] }

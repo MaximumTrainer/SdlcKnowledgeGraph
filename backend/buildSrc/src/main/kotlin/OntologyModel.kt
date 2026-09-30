@@ -17,6 +17,20 @@ data class GenProperty(
     val description: String?,
     /** Declared allowed values, published so a form can offer them rather than guess. */
     val enum: List<String>? = null,
+    /** The shape a string value takes (#81), one of [FormatRules.KNOWN]; null for none. */
+    val format: String? = null,
+    /** The format applies only where these sibling properties hold these values, e.g. provider aws. */
+    val formatWhen: Map<String, String> = emptyMap(),
+    /** Values the property accepts, the first shown wherever one example is. */
+    val examples: List<Any?> = emptyList(),
+    /** Set when the property is kept for old writers but should no longer be read or written. */
+    val deprecated: GenDeprecation? = null,
+)
+
+/** Since which ontology version a property is deprecated, and the property or edge type that replaces it. */
+data class GenDeprecation(
+    val since: String,
+    val replacedBy: String?,
 )
 
 data class GenNodeType(
@@ -29,6 +43,10 @@ data class GenNodeType(
     val displayProperty: String? = null,
     /** Properties that together find a node beside its key, unique where all are present (#88). */
     val alias: List<String> = emptyList(),
+    /** Whole example nodes, each a set of properties the API would accept (#81). */
+    val examples: List<Map<String, Any?>> = emptyList(),
+    /** Questions a reader answers with this type, so an agent knows when to reach for it. */
+    val questions: List<String> = emptyList(),
 )
 
 data class GenEdgeType(
@@ -44,6 +62,9 @@ data class GenEdgeType(
     val downstream: String = "forward",
     /** `owner`, `inherits` or `none`: what the edge says about ownership. */
     val ownership: String = "none",
+    /** Example edge property sets (#81). */
+    val examples: List<Map<String, Any?>> = emptyList(),
+    val questions: List<String> = emptyList(),
 )
 
 /** A source system a fact's provenance may name (sources.yaml, #117). */
@@ -65,6 +86,27 @@ data class GenOntology(
 object OntologyReader {
     private val yaml = YAMLMapper()
 
+    // A key outside these is a typo or a feature that does not exist; either way it must fail the
+    // build rather than be dropped, or the registry says something nothing reads (#81).
+    private val NODE_KEYS =
+        setOf("description", "identity", "alias", "displayProperty", "meta", "properties", "examples", "questions")
+    private val EDGE_KEYS =
+        setOf(
+            "description",
+            "from",
+            "to",
+            "inverse",
+            "impact",
+            "downstream",
+            "ownership",
+            "properties",
+            "examples",
+            "questions",
+        )
+    private val PROPERTY_KEYS =
+        setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
+    private val DEPRECATED_KEYS = setOf("since", "replacedBy")
+
     fun read(baseDir: File): GenOntology {
         val version =
             yaml
@@ -80,14 +122,17 @@ object OntologyReader {
                 .fields()
                 .asSequence()
                 .map { (name, definition) ->
+                    definition.requireOnly(NODE_KEYS, "nodes.$name")
                     GenNodeType(
                         name = name,
                         description = definition.text("description"),
                         identity = definition.path("identity").map { it.asText() },
-                        properties = definition.readProperties(),
+                        properties = definition.readProperties("nodes.$name"),
                         meta = definition.path("meta").asBoolean(false),
                         displayProperty = definition.text("displayProperty"),
                         alias = definition.path("alias").map { it.asText() },
+                        examples = definition.readExamples(),
+                        questions = definition.path("questions").map { it.asText() },
                     )
                 }.toList()
 
@@ -98,22 +143,25 @@ object OntologyReader {
                 .fields()
                 .asSequence()
                 .map { (name, definition) ->
+                    definition.requireOnly(EDGE_KEYS, "edges.$name")
                     GenEdgeType(
                         name = name,
                         description = definition.text("description"),
                         from = definition.path("from").map { it.asText() },
                         to = definition.path("to").map { it.asText() },
                         inverse = definition.path("inverse").asText(""),
-                        properties = definition.readProperties(),
+                        properties = definition.readProperties("edges.$name"),
                         impact = definition.text("impact") ?: "none",
                         downstream = definition.text("downstream") ?: "forward",
                         ownership = definition.text("ownership") ?: "none",
+                        examples = definition.readExamples(),
+                        questions = definition.path("questions").map { it.asText() },
                     )
                 }.toList()
 
         val provenanceFile = baseDir.resolve("provenance.yaml")
         val provenance =
-            if (provenanceFile.exists()) yaml.readTree(provenanceFile).path("provenance").readProperties() else emptyList()
+            if (provenanceFile.exists()) yaml.readTree(provenanceFile).path("provenance").readProperties("provenance") else emptyList()
 
         val sourcesFile = baseDir.resolve("sources.yaml")
         val sources =
@@ -126,16 +174,55 @@ object OntologyReader {
         return GenOntology(version, nodes, edges, provenance, sources)
     }
 
-    private fun JsonNode.readProperties(): List<GenProperty> =
+    private fun JsonNode.readProperties(owner: String): List<GenProperty> =
         path("properties").map { property ->
+            val path = "$owner.properties.${property.path("name").asText()}"
+            property.requireOnly(PROPERTY_KEYS, path)
+            val deprecated =
+                property.path("deprecated").takeIf { it.isObject }?.let {
+                    it.requireOnly(DEPRECATED_KEYS, "$path.deprecated")
+                    GenDeprecation(since = it.path("since").asText(), replacedBy = it.text("replacedBy"))
+                }
             GenProperty(
                 name = property.path("name").asText(),
                 type = property.path("type").asText("string"),
                 required = property.path("required").asBoolean(false),
                 description = property.text("description"),
                 enum = property.path("enum").takeIf { it.isArray }?.map { it.asText() },
+                format = property.text("format"),
+                formatWhen =
+                    property
+                        .path("formatWhen")
+                        .properties()
+                        .associate { (key, value) -> key to value.asText() },
+                examples = property.path("examples").map { plain(it) },
+                deprecated = deprecated,
             )
         }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun JsonNode.readExamples(): List<Map<String, Any?>> = path("examples").map { plain(it) as Map<String, Any?> }
+
+    /** A YAML value as the plain Kotlin value Jackson would bind it to, keeping key order. */
+    private fun plain(node: JsonNode): Any? =
+        when {
+            node.isNull -> null
+            node.isTextual -> node.asText()
+            node.isBoolean -> node.asBoolean()
+            node.isIntegralNumber -> node.asLong().let { if (it in Int.MIN_VALUE..Int.MAX_VALUE) it.toInt() else it }
+            node.isNumber -> node.asDouble()
+            node.isArray -> node.map { plain(it) }
+            node.isObject -> linkedMapOf<String, Any?>().apply { node.properties().forEach { (k, v) -> put(k, plain(v)) } }
+            else -> node.asText()
+        }
+
+    private fun JsonNode.requireOnly(
+        allowed: Set<String>,
+        path: String,
+    ) {
+        val unknown = fieldNames().asSequence().filter { it !in allowed }.toList()
+        require(unknown.isEmpty()) { "$path: unknown key ${unknown.joinToString()}; the registry reads only ${allowed.joinToString()}" }
+    }
 
     private fun JsonNode.text(field: String): String? =
         path(field).takeIf { !it.isMissingNode && !it.isNull }?.asText()?.takeIf { it.isNotBlank() }

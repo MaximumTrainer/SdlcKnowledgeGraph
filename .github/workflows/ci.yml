@@ -104,6 +104,11 @@ jobs:
         with:
           dockerfile: backend/Dockerfile
           config: .hadolint.yaml
+      # The code generator and the ontology lint live in buildSrc, whose tests the main build cannot
+      # reach (backend/buildSrc/build.gradle.kts); the lint's rules are tested here (#81).
+      - name: Test the build logic (codegen and ontology lint)
+        run: ./gradlew -p buildSrc test --no-daemon
+      # check includes ontologyLint and ontologyDriftCheck as well as every test suite.
       - name: Lint and run all test suites
         run: ./gradlew check --no-daemon
       - name: Upload test and Cucumber reports

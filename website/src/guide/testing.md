@@ -150,6 +150,9 @@ cd backend
 ./gradlew ktlintCheck     # reports in build/reports/ktlint/, plain and checkstyle
 ./gradlew ktlintFormat    # fixes what it can
 ./gradlew detekt          # reports in build/reports/detekt/, html and sarif
+./gradlew ontologyLint    # every ontology type and property describes itself (docs/ONTOLOGY.md, #81)
+./gradlew ontologyLint --report-data   # also lists stored values outside their enums (needs NEO4J_URI)
+./gradlew -p buildSrc test             # the code generator's and the ontology lint's own tests
 
 cd frontend
 npm run lint              # eslint .
@@ -167,7 +170,7 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the dashboard check when `ops/grafana/` or `docs/OBSERVABILITY.md` is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` and `ontologyLint` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the dashboard check when `ops/grafana/` or `docs/OBSERVABILITY.md` is staged, the website drift check when a documentation source is staged, and the guards below |
 | `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
 | `pre-push` | the branch guard, `./gradlew check`, the SLO rule drift check and promtool, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 

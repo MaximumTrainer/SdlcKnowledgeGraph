@@ -3,6 +3,7 @@ package com.repodatagraph.application.ingest
 import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.ontology.IdentityResolver
+import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.NodeUpsert
@@ -28,7 +29,19 @@ data class MappedReport(
 class DeploymentReportMapper(
     private val identityResolver: IdentityResolver,
     private val gitRemoteParser: GitRemoteParser,
+    registry: OntologyRegistry,
 ) {
+    // The environment types the registry allows (#81). An environment reported as `prod` is typed
+    // production; one named for something the enum does not know, such as `dogfood`, is `other`
+    // rather than a value the API would refuse from any other writer.
+    private val environmentTypes: Set<String> =
+        registry
+            .nodeType(ENVIRONMENT)
+            ?.property("type")
+            ?.enum
+            .orEmpty()
+            .toSet()
+
     fun map(report: DeploymentReport): MappedReport {
         val remote = gitRemoteParser.parse(report.repository)
         val repositoryProps = mapOf("url" to remote.canonicalUrl, "host" to remote.host, "org" to remote.org, "name" to remote.name)
@@ -41,12 +54,13 @@ class DeploymentReportMapper(
                 "workflowPath" to report.pipeline.workflowPath,
                 "name" to report.pipeline.workflowPath.substringAfterLast('/'),
                 "repoId" to repository.key,
-                "lastRunStatus" to report.status,
+                "lastRunStatus" to (RUN_STATUSES[report.status] ?: UNKNOWN_RUN),
             )
         val pipeline = identityResolver.keyFor(PIPELINE, pipelineProps)
 
         val environment = identityResolver.keyFor(ENVIRONMENT, mapOf("name" to report.environment))
-        val environmentProps = mapOf("name" to environment.key, "type" to environment.key)
+        val environmentType = if (environment.key in environmentTypes) environment.key else OTHER_ENVIRONMENT
+        val environmentProps = mapOf("name" to environment.key, "type" to environmentType)
 
         val nodes = mutableListOf(node(REPOSITORY, repositoryProps, report), node(PIPELINE, pipelineProps, report))
         nodes += node(ENVIRONMENT, environmentProps, report)
@@ -118,5 +132,11 @@ class DeploymentReportMapper(
         const val DEPLOYMENT = "Deployment"
         const val ENVIRONMENT = "Environment"
         const val CONTAINER_IMAGE = "container-image"
+        const val OTHER_ENVIRONMENT = "other"
+        const val UNKNOWN_RUN = "unknown"
+
+        // A report says SUCCESS or FAILED, which the Deployment keeps: why-failed reads those words. A
+        // pipeline's last run is told in the words its enum shares with the seed and GitHub (#81).
+        val RUN_STATUSES = mapOf("SUCCESS" to "success", "FAILED" to "failure")
     }
 }

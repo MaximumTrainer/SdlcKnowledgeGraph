@@ -39,11 +39,42 @@ export const ontologyFixture: Ontology = {
       identity: ['name'],
       meta: false,
       properties: [
-        { name: 'name', type: 'string', required: true, description: null },
+        {
+          name: 'name',
+          type: 'string',
+          required: true,
+          description: "The sample's name, unique among samples",
+          examples: ['alpha', 'beta']
+        },
         { name: 'count', type: 'int', required: false, description: null },
         { name: 'enabled', type: 'boolean', required: false, description: null },
         { name: 'seenAt', type: 'instant', required: false, description: null },
-        { name: 'topics', type: 'string[]', required: false, description: null }
+        { name: 'topics', type: 'string[]', required: false, description: null },
+        {
+          name: 'stage',
+          type: 'string',
+          required: false,
+          description: 'Where the sample is in its life',
+          enum: ['draft', 'live'],
+          examples: ['live']
+        }
+      ]
+    },
+    {
+      name: 'Gadget',
+      description: 'A type with a required closed set',
+      identity: ['name'],
+      meta: false,
+      properties: [
+        { name: 'name', type: 'string', required: true, description: null },
+        {
+          name: 'kind',
+          type: 'string',
+          required: true,
+          description: 'What sort of gadget this is',
+          enum: ['library', 'api'],
+          examples: ['api']
+        }
       ]
     }
   ],

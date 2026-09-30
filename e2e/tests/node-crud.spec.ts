@@ -77,6 +77,29 @@ test.describe('ontology-driven node CRUD', () => {
     await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1)
   })
 
+  test('a closed set is offered as a choice, described, with an example to follow', async ({
+    page
+  }) => {
+    // The registry names Environment.type's values, says what it means and shows one (#81), so the
+    // form offers the values rather than a box, and shows the rest beside the fields.
+    const name = unique('perf')
+    await page.goto('/nodes/Environment/new')
+
+    // The label reads "type *" for a required field, so it is matched from its start.
+    const type = page.getByRole('combobox', { name: /^type\b/ })
+    const nameField = page.getByRole('textbox', { name: /^name\b/ })
+    await expect(type).toHaveJSProperty('tagName', 'SELECT')
+    await expect(type.locator('option', { hasText: 'staging' })).toHaveCount(1)
+    await expect(page.getByText('What kind of environment this is')).toBeVisible()
+    await expect(nameField).toHaveAttribute('placeholder', 'production')
+
+    await nameField.fill(name)
+    await type.selectOption('staging')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page).toHaveURL(new RegExp(`/nodes/Environment/${name}$`))
+    await expect(page.getByText('staging', { exact: true })).toBeVisible()
+  })
+
   test('an identity property cannot be edited', async ({ page }) => {
     await createTeam(page, unique('platform'))
 

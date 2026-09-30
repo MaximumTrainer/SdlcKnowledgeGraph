@@ -74,6 +74,94 @@ describe('ontologyPage', () => {
     assert.ok(page.includes('| `email` | `string` | no |'))
   })
 
+  describe('as a machine reader needs it (#81)', () => {
+    const described = ontologyPage({
+      ...ontology,
+      nodeTypes: [
+        {
+          name: 'Deployment',
+          description: 'One event of putting an artifact into an environment.',
+          identity: ['artifactKey'],
+          questions: ['What was deployed where?', 'Which deployments failed?'],
+          examples: [{ artifactKey: 'ghcr.io/acme/payments@sha256:1', status: 'SUCCESS' }],
+          properties: [
+            {
+              name: 'status',
+              type: 'string',
+              required: true,
+              description: 'Whether the deployment worked',
+              enum: ['SUCCESS', 'FAILED'],
+              examples: ['SUCCESS']
+            },
+            {
+              name: 'resourceId',
+              type: 'string',
+              required: false,
+              description: 'An identifier | in the cloud',
+              format: 'arn',
+              formatWhen: { provider: 'aws' },
+              examples: ['arn:aws:s3:::logs']
+            },
+            {
+              name: 'tags',
+              type: 'string[]',
+              required: false,
+              description: 'Labels the pipeline set',
+              examples: [['blue', 'green']]
+            },
+            {
+              name: 'environmentId',
+              type: 'string',
+              required: true,
+              description: "The environment's id",
+              examples: ['Environment:production'],
+              deprecated: { since: '1.3.0', replacedBy: 'environmentKey' }
+            }
+          ]
+        }
+      ]
+    })
+
+    test('names the questions a type helps answer', () => {
+      assert.ok(described.includes('Answers:\n\n- What was deployed where?\n- Which deployments failed?\n'))
+    })
+
+    test('lists a closed set and a first example beside each property', () => {
+      assert.ok(
+        described.includes(
+          '| `status` | `string`, one of `SUCCESS`, `FAILED` | yes | Whether the deployment worked | `SUCCESS` |'
+        ),
+        described
+      )
+      assert.ok(described.includes('| `tags` | `string[]` | no | Labels the pipeline set | `["blue","green"]` |'))
+    })
+
+    test('names a format, and the condition it holds under, escaping a pipe in a cell', () => {
+      assert.ok(
+        described.includes(
+          '| `resourceId` | `string`, format `arn` when `provider` is `aws` | no | An identifier \\| in the cloud | `arn:aws:s3:::logs` |'
+        ),
+        described
+      )
+    })
+
+    test('says a property is deprecated, since when and for what', () => {
+      assert.ok(
+        described.includes("**Deprecated** since 1.3.0, use `environmentKey`. The environment's id"),
+        described
+      )
+    })
+
+    test('shows the example node as JSON', () => {
+      assert.ok(
+        described.includes(
+          'Example:\n\n```json\n{\n  "artifactKey": "ghcr.io/acme/payments@sha256:1",\n  "status": "SUCCESS"\n}\n```\n'
+        ),
+        described
+      )
+    })
+  })
+
   test('documents every edge type with its endpoints and inverse', () => {
     assert.ok(page.includes('OWNED_BY'))
     assert.ok(page.includes('OWNS'))

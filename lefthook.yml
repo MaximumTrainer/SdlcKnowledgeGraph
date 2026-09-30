@@ -58,6 +58,11 @@ pre-commit:
     - name: ontology-drift
       glob: "backend/src/main/resources/ontology/**"
       run: node scripts/gradle.mjs ontologyDriftCheck --quiet
+    # Every type and property describes itself for a machine reader (#81): the lint is static
+    # analysis of the registry, so it belongs on commit rather than push.
+    - name: ontology-lint
+      glob: "backend/src/main/resources/ontology/**"
+      run: node scripts/gradle.mjs ontologyLint --quiet
     # The event registry and the LogEvents it generates are committed together or not at all (#44).
     - name: log-event-drift
       glob: "backend/src/main/resources/observability/**"

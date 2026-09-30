@@ -1,342 +1,382 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "nodeTypes": [
     {
       "name": "Repository",
       "description": "A git repository, the anchor for most of the graph.",
       "identity": ["host", "org", "name"],
       "properties": [
-        { "name": "url", "type": "string", "required": true, "description": "The git remote, in any form; stored canonicalised as https://host/org/name" },
-        { "name": "host", "type": "string", "required": false, "description": "Host of the remote, e.g. github.com. Derived from url" },
-        { "name": "org", "type": "string", "required": false, "description": "Owning organisation or user. Derived from url" },
-        { "name": "name", "type": "string", "required": false, "description": "Repository name. Derived from url" },
-        { "name": "defaultBranch", "type": "string", "required": true, "description": null },
-        { "name": "topics", "type": "string[]", "required": true, "description": null },
-        { "name": "codeowners", "type": "string[]", "required": true, "description": null },
-        { "name": "serviceId", "type": "string", "required": false, "description": null },
-        { "name": "language", "type": "string", "required": false, "description": null },
-        { "name": "description", "type": "string", "required": false, "description": null },
-        { "name": "visibility", "type": "string", "required": false, "description": "public, private or internal, as the forge reports it", "enum": ["public", "private", "internal"] },
-        { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes" },
-        { "name": "provider", "type": "string", "required": false, "description": "Who assigns providerId. Derived from url on github.com and gitlab.com", "enum": ["github", "gitlab", "other"] },
-        { "name": "providerId", "type": "string", "required": false, "description": "The provider's stable id for the repository, such as GitHub's numeric repository id" }
+        { "name": "url", "type": "string", "required": true, "description": "The git remote, in any form; stored canonicalised as https://host/org/name", "format": "url", "examples": ["https://github.com/acme/payments", "git@github.com:acme/payments.git"] },
+        { "name": "host", "type": "string", "required": false, "description": "Host of the remote, e.g. github.com. Derived from url", "examples": ["github.com"] },
+        { "name": "org", "type": "string", "required": false, "description": "Owning organisation or user. Derived from url", "examples": ["acme"] },
+        { "name": "name", "type": "string", "required": false, "description": "Repository name within its organisation. Derived from url", "examples": ["payments"] },
+        { "name": "defaultBranch", "type": "string", "required": true, "description": "The branch changes are merged into", "examples": ["main"] },
+        { "name": "topics", "type": "string[]", "required": true, "description": "Topics the forge lists for the repository; may be empty", "examples": [["billing","payments"]] },
+        { "name": "codeowners", "type": "string[]", "required": true, "description": "Owners named in its CODEOWNERS file, as written there", "examples": [["@acme/payments","@acme/platform"]] },
+        { "name": "serviceId", "type": "string", "required": false, "description": "The service it provides, as an id, from before the PROVIDES edge", "examples": ["payments-api"], "deprecated": { "since": "1.3.0", "replacedBy": "PROVIDES" } },
+        { "name": "language", "type": "string", "required": false, "description": "Its main language, as the forge detects it", "examples": ["Kotlin"] },
+        { "name": "description", "type": "string", "required": false, "description": "The one-line description the forge shows for it", "examples": ["Card payments and refunds"] },
+        { "name": "visibility", "type": "string", "required": false, "description": "Who may read it, as the forge reports it", "enum": ["public", "private", "internal"], "examples": ["private"] },
+        { "name": "packageNames", "type": "string[]", "required": false, "description": "Package names this repository publishes", "examples": [["@acme/payments-client"]] },
+        { "name": "provider", "type": "string", "required": false, "description": "Who assigns providerId. Derived from url on github.com and gitlab.com", "enum": ["github", "gitlab", "other"], "examples": ["github"] },
+        { "name": "providerId", "type": "string", "required": false, "description": "The provider's stable id for the repository, such as GitHub's numeric repository id", "examples": ["123456789"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": ["provider", "providerId"]
+      "alias": ["provider", "providerId"],
+      "questions": ["Which team owns this repository?", "What does it depend on, and what depends on it?", "Which pipelines build it and where is it deployed?"],
+      "examples": [{"url":"https://github.com/acme/payments","defaultBranch":"main","topics":["billing"],"codeowners":["@acme/payments"],"language":"Kotlin","visibility":"private"}]
     },
     {
       "name": "Team",
       "description": "A group that owns repositories, services or infrastructure.",
       "identity": ["name"],
       "properties": [
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "email", "type": "string", "required": false, "description": null }
+        { "name": "name", "type": "string", "required": true, "description": "The team's name as its organisation spells it, or host/org/slug from GitHub", "examples": ["platform", "github.com/acme/payments-team"] },
+        { "name": "email", "type": "string", "required": false, "description": "An address that reaches the whole team", "format": "email", "examples": ["platform@acme.example"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["What does this team own?", "Which of its repositories changed or failed recently?"],
+      "examples": [{"name":"platform","email":"platform@acme.example"}]
     },
     {
       "name": "Service",
       "description": "A running logical component, which may span more than one repository.",
       "identity": ["name"],
       "properties": [
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "description", "type": "string", "required": false, "description": null },
-        { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, e.g. gold" }
+        { "name": "name", "type": "string", "required": true, "description": "The service's name, unique across the organisation", "examples": ["payments-api"] },
+        { "name": "description", "type": "string", "required": false, "description": "What the service does, in a sentence", "examples": ["Takes card payments"] },
+        { "name": "tier", "type": "string", "required": false, "description": "Criticality tier, platinum the most critical", "enum": ["platinum", "gold", "silver", "bronze"], "examples": ["gold"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["Which repositories provide this service?", "What does it depend on, and who owns it?"],
+      "examples": [{"name":"payments-api","description":"Takes card payments","tier":"gold"}]
     },
     {
       "name": "Pipeline",
       "description": "A CI/CD workflow definition.",
       "identity": ["provider", "repoKey", "workflowPath"],
       "properties": [
-        { "name": "provider", "type": "string", "required": true, "description": "e.g. github-actions" },
-        { "name": "repoKey", "type": "string", "required": false, "description": "Key of the repository holding the workflow" },
-        { "name": "workflowPath", "type": "string", "required": false, "description": "Path of the workflow file" },
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "repoId", "type": "string", "required": true, "description": null },
-        { "name": "lastRunStatus", "type": "string", "required": false, "description": null }
+        { "name": "provider", "type": "string", "required": true, "description": "The CI system that runs it", "enum": ["github-actions", "gitlab-ci", "azure-pipelines", "jenkins", "other"], "examples": ["github-actions"] },
+        { "name": "repoKey", "type": "string", "required": false, "description": "Key of the repository holding the workflow", "examples": ["github.com/acme/payments"] },
+        { "name": "workflowPath", "type": "string", "required": false, "description": "Path of the workflow file in that repository", "examples": [".github/workflows/ci.yml"] },
+        { "name": "name", "type": "string", "required": true, "description": "The workflow's display name, or its file name", "examples": ["CI"] },
+        { "name": "repoId", "type": "string", "required": true, "description": "Key of the repository holding the workflow, from before repoKey", "examples": ["github.com/acme/payments"], "deprecated": { "since": "1.3.0", "replacedBy": "repoKey" } },
+        { "name": "lastRunStatus", "type": "string", "required": false, "description": "How its most recent run ended, as far as the graph was told", "enum": ["success", "failure", "cancelled", "in_progress", "unknown"], "examples": ["success"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["Which pipelines build this repository?", "Did its last run succeed?"],
+      "examples": [{"provider":"github-actions","repoKey":"github.com/acme/payments","workflowPath":".github/workflows/ci.yml","name":"CI","repoId":"github.com/acme/payments","lastRunStatus":"success"}]
     },
     {
       "name": "Artifact",
       "description": "A built, addressable output such as a container image.",
       "identity": ["registry", "name", "digest"],
       "properties": [
-        { "name": "registry", "type": "string", "required": false, "description": "e.g. ghcr.io" },
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "digest", "type": "string", "required": false, "description": "Immutable content digest, preferred for identity" },
-        { "name": "version", "type": "string", "required": true, "description": null },
-        { "name": "commitSha", "type": "string", "required": false, "description": null },
-        { "name": "repoId", "type": "string", "required": false, "description": null },
-        { "name": "artifactType", "type": "string", "required": true, "description": null }
+        { "name": "registry", "type": "string", "required": false, "description": "The registry host it is published to, e.g. ghcr.io", "examples": ["ghcr.io"] },
+        { "name": "name", "type": "string", "required": true, "description": "Its name in the registry, without the host", "examples": ["acme/payments"] },
+        { "name": "digest", "type": "string", "required": false, "description": "Immutable content digest, preferred for identity", "format": "sha256", "examples": ["sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"] },
+        { "name": "version", "type": "string", "required": true, "description": "The tag or version it was published as, or its digest", "examples": ["1.4.2"] },
+        { "name": "commitSha", "type": "string", "required": false, "description": "The commit it was built from", "examples": ["9fceb02d0ae598e95dc970b74767f19372d61af8"] },
+        { "name": "repoId", "type": "string", "required": false, "description": "Key of the repository it was built from, from before BUILT_FROM", "examples": ["github.com/acme/payments"], "deprecated": { "since": "1.3.0", "replacedBy": "BUILT_FROM" } },
+        { "name": "artifactType", "type": "string", "required": true, "description": "What kind of artifact it is", "enum": ["container-image", "jar", "npm-package", "python-wheel", "helm-chart", "terraform-module", "binary", "other"], "examples": ["container-image"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["Which commit and repository was this artifact built from?", "Where has it been deployed?"],
+      "examples": [{"registry":"ghcr.io","name":"acme/payments","digest":"sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730","version":"1.4.2","commitSha":"9fceb02d0ae598e95dc970b74767f19372d61af8","artifactType":"container-image"}]
     },
     {
       "name": "Deployment",
       "description": "One event of putting an artifact into an environment.",
       "identity": ["artifactKey", "environmentKey", "deployedAt"],
       "properties": [
-        { "name": "artifactKey", "type": "string", "required": false, "description": null },
-        { "name": "environmentKey", "type": "string", "required": false, "description": null },
-        { "name": "deployedAt", "type": "instant", "required": true, "description": null },
-        { "name": "artifactId", "type": "string", "required": true, "description": null },
-        { "name": "environmentId", "type": "string", "required": true, "description": null },
-        { "name": "deployedBy", "type": "string", "required": false, "description": null },
-        { "name": "status", "type": "string", "required": true, "description": null }
+        { "name": "artifactKey", "type": "string", "required": false, "description": "Key of the artifact that was deployed", "examples": ["ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"] },
+        { "name": "environmentKey", "type": "string", "required": false, "description": "Key of the environment it was deployed to", "examples": ["production"] },
+        { "name": "deployedAt", "type": "instant", "required": true, "description": "When the deployment happened, in UTC", "examples": ["2026-09-30T12:00:00Z"] },
+        { "name": "artifactId", "type": "string", "required": true, "description": "Key of the deployed artifact, from before artifactKey", "examples": ["ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"], "deprecated": { "since": "1.3.0", "replacedBy": "artifactKey" } },
+        { "name": "environmentId", "type": "string", "required": true, "description": "Key of the target environment, from before environmentKey", "examples": ["production"], "deprecated": { "since": "1.3.0", "replacedBy": "environmentKey" } },
+        { "name": "deployedBy", "type": "string", "required": false, "description": "Who or what started the deployment", "examples": ["octocat"] },
+        { "name": "status", "type": "string", "required": true, "description": "How the deployment ended, or that it has not yet", "enum": ["PENDING", "IN_PROGRESS", "SUCCESS", "FAILED", "ROLLED_BACK", "CANCELLED"], "examples": ["SUCCESS", "FAILED"] }
       ],
       "meta": false,
       "displayProperty": "deployedAt",
-      "alias": []
+      "alias": [],
+      "questions": ["What was deployed where, and when?", "Why did this deployment fail?"],
+      "examples": [{"artifactKey":"ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730","environmentKey":"production","deployedAt":"2026-09-30T12:00:00Z","artifactId":"ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730","environmentId":"production","deployedBy":"octocat","status":"SUCCESS"}]
     },
     {
       "name": "Environment",
       "description": "A deployment target such as staging or production.",
       "identity": ["name"],
       "properties": [
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "type", "type": "string", "required": true, "description": null },
-        { "name": "tier", "type": "string", "required": false, "description": "Criticality, for ranking impact; read as other where absent", "enum": ["production", "pre_production", "development", "other"] }
+        { "name": "name", "type": "string", "required": true, "description": "The environment's name; prod and production are one", "examples": ["production", "staging"] },
+        { "name": "type", "type": "string", "required": true, "description": "What kind of environment this is", "enum": ["development", "test", "staging", "production", "ephemeral", "other"], "examples": ["production"] },
+        { "name": "tier", "type": "string", "required": false, "description": "Criticality, for ranking impact; read as other where absent", "enum": ["production", "pre_production", "development", "other"], "examples": ["production"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["What is deployed to this environment?", "What would a change reaching it affect?"],
+      "examples": [{"name":"production","type":"production","tier":"production"}]
     },
     {
       "name": "CloudResource",
       "description": "An infrastructure object in AWS, Azure or GCP.",
       "identity": ["provider", "resourceId"],
       "properties": [
-        { "name": "provider", "type": "string", "required": true, "description": "aws, azure or gcp" },
-        { "name": "resourceId", "type": "string", "required": false, "description": "ARN, Azure resource id or GCP asset name" },
-        { "name": "resourceType", "type": "string", "required": true, "description": null },
-        { "name": "name", "type": "string", "required": true, "description": null },
-        { "name": "region", "type": "string", "required": false, "description": null },
-        { "name": "accountId", "type": "string", "required": false, "description": null },
-        { "name": "repoId", "type": "string", "required": false, "description": null }
+        { "name": "provider", "type": "string", "required": true, "description": "The cloud the resource lives in", "enum": ["aws", "azure", "gcp"], "examples": ["aws"] },
+        { "name": "resourceId", "type": "string", "required": false, "description": "ARN, Azure resource id or GCP asset name", "format": "arn", "formatWhen": {"provider":"aws"}, "examples": ["arn:aws:s3:::acme-logs"] },
+        { "name": "resourceType", "type": "string", "required": true, "description": "The kind of resource, in the cloud's own terms", "examples": ["s3-bucket"] },
+        { "name": "name", "type": "string", "required": true, "description": "The resource's human-facing name", "examples": ["acme-logs"] },
+        { "name": "region", "type": "string", "required": false, "description": "The region it is deployed in, where it has one", "examples": ["eu-west-1"] },
+        { "name": "accountId", "type": "string", "required": false, "description": "The account, subscription or project that holds it", "examples": ["123456789012"] },
+        { "name": "repoId", "type": "string", "required": false, "description": "Key of the owning repository, from before OWNS_RESOURCE", "examples": ["github.com/acme/payments"], "deprecated": { "since": "1.3.0", "replacedBy": "OWNS_RESOURCE" } }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": ["Which repository or team owns this resource?", "What would a change to it affect?"],
+      "examples": [{"provider":"aws","resourceId":"arn:aws:s3:::acme-logs","resourceType":"s3-bucket","name":"acme-logs","region":"eu-west-1","accountId":"123456789012"}]
     },
     {
       "name": "ConfigurationItem",
       "description": "A configuration item from a service management system such as ServiceNow.",
       "identity": ["sourceSystem", "instance", "sysId"],
       "properties": [
-        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
-        { "name": "instance", "type": "string", "required": true, "description": "Instance the CI belongs to" },
-        { "name": "sysId", "type": "string", "required": true, "description": "Identifier in the source system" },
-        { "name": "ciName", "type": "string", "required": true, "description": null },
-        { "name": "ciClass", "type": "string", "required": false, "description": "e.g. cmdb_ci_service" },
-        { "name": "serviceId", "type": "string", "required": false, "description": null },
-        { "name": "operationalStatus", "type": "string", "required": false, "description": "As the CMDB reports it, e.g. Operational or Retired" },
-        { "name": "environment", "type": "string", "required": false, "description": null },
-        { "name": "businessCriticality", "type": "string", "required": false, "description": "e.g. 1 - most critical" },
-        { "name": "ownerGroup", "type": "string", "required": false, "description": null },
-        { "name": "supportGroup", "type": "string", "required": false, "description": null },
-        { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one" }
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "The service-management tool it was read from", "enum": ["servicenow", "jsm"], "examples": ["servicenow"] },
+        { "name": "instance", "type": "string", "required": true, "description": "Instance of that tool the CI belongs to", "examples": ["acme.service-now.com"] },
+        { "name": "sysId", "type": "string", "required": true, "description": "Identifier of the CI in the source system", "examples": ["3a7f1c2e1b2f4410a1b2c3d4e5f60718"] },
+        { "name": "ciName", "type": "string", "required": true, "description": "The CI's name as the CMDB shows it", "examples": ["payments-api"] },
+        { "name": "ciClass", "type": "string", "required": false, "description": "The CMDB class of the CI, e.g. cmdb_ci_service", "examples": ["cmdb_ci_service"] },
+        { "name": "serviceId", "type": "string", "required": false, "description": "The service it corresponds to, from before RELATES_TO_CI", "examples": ["payments-api"], "deprecated": { "since": "1.3.0", "replacedBy": "RELATES_TO_CI" } },
+        { "name": "operationalStatus", "type": "string", "required": false, "description": "As the CMDB reports it, e.g. Operational or Retired", "examples": ["Operational"] },
+        { "name": "environment", "type": "string", "required": false, "description": "The environment the CMDB places it in, as written there", "examples": ["Production"] },
+        { "name": "businessCriticality", "type": "string", "required": false, "description": "As the CMDB reports it, e.g. 1 - most critical", "examples": ["1 - most critical"] },
+        { "name": "ownerGroup", "type": "string", "required": false, "description": "The group the CMDB names as its owner", "examples": ["Payments Engineering"] },
+        { "name": "supportGroup", "type": "string", "required": false, "description": "The group that answers for it when it breaks", "examples": ["Payments Support"] },
+        { "name": "number", "type": "string", "required": false, "description": "The human-facing identifier, where the CI has one", "examples": ["CI0012345"] }
       ],
       "meta": false,
       "displayProperty": "ciName",
-      "alias": []
+      "alias": [],
+      "questions": ["Which repository or service does this CI correspond to?", "Who supports it, and how critical is it?"],
+      "examples": [{"sourceSystem":"servicenow","instance":"acme.service-now.com","sysId":"3a7f1c2e1b2f4410a1b2c3d4e5f60718","ciName":"payments-api","ciClass":"cmdb_ci_service","operationalStatus":"Operational","supportGroup":"Payments Support"}]
     },
     {
       "name": "ChangeRequest",
       "description": "A change as a service-management tool records it, with its approval and window.",
       "identity": ["sourceSystem", "instance", "sysId"],
       "properties": [
-        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
-        { "name": "instance", "type": "string", "required": true, "description": null },
-        { "name": "sysId", "type": "string", "required": true, "description": null },
-        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. CHG0001" },
-        { "name": "shortDescription", "type": "string", "required": false, "description": null },
-        { "name": "state", "type": "string", "required": false, "description": "As the tool reports it, e.g. Implement or Closed" },
-        { "name": "changeType", "type": "string", "required": false, "description": null, "enum": ["standard", "normal", "emergency"] },
-        { "name": "risk", "type": "string", "required": false, "description": null },
-        { "name": "startDate", "type": "instant", "required": false, "description": "Start of the planned window" },
-        { "name": "endDate", "type": "instant", "required": false, "description": "End of the planned window" },
-        { "name": "closeCode", "type": "string", "required": false, "description": null },
-        { "name": "requestedBy", "type": "string", "required": false, "description": null },
-        { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "The service-management tool it was read from", "enum": ["servicenow", "jsm"], "examples": ["servicenow"] },
+        { "name": "instance", "type": "string", "required": true, "description": "Instance of that tool the change belongs to", "examples": ["acme.service-now.com"] },
+        { "name": "sysId", "type": "string", "required": true, "description": "Identifier of the change in the source system", "examples": ["9d3c2b1a0f9e8d7c6b5a493827160514"] },
+        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. CHG0001", "examples": ["CHG0001234"] },
+        { "name": "shortDescription", "type": "string", "required": false, "description": "The change's one-line summary", "examples": ["Upgrade the payments database"] },
+        { "name": "state", "type": "string", "required": false, "description": "As the tool reports it, e.g. Implement or Closed", "examples": ["Implement"] },
+        { "name": "changeType", "type": "string", "required": false, "description": "How the change is governed: pre-approved, assessed or urgent", "enum": ["standard", "normal", "emergency"], "examples": ["normal"] },
+        { "name": "risk", "type": "string", "required": false, "description": "The risk the tool assessed for it, as written there", "examples": ["Moderate"] },
+        { "name": "startDate", "type": "instant", "required": false, "description": "Start of the planned window", "examples": ["2026-09-30T22:00:00Z"] },
+        { "name": "endDate", "type": "instant", "required": false, "description": "End of the planned window", "examples": ["2026-09-30T23:00:00Z"] },
+        { "name": "closeCode", "type": "string", "required": false, "description": "How the change was closed, as the tool reports it", "examples": ["Successful"] },
+        { "name": "requestedBy", "type": "string", "required": false, "description": "Who asked for the change, as the tool names them", "examples": ["Ada Lovelace"] },
+        { "name": "assignmentGroup", "type": "string", "required": false, "description": "The group assigned to carry out the change", "examples": ["Payments Engineering"] }
       ],
       "meta": false,
       "displayProperty": "number",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"sourceSystem":"servicenow","instance":"acme.service-now.com","sysId":"9d3c2b1a0f9e8d7c6b5a493827160514","number":"CHG0001234","shortDescription":"Upgrade the payments database","state":"Implement","changeType":"normal","startDate":"2026-09-30T22:00:00Z","endDate":"2026-09-30T23:00:00Z"}]
     },
     {
       "name": "Incident",
       "description": "An operational failure as a service-management tool records it.",
       "identity": ["sourceSystem", "instance", "sysId"],
       "properties": [
-        { "name": "sourceSystem", "type": "string", "required": true, "description": "e.g. servicenow" },
-        { "name": "instance", "type": "string", "required": true, "description": null },
-        { "name": "sysId", "type": "string", "required": true, "description": null },
-        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. INC0001" },
-        { "name": "shortDescription", "type": "string", "required": false, "description": null },
-        { "name": "state", "type": "string", "required": false, "description": null },
-        { "name": "priority", "type": "string", "required": false, "description": null },
-        { "name": "severity", "type": "string", "required": false, "description": null },
-        { "name": "openedAt", "type": "instant", "required": false, "description": null },
-        { "name": "resolvedAt", "type": "instant", "required": false, "description": null },
-        { "name": "closeCode", "type": "string", "required": false, "description": null },
-        { "name": "assignmentGroup", "type": "string", "required": false, "description": null }
+        { "name": "sourceSystem", "type": "string", "required": true, "description": "The service-management tool it was read from", "enum": ["servicenow", "jsm"], "examples": ["servicenow"] },
+        { "name": "instance", "type": "string", "required": true, "description": "Instance of that tool the incident belongs to", "examples": ["acme.service-now.com"] },
+        { "name": "sysId", "type": "string", "required": true, "description": "Identifier of the incident in the source system", "examples": ["1f2e3d4c5b6a79880716253443526170"] },
+        { "name": "number", "type": "string", "required": true, "description": "The human-facing identifier, e.g. INC0001", "examples": ["INC0012345"] },
+        { "name": "shortDescription", "type": "string", "required": false, "description": "The incident's one-line summary", "examples": ["Card payments failing"] },
+        { "name": "state", "type": "string", "required": false, "description": "As the tool reports it, e.g. In Progress or Resolved", "examples": ["In Progress"] },
+        { "name": "priority", "type": "string", "required": false, "description": "The priority the tool gives it, as written there", "examples": ["1 - Critical"] },
+        { "name": "severity", "type": "string", "required": false, "description": "The severity the tool gives it, as written there", "examples": ["1 - High"] },
+        { "name": "openedAt", "type": "instant", "required": false, "description": "When the incident was opened", "examples": ["2026-09-30T12:05:00Z"] },
+        { "name": "resolvedAt", "type": "instant", "required": false, "description": "When the incident was resolved, if it has been", "examples": ["2026-09-30T13:40:00Z"] },
+        { "name": "closeCode", "type": "string", "required": false, "description": "How the incident was closed, as the tool reports it", "examples": ["Solved (Permanently)"] },
+        { "name": "assignmentGroup", "type": "string", "required": false, "description": "The group assigned to resolve the incident", "examples": ["Payments Support"] }
       ],
       "meta": false,
       "displayProperty": "number",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"sourceSystem":"servicenow","instance":"acme.service-now.com","sysId":"1f2e3d4c5b6a79880716253443526170","number":"INC0012345","shortDescription":"Card payments failing","priority":"1 - Critical","openedAt":"2026-09-30T12:05:00Z"}]
     },
     {
       "name": "Library",
       "description": "A third-party package a repository depends on, as its ecosystem names it.",
       "identity": ["ecosystem", "name"],
       "properties": [
-        { "name": "ecosystem", "type": "string", "required": true, "description": "npm, maven, pypi, go or gradle", "enum": ["npm", "maven", "pypi", "go"] },
-        { "name": "name", "type": "string", "required": true, "description": "The package name as the manifest spells it" },
-        { "name": "description", "type": "string", "required": false, "description": null }
+        { "name": "ecosystem", "type": "string", "required": true, "description": "The package ecosystem; Gradle dependencies are maven", "enum": ["npm", "maven", "pypi", "go"], "examples": ["npm"] },
+        { "name": "name", "type": "string", "required": true, "description": "The package name as the manifest spells it", "examples": ["vue", "org.springframework.boot:spring-boot-starter-web"] },
+        { "name": "description", "type": "string", "required": false, "description": "What the package does, in a sentence", "examples": ["The progressive JavaScript framework"] }
       ],
       "meta": false,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"ecosystem":"npm","name":"vue"}]
     },
     {
       "name": "IacFile",
       "description": "An infrastructure-as-code file, and the resources it names.",
       "identity": ["repoKey", "path"],
       "properties": [
-        { "name": "repoKey", "type": "string", "required": true, "description": "Key of the repository holding the file" },
-        { "name": "path", "type": "string", "required": true, "description": "Path within the default branch" },
-        { "name": "format", "type": "string", "required": true, "description": null, "enum": ["terraform", "cdk", "bicep", "cloudformation"] },
-        { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on" }
+        { "name": "repoKey", "type": "string", "required": true, "description": "Key of the repository holding the file", "examples": ["github.com/acme/payments"] },
+        { "name": "path", "type": "string", "required": true, "description": "Path within the default branch", "examples": ["infra/db.tf"] },
+        { "name": "format", "type": "string", "required": true, "description": "The infrastructure-as-code language of the file", "enum": ["terraform", "cdk", "bicep", "cloudformation"], "examples": ["terraform"] },
+        { "name": "resourceRefs", "type": "string[]", "required": false, "description": "Identifiers the file names literally, for the link engine to match on", "examples": [["arn:aws:rds:eu-west-1:123456789012:db:payments"]] }
       ],
       "meta": false,
       "displayProperty": "path",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"repoKey":"github.com/acme/payments","path":"infra/db.tf","format":"terraform","resourceRefs":["arn:aws:rds:eu-west-1:123456789012:db:payments"]}]
     },
     {
       "name": "Change",
       "description": "A commit range or merge in a repository, identified there by its head sha.",
       "identity": ["repositoryKey", "sha"],
       "properties": [
-        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the change was made in, e.g. github.com/acme/payments" },
-        { "name": "sha", "type": "string", "required": true, "description": "The commit the change ends at, stored in lower case" },
-        { "name": "baseSha", "type": "string", "required": false, "description": "The commit the change starts from, for a range" },
-        { "name": "title", "type": "string", "required": false, "description": null },
-        { "name": "author", "type": "string", "required": false, "description": null },
-        { "name": "committedAt", "type": "instant", "required": true, "description": null },
-        { "name": "url", "type": "string", "required": false, "description": "Where the change can be read, e.g. the commit or compare page" }
+        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the change was made in, e.g. github.com/acme/payments", "examples": ["github.com/acme/payments"] },
+        { "name": "sha", "type": "string", "required": true, "description": "The commit the change ends at, stored in lower case", "examples": ["9fceb02d0ae598e95dc970b74767f19372d61af8"] },
+        { "name": "baseSha", "type": "string", "required": false, "description": "The commit the change starts from, for a range", "examples": ["a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"] },
+        { "name": "title", "type": "string", "required": false, "description": "The change's summary, such as its commit subject", "examples": ["Retry the payment webhook"] },
+        { "name": "author", "type": "string", "required": false, "description": "Who made the change, as the forge names them", "examples": ["octocat"] },
+        { "name": "committedAt", "type": "instant", "required": true, "description": "When the change was committed", "examples": ["2026-09-30T10:00:00Z"] },
+        { "name": "url", "type": "string", "required": false, "description": "Where the change can be read, e.g. the commit or compare page", "format": "url", "examples": ["https://github.com/acme/payments/commit/9fceb02d0ae598e95dc970b74767f19372d61af8"] }
       ],
       "meta": false,
       "displayProperty": "sha",
-      "alias": []
+      "alias": [],
+      "questions": ["Where is this change live?"],
+      "examples": [{"repositoryKey":"github.com/acme/payments","sha":"9fceb02d0ae598e95dc970b74767f19372d61af8","title":"Retry the payment webhook","author":"octocat","committedAt":"2026-09-30T10:00:00Z","url":"https://github.com/acme/payments/commit/9fceb02d0ae598e95dc970b74767f19372d61af8"}]
     },
     {
       "name": "PullRequest",
       "description": "A proposal to merge a change into a repository, as the forge records it.",
       "identity": ["repositoryKey", "number"],
       "properties": [
-        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the pull request targets" },
-        { "name": "number", "type": "int", "required": true, "description": "The forge's number for it within the repository" },
-        { "name": "url", "type": "string", "required": true, "description": null },
-        { "name": "title", "type": "string", "required": false, "description": null },
-        { "name": "state", "type": "string", "required": false, "description": null, "enum": ["open", "merged", "closed"] },
-        { "name": "mergedAt", "type": "instant", "required": false, "description": null },
-        { "name": "branch", "type": "string", "required": false, "description": "The head branch, e.g. chorus/CH-42-retry-webhook" }
+        { "name": "repositoryKey", "type": "string", "required": true, "description": "Key of the repository the pull request targets", "examples": ["github.com/acme/payments"] },
+        { "name": "number", "type": "int", "required": true, "description": "The forge's number for it within the repository", "examples": [42] },
+        { "name": "url", "type": "string", "required": true, "description": "Where the pull request can be read on the forge", "format": "url", "examples": ["https://github.com/acme/payments/pull/42"] },
+        { "name": "title", "type": "string", "required": false, "description": "The pull request's title", "examples": ["Retry the payment webhook"] },
+        { "name": "state", "type": "string", "required": false, "description": "Whether it is open, merged or closed unmerged", "enum": ["open", "merged", "closed"], "examples": ["merged"] },
+        { "name": "mergedAt", "type": "instant", "required": false, "description": "When it was merged, if it has been", "examples": ["2026-09-30T11:00:00Z"] },
+        { "name": "branch", "type": "string", "required": false, "description": "The head branch, e.g. chorus/CH-42-retry-webhook", "examples": ["chorus/CH-42-retry-webhook"] }
       ],
       "meta": false,
       "displayProperty": "number",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"repositoryKey":"github.com/acme/payments","number":42,"url":"https://github.com/acme/payments/pull/42","title":"Retry the payment webhook","state":"merged","mergedAt":"2026-09-30T11:00:00Z","branch":"chorus/CH-42-retry-webhook"}]
     },
     {
       "name": "ExternalWorkItem",
       "description": "A task, ticket or issue in the system that owns it, referred to by its URI.",
       "identity": ["uri"],
       "properties": [
-        { "name": "uri", "type": "string", "required": true, "description": "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42" },
-        { "name": "system", "type": "string", "required": true, "description": "The system that owns the work item", "enum": ["chorus", "jira", "linear", "github", "other"] },
-        { "name": "externalKey", "type": "string", "required": false, "description": "Its human-facing identifier there, e.g. CH-42" },
-        { "name": "title", "type": "string", "required": false, "description": null }
+        { "name": "uri", "type": "string", "required": true, "description": "e.g. chorus://task/01J... or https://acme.atlassian.net/browse/PAY-42", "examples": ["https://acme.atlassian.net/browse/PAY-42", "chorus://task/01J9ZQ"] },
+        { "name": "system", "type": "string", "required": true, "description": "The system that owns the work item", "enum": ["chorus", "jira", "linear", "github", "other"], "examples": ["jira"] },
+        { "name": "externalKey", "type": "string", "required": false, "description": "Its human-facing identifier there, e.g. CH-42", "examples": ["PAY-42"] },
+        { "name": "title", "type": "string", "required": false, "description": "The work item's title in the owning system", "examples": ["Retry the payment webhook"] }
       ],
       "meta": false,
       "displayProperty": "externalKey",
-      "alias": []
+      "alias": [],
+      "questions": ["Where is this work item live?"],
+      "examples": [{"uri":"https://acme.atlassian.net/browse/PAY-42","system":"jira","externalKey":"PAY-42","title":"Retry the payment webhook"}]
     },
     {
       "name": "Ontology",
       "description": "Records which ontology version the graph was built with.",
       "identity": ["version"],
       "properties": [
-        { "name": "version", "type": "string", "required": true, "description": null },
-        { "name": "loadedAt", "type": "instant", "required": false, "description": null }
+        { "name": "version", "type": "string", "required": true, "description": "The ontology version, as version.yaml declares it", "format": "semver", "examples": ["1.3.0"] },
+        { "name": "loadedAt", "type": "instant", "required": false, "description": "When a build first recorded this version", "examples": ["2026-09-30T12:00:00Z"] }
       ],
       "meta": true,
       "displayProperty": "version",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"version":"1.3.0","loadedAt":"2026-09-30T12:00:00Z"}]
     },
     {
       "name": "SyncRun",
       "description": "One execution of a connector, for auditing what a sync changed.",
       "identity": ["id"],
       "properties": [
-        { "name": "id", "type": "string", "required": true, "description": null },
-        { "name": "connector", "type": "string", "required": true, "description": null },
-        { "name": "sourceSystem", "type": "string", "required": false, "description": "What this run stamped on the provenance of everything it wrote" },
-        { "name": "mode", "type": "string", "required": false, "description": "FULL, INCREMENTAL or WEBHOOK" },
-        { "name": "sourceId", "type": "string", "required": false, "description": "The source system's id for the delivery that caused this run" },
-        { "name": "startedAt", "type": "instant", "required": false, "description": null },
-        { "name": "finishedAt", "type": "instant", "required": false, "description": null },
-        { "name": "status", "type": "string", "required": false, "description": "RUNNING, SUCCESS, PARTIAL or FAILED" },
-        { "name": "nodesUpserted", "type": "int", "required": false, "description": null },
-        { "name": "edgesUpserted", "type": "int", "required": false, "description": null },
-        { "name": "tombstones", "type": "int", "required": false, "description": "Facts this run closed because the source stopped reporting them" },
-        { "name": "watermark", "type": "instant", "required": false, "description": "Where the next incremental run should start" },
-        { "name": "error", "type": "string", "required": false, "description": null }
+        { "name": "id", "type": "string", "required": true, "description": "The run's id, stamped on the provenance of what it wrote", "examples": ["0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b"] },
+        { "name": "connector", "type": "string", "required": true, "description": "The connector that ran, by its registered name", "examples": ["github"] },
+        { "name": "sourceSystem", "type": "string", "required": false, "description": "What this run stamped on the provenance of everything it wrote", "examples": ["github"] },
+        { "name": "mode", "type": "string", "required": false, "description": "Whether it read everything, what changed, or one delivery", "enum": ["FULL", "INCREMENTAL", "WEBHOOK"], "examples": ["INCREMENTAL"] },
+        { "name": "sourceId", "type": "string", "required": false, "description": "The source system's id for the delivery that caused this run", "examples": ["72d3162e-cc78-11e3-81ab-4c9367dc0958"] },
+        { "name": "startedAt", "type": "instant", "required": false, "description": "When the run started", "examples": ["2026-09-30T12:00:00Z"] },
+        { "name": "finishedAt", "type": "instant", "required": false, "description": "When the run finished, if it has", "examples": ["2026-09-30T12:01:30Z"] },
+        { "name": "status", "type": "string", "required": false, "description": "Whether the run is going, worked, partly worked or failed", "enum": ["RUNNING", "SUCCESS", "PARTIAL", "FAILED"], "examples": ["SUCCESS"] },
+        { "name": "nodesUpserted", "type": "int", "required": false, "description": "Nodes the run created or updated", "examples": [42] },
+        { "name": "edgesUpserted", "type": "int", "required": false, "description": "Edges the run created or updated", "examples": [57] },
+        { "name": "tombstones", "type": "int", "required": false, "description": "Facts this run closed because the source stopped reporting them", "examples": [0] },
+        { "name": "watermark", "type": "instant", "required": false, "description": "Where the next incremental run should start", "examples": ["2026-09-30T12:00:00Z"] },
+        { "name": "error", "type": "string", "required": false, "description": "Why the run failed or partly failed, where it did", "examples": ["GitHub returned 502 for acme/payments"] }
       ],
       "meta": true,
       "displayProperty": "id",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"id":"0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b","connector":"github","sourceSystem":"github","mode":"INCREMENTAL","startedAt":"2026-09-30T12:00:00Z","finishedAt":"2026-09-30T12:01:30Z","status":"SUCCESS","nodesUpserted":42,"edgesUpserted":57,"tombstones":0}]
     },
     {
       "name": "ConnectorState",
       "description": "What the graph remembers about a connector between runs.",
       "identity": ["connector"],
       "properties": [
-        { "name": "connector", "type": "string", "required": true, "description": null },
-        { "name": "watermark", "type": "instant", "required": false, "description": "Reported by the last successful run" },
-        { "name": "lastRunId", "type": "string", "required": false, "description": "The last scheduled or manual run to finish, whatever its status" },
-        { "name": "lastStatus", "type": "string", "required": false, "description": "That run's status; the same as lastRunStatus, kept for states written before it" },
-        { "name": "lastRunStatus", "type": "string", "required": false, "description": "SUCCESS, PARTIAL or FAILED" },
-        { "name": "lastFinishedAt", "type": "instant", "required": false, "description": null },
-        { "name": "lastSuccessAt", "type": "instant", "required": false, "description": "When the last successful run finished" },
-        { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS" }
+        { "name": "connector", "type": "string", "required": true, "description": "The connector this state belongs to", "examples": ["github"] },
+        { "name": "watermark", "type": "instant", "required": false, "description": "Reported by the last successful run", "examples": ["2026-09-30T12:00:00Z"] },
+        { "name": "lastRunId", "type": "string", "required": false, "description": "The last scheduled or manual run to finish, whatever its status", "examples": ["0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b"] },
+        { "name": "lastStatus", "type": "string", "required": false, "description": "That run's status; the same as lastRunStatus, kept for states written before it", "enum": ["SUCCESS", "PARTIAL", "FAILED"], "examples": ["SUCCESS"] },
+        { "name": "lastRunStatus", "type": "string", "required": false, "description": "How the last run to finish ended", "enum": ["SUCCESS", "PARTIAL", "FAILED"], "examples": ["SUCCESS"] },
+        { "name": "lastFinishedAt", "type": "instant", "required": false, "description": "When the last run to finish finished", "examples": ["2026-09-30T12:01:30Z"] },
+        { "name": "lastSuccessAt", "type": "instant", "required": false, "description": "When the last successful run finished", "examples": ["2026-09-30T12:01:30Z"] },
+        { "name": "consecutiveFailures", "type": "int", "required": false, "description": "Runs that ended PARTIAL or FAILED since the last SUCCESS", "examples": [0] }
       ],
       "meta": true,
       "displayProperty": "connector",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"connector":"github","watermark":"2026-09-30T12:00:00Z","lastRunId":"0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b","lastStatus":"SUCCESS","lastRunStatus":"SUCCESS","lastFinishedAt":"2026-09-30T12:01:30Z","lastSuccessAt":"2026-09-30T12:01:30Z","consecutiveFailures":0}]
     },
     {
       "name": "ServicePrincipal",
       "description": "A connector or agent registered as a principal of its own, owned by a team.",
       "identity": ["name"],
       "properties": [
-        { "name": "name", "type": "string", "required": true, "description": "The client id its tokens carry (azp, or client_id)" },
-        { "name": "ownedBy", "type": "string", "required": true, "description": "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam" },
-        { "name": "description", "type": "string", "required": false, "description": null }
+        { "name": "name", "type": "string", "required": true, "description": "The client id its tokens carry (azp, or client_id)", "examples": ["payments-deployer"] },
+        { "name": "ownedBy", "type": "string", "required": true, "description": "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam", "examples": ["platform"] },
+        { "name": "description", "type": "string", "required": false, "description": "What the principal is for, in a sentence", "examples": ["Reports deployments of the payments service"] }
       ],
       "meta": true,
       "displayProperty": "name",
-      "alias": []
+      "alias": [],
+      "questions": [],
+      "examples": [{"name":"payments-deployer","ownedBy":"platform","description":"Reports deployments of the payments service"}]
     }
   ],
   "edgeTypes": [
@@ -350,8 +390,10 @@
       "downstream": "forward",
       "ownership": "owner",
       "properties": [
-        { "name": "pathPatterns", "type": "string[]", "required": false, "description": "CODEOWNERS patterns the owner was named against, where ownership came from a file" }
-      ]
+        { "name": "pathPatterns", "type": "string[]", "required": false, "description": "CODEOWNERS patterns the owner was named against, where ownership came from a file", "examples": [["*","/docs/"]] }
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "OWNS_RESOURCE",
@@ -363,8 +405,10 @@
       "downstream": "forward",
       "ownership": "inherits",
       "properties": [
-        { "name": "rule", "type": "string", "required": false, "description": "Which link rule proposed this, e.g. tag or iac" }
-      ]
+        { "name": "rule", "type": "string", "required": false, "description": "What the ownership rests on: stated by hand, or the link rule that proposed it", "enum": ["manual", "tag", "deployment", "iac", "naming"], "examples": ["tag"] }
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "DEPENDS_ON",
@@ -376,12 +420,14 @@
       "downstream": "inverse",
       "ownership": "none",
       "properties": [
-        { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data", "cmdb"] },
-        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" },
-        { "name": "version", "type": "string", "required": false, "description": "The version the manifest asks for, as written" },
-        { "name": "scope", "type": "string", "required": false, "description": "Whether the dependency is needed to run or only to build", "enum": ["runtime", "dev"] },
-        { "name": "relType", "type": "string", "required": false, "description": "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'" }
-      ]
+        { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data", "cmdb"], "examples": ["library"] },
+        { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts", "examples": ["frontend/package.json"] },
+        { "name": "version", "type": "string", "required": false, "description": "The version the manifest asks for, as written", "examples": ["^3.5.0"] },
+        { "name": "scope", "type": "string", "required": false, "description": "Whether the dependency is needed to run or only to build", "enum": ["runtime", "dev"], "examples": ["runtime"] },
+        { "name": "relType", "type": "string", "required": false, "description": "The source system's own name for the relationship, e.g. a CMDB's 'Depends on::Used by'", "examples": ["Depends on::Used by"] }
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "CONTAINS_IAC",
@@ -393,7 +439,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "HAS_PIPELINE",
@@ -405,7 +453,9 @@
       "downstream": "forward",
       "ownership": "inherits",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "RELATES_TO_CI",
@@ -417,7 +467,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "AFFECTS",
@@ -429,7 +481,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "CAUSED_BY",
@@ -441,7 +495,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "BUILT_FROM",
@@ -453,8 +509,10 @@
       "downstream": "inverse",
       "ownership": "inherits",
       "properties": [
-        { "name": "commitSha", "type": "string", "required": false, "description": null }
-      ]
+        { "name": "commitSha", "type": "string", "required": false, "description": "The commit the artifact was built from", "examples": ["9fceb02d0ae598e95dc970b74767f19372d61af8"] }
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "DEPLOYED_TO",
@@ -466,7 +524,9 @@
       "downstream": "forward",
       "ownership": "inherits",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "TO_ENVIRONMENT",
@@ -478,7 +538,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "PROVIDES",
@@ -490,7 +552,9 @@
       "downstream": "forward",
       "ownership": "inherits",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "INTRODUCED_IN",
@@ -502,7 +566,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "MERGES",
@@ -514,7 +580,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "CONTAINS",
@@ -526,7 +594,9 @@
       "downstream": "inverse",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "IMPLEMENTS",
@@ -538,7 +608,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "TRACKED_IN",
@@ -550,7 +622,9 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     },
     {
       "name": "PRODUCED",
@@ -562,24 +636,26 @@
       "downstream": "forward",
       "ownership": "none",
       "properties": [
-      ]
+      ],
+      "questions": [],
+      "examples": []
     }
   ],
   "provenance": {
     "properties": [
-      { "name": "sourceSystem", "type": "string", "required": true, "description": "The system of record, one sources.yaml declares: manual, github, servicenow and so on" },
-      { "name": "sourceId", "type": "string", "required": false, "description": "The fact's identifier in that system, when it has one" },
-      { "name": "ingestedAt", "type": "instant", "required": true, "description": null },
-      { "name": "observedAt", "type": "instant", "required": false, "description": "When the source says the fact was true" },
-      { "name": "confidence", "type": "float", "required": true, "description": "1.0 when reported by the system of record, lower when derived by a rule" },
-      { "name": "inferred", "type": "boolean", "required": true, "description": null },
-      { "name": "validFrom", "type": "instant", "required": true, "description": null },
-      { "name": "validTo", "type": "instant", "required": false, "description": "Set when the fact is superseded" },
-      { "name": "syncRunId", "type": "string", "required": false, "description": null },
-      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name" },
-      { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"] },
-      { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" },
-      { "name": "previousKeys", "type": "string[]", "required": false, "description": "Keys this node had before it was renamed, oldest first" }
+      { "name": "sourceSystem", "type": "string", "required": true, "description": "The system of record, one sources.yaml declares: manual, github, servicenow and so on", "examples": ["github"] },
+      { "name": "sourceId", "type": "string", "required": false, "description": "The fact's identifier in that system, when it has one", "examples": ["https://github.com/acme/payments"] },
+      { "name": "ingestedAt", "type": "instant", "required": true, "description": "When the graph recorded the fact", "examples": ["2026-09-30T12:00:05Z"] },
+      { "name": "observedAt", "type": "instant", "required": false, "description": "When the source says the fact was true", "examples": ["2026-09-30T12:00:00Z"] },
+      { "name": "confidence", "type": "float", "required": true, "description": "1.0 when reported by the system of record, lower when derived by a rule", "examples": [1.0] },
+      { "name": "inferred", "type": "boolean", "required": true, "description": "True when a rule derived the fact rather than a source reporting it", "examples": [false] },
+      { "name": "validFrom", "type": "instant", "required": true, "description": "When the fact started to hold, as far as the graph knows", "examples": ["2026-09-30T12:00:00Z"] },
+      { "name": "validTo", "type": "instant", "required": false, "description": "Set when the fact is superseded", "examples": ["2026-10-01T09:00:00Z"] },
+      { "name": "syncRunId", "type": "string", "required": false, "description": "The sync run that wrote the fact, where a connector did", "examples": ["0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b"] },
+      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name", "examples": ["payments-deployer"] },
+      { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"], "examples": ["service"] },
+      { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user", "examples": ["platform"] },
+      { "name": "previousKeys", "type": "string[]", "required": false, "description": "Keys this node had before it was renamed, oldest first", "examples": [["github.com/acme/payments-old"]] }
     ]
   },
   "sources": [

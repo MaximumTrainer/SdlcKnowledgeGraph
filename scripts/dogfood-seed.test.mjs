@@ -131,6 +131,42 @@ describe('dogfood-seed', () => {
       assert.equal(batch.edges.filter(e => e.type === 'HAS_PIPELINE' && e.from === 0).length, 2)
     })
 
+    test("folds GitHub's run conclusion or status into the values Pipeline.lastRunStatus allows (#81)", () => {
+      const statuses = [
+        'success',
+        'failure',
+        'timed_out',
+        'startup_failure',
+        'cancelled',
+        'queued',
+        'in_progress',
+        'waiting',
+        'skipped',
+        'neutral',
+      ]
+      const workflows = statuses.map((lastRunStatus, i) => ({
+        path: `.github/workflows/w${i}.yml`,
+        name: `W${i}`,
+        lastRunStatus,
+      }))
+      const seeded = buildSeed({ ...input(), workflows })
+        .nodes.filter(n => n.type === 'Pipeline')
+        .map(n => n.props.lastRunStatus)
+
+      assert.deepEqual(seeded, [
+        'success',
+        'failure',
+        'failure',
+        'failure',
+        'cancelled',
+        'in_progress',
+        'in_progress',
+        'in_progress',
+        'unknown',
+        'unknown',
+      ])
+    })
+
     test('records a dependency on another repository with its kind and manifest', () => {
       const [dependsOn] = batch.edges.filter(e => e.type === 'DEPENDS_ON')
       assert.equal(dependsOn.from, 0)

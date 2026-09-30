@@ -57,7 +57,8 @@ test.describe('change lineage nodes', () => {
 
     await page.goto('/nodes/ExternalWorkItem/new')
     await page.getByLabel('uri').fill(uri)
-    await page.getByLabel('system').fill('chorus')
+    // A closed set in the registry, so the editor offers it as a choice (#81).
+    await page.getByLabel('system').selectOption('chorus')
     await page.getByLabel('externalKey').fill('CH-42')
     await save(page, new RegExp(`/nodes/ExternalWorkItem/${escaped(encodeURIComponent(uri))}$`))
 

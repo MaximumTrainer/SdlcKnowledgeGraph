@@ -1521,7 +1521,15 @@
           "nodeTypes": [
             {
               "meta": false,
-              "name": "Repository"
+              "name": "Repository",
+              "properties": [
+                {
+                  "description": "The git remote, stored canonicalised as https://host/org/name",
+                  "name": "url",
+                  "required": true,
+                  "type": "string"
+                }
+              ]
             }
           ],
           "version": "1.0.0"
@@ -1566,6 +1574,47 @@
               ]
             },
             "$.nodeTypes[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes[*].properties": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.nodeTypes[*].properties[*].description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes[*].properties[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes[*].properties[*].required": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.nodeTypes[*].properties[*].type": {
               "combine": "AND",
               "matchers": [
                 {
