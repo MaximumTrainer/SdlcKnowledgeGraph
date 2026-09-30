@@ -22,7 +22,10 @@ describe('application shell contract', () => {
     actuatorClient.defaults.baseURL = '/actuator'
   })
 
-  it('reads the node types, marked meta or not', async () => {
+  it('reads the node types, marked meta or not, each property described', async () => {
+    // The editor shows a property's description as help (#81), so every property of every type
+    // must carry one. Its examples are not pinned here: they are of the property's own type, which
+    // differs from property to property, and a Pact type matcher would hold them all to the first.
     provider
       .given(ANY_GRAPH)
       .uponReceiving('a request for the ontology')
@@ -31,7 +34,16 @@ describe('application shell contract', () => {
         status: 200,
         body: {
           version: like('1.0.0'),
-          nodeTypes: eachLike({ name: like('Repository'), meta: like(false) }),
+          nodeTypes: eachLike({
+            name: like('Repository'),
+            meta: like(false),
+            properties: eachLike({
+              name: like('url'),
+              type: like('string'),
+              required: like(true),
+              description: like('The git remote, stored canonicalised as https://host/org/name')
+            })
+          }),
           edgeTypes: eachLike({ name: like('DEPENDS_ON') })
         }
       })
@@ -40,6 +52,7 @@ describe('application shell contract', () => {
       apiClient.defaults.baseURL = `${mockServer.url}/api/v1`
       const ontology = await ontologyApi.get()
       expect(ontology.nodeTypes[0]).toMatchObject({ name: 'Repository', meta: false })
+      expect(ontology.nodeTypes[0].properties[0].description).toContain('git remote')
     })
   })
 

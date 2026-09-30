@@ -6,6 +6,7 @@ import {
   EDGE_TYPES,
   NODE_TYPES,
   ONTOLOGY_VERSION,
+  type DeploymentStatus,
   type EdgeTypeName,
   type NodeType,
   type Repository
@@ -80,6 +81,86 @@ describe('generated ontology module', () => {
     expect(read('frontend/src/generated/ontology.ts')).toMatch(
       /^\/\/ GENERATED FROM ontology\/v1 - DO NOT EDIT/
     )
+  })
+})
+
+interface SnapshotProperty {
+  name: string
+  description: string | null
+  enum?: string[]
+  examples: unknown[]
+  deprecated?: { since: string; replacedBy: string | null }
+}
+
+interface SnapshotNodeType {
+  name: string
+  properties: SnapshotProperty[]
+}
+
+/** The block of `export interface <type> { ... }` in the generated module. */
+const interfaceOf = (source: string, type: string) =>
+  source.split(`export interface ${type} {`)[1]?.split('\n}')[0] ?? ''
+
+/** The JSDoc written directly above a property in an interface block, or '' when there is none. */
+const docOf = (block: string, property: string) => {
+  const [before] = block.split(new RegExp(`\\n  ${property}\\??:`))
+  const opened = before.lastIndexOf('/**')
+  const closed = before.lastIndexOf('*/')
+  return opened >= 0 && closed > opened && before.slice(closed).trim() === '*/'
+    ? before.slice(opened)
+    : ''
+}
+
+const capitalised = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
+
+describe('generated ontology module, as a machine reader sees it (#81)', () => {
+  const source = read('frontend/src/generated/ontology.ts')
+  const nodeTypes = snapshot.nodeTypes as SnapshotNodeType[]
+
+  it('declares a union type for every enum a node property has, listing its values', () => {
+    for (const nodeType of nodeTypes) {
+      for (const property of nodeType.properties.filter(p => p.enum)) {
+        const name = `${nodeType.name}${capitalised(property.name)}`
+        const declared = source.split(`export type ${name} =`)[1]?.split(/\n\n/)[0]
+        expect(declared, `${name} is not generated`).toBeDefined()
+        for (const value of property.enum ?? []) expect(declared).toContain(`'${value}'`)
+      }
+    }
+  })
+
+  it('types an enum property with its union', () => {
+    // A compile-time assertion as much as a runtime one: `vue-tsc` fails if the union is missing.
+    const status: DeploymentStatus = 'SUCCESS'
+    expect(status).toBe('SUCCESS')
+    expect(interfaceOf(source, 'Deployment')).toContain('status: DeploymentStatus')
+  })
+
+  it('documents every property with its description and first example', () => {
+    for (const nodeType of nodeTypes) {
+      const block = interfaceOf(source, nodeType.name)
+      for (const property of nodeType.properties.filter(p => p.name !== 'id')) {
+        const doc = docOf(block, property.name)
+        expect(doc, `${nodeType.name}.${property.name} has no JSDoc`).not.toBe('')
+        if (property.description) expect(doc).toContain(property.description)
+        if (property.examples.length > 0) {
+          expect(doc).toContain(`@example ${JSON.stringify(property.examples[0])}`)
+        }
+      }
+    }
+  })
+
+  it('marks every deprecated property @deprecated, saying what replaces it', () => {
+    const deprecated = nodeTypes.flatMap(type =>
+      type.properties.filter(p => p.deprecated).map(p => [type.name, p] as const)
+    )
+    expect(deprecated.length).toBeGreaterThan(0)
+    for (const [type, property] of deprecated) {
+      const doc = docOf(interfaceOf(source, type), property.name)
+      expect(doc, `${type}.${property.name}`).toContain(
+        `@deprecated since ${property.deprecated?.since}`
+      )
+      if (property.deprecated?.replacedBy) expect(doc).toContain(property.deprecated.replacedBy)
+    }
   })
 })
 
