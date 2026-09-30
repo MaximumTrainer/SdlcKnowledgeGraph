@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  CONTEXT_PACK_TEMPLATES,
   EDGE_TYPES,
   NODE_TYPES,
   ONTOLOGY_VERSION,
+  type ContextPackTemplate,
   type DeploymentStatus,
   type EdgeTypeName,
   type NodeType,
@@ -59,6 +61,13 @@ describe('generated ontology module', () => {
   it('lists every edge type the registry declares', () => {
     expect(EDGE_TYPES).toEqual(snapshot.edgeTypes.map((type: { name: string }) => type.name))
     expect(EDGE_TYPES).toContain('BUILT_FROM' as EdgeTypeName)
+  })
+
+  it('lists the context pack templates the registry declares, in registry order (#96)', () => {
+    expect(CONTEXT_PACK_TEMPLATES).toEqual(
+      snapshot.templates.map((template: { name: string }) => template.name)
+    )
+    expect(CONTEXT_PACK_TEMPLATES).toContain('change-impact' as ContextPackTemplate)
   })
 
   it('makes optional registry properties optional and required ones required', () => {
