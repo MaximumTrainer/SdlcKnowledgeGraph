@@ -10,6 +10,10 @@ import java.net.http.HttpResponse
 /**
  * Gets a token the way a connector or an agent does (#115): the OAuth 2 client-credentials grant, a
  * confidential client authenticating with its own secret and no user anywhere in the exchange.
+ *
+ * Unless told otherwise it asks for every graph scope the client may hold (#116), so a scenario about
+ * who a service is gets a token that may do what the scenario needs; a scenario about scopes names
+ * the ones it wants.
  */
 class ClientCredentials(
     private val issuer: String,
@@ -17,10 +21,14 @@ class ClientCredentials(
 ) {
     private val http = HttpClient.newHttpClient()
 
-    fun accessToken(clientId: String): String {
+    fun accessToken(
+        clientId: String,
+        scope: String? = OPTIONAL_SCOPES[clientId],
+    ): String {
         val secret = SECRETS[clientId] ?: error("the development realm has no confidential client '$clientId'")
         val body =
             listOf("grant_type" to "client_credentials", "client_id" to clientId, "client_secret" to secret)
+                .plus(listOfNotNull(scope?.let { "scope" to it }))
                 .joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, Charsets.UTF_8)}" }
         val response =
             http.send(
@@ -46,5 +54,11 @@ class ClientCredentials(
                 "triage-agent" to "triage-agent-dev-only",
                 "rogue-agent" to "rogue-agent-dev-only",
             )
+
+        /**
+         * The graph scopes a client is issued only when it asks for them. Keycloak refuses a request
+         * for a scope the client was never given, so this names only the ones it has.
+         */
+        private val OPTIONAL_SCOPES = mapOf("triage-agent" to "graph:write")
     }
 }
