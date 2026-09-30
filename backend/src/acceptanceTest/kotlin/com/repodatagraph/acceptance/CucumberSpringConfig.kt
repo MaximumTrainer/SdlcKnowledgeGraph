@@ -2,6 +2,7 @@ package com.repodatagraph.acceptance
 
 import com.repodatagraph.acceptance.support.GraphStoreFaults
 import com.repodatagraph.support.Neo4jTestcontainersConfig
+import com.repodatagraph.support.TestPrincipalConfig
 import com.repodatagraph.support.connector.FakeConnectorConfig
 import com.repodatagraph.support.connector.FakeGitHubConfig
 import com.repodatagraph.support.connector.FakeServiceNowConfig
@@ -16,15 +17,26 @@ import org.springframework.test.context.DynamicPropertySource
 /**
  * Boots the real application on a random port, backed by a Testcontainers Neo4j, once per
  * acceptance-test run. Cucumber shares this Spring context across all scenarios.
+ *
+ * The scenarios here are about the graph, not about signing in, so every request is made as the
+ * fixed test principal ([TestPrincipalConfig], #118) through the real security chain. The login itself
+ * is the auth suite's (auth/authentication.feature), against a real Keycloak.
  */
 @CucumberContextConfiguration
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = [
+        "sdlc.auth.issuer-uri=${TestPrincipalConfig.ISSUER}",
+        "sdlc.auth.jwk-set-uri=${TestPrincipalConfig.JWK_SET_URI}",
+    ],
+)
 @Import(
     Neo4jTestcontainersConfig::class,
     FakeConnectorConfig::class,
     FakeGitHubConfig::class,
     FakeServiceNowConfig::class,
     GraphStoreFaults::class,
+    TestPrincipalConfig::class,
 )
 @ActiveProfiles("test")
 // Spring Boot turns metric export off in tests unless asked, and metrics.feature scrapes it.

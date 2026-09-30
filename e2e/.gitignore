@@ -1,0 +1,3 @@
+# The session tests/auth.setup.ts signs in and every browser test starts from. A development
+# realm's tokens, but tokens all the same: never committed.
+.auth/

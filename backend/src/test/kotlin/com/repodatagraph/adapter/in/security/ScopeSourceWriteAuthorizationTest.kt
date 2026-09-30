@@ -1,6 +1,5 @@
 package com.repodatagraph.adapter.`in`.security
 
-import com.repodatagraph.config.AuthProperties
 import com.repodatagraph.domain.exception.SourceNotPermittedException
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,7 +17,7 @@ import java.time.Instant
  * token held, for the 403 to report.
  */
 class ScopeSourceWriteAuthorizationTest {
-    private val enabled = ScopeSourceWriteAuthorization(AuthProperties(disabled = false, issuerUri = "https://issuer.example.test"))
+    private val enabled = ScopeSourceWriteAuthorization()
 
     @AfterEach
     fun clear() {
@@ -72,17 +71,10 @@ class ScopeSourceWriteAuthorizationTest {
     }
 
     @Test
-    fun `with authentication on, a write with no token holds nothing, so even manual is refused`() {
+    fun `a write with no token holds nothing, so even manual is refused`() {
         val refusal = assertThrows<SourceNotPermittedException> { enabled.authorize("manual") }
 
         assertEquals(listOf("graph:write"), refusal.required)
         assertEquals(emptyList<String>(), refusal.held)
-    }
-
-    @Test
-    fun `the development bypass checks no source scopes`() {
-        val bypass = ScopeSourceWriteAuthorization(AuthProperties(disabled = true))
-
-        assertDoesNotThrow { bypass.authorize("aws") }
     }
 }

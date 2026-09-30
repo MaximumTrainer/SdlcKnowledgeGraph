@@ -19,7 +19,7 @@ import org.springframework.context.ConfigurableApplicationContext
 class StartupConfigSteps {
     private var context: ConfigurableApplicationContext? = null
     private var failure: Throwable? = null
-    private var profile: String = "docker"
+    private val profile: String = "docker"
     private var arguments: List<String> = emptyList()
 
     @After
@@ -33,25 +33,46 @@ class StartupConfigSteps {
     @When("the application starts with the {string} profile and NEO4J_URI set")
     fun startsWithUri(profile: String) = start(profile, uri = "bolt://neo4j.invalid:7687")
 
-    @Given("AUTH_DISABLED=true and profile {word}")
-    fun authDisabledWithProfile(profile: String) {
-        this.profile = profile
-        arguments = listOf("--AUTH_DISABLED=true", "--AUTH_ISSUER_URI=")
+    @Given("AUTH_DISABLED=true")
+    fun authDisabled() {
+        arguments = listOf("--AUTH_DISABLED=true", "--AUTH_ISSUER_URI=", "--SDLC_READ_ONLY=true")
     }
 
-    @Given("AUTH_DISABLED=false, no issuer and profile {word}")
-    fun authOnWithoutIssuer(profile: String) {
-        this.profile = profile
-        arguments = listOf("--AUTH_DISABLED=false", "--AUTH_ISSUER_URI=")
+    @Given("the property sdlc.auth.disabled=false")
+    fun authDisabledProperty() {
+        arguments = listOf("--sdlc.auth.disabled=false", "--AUTH_ISSUER_URI=https://id.example.test/realms/sdlc")
+    }
+
+    @Given("no identity provider and SDLC_READ_ONLY={word}")
+    fun noIdentityProvider(readOnly: String) {
+        arguments = listOf("--AUTH_ISSUER_URI=", "--SDLC_READ_ONLY=$readOnly")
+    }
+
+    @Given("the identity provider {string} and SDLC_READ_ONLY={word}")
+    fun anIdentityProvider(
+        issuer: String,
+        readOnly: String,
+    ) {
+        arguments = listOf("--AUTH_ISSUER_URI=$issuer", "--SDLC_READ_ONLY=$readOnly")
     }
 
     @When("the backend starts")
     fun theBackendStarts() = start(profile, uri = "bolt://neo4j.invalid:7687", arguments)
 
-    @Then("startup does not fail on AUTH_DISABLED")
-    fun startupDoesNotFailOnAuthDisabled() {
+    @Then("startup does not fail on authentication")
+    fun startupDoesNotFailOnAuthentication() {
         val messages = failure?.let { causes(it).mapNotNull { cause -> cause.message } }.orEmpty()
-        assertThat(messages).noneSatisfy { assertThat(it).contains("AUTH_DISABLED") }
+        AUTHENTICATION_SETTINGS.forEach { setting ->
+            assertThat(messages).noneSatisfy { assertThat(it).contains(setting) }
+        }
+    }
+
+    @Then("startup fails with an unknown-setting error naming {string}")
+    fun startupFailsWithAnUnknownSetting(setting: String) {
+        assertThat(failure).describedAs("startup should have failed").isNotNull()
+        assertThat(causes(failure!!).mapNotNull { it.message }).anySatisfy {
+            assertThat(it).contains(setting).contains("not a setting")
+        }
     }
 
     @Then("startup fails with a message containing {string}")
@@ -91,4 +112,8 @@ class StartupConfigSteps {
     }
 
     private fun causes(error: Throwable): List<Throwable> = generateSequence(error) { it.cause }.toList()
+
+    private companion object {
+        val AUTHENTICATION_SETTINGS = listOf("AUTH_ISSUER_URI", "AUTH_DISABLED", "SDLC_READ_ONLY")
+    }
 }

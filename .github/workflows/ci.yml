@@ -278,6 +278,31 @@ jobs:
             echo "::error::the API did not say NEO4J_URI must be set"
             exit 1
           fi
+      # No anonymous path remains (#118): the development bypass is not a setting any more, and an
+      # instance with no identity provider that would accept writes refuses to start, naming both
+      # settings (#48 FR6, docs/DEPLOYMENT.md D13).
+      - name: The API refuses AUTH_DISABLED as an unknown setting
+        run: |
+          if output=$(timeout 60 docker compose run --rm --no-deps -e AUTH_DISABLED=true backend 2>&1); then
+            echo "::error::the API started with AUTH_DISABLED=true"
+            exit 1
+          fi
+          if ! grep -q "AUTH_DISABLED is not a setting" <<<"$output"; then
+            echo "$output"
+            echo "::error::the API did not refuse AUTH_DISABLED as an unknown setting"
+            exit 1
+          fi
+      - name: The API refuses to start writable without an identity provider
+        run: |
+          if output=$(timeout 60 docker compose run --rm --no-deps -e AUTH_ISSUER_URI= -e SDLC_READ_ONLY=false backend 2>&1); then
+            echo "::error::the API started writable with no identity provider"
+            exit 1
+          fi
+          if ! grep -q "AUTH_ISSUER_URI is not set and SDLC_READ_ONLY is not true" <<<"$output"; then
+            echo "$output"
+            echo "::error::the API did not name AUTH_ISSUER_URI and SDLC_READ_ONLY"
+            exit 1
+          fi
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -287,13 +312,16 @@ jobs:
         working-directory: e2e
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
+      # The browser suite runs against the default stack, behind the Keycloak login (#118): it signs
+      # dan in through the real login page first, and covers the reader, a registered connector's
+      # write and an unregistered one.
       - run: npx playwright test
         working-directory: e2e
         env:
           CI: "true"
       # The conformance suite (docs/DEPLOYMENT.md) has to be able to fail, so it is first run against
       # the writable stack the browser tests need, where D5 must fail; then against the same stack
-      # restarted read-only, where every requirement must pass.
+      # with the API restarted in the anonymous read-only mode, where every requirement must pass.
       - name: Conformance suite refuses a writable deployment
         working-directory: e2e
         env:
@@ -303,10 +331,29 @@ jobs:
             echo "::error::the conformance suite passed D5 against a writable deployment"
             exit 1
           fi
-      - name: Restart the API read-only
+      # How the dogfood instance runs (fly/fly.backend.toml): read-only, with no identity provider.
+      - name: Restart the API in the anonymous read-only mode
         run: docker compose up -d --wait backend
         env:
           SDLC_READ_ONLY: "true"
+          AUTH_ISSUER_URI: ""
+      - name: The anonymous read-only mode serves reads and refuses writes
+        run: |
+          curl -sf http://localhost:5173/actuator/info | jq -e '.deployment.authentication == "anonymous-read-only"'
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/api/v1/nodes/Repository)
+          if [ "$status" != 200 ]; then
+            echo "::error::an anonymous read answered $status, not 200"
+            exit 1
+          fi
+          body=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"props":{"name":"ci"}}' \
+            http://localhost:5173/api/v1/nodes/Team)
+          if [ "$(jq -r .error <<<"$body")" != "this instance is read-only" ]; then
+            echo "::error::an anonymous write answered $body"
+            exit 1
+          fi
+          # And it says so, by name, on every start.
+          docker compose logs --no-log-prefix --no-color backend | grep '^{' \
+            | jq -s -e 'any(.event == "auth.anonymous.readonly" and .level == "WARN")' >/dev/null
       - name: Deployment conformance
         working-directory: e2e
         env:
@@ -314,19 +361,6 @@ jobs:
           CONFORMANCE_BASE_URL: http://localhost:5173
           EXPECTED_COMMIT: ${{ github.sha }}
         run: npx playwright test --config=conformance.config.ts
-      # The login (#114): the same images restarted behind the Keycloak of the auth profile, with the
-      # development realm. The API refuses a request without a token, the probes stay public, and the
-      # browser signs in as dan, creates a node and reads his name in its provenance. The default stack
-      # above runs the development bypass, since it has no identity provider.
-      - name: Restart the stack behind a login
-        run: docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --wait
-        env:
-          SDLC_COMMIT: ${{ github.sha }}
-      - name: Browser tests behind a login
-        working-directory: e2e
-        env:
-          CI: "true"
-        run: npx playwright test --config=auth.config.ts
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
@@ -336,7 +370,7 @@ jobs:
           if-no-files-found: ignore
       - name: Stack logs on failure
         if: failure()
-        run: docker compose --profile monitoring --profile auth logs --no-color
+        run: docker compose --profile monitoring logs --no-color
       - name: Stop the stack
         if: always()
-        run: docker compose --profile monitoring --profile auth down -v
+        run: docker compose --profile monitoring down -v

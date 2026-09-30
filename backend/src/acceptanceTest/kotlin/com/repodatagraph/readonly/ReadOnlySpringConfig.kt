@@ -6,11 +6,14 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
-/** Boots the real application on a random port, read-only, backed by a Testcontainers Neo4j. */
+/**
+ * Boots the real application on a random port, read-only and with no identity provider - the
+ * anonymous read-only mode the dogfood instance runs (#118) - backed by a Testcontainers Neo4j.
+ */
 @CucumberContextConfiguration
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = ["sdlc.read-only=true"],
+    properties = ["sdlc.read-only=true", "sdlc.auth.issuer-uri="],
 )
 @Import(Neo4jTestcontainersConfig::class)
 @ActiveProfiles("test")

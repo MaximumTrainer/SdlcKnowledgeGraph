@@ -93,6 +93,12 @@ class ReadOnlySteps(
         assertEquals(true, flag.isBoolean && flag.booleanValue(), "deployment.readOnly: $flag")
     }
 
+    @Then("the deployment info says it authenticates nobody")
+    fun theDeploymentInfoSaysItAuthenticatesNobody() {
+        val mode = objectMapper.readTree(lastResponse().body ?: "null").path("deployment").path("authentication")
+        assertEquals("anonymous-read-only", mode.asText(null), "deployment.authentication: $mode")
+    }
+
     private fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 
     private fun jsonEntity(json: String): HttpEntity<String> =

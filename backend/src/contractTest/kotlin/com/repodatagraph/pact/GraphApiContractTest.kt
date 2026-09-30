@@ -8,6 +8,8 @@ import au.com.dius.pact.provider.junitsupport.loader.PactFolder
 import au.com.dius.pact.provider.spring.junit5.PactVerificationSpringProvider
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.support.Neo4jTestcontainersConfig
+import com.repodatagraph.support.TestPrincipalConfig
+import org.apache.hc.core5.http.HttpRequest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestTemplate
 import org.junit.jupiter.api.extension.ExtendWith
@@ -24,11 +26,15 @@ import org.springframework.data.neo4j.core.Neo4jClient
  * There is no broker (ADR-0004): the pact files are committed, so a consumer expectation and the
  * provider that has to satisfy it move in the same pull request. Provider states name the graph each
  * interaction assumes; the handlers are in [ProviderStates].
+ *
+ * Every interaction is replayed as a signed-in user, [TestPrincipalConfig]'s, as the web interface
+ * sends it behind the login (#118). The pacts do not record the token: it is a property of the
+ * deployment, not of the contract.
  */
 @Provider("sdlc-graph-backend")
 @PactFolder("../contracts/pacts")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(Neo4jTestcontainersConfig::class)
+@Import(Neo4jTestcontainersConfig::class, TestPrincipalConfig::class)
 class GraphApiContractTest {
     @LocalServerPort
     private var port: Int = 0
@@ -48,7 +54,11 @@ class GraphApiContractTest {
 
     @TestTemplate
     @ExtendWith(PactVerificationSpringProvider::class)
-    fun verifyPactInteraction(context: PactVerificationContext) {
+    fun verifyPactInteraction(
+        context: PactVerificationContext,
+        request: HttpRequest,
+    ) {
+        request.setHeader("Authorization", TestPrincipalConfig.AUTHORIZATION)
         context.verifyInteraction()
     }
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * The application shell (#6): navigation built from the ontology rather than hard-coded, a footer

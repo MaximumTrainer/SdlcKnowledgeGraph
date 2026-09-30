@@ -22,8 +22,11 @@ export const sessionWith = (scopes: string[], username = 'reader'): AuthSession 
   signOut: async () => undefined
 })
 
-/** What `mount`'s `global.provide` needs to hand a view [session]. */
-export const providing = (session: AuthSession) => ({ [AUTH_SESSION as symbol]: session })
+/**
+ * What `mount`'s `global.provide` needs to hand a view [session]; null for a deployment with no login,
+ * the anonymous read-only mode (#118).
+ */
+export const providing = (session: AuthSession | null) => ({ [AUTH_SESSION as symbol]: session })
 
 export const READ_ONLY = ['graph:read']
 export const READ_WRITE = ['graph:read', 'graph:write']

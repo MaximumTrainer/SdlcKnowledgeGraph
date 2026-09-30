@@ -44,7 +44,8 @@ The [getting started guide](docs/GETTING-STARTED.md) covers both ways of running
 and walks through creating the first nodes. The short version:
 
 ```bash
-docker compose up -d --build --wait   # everything in containers: UI on http://localhost:5173, API on 8080
+docker compose up -d --build --wait   # everything in containers: UI on http://localhost:5173, API on 8080,
+                                      # Keycloak on 8081; sign in as dan / dan
 docker compose down -v                # stop, and wipe the graph
 ```
 
@@ -53,9 +54,10 @@ Or, for development, the database in a container and the application from source
 ```bash
 npm install                      # once, at the repository root: installs the git hooks
 
-docker compose up -d neo4j       # Neo4j on 7687, browser on http://localhost:7474
-cd backend && ./gradlew bootRun  # API on http://localhost:8080
-cd frontend && npm install && npm run dev   # UI on http://localhost:3000
+docker compose up -d neo4j keycloak   # Neo4j on 7687 (browser on :7474), Keycloak on 8081
+cd backend && AUTH_ISSUER_URI=http://localhost:8081/realms/sdlc ./gradlew bootRun   # API on 8080
+cd frontend && npm install && OIDC_AUTHORITY=http://localhost:8081/realms/sdlc npm run dev
+                                      # UI on http://localhost:3000; sign in as dan / dan
 ```
 
 Prerequisites: Docker, Node.js 20 or later, and a JDK 17 or later for running the backend from
@@ -70,10 +72,12 @@ Useful endpoints once the backend is up:
 | `http://localhost:8080/api/v1/ontology` | The ontology the running instance was built with |
 | `http://localhost:8080/actuator/health` | Health, including Neo4j status |
 
-The default stack has no login: the API runs its development bypass (`AUTH_DISABLED=true`). To put
-it behind Keycloak, run `docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d
---build --wait` and sign in as `dan` / `dan` ([Getting started](docs/GETTING-STARTED.md)); connectors
-and agents sign in as registered service principals ([Authentication](docs/AUTH.md)).
+The stack is behind a login: `http://localhost:5173` sends you to Keycloak, where the seeded
+development user is `dan`, password `dan` ([Getting started](docs/GETTING-STARTED.md)). Running from
+source, start `docker compose up -d neo4j keycloak` and the API with
+`AUTH_ISSUER_URI=http://localhost:8081/realms/sdlc`, or read-only with `SDLC_READ_ONLY=true` and no
+identity provider. Connectors and agents sign in as registered service principals
+([Authentication](docs/AUTH.md)).
 `--profile governance` adds Open Policy Agent, which nothing uses yet.
 
 ## Tests

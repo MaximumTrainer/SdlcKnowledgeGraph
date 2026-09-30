@@ -6,6 +6,7 @@ import com.repodatagraph.domain.model.ServicePrincipal
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.security.authentication.AnonymousAuthenticationToken
 import org.springframework.security.core.authority.AuthorityUtils
 import org.springframework.security.core.context.SecurityContextHolder
@@ -16,7 +17,8 @@ import java.time.Instant
 /**
  * Who the application is acting for, read from the request's security context (#114, FR-3): a user
  * by their token's subject, or a registered service principal by its name, acting for its team
- * (#115, FR-3).
+ * (#115, FR-3). There is no anonymous principal (#118): a write that reaches the graph with nobody
+ * authenticated is a bug in the gate, and fails rather than record a writer nobody can be held to.
  */
 class SecurityContextPrincipalTest {
     private val principal = SecurityContextPrincipal()
@@ -52,16 +54,31 @@ class SecurityContextPrincipalTest {
     }
 
     @Test
-    fun `no authentication at all is anonymous`() {
-        assertEquals(Principal.ANONYMOUS, principal.current())
+    fun `no authentication at all is no principal, and a write cannot go on without one`() {
+        assertThrows<IllegalStateException> { principal.current() }
     }
 
     @Test
-    fun `Spring's anonymous token is anonymous too`() {
+    fun `Spring's anonymous token is no principal either`() {
         SecurityContextHolder.getContext().authentication =
             AnonymousAuthenticationToken("key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"))
 
-        assertEquals(Principal.ANONYMOUS, principal.current())
+        assertThrows<IllegalStateException> { principal.current() }
+    }
+
+    @Test
+    fun `a token without a subject is no principal`() {
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "RS256")
+                .claim("scope", "graph:write")
+                .issuedAt(Instant.parse("2026-01-01T00:00:00Z"))
+                .expiresAt(Instant.parse("2099-01-01T00:00:00Z"))
+                .build()
+        SecurityContextHolder.getContext().authentication = JwtAuthenticationToken(jwt)
+
+        assertThrows<IllegalStateException> { principal.current() }
     }
 
     @Test

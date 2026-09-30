@@ -392,7 +392,7 @@
       { "name": "validFrom", "type": "instant", "required": true, "description": null },
       { "name": "validTo", "type": "instant", "required": false, "description": "Set when the fact is superseded" },
       { "name": "syncRunId", "type": "string", "required": false, "description": null },
-      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name; anonymous under AUTH_DISABLED" },
+      { "name": "writtenBy", "type": "string", "required": false, "description": "The subject of the principal that made the write, or a service principal's name" },
       { "name": "principalType", "type": "string", "required": false, "description": "The kind of that principal", "enum": ["user", "service"] },
       { "name": "onBehalfOfTeam", "type": "string", "required": false, "description": "The key of the Team a service principal acted for; absent for a user" }
     ]

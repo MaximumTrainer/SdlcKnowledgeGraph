@@ -14,9 +14,9 @@ not its definition. A deployment on another platform has the same suite to pass.
 | Id | Requirement | Proved by |
 | --- | --- | --- |
 | D1 | The liveness and readiness probes answer 200 when the deployment is serving | `D1 the liveness and readiness probes answer 200 UP` |
-| D2 | `/actuator/info` reports the commit, the application version, the ontology version, the active profile and whether the deployment is read-only | `D2 /actuator/info says what the deployment is running` |
+| D2 | `/actuator/info` reports the commit, the application version, the ontology version, the active profile, whether the deployment is read-only and how it authenticates (`oidc` or `anonymous-read-only`) | `D2 /actuator/info says what the deployment is running` |
 | D3 | The running image is the one built from the commit being deployed, deployed by digest; no floating tag is deployed | `D3 the deployment is running the commit that was meant to be deployed`, plus the deploy workflow (digest) |
-| D4 | A deployment without an authentication provider runs read-only | `D4 a deployment without authentication runs read-only` |
+| D4 | A deployment without an authentication provider runs read-only | `D4 a deployment without authentication runs read-only`, which reads `deployment.authentication` and `deployment.readOnly` |
 | D5 | In read-only mode every write and every GraphQL mutation is refused with 403, deny-by-default | `D5 a POST/PUT/PATCH/DELETE under /api/v1 is refused`, `D5 a GraphQL mutation is refused` |
 | D6 | The ingest endpoints (deployment and seed) still require their bearer token in read-only mode | `D6 the ingest endpoints still require their token` |
 | D7 | The graph database, and the API behind the web interface, are not reachable from the public internet | the deploy workflow: `fly/verify.sh` lists the apps' addresses |
@@ -25,27 +25,31 @@ not its definition. A deployment on another platform has the same suite to pass.
 | D10 | Alerts reach a configured receiver | `deploy-check` in the monitoring image (`ops/monitoring`), run by the deploy workflow inside the dogfood instance's monitoring machine, and by the CI end-to-end job against a stand-in receiver |
 | D11 | An error response never contains a stack trace, a Cypher fragment or a configuration value | `D11 an error response gives nothing away about the internals` |
 | D12 | The deployment tracks `main`: every green CI run on `main` is deployed, and no red one is | the deploy-on-green gate (`.github/workflows/deploy-on-green.yml`, `scripts/deploy-gate.mjs`), which every deploy workflow calls from its `workflow_run` on CI: it proceeds only on `success` for a `push` to `main`, and hands back that run's own commit to deploy |
+| D13 | An instance with no identity provider that is not read-only refuses to start, naming `AUTH_ISSUER_URI` and `SDLC_READ_ONLY` ([#48](../../issues/48) FR6, [#118](../../issues/118)) | the API's startup check (`AuthGuard`), its acceptance scenario "an unauthenticated writable instance refuses to start", and the CI end-to-end job, which starts the image that way and expects it to exit naming both |
 
 ## What a client can see, and what it cannot
 
-D1 to D6, D9 and D11 are about what the deployment answers, so the suite asks it. D7, D8, D10 and
-D12 are about how the deployment was made: a client cannot tell whether a database has a public
-address it was never given, or whether a red run was skipped. Those are asserted where the
-deployment is made, by the workflow that makes it, and the table names where.
+D1 to D6, D9 and D11 are about what the deployment answers, so the suite asks it. D7, D8, D10, D12
+and D13 are about how the deployment was made: a client cannot tell whether a database has a public
+address it was never given, or whether a red run was skipped, and a deployment D13 forbids never
+answers at all. Those are asserted where the deployment is made, by the workflow that makes it or
+by the application's own startup check, and the table names where.
 
 Only three actuator endpoints are public, on purpose: the two probes (D1) and `/actuator/info` (D2).
 The web interface proxies exactly those three and nothing else under `/actuator`.
 
 ## Read-only is a posture, not access control
 
-A deployment without an identity provider runs the API's development bypass (`AUTH_DISABLED=true`,
-[#114](../../issues/114)), which lets every caller in as `anonymous`, so D4 means every such
-deployment reachable by people who must not change it also runs with `SDLC_READ_ONLY=true`. The
-dogfood instance is one (`fly/fly.backend.toml`). The bypass is refused at startup under the `prod`
-profile, and logs the security event `auth.disabled` on every start. A deployment with an identity
-provider sets `AUTH_ISSUER_URI` instead, and needs no bypass. The [user guide](USER-GUIDE.md#read-only-instances)
-describes what that refuses. It narrows what has to be made safe; it does not make anything safe
-that it lets through.
+A deployment either trusts an identity provider (`AUTH_ISSUER_URI`) or has none. One with none runs
+the API's anonymous read-only mode ([#118](../../issues/118),
+[Authentication](AUTH.md#without-an-identity-provider-the-anonymous-read-only-mode)): reads for
+anyone, no token decoded, every write refused. The API starts that way only with
+`SDLC_READ_ONLY=true` (D13), so D4 holds by construction, and it logs the security event
+`auth.anonymous.readonly` on every start. The dogfood instance is one (`fly/fly.backend.toml`). There
+is no development bypass any more: `AUTH_DISABLED` was removed, and setting it stops the API at
+startup. A deployment with an identity provider may also run read-only; the
+[user guide](USER-GUIDE.md#read-only-instances) describes what that refuses. It narrows what has to
+be made safe; it does not make anything safe that it lets through.
 
 ## Running the suite
 
@@ -61,9 +65,10 @@ EXPECTED_COMMIT=$(git rev-parse origin/main) CONFORMANCE_BASE_URL=... npx playwr
 It needs no browser. Every test title starts with its requirement id, so a failure reads as, for
 example, `D5 a POST under /api/v1 is refused`. That points straight to the row above.
 
-CI runs it twice against the compose stack. The first run is against the writable stack the browser
-tests use, where D5 has to fail, so a suite that has stopped checking anything is caught. The
-second run is after restarting the API read-only, where every requirement has to pass. The dogfood
+CI runs it twice against the compose stack. The first run is against the writable stack behind the
+login that the browser tests use, where D5 has to fail, so a suite that has stopped checking anything
+is caught. The second run is after restarting the API in the anonymous read-only mode, as the dogfood
+instance runs, where every requirement has to pass. The dogfood
 deploy runs it against the live instance after each deploy, and a failure turns the deploy red.
 
 ## Deploying on green

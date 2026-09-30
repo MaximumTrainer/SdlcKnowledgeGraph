@@ -16,10 +16,7 @@ import org.springframework.test.context.ActiveProfiles
  * (AuthGuard) runs before dynamic properties are added.
  */
 @CucumberContextConfiguration
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = ["sdlc.auth.disabled=false"],
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(Neo4jTestcontainersConfig::class)
 @ActiveProfiles("test")
 // /actuator/prometheus is one of the endpoints that must stay public, and tests turn it off unless asked.

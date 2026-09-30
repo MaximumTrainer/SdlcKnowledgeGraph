@@ -13,9 +13,13 @@ import org.springframework.stereotype.Component
  * A user's bearer token's `sub` is the subject: stable for the life of the account, unlike a username
  * a user or an administrator can change. A service principal is its registered name, which is its
  * client id, rather than the `sub` of the service account behind it, which means nothing to a reader
- * of provenance (#115). Everything else - the development bypass, a public endpoint, a
- * background thread with no request - is [Principal.ANONYMOUS]. Under authentication a write can
- * only get here with a token, so the anonymous case is the bypass in practice.
+ * of provenance (#115).
+ *
+ * There is no anonymous principal (#118). A write can only get here with a token: the gate refuses
+ * one without, and the anonymous read-only mode refuses every write before it reaches a controller.
+ * So nobody authenticated - a public endpoint, a background thread, a token with no subject - means
+ * the gate let through something it should not have, and the write fails rather than record a writer
+ * nobody can be held to.
  */
 @Component
 class SecurityContextPrincipal : CurrentPrincipal {
@@ -27,7 +31,9 @@ class SecurityContextPrincipal : CurrentPrincipal {
                 authentication.token.subject
                     ?.takeIf { it.isNotBlank() }
                     ?.let { Principal(it, PrincipalType.USER) }
-                    ?: Principal.ANONYMOUS
-            else -> Principal.ANONYMOUS
+                    ?: unauthenticated()
+            else -> unauthenticated()
         }
+
+    private fun unauthenticated(): Nothing = error("a write reached the graph with no authenticated principal")
 }

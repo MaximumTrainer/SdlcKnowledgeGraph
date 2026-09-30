@@ -6,9 +6,9 @@
 
 Accepted, amended by [#114](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/114) (AUTH-1, below), which is the first slice to be
 built, by [#115](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/115) (AUTH-2, machine principals, below), by
-[#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116) (AUTH-3, scopes, below) and by [#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117) (AUTH-4,
-source-scoped writes, below). The rest of the sequence - making the login the
-default (AUTH-5) - elaborates those slices without changing their shape. The original work items are
+[#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116) (AUTH-3, scopes, below), by [#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117) (AUTH-4,
+source-scoped writes, below) and by [#118](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/118) (AUTH-5, the login by default, which
+removes the development bypass the earlier amendments describe). The original work items are
 [#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3) and [#2](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/2), tracked under [#94](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/94).
 
 ## Context
@@ -233,3 +233,32 @@ what it may write: the token is the authority, so there is one place to grant or
 **Out of scope.** GraphQL mutations and deletes name no source and are unchanged; the ingest
 endpoints and scheduled connector runs stamp their own source without a scope check. Rules on how
 far a source's facts are trusted relative to another's are policy (#95), not scopes.
+
+## Amendment: AUTH-5, the login by default (#118)
+
+**The default stack signs in.** `docker compose up` starts Keycloak with the development realm, and
+the API and the web interface trust it; the browser suite signs in through its login page. The
+`auth` profile and `compose.auth.yaml` are gone, since there is one stack.
+
+**The development bypass is removed.** `AUTH_DISABLED` no longer exists, and setting it stops the API
+at startup with an unknown-setting error rather than being ignored. There is no anonymous principal:
+a write through the API always names who made it, and one that reaches the store with nobody
+authenticated fails. What the earlier amendments say the bypass does no longer applies.
+
+**Without an identity provider, read only.** The dogfood instance has no identity provider and should
+not need one to be browsed. An instance with no `AUTH_ISSUER_URI` therefore runs the anonymous
+read-only mode: reads for anyone, no token decoded, every write refused, the ingest endpoints behind
+their own token as before. The API starts that way only with `SDLC_READ_ONLY=true`, and refuses to
+start otherwise, naming both settings - the startup refusal [#48](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/48) FR6 deferred
+until authentication existed ([Deployment](/guide/deployment), D13). It logs the security event
+`auth.anonymous.readonly` on every start and reports the mode on `/actuator/info`. The alternative,
+an identity provider for the dogfood instance, costs a machine the free tier does not have, and buys
+nothing a public, read-only instance needs.
+
+**Tests get a principal from the test source set, not from the application.** The suites that
+exercise the graph rather than the login replace the JWT decoder with one that accepts a single
+test token, so the real chain runs and no production switch exists to be left on.
+
+**Production federation is configuration.** Pointing `AUTH_ISSUER_URI` and the web interface's
+`OIDC_AUTHORITY` at another provider is documented in [Authentication](/guide/auth); nothing is built per
+provider.

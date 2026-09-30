@@ -14,11 +14,12 @@ swap_size_mb = 512
 
 [env]
   SPRING_PROFILES_ACTIVE = "docker"
-  # No identity provider yet, so this instance runs the API's development bypass and must not accept
-  # writes (#48 D4, D5). AUTH_DISABLED is refused under the prod profile (#114, FR-5); this instance
-  # runs the docker profile, and the API logs a security warning (auth.disabled) on every start.
+  # No identity provider, and no AUTH_ISSUER_URI, so this instance runs the API's anonymous read-only
+  # mode (#118, docs/AUTH.md): anyone may read, every write is refused, and the API logs the security
+  # warning auth.anonymous.readonly on every start. It refuses to start that way unless it is
+  # read-only (#48 FR6, docs/DEPLOYMENT.md D4, D5, D13), so this line is what keeps it running. The
+  # ingest endpoints the deploy and the seed write through keep their own token (D6).
   SDLC_READ_ONLY = "true"
-  AUTH_DISABLED = "true"
   NEO4J_USERNAME = "neo4j"
   NEO4J_URI = "bolt://sdlc-graph-neo4j.internal:7687"
   # A smaller heap share than the image's default, and C1 only, so a 512 MB machine starts quickly

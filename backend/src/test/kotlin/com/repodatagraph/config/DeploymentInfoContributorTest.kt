@@ -29,6 +29,7 @@ class DeploymentInfoContributorTest {
                 "ontologyVersion" to "1.4.0",
                 "profile" to "docker",
                 "readOnly" to true,
+                "authentication" to "oidc",
             ),
             deployment,
         )
@@ -56,14 +57,20 @@ class DeploymentInfoContributorTest {
         assertEquals("docker,dogfood", contribute(environment = environment)["profile"])
     }
 
+    @Test
+    fun `says how it knows who is calling`() {
+        assertEquals("anonymous-read-only", contribute(auth = AuthProperties(issuerUri = ""))["authentication"])
+    }
+
     private fun contribute(
         readOnly: Boolean = false,
+        auth: AuthProperties = AuthProperties(issuerUri = "https://id.example.test/realms/sdlc"),
         commit: String = sha,
         build: BuildProperties? = build(version = "0.0.1"),
         environment: MockEnvironment = MockEnvironment(),
     ): Map<*, *> {
         val info = Info.Builder()
-        DeploymentInfoContributor(readOnly, commit, build, environment, registry).contribute(info)
+        DeploymentInfoContributor(readOnly, commit, build, environment, registry, auth).contribute(info)
         return info.build().details["deployment"] as Map<*, *>
     }
 

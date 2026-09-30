@@ -14,7 +14,7 @@ import java.time.Instant
  *
  * Two checks, in this order. The source must be one the registry declares, or the write is
  * malformed (400) - a scope for a source nobody declared would mean nothing, so this does not depend
- * on who is asking and holds under the development bypass too. Then the principal must be allowed
+ * on who is asking. Then the principal must be allowed
  * to speak for it ([SourceWriteAuthorization], 403). Both run before the write touches the store.
  */
 @Component

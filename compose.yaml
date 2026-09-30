@@ -1,9 +1,11 @@
 # Local stack for the SDLC Knowledge Graph.
 #
-#   docker compose up -d neo4j                 # database only (run backend/frontend from source)
-#   docker compose up -d --build --wait        # full stack: neo4j + backend (8080) + frontend (5173)
-#   docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --build --wait
-#                                              # + Keycloak (8081), with the API and UI behind a login
+#   docker compose up -d --build --wait        # full stack: neo4j + Keycloak (8081) + backend (8080)
+#                                              # + frontend (5173), behind a login: sign in as dan / dan
+#   docker compose up -d neo4j keycloak        # database and login only (run backend/frontend from
+#                                              # source; docs/GETTING-STARTED.md)
+#   AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --build --wait
+#                                              # no login: the anonymous read-only mode (docs/AUTH.md)
 #   docker compose --profile governance up -d  # + OPA (8181) for policy-as-code
 #   docker compose --profile monitoring up -d --build --wait   # + Prometheus (9090), Alertmanager (9093), Grafana (3000)
 #   docker compose down -v                     # stop and wipe the graph
@@ -45,16 +47,21 @@ services:
       # Writable by default, which is what local work and the browser suite need. CI restarts the
       # backend read-only to run the deployment conformance suite against it.
       SDLC_READ_ONLY: ${SDLC_READ_ONLY:-false}
-      # No identity provider in the default stack, so the API runs its development bypass: every
-      # caller is anonymous, and it says so on every start (#114). compose.auth.yaml turns the login on
-      # against the Keycloak in the auth profile.
-      AUTH_DISABLED: ${AUTH_DISABLED:-true}
-      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:-}
-      AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:-}
+      # Behind the Keycloak below (#118). Keycloak is two addresses at once: the browser reaches it at
+      # localhost:8081, so that is the issuer every token names and the API must expect, while the API,
+      # inside the compose network, fetches the signing keys from keycloak:8080. Hence an issuer and a
+      # separate key set URI. Set AUTH_ISSUER_URI to empty (not unset) for the anonymous read-only
+      # mode, which the API starts only with SDLC_READ_ONLY=true.
+      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI-http://localhost:8081/realms/sdlc}
+      AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI-http://keycloak:8080/realms/sdlc/protocol/openid-connect/certs}
     ports:
       - "8080:8080"
     depends_on:
       neo4j:
+        condition: service_healthy
+      # Not needed to start, since the keys are fetched on first use, but a stack whose login page is
+      # not up yet is not up.
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
@@ -68,8 +75,9 @@ services:
       context: ./frontend
     image: sdlc-graph-frontend:local
     environment:
-      # Empty: no login, matching the API's bypass above. compose.auth.yaml names the Keycloak realm.
-      OIDC_AUTHORITY: ${OIDC_AUTHORITY:-}
+      # The realm the web interface signs users in with. Empty means no login, for a backend running
+      # the anonymous read-only mode.
+      OIDC_AUTHORITY: ${OIDC_AUTHORITY-http://localhost:8081/realms/sdlc}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-sdlc-ui}
     ports:
       - "5173:80"
@@ -84,12 +92,13 @@ services:
       timeout: 3s
       retries: 12
 
-  # Local OIDC provider (docs/adr/0005-auth-oidc-github-first.md). Admin console: http://localhost:8081
-  # It imports the development realm the acceptance suite signs in against: realm "sdlc", the public
-  # PKCE client "sdlc-ui" for the web interface, the user "dan" (password "dan"), and the
-  # client-credentials clients "github-connector" and "triage-agent" (docs/AUTH.md).
+  # Local OIDC provider (docs/adr/0005-auth-oidc-github-first.md, docs/AUTH.md), part of the default
+  # stack since authentication is on by default (#118). Admin console: http://localhost:8081 (admin /
+  # admin). It imports the development realm the acceptance suite signs in against: realm "sdlc", the
+  # public PKCE client "sdlc-ui" for the web interface, the users "dan" (both graph scopes), "reader"
+  # (graph:read) and "visitor" (neither), each with their name as password, and the
+  # client-credentials clients "github-connector" and "triage-agent". Development values only.
   keycloak:
-    profiles: ["auth"]
     image: quay.io/keycloak/keycloak:26.0
     command: ["start-dev", "--import-realm"]
     environment:

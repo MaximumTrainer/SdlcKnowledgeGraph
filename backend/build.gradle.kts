@@ -214,6 +214,8 @@ testing {
                 implementation(project())
                 implementation("org.springframework.boot:spring-boot-starter-web")
                 implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
+                // TestPrincipalConfig in src/testSupport replaces the API's JWT decoder (#118).
+                implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
                 implementation("org.springframework.boot:spring-boot-starter-test")
                 implementation("org.springframework.boot:spring-boot-testcontainers")
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -243,6 +245,8 @@ testing {
                 implementation(project())
                 implementation("org.springframework.boot:spring-boot-starter-web")
                 implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
+                // TestPrincipalConfig in src/testSupport replaces the API's JWT decoder (#118).
+                implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
                 implementation("org.springframework.boot:spring-boot-starter-test")
                 implementation("org.springframework.boot:spring-boot-testcontainers")
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -268,6 +272,8 @@ testing {
                 implementation(project())
                 implementation("org.springframework.boot:spring-boot-starter-web")
                 implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
+                // TestPrincipalConfig in src/testSupport replaces the API's JWT decoder (#118).
+                implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
                 implementation("org.springframework.boot:spring-boot-starter-test")
                 implementation("org.springframework.boot:spring-boot-testcontainers")
                 implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

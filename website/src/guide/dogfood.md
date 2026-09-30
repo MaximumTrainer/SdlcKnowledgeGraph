@@ -28,11 +28,14 @@ error budget burn, a down API and an unreachable database, and posts to the webh
 
 ## It is read-only
 
-There is no sign-in yet ([#3](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/3)), so an instance anyone can reach must not take writes
-from anyone: it runs with `sdlc.read-only=true` (D4, D5). Browsing, the REST reads and GraphQL
-queries work; every other request is refused with `403 {"error": "this instance is read-only"}`.
-The two exceptions are the ingest endpoints above, which the pipeline and the seed use, each behind
-the ingest token (D6). This is a stopgap until authentication lands, not an access model.
+The instance has no identity provider, so it runs the API's anonymous read-only mode
+([Authentication](/guide/auth#without-an-identity-provider-the-anonymous-read-only-mode), #118): anyone may read,
+nobody signs in, and nothing can be written by nobody. It runs with `sdlc.read-only=true` and no
+`AUTH_ISSUER_URI`, and the API would refuse to start without the first (D4, D13). Browsing, the REST
+reads and GraphQL queries work without a token; the web interface offers no way to change anything,
+and every other request is refused with `403 {"error": "this instance is read-only"}`. The two
+exceptions are the ingest endpoints above, which the pipeline and the seed use, each behind the
+ingest token (D6). The API logs `auth.anonymous.readonly` on every start to say so.
 
 ## Its data is re-derived, not backed up
 

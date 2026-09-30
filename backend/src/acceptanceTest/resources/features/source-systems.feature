@@ -3,9 +3,9 @@ Feature: the source systems a write may name
   knows are declared once, in the registry's sources.yaml, and published with the ontology, so a
   connector author can see which name to stamp and which graph:write:<source> scope to ask for.
 
-  Naming a source the registry does not declare is a malformed write, refused with 400 whether or not
-  authentication is on. Which principal may name which source is a question of scopes, so with the
-  development bypass (this suite) any declared source may be named: the bypass checks no scopes.
+  Naming a source the registry does not declare is a malformed write, refused with 400 whoever makes
+  it. Which principal may name which source is a question of scopes, proved in auth/source-scopes.feature;
+  this suite's principal holds the scope of every declared source, so any declared source may be named.
 
   Scenario: the ontology publishes the source systems
     When I GET "/api/v1/ontology"
@@ -19,7 +19,7 @@ Feature: the source systems a write may name
       | dogfood-seed         |
       | sdlc-knowledge-graph |
 
-  Scenario: a write naming an undeclared source is refused through the bypass too
+  Scenario: a write naming an undeclared source is refused, whatever the writer may name
     When I POST a Team named "platform" with sourceSystem "jira"
     Then the response status is 400
     And the body field "error" is "unknown source system"
@@ -27,7 +27,7 @@ Feature: the source systems a write may name
     And the body field "known" contains "manual"
     And the body field "known" contains "aws"
 
-  Scenario: the bypass checks no source scopes
+  Scenario: a principal holding a source's scope may name it
     When I POST a Team named "platform" with sourceSystem "aws"
     Then the response status is 201
     And the created node's provenance names sourceSystem "aws"

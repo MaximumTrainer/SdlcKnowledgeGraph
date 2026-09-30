@@ -14,7 +14,8 @@ export interface AuthConfig {
  * so the same image serves a stack with an identity provider and one without.
  *
  * No authority, or no file at all (the Vite dev server serves none), means the deployment has no
- * login: the API is running with its development bypass and the web interface just calls it.
+ * login: the API is running its anonymous read-only mode (#118), and the web interface reads without
+ * signing anyone in.
  */
 export const loadAuthConfig = async (): Promise<AuthConfig | null> => {
   try {

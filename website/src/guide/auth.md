@@ -3,7 +3,15 @@
 # Authentication and principals
 
 Who may call the API, and how each write says who made it. The decisions behind this are in
-[ADR-0005](/adr/0005-auth-oidc-github-first); this page is how to work with them.
+[ADR-0005](/adr/0005-auth-oidc-github-first); this page is how to work with them: getting a token
+as a person or as a connector, the scopes a token needs, registering a service principal, and the one
+way to run without an identity provider.
+
+Authentication is on by default ([#118](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/118)). `docker compose up` starts Keycloak with a
+development realm next to the API, and the web interface sends you to its login page: sign in as
+`dan`, password `dan`. An instance either trusts an identity provider (`AUTH_ISSUER_URI`) or runs the
+[anonymous read-only mode](#without-an-identity-provider-the-anonymous-read-only-mode); there is no
+switch that lets writes in without a login.
 
 There are two kinds of principal:
 
@@ -16,9 +24,113 @@ Both present a bearer JWT from the instance's identity provider (`AUTH_ISSUER_UR
 same gate, and what either may do is decided by the [scopes](#scopes) on its token
 ([#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116)): `graph:read` to read the graph, `graph:write` to change it, and
 `graph:write:<source>` to state facts as a system of record rather than as oneself
-([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117), [below](#source-scopes)). With the development bypass
-(`AUTH_DISABLED=true`) none of this applies: every caller is `anonymous`, a user, and no scope is
-checked.
+([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117), [below](#source-scopes)). There is no anonymous writer: every write
+through the API names the principal that made it.
+
+## Getting a token
+
+**As a person**, sign in through the web interface: it runs the authorization code flow with PKCE
+against the public client `sdlc-ui`, keeps the session in the tab's `sessionStorage`, renews the
+access token with its refresh token, and sends it with every call. To call the API yourself with
+your own token (for a script or `curl`), copy it from the signed-in tab's developer tools
+(`sessionStorage`, the `oidc.user:...` entry's `access_token`); the development realm's `sdlc-ui`
+does not offer the password grant, so there is no `curl` shortcut for a person.
+
+**As a connector or an agent**, use the OAuth 2 client-credentials grant with the client's own id
+and secret, after a user has [registered it](#registering-one):
+
+```bash
+TOKEN=$(curl -s http://localhost:8081/realms/sdlc/protocol/openid-connect/token \
+  -d grant_type=client_credentials -d client_id=github-connector -d client_secret=github-connector-dev-only \
+  | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/nodes/Repository
+```
+
+Either way the token goes in `Authorization: Bearer <token>`. Without a valid one, everything under
+`/api` and `/graphql` except the [public paths](#scopes) answers
+`401 {"error": "authentication required"}` with a `WWW-Authenticate: Bearer` challenge.
+
+## Configuring the API
+
+| Setting | What it does |
+| --- | --- |
+| `AUTH_ISSUER_URI` | The issuer every accepted token must name, and where its keys are discovered. The compose stack sets `http://localhost:8081/realms/sdlc`, the address the browser signs in at. Unset or empty: the [anonymous read-only mode](#without-an-identity-provider-the-anonymous-read-only-mode) |
+| `AUTH_JWK_SET_URI` | Where to fetch the signing keys, when the API reaches the issuer at another address than the one it signs as. Inside compose the API fetches them from `http://keycloak:8080/realms/sdlc/protocol/openid-connect/certs`. With it set, the keys are fetched on first use, so the API can start before its identity provider |
+| `SDLC_READ_ONLY` | Refuses every write but the ingest endpoints' ([Deployment](/guide/deployment), D5). Required without an issuer |
+
+`/actuator/info` says which way an instance runs, in `deployment.authentication`: `oidc`, or
+`anonymous-read-only`.
+
+`AUTH_DISABLED`, the development bypass [#114](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/114) added, was removed by #118. Setting
+it, to any value, stops the API at startup with `AUTH_DISABLED is not a setting`, so an environment
+that still carries it is noticed rather than silently running differently.
+
+### Running from source
+
+`./gradlew bootRun` needs one of the two modes as well. Against the compose Keycloak, which is what
+the web interface signs in with:
+
+```bash
+docker compose up -d neo4j keycloak
+cd backend && AUTH_ISSUER_URI=http://localhost:8081/realms/sdlc ./gradlew bootRun
+```
+
+Or with no identity provider, reading only:
+
+```bash
+cd backend && SDLC_READ_ONLY=true ./gradlew bootRun
+```
+
+Tests that exercise the graph rather than the login do not need either: they run as a fixed test
+principal through the real security chain ([Testing](/guide/testing)).
+
+### A production identity provider
+
+The API trusts any OpenID Connect provider that signs JWT access tokens, not only Keycloak. Point
+`AUTH_ISSUER_URI` at its issuer (Keycloak federating a company directory, Entra ID, Okta, Auth0, or
+GitHub through Keycloak's identity brokering, as ADR-0005 sets out), and give the web interface's
+nginx the same issuer and its public client:
+
+| Web interface setting | Value |
+| --- | --- |
+| `OIDC_AUTHORITY` | The issuer, as the browser reaches it |
+| `OIDC_CLIENT_ID` | A public client with the authorization code flow and PKCE, whose redirect URI is `https://<web interface>/auth/callback` (default `sdlc-ui`) |
+
+Then, in that provider: issue the scopes `graph:read`, `graph:write` and `graph:write:<source>` in
+the token's `scope` (or `scp`) claim ([Issuing them in Keycloak](#issuing-them-in-keycloak) shows one
+way), make sure the token has a `sub`, and give each connector or agent a confidential client with
+the client-credentials grant. If the provider marks its machine tokens differently from Keycloak and
+RFC 9068, see [Which tokens are a service's](#which-tokens-are-a-services). This is configuration;
+nothing in the application changes per provider. The development realm below is for local work and
+tests only.
+
+## Without an identity provider: the anonymous read-only mode
+
+An instance with no `AUTH_ISSUER_URI` cannot tell one caller from another, so it may only be read.
+The API starts that way only with `SDLC_READ_ONLY=true`, and otherwise refuses to start:
+
+```text
+AUTH_ISSUER_URI is not set and SDLC_READ_ONLY is not true: an instance with no identity provider
+cannot tell who is writing, so it may only run read-only. ...
+```
+
+That is [#48](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/48)'s FR6, and requirement D13 of the [deployment contract](/guide/deployment).
+Started read-only, it:
+
+- answers every read, REST and GraphQL, without a token, and decodes no token at all;
+- refuses every write with `403 {"error": "this instance is read-only"}`, whether or not it carries a
+  token, so no fact is ever written by nobody;
+- still takes the ingest endpoints' writes, behind their own `INGEST_TOKEN` (D6), so the deploy
+  pipeline and the dogfood seed keep working;
+- logs the security event `auth.anonymous.readonly` at `WARN` on every start, and reports
+  `deployment.authentication: "anonymous-read-only"` on `/actuator/info`.
+
+The web interface served with no `OIDC_AUTHORITY` shows no login and offers no way to change the
+graph. The dogfood instance runs this way ([Dogfood](/guide/dogfood)). Locally:
+
+```bash
+AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --build --wait
+```
 
 ## Scopes
 
@@ -108,7 +220,7 @@ event as a missing `graph:write`:
 
 `required` is everything the write needs and `held` every graph scope the token carries. A source
 nobody declared is a malformed write rather than a missing permission, so it is answered with the
-declared ones, and is refused under the development bypass too:
+declared ones, whoever asks:
 
 ```json
 400 {"error": "unknown source system", "sourceSystem": "jira",
@@ -138,7 +250,8 @@ The web interface reads the scopes from the signed-in user's access token and of
 allow: a user holding `graph:read` alone sees no New, Edit, Delete, relationship or Sync controls.
 If a refusal gets through anyway (the token changed, or a page was reached by its address), the page
 shows what the request needed and what the user holds in its usual error line. Without a login (the
-development bypass) everything is offered, as before.
+[anonymous read-only mode](#without-an-identity-provider-the-anonymous-read-only-mode)) nothing that
+changes the graph is offered, since the API would refuse it.
 
 ### Issuing them in Keycloak
 
@@ -279,7 +392,7 @@ What it writes records `writtenBy: "triage-agent"`, `principalType: "service"` a
 
 ### The development realm
 
-The realm the compose `auth` profile and the acceptance suite import
+The realm the default compose stack, the browser suite and the acceptance suite import
 ([`sdlc-realm.json`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/acceptanceTest/resources/keycloak/sdlc-realm.json))
 has the web interface's public client `sdlc-ui` and three users, each with their name as password:
 

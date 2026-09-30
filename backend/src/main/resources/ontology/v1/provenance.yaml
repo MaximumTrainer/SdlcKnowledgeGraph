@@ -16,6 +16,6 @@ provenance:
     - { name: syncRunId, type: string, required: false }
     # Who made the write (#114): a user's token subject, or a service principal's registered name
     # (#115). A scheduled connector run's facts name no writer: no one asked for them.
-    - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write, or a service principal's name; anonymous under AUTH_DISABLED" }
+    - { name: writtenBy, type: string, required: false, description: "The subject of the principal that made the write, or a service principal's name" }
     - { name: principalType, type: string, required: false, description: "The kind of that principal", enum: [user, service] }
     - { name: onBehalfOfTeam, type: string, required: false, description: "The key of the Team a service principal acted for; absent for a user" }

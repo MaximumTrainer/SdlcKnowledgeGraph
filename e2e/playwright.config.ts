@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * End-to-end tests run against the real stack from compose.yaml (nginx -> backend -> Neo4j).
- * Playwright brings the stack up itself; set reuseExistingServer so an already-running stack is used as-is.
+ * End-to-end tests run against the real stack from compose.yaml (nginx -> backend -> Neo4j, behind
+ * the Keycloak login). Playwright brings the stack up itself; set reuseExistingServer so an
+ * already-running stack is used as-is.
+ *
+ * The `setup` project signs dan in through Keycloak's login page first (tests/auth.setup.ts), and
+ * every browser test starts from his session (tests/fixtures.ts), unless it signs someone in itself.
  */
 export default defineConfig({
   testDir: './tests',
@@ -25,7 +29,10 @@ export default defineConfig({
     testIdAttribute: 'data-test',
     trace: 'on-first-retry'
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'setup', testMatch: /.*\.setup\.ts/, use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] }
+  ],
   webServer: {
     command: 'docker compose up -d --build --wait',
     cwd: repoRoot,

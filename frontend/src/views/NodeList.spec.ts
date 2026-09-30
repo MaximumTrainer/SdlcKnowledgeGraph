@@ -113,3 +113,27 @@ describe('NodeList, for a user who may only read', () => {
     expect(wrapper.find('[data-test="new-node"]').exists()).toBe(true)
   })
 })
+
+/**
+ * A deployment with no login is the anonymous read-only mode (#118): the API serves reads to anyone
+ * and refuses every write, so the list offers nobody a way to create a node.
+ */
+describe('NodeList, on a deployment with no login', () => {
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/nodes/Team', () => HttpResponse.json({ items: teams, nextCursor: null }))
+    )
+  })
+
+  it('lists the nodes and offers no way to create one', async () => {
+    const wrapper = mount(NodeList, {
+      props: { type: 'Team' },
+      global: { plugins: [router()], provide: providing(null) }
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="node-key"]')).toHaveLength(2)
+    expect(wrapper.find('[data-test="new-node"]').exists()).toBe(false)
+  })
+})

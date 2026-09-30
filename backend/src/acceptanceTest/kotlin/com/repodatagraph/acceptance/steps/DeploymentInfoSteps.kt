@@ -42,6 +42,11 @@ class DeploymentInfoSteps(
         assertEquals(expected.toBooleanStrict(), flag.booleanValue())
     }
 
+    @Then("deployment.authentication is {string}")
+    fun theAuthenticationIs(expected: String) {
+        assertEquals(expected, deployment().path("authentication").asText(null))
+    }
+
     // Kept from the first step that reads it, because the ontology step makes a request of its own
     // and every step after it would otherwise be reading the ontology. Cucumber builds this class
     // afresh for each scenario, so nothing carries over between them.

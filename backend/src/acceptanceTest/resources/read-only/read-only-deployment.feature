@@ -1,8 +1,11 @@
 Feature: A read-only deployment refuses every write
-  The API has no authentication yet (#3), so a reachable instance that accepts writes is an open
-  database. With sdlc.read-only set, every write under /api/v1 and every GraphQL mutation is refused,
+  With sdlc.read-only set, every write under /api/v1 and every GraphQL mutation is refused,
   deny-by-default: a write endpoint added later is refused until someone deliberately allows it.
   This is a posture for a public instance, not an authorisation model (#48, D5).
+
+  This suite runs the way the dogfood instance does: read-only and with no identity provider, the
+  anonymous read-only mode (#118). Nobody signs in, so every request here carries no token. Reads are
+  answered for anyone; every write is refused as read-only, so no fact is ever written by nobody.
 
   Scenario Outline: Read-only refuses every write verb
     When I send a <verb> to "<path>"
@@ -17,6 +20,7 @@ Feature: A read-only deployment refuses every write
       | DELETE | /api/v1/nodes/Team/platform |
       | POST   | /api/v1/edges               |
       | POST   | /api/v1/repositories        |
+      | POST   | /api/v1/service-principals  |
 
   Scenario: A refused write leaves nothing behind
     When I send a POST to "/api/v1/nodes/Team"
@@ -54,6 +58,11 @@ Feature: A read-only deployment refuses every write
     When I send a GET to "/actuator/info"
     Then the response status is 200
     And the deployment info says it is read-only
+
+  Scenario: The deployment says it serves reads to anyone, so a client knows not to sign in
+    When I send a GET to "/actuator/info"
+    Then the response status is 200
+    And the deployment info says it authenticates nobody
 
   Scenario: The deployment ingest endpoint stays open to the pipeline, behind its own token
     # The one write a read-only instance still takes (#7, docs/DEPLOYMENT.md D6). It is not refused
