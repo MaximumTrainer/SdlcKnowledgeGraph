@@ -1,0 +1,50 @@
+package com.repodatagraph.domain.lifecycle
+
+import com.repodatagraph.domain.ontology.NodeTypeDef
+import com.repodatagraph.domain.ontology.OntologyRegistry
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+
+/**
+ * Which node types keep their earlier values as versions (#33, FR1). The graph describing itself -
+ * sync runs, connector state, the ontology - changes on every run and has no history worth keeping.
+ */
+class VersioningPolicyTest {
+    private val registry =
+        OntologyRegistry(
+            version = "1.4.0",
+            nodeTypes =
+                listOf(
+                    NodeTypeDef("Team", "A team", listOf("name"), emptyList()),
+                    NodeTypeDef("Pipeline", "A pipeline", listOf("name"), emptyList()),
+                    NodeTypeDef("SyncRun", "A run", listOf("id"), emptyList(), meta = true),
+                ),
+            edgeTypes = emptyList(),
+        )
+
+    @Test
+    fun `a domain type is versioned, a meta type never`() {
+        val policy = VersioningPolicy(VersioningSettings(enabled = true, maxVersions = 50, excludedTypes = emptySet()), registry)
+
+        assertThat(policy.isVersioned("Team")).isTrue()
+        assertThat(policy.isVersioned("SyncRun")).isFalse()
+        assertThat(policy.isVersioned("Nonsense")).isFalse()
+    }
+
+    @Test
+    fun `configuration can leave a type out, or turn versioning off`() {
+        val excluding = VersioningPolicy(VersioningSettings(true, 50, setOf("Pipeline")), registry)
+        val off = VersioningPolicy(VersioningSettings(false, 50, emptySet()), registry)
+
+        assertThat(excluding.isVersioned("Pipeline")).isFalse()
+        assertThat(excluding.isVersioned("Team")).isTrue()
+        assertThat(off.isVersioned("Team")).isFalse()
+    }
+
+    @Test
+    fun `the types it leaves out include every meta type, for the status page`() {
+        val policy = VersioningPolicy(VersioningSettings(true, 50, setOf("Pipeline")), registry)
+
+        assertThat(policy.excludedTypes()).containsExactly("Pipeline", "SyncRun")
+    }
+}
