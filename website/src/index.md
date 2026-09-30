@@ -44,9 +44,9 @@ Connectors that keep all of that in step with the systems of record are the next
 the graph is populated by hand, through the web interface or the API.
 
 The graph is read by people through the web interface and by programs through a REST and GraphQL
-API. Access control that applies to AI agents exactly as it applies to people is designed
-([ADR-0005](/adr/0005-auth-oidc-github-first)) but not yet built: there is currently no
-authentication.
+API. Both sit behind an OIDC login when the deployment has an identity provider, and every write
+records who made it ([ADR-0005](/adr/0005-auth-oidc-github-first)); scopes, and access
+control that applies to AI agents exactly as it applies to people, are still to come.
 
 See the [roadmap](/reference/roadmap) for what is built and what is planned, issue by issue.
 
@@ -100,8 +100,10 @@ Useful endpoints once the backend is up:
 | `http://localhost:8080/api/v1/ontology` | The ontology the running instance was built with |
 | `http://localhost:8080/actuator/health` | Health, including Neo4j status |
 
-Two optional compose profiles exist for work that has not started: `--profile auth` adds Keycloak
-and `--profile governance` adds Open Policy Agent. Nothing uses either yet.
+The default stack has no login: the API runs its development bypass (`AUTH_DISABLED=true`). To put
+it behind Keycloak, run `docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d
+--build --wait` and sign in as `dan` / `dan` ([Getting started](/guide/getting-started)).
+`--profile governance` adds Open Policy Agent, which nothing uses yet.
 
 ## Tests
 

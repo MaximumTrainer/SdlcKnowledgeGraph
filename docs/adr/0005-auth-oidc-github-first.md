@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted, not yet implemented. The work is [#3](../../../issues/3) (resource server, principal
-kinds, API keys) and [#2](../../../issues/2) (user login), both in milestone M2. Until they land the
-API and the web interface have no authentication at all.
+Accepted, amended by [#114](../../../issues/114) (AUTH-1, below), which is the first slice to be
+built. The rest of the sequence - machine principals (AUTH-2), scopes (AUTH-3) and making the login
+the default (AUTH-5) - elaborates that slice without changing its shape. The original work items are
+[#3](../../../issues/3) and [#2](../../../issues/2), tracked under [#94](../../../issues/94).
 
 ## Context
 
@@ -78,3 +79,50 @@ frontend needs to handle a 401 by restarting the login flow rather than showing 
 API keys are a long-lived credential. They are stored hashed, issued only to administrators, and
 should be scoped and revocable. They exist because scheduled connectors and external agents cannot
 always complete an interactive flow, not as a convenience.
+
+## Amendment: AUTH-1, Keycloak-issued JWTs and the resource-server pattern (#114)
+
+The walking skeleton changes two things in the decision above, and fixes a third.
+
+**The API is a resource server for people too, not only for machines.** Every request under `/api`
+and `/graphql` needs a bearer JWT, validated against one configured issuer (`AUTH_ISSUER_URI`, with
+`AUTH_JWK_SET_URI` when the API reaches the issuer at another address than it signs as). Locally and
+in the tests the issuer is Keycloak, from the compose `auth` profile, with a committed development
+realm (`sdlc`, public client `sdlc-ui`, user `dan`). Any OIDC provider that issues JWTs - Entra ID,
+Okta, Keycloak in front of GitHub - is the same configuration. GitHub's plain OAuth 2, which issues no
+JWT, is reached through such a broker rather than registered directly.
+
+**The web interface holds the token, instead of a backend-for-frontend session.** The single-page
+application signs in with the authorization code flow and PKCE against a public client, keeps the
+tokens in `sessionStorage`, renews them silently with the refresh token, and sends the access token
+on every API call; a 401 restarts the login. That trades the BFF's protection of tokens from
+cross-site scripting for one validation path shared by people, connectors and agents, no server-side
+session, and no CSRF surface, since no cookie carries a credential. The risk it accepts is managed by
+short-lived access tokens (five minutes in the development realm) and by keeping the page free of
+third-party script. Whether the interface signs in at all is read at runtime from
+`/auth-config.json`, so one image serves a deployment with an identity provider and one without.
+
+**Who wrote each fact is recorded.** Every node and edge written through the API carries `writtenBy`
+(the token's `sub`, which does not change when a username does) and `principalType` (`user`) in its
+provenance, declared in the ontology registry's provenance envelope.
+
+What stays public, whoever asks: the probes, `/actuator/info` and `/actuator/prometheus` (the
+scraper inside the deployment holds no user token), the ontology document and the API
+documentation, the webhook receivers (which verify the sender's signature), and the ingest endpoints,
+which keep their own bearer token until pipelines are principals of their own.
+
+There are no scopes and no 403s yet: any valid token may do anything an anonymous caller could before.
+
+**The development bypass.** `AUTH_DISABLED=true` lets every request through and records its writes
+as `writtenBy: anonymous`. It logs a security warning (`auth.disabled`) on every start and is refused
+at startup under any profile named `prod`. The default compose stack and the dogfood instance run
+with it, since neither has an identity provider yet; the dogfood instance is also read-only, which is
+what keeps it safe ([DEPLOYMENT.md](../DEPLOYMENT.md), D4).
+
+### Placeholder: machine principals (AUTH-2)
+
+Connectors, the deploy pipeline and agents are not principals yet. Their writes carry no `writtenBy`,
+and the ingest endpoints keep a shared bearer token. AUTH-2 decides how they become principals -
+client-credentials tokens from the same issuer, backend-issued API keys stored hashed, or both - and
+what `principalType` each records (`service`, `agent`). This section is to be replaced by that
+decision.

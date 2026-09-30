@@ -47,9 +47,22 @@ docker compose down        # stop, keep the data
 docker compose down -v     # stop, and wipe the graph
 ```
 
-Two optional profiles exist for work that has not started yet: `--profile auth` adds Keycloak on
-port 8081 and `--profile governance` adds Open Policy Agent on port 8181. Nothing in the
-application talks to either of them today, so leave them off.
+The default stack has no identity provider, so the API runs with its development bypass
+(`AUTH_DISABLED=true`): nobody signs in, every write is recorded as `anonymous`, and the API logs a
+warning saying so on every start.
+
+To work behind a login, add the `auth` profile and its override file:
+
+```bash
+docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --build --wait
+```
+
+That starts Keycloak on port 8081 with a development realm, and points the API and the web interface
+at it. Opening `http://localhost:5173` now sends you to Keycloak's login page; sign in as `dan`,
+password `dan`. Keycloak's admin console is on `http://localhost:8081` (`admin` / `admin`).
+
+`--profile governance` adds Open Policy Agent on port 8181. Nothing in the application talks to it
+yet, so leave it off.
 
 ## Option B: database in a container, application from source
 
@@ -60,7 +73,7 @@ npm install                      # once, at the repository root: installs the gi
 
 docker compose up -d neo4j       # Neo4j on bolt://localhost:7687, browser on http://localhost:7474
 
-cd backend && ./gradlew bootRun  # API on http://localhost:8080
+cd backend && AUTH_DISABLED=true ./gradlew bootRun  # API on http://localhost:8080, no login
 
 cd frontend && npm install && npm run dev   # UI on http://localhost:3000, proxying /api to 8080
 ```
@@ -69,6 +82,12 @@ The backend reads its Neo4j connection from `NEO4J_URI`, `NEO4J_USERNAME` and `N
 defaulting to the values `compose.yaml` uses, so nothing needs configuring for the local database.
 A container, which runs with the `docker` profile, has no default: started without `NEO4J_URI`, it
 stops at once with `NEO4J_URI must be set`.
+
+The API authenticates every caller unless told not to: started with neither `AUTH_ISSUER_URI` nor
+`AUTH_DISABLED=true`, it stops with `AUTH_ISSUER_URI must be set`. `AUTH_DISABLED=true` is the
+development bypass - everyone is anonymous - and it is refused outright under the `prod` profile. To
+run from source behind the compose Keycloak instead, start it with `docker compose --profile auth up
+-d keycloak` and run the API with `AUTH_ISSUER_URI=http://localhost:8081/realms/sdlc`.
 
 Run `npm install` at the root even if you never touch the backend: it installs lefthook, which is
 what enforces the commit and push gates described in [the testing guide](TESTING.md). Without it a commit
