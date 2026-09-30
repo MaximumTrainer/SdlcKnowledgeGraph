@@ -134,12 +134,20 @@ class ScopePolicyCoverageTest {
 
     @Test
     fun `every read under the API needs graph read and every write graph write, unless it is public`() {
+        assertTrue(Route("POST", "/api/v1/lifecycle/archive") in routes, "the archive is mapped: $routes")
         assertTrue(Route("POST", "/api/v1/impact") in routes, "the read over POST is mapped: $routes")
         val wrong =
             routes.filter { it.pattern.startsWith("/api/v1/") }.mapNotNull { route ->
                 val requirement = ScopePolicy.requirementFor(route.method, route.samplePath)
                 val read = route.method in READ_METHODS || (route.method == "POST" && route.pattern in ReadsOverPost.PATHS)
-                val expected = if (read) setOf(GraphScope.READ) else setOf(GraphScope.WRITE)
+                val administrative = !read && route.pattern.startsWith(LIFECYCLE)
+                val expected =
+                    when {
+                        read -> setOf(GraphScope.READ)
+                        // Archiving and migrating (#33) are writes that need graph:admin as well.
+                        administrative -> setOf(GraphScope.WRITE, GraphScope.ADMIN)
+                        else -> setOf(GraphScope.WRITE)
+                    }
                 when (requirement) {
                     is RouteRequirement.Public -> null
                     is RouteRequirement.Scopes -> if (requirement.scopes == expected) null else "$route needs ${requirement.scopes}"
@@ -167,6 +175,7 @@ class ScopePolicyCoverageTest {
     }
 
     private companion object {
+        const val LIFECYCLE = "/api/v1/lifecycle/"
         val ANY_METHOD = listOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
         val READ_METHODS = setOf("GET", "HEAD")
         val VARIABLE = Regex("\\{\\*?[^}]+}")

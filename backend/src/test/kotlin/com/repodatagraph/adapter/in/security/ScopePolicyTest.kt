@@ -26,6 +26,9 @@ class ScopePolicyTest {
         "GET, /api/v1/connectors",
         "GET, /api/v1/sync-runs/42",
         "GET, /api/v1/service-principals",
+        "GET, /api/v1/lifecycle",
+        "GET, /api/v1/lifecycle/migrations",
+        "GET, /api/v1/lifecycle/history",
     )
     fun `a read under the API needs graph read`(
         method: String,
@@ -52,6 +55,19 @@ class ScopePolicyTest {
         path: String,
     ) {
         assertEquals(RouteRequirement.Scopes(setOf(GraphScope.WRITE)), ScopePolicy.requirementFor(method, path))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "POST, /api/v1/lifecycle/archive",
+        "POST, /api/v1/lifecycle/migrations/apply",
+    )
+    fun `archiving and migrating the graph need graph admin as well as graph write`(
+        method: String,
+        path: String,
+    ) {
+        // #33: what purges facts or rewrites every node of a type is more than any writer may do.
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.WRITE, GraphScope.ADMIN)), ScopePolicy.requirementFor(method, path))
     }
 
     @Test
