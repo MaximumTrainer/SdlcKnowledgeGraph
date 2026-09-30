@@ -89,6 +89,14 @@ class OntologyRegistry(
         (edgeType.from + edgeType.to)
             .filterNot { nodesByName.containsKey(it) }
             .forEach { problems += "references undeclared node type '$it'" }
+        // Ownership is inherited against the direction a change propagates, so an edge that does not
+        // propagate has no direction to inherit along; and a downstream on it would say nothing.
+        if (edgeType.impact == EdgeImpact.NONE && edgeType.ownership == EdgeOwnership.INHERITS) {
+            problems += "inherits ownership but does not propagate impact, so it has no direction to inherit along"
+        }
+        if (edgeType.impact == EdgeImpact.NONE && edgeType.downstream != ImpactAlong.FORWARD) {
+            problems += "declares a downstream direction but does not propagate impact"
+        }
 
         reject("edge type '${edgeType.name}'", problems)
     }

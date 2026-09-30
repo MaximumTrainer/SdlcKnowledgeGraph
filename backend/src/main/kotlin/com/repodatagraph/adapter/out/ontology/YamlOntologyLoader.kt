@@ -3,7 +3,10 @@ package com.repodatagraph.adapter.out.ontology
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.repodatagraph.domain.model.Provenance
+import com.repodatagraph.domain.ontology.EdgeImpact
+import com.repodatagraph.domain.ontology.EdgeOwnership
 import com.repodatagraph.domain.ontology.EdgeTypeDef
+import com.repodatagraph.domain.ontology.ImpactAlong
 import com.repodatagraph.domain.ontology.InvalidOntologyException
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
@@ -91,6 +94,9 @@ class YamlOntologyLoader(
                 to = definition.path("to").map { it.asText() },
                 inverse = definition.path("inverse").asTextOrNull().orEmpty(),
                 properties = readProperties(definition, "edge type '$name'"),
+                impact = definition.path("impact").asTextOrNull()?.let(EdgeImpact::fromWireName) ?: EdgeImpact.NONE,
+                downstream = definition.path("downstream").asTextOrNull()?.let(ImpactAlong::fromWireName) ?: ImpactAlong.FORWARD,
+                ownership = definition.path("ownership").asTextOrNull()?.let(EdgeOwnership::fromWireName) ?: EdgeOwnership.NONE,
             )
         }
     }

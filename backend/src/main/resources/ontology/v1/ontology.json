@@ -261,6 +261,9 @@
       "from": ["Repository", "Service", "CloudResource"],
       "to": ["Team"],
       "inverse": "OWNS",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "owner",
       "properties": [
         { "name": "pathPatterns", "type": "string[]", "required": false, "description": "CODEOWNERS patterns the owner was named against, where ownership came from a file" }
       ]
@@ -271,6 +274,9 @@
       "from": ["Repository", "Service"],
       "to": ["CloudResource"],
       "inverse": "OWNED_BY_REPO",
+      "impact": "propagates",
+      "downstream": "forward",
+      "ownership": "inherits",
       "properties": [
         { "name": "rule", "type": "string", "required": false, "description": "Which link rule proposed this, e.g. tag or iac" }
       ]
@@ -281,6 +287,9 @@
       "from": ["Repository", "Service", "ConfigurationItem"],
       "to": ["Repository", "Service", "Library", "ConfigurationItem"],
       "inverse": "DEPENDED_ON_BY",
+      "impact": "propagates",
+      "downstream": "inverse",
+      "ownership": "none",
       "properties": [
         { "name": "kind", "type": "string", "required": true, "description": "What sort of dependency this is", "enum": ["library", "api", "event", "data", "cmdb"] },
         { "name": "manifest", "type": "string", "required": false, "description": "File the dependency was read from, e.g. build.gradle.kts" },
@@ -295,6 +304,9 @@
       "from": ["Repository"],
       "to": ["IacFile"],
       "inverse": "IAC_IN",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     },
@@ -304,6 +316,9 @@
       "from": ["Repository"],
       "to": ["Pipeline"],
       "inverse": "PIPELINE_OF",
+      "impact": "propagates",
+      "downstream": "forward",
+      "ownership": "inherits",
       "properties": [
       ]
     },
@@ -313,6 +328,9 @@
       "from": ["Repository", "Service"],
       "to": ["ConfigurationItem"],
       "inverse": "CI_OF",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     },
@@ -322,6 +340,9 @@
       "from": ["ChangeRequest", "Incident"],
       "to": ["ConfigurationItem", "Service", "Repository"],
       "inverse": "AFFECTED_BY",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     },
@@ -331,6 +352,9 @@
       "from": ["Incident"],
       "to": ["ChangeRequest", "Deployment"],
       "inverse": "CAUSED",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     },
@@ -340,6 +364,9 @@
       "from": ["Artifact"],
       "to": ["Repository"],
       "inverse": "BUILDS",
+      "impact": "propagates",
+      "downstream": "inverse",
+      "ownership": "inherits",
       "properties": [
         { "name": "commitSha", "type": "string", "required": false, "description": null }
       ]
@@ -350,6 +377,9 @@
       "from": ["Artifact"],
       "to": ["Deployment"],
       "inverse": "DEPLOYMENT_OF",
+      "impact": "propagates",
+      "downstream": "forward",
+      "ownership": "inherits",
       "properties": [
       ]
     },
@@ -359,6 +389,9 @@
       "from": ["Deployment"],
       "to": ["Environment"],
       "inverse": "HOSTS",
+      "impact": "propagates",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     },
@@ -368,6 +401,9 @@
       "from": ["Repository"],
       "to": ["Service"],
       "inverse": "PROVIDED_BY",
+      "impact": "propagates",
+      "downstream": "forward",
+      "ownership": "inherits",
       "properties": [
       ]
     },
@@ -377,6 +413,9 @@
       "from": ["SyncRun"],
       "to": ["Repository", "Team", "Service", "Pipeline", "Artifact", "Deployment", "Environment", "CloudResource", "ConfigurationItem", "Library", "IacFile", "ChangeRequest", "Incident"],
       "inverse": "PRODUCED_BY",
+      "impact": "none",
+      "downstream": "forward",
+      "ownership": "none",
       "properties": [
       ]
     }

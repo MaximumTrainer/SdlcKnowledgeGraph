@@ -279,11 +279,25 @@ path segment.
 | `GET /api/v1/graph/deployments?repoId=` | Deployments reached through artifacts `BUILT_FROM` this repository |
 
 `GET /api/v1/graph/repositories/{repoId}/…` offers the same four plus `team`, `pipelines`,
-`servicenow`, `audit` and `impact`. `impact` returns `{repoId, dependents, cloudResources,
-deployments}`: the union of three of the traversals above, one hop deep. Blast-radius analysis with
-depth and scoring is roadmap issue #21. `audit` reads from an external FactStore service configured
-by `FACTSTORE_URL` (default `http://localhost:8090`) that the compose stack does not include, so it
-returns an empty list unless one is running.
+`servicenow`, `audit` and `impact`. `impact` is deprecated: it returns `{repoId, dependents,
+cloudResources, deployments}` with a `Deprecation` header and a `Link` to its successor below.
+`audit` reads from an external FactStore service configured by `FACTSTORE_URL` (default
+`http://localhost:8090`) that the compose stack does not include, so it returns an empty list unless
+one is running.
+
+### Blast radius, failed deployments and owners
+
+These walk several hops, along the edges the ontology flags, and explain every answer with a path
+and a confidence ([ONTOLOGY.md](ONTOLOGY.md#traversal-semantics) has the rules).
+
+| Request | Result |
+| --- | --- |
+| `GET /api/v1/graph/impact?nodeId=Repository:github.com/acme/shared-lib` | Every node a change reaches, with its distance, confidence, inferred flag and path, and counts by type. `depth` 1..5 (3), `minConfidence` 0..1 (0.5), `direction` `downstream` or `upstream` |
+| `GET /api/v1/graph/why-failed?deploymentId=Deployment:<key>` | The deployment's commit, repository, pipeline and environment, the last success before it, the dependencies deployed there since, and the reasons |
+| `GET /api/v1/graph/owners?nodeId=CloudResource:aws:<arn>` | The teams that own a node, directly or through the repository it came from, with the path that says so |
+
+Encode the id as a query value: a Deployment key holds `#`, which is `%23`. A malformed parameter is
+`400 {error, field}` naming it; a node that does not exist is `404`.
 
 ### The repository endpoints
 
@@ -303,12 +317,13 @@ New clients should not use them.
 `POST /graphql` serves the schema in `backend/src/main/resources/graphql/schema.graphqls`, with
 GraphiQL at `/graphiql` for trying queries. It is the pre-registry surface: queries `repository`,
 `repositories`, `cloudResourcesForRepo`, `dependenciesForRepo`, `dependentsForRepo`,
-`deploymentsForRepo`, `teamForRepo`, `pipelinesForRepo`, `impactAnalysis` and
+`deploymentsForRepo`, `teamForRepo`, `pipelinesForRepo`, `impactAnalysis` (deprecated) and
 `auditEventsForRepo`, and mutations `registerRepository`, `deleteRepository`, `linkRepoToTeam`,
-`linkRepoToCloudResource` and `addRepoDependency`. It covers repositories and their immediate
-neighbours only; the generic node and edge operations, and provenance, are available through REST.
-The generated `<Type>Node` types in `schema.generated.graphqls` exist for the registry-driven
-schema that will replace this, and no query returns them yet.
+`linkRepoToCloudResource` and `addRepoDependency`. Those cover repositories and their immediate
+neighbours only; the generic node and edge operations are available through REST. `impact(nodeId,
+depth, minConfidence, direction)` and `whyDeploymentFailed(id)` answer as their REST counterparts
+do, and return the generated `<Type>Node` types from `schema.generated.graphqls`, provenance
+included, so select fields with `... on RepositoryNode { url }`.
 
 ## Read-only instances
 

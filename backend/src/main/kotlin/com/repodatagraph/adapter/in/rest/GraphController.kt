@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.util.UriUtils
+import kotlin.text.Charsets.UTF_8
 
 @RestController
 @RequestMapping("/api/v1/graph")
@@ -77,8 +79,13 @@ class GraphController(
         @PathVariable repoId: String,
     ): ResponseEntity<List<Pipeline>> = ResponseEntity.ok(graphQueryUseCase.getPipelinesForRepo(repoId))
 
+    /**
+     * Superseded by `GET /api/v1/graph/impact` (#21), and answered from it: the same traversal, cut
+     * back to the three lists this endpoint has always sent. The `Deprecation` header and the `Link` to
+     * the successor say so without the caller reading release notes.
+     */
     @GetMapping("/repositories/{repoId}/impact")
-    @Operation(summary = "Impact analysis: what is affected if this repo breaks")
+    @Operation(summary = "Impact analysis: what is affected if this repo breaks. Deprecated: use /api/v1/graph/impact", deprecated = true)
     fun getImpactAnalysis(
         @PathVariable repoId: String,
     ): ResponseEntity<ImpactAnalysisResponse> {
@@ -90,6 +97,18 @@ class GraphController(
                 cloudResources = analysis["cloudResources"]?.filterIsInstance<CloudResource>() ?: emptyList(),
                 deployments = analysis["deployments"]?.filterIsInstance<Deployment>() ?: emptyList(),
             )
-        return ResponseEntity.ok(response)
+        // Encoded, because the path variable is the caller's text and a header is no place for it raw.
+        val successor = UriUtils.encodeQueryParam(if (repoId.startsWith("$REPOSITORY:")) repoId else "$REPOSITORY:$repoId", UTF_8)
+        return ResponseEntity
+            .ok()
+            .header(DEPRECATION_HEADER, "true")
+            .header(LINK_HEADER, "</api/v1/graph/impact?nodeId=$successor>; rel=\"successor-version\"")
+            .body(response)
+    }
+
+    private companion object {
+        const val REPOSITORY = "Repository"
+        const val DEPRECATION_HEADER = "Deprecation"
+        const val LINK_HEADER = "Link"
     }
 }

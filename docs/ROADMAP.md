@@ -61,7 +61,7 @@ is enough to answer both target questions end to end.
 | [#4](../../issues/4) | Ontology-driven CRUD for all core node types | Done |
 | [#8](../../issues/8) | Link Repository nodes to a real git remote | Partial: any remote form derives the key; the legacy `orgRepo` is still required |
 | [#5](../../issues/5) | Registry-validated typed relationships via `/api/v1/edges` | Done |
-| [#21](../../issues/21) | Impact analysis and blast-radius queries | Partial: `impact` returns one hop of dependents, resources and deployments; no depth or scoring |
+| [#21](../../issues/21) | Impact analysis and blast-radius queries | Done: registry-driven impact, why-failed and owners over REST and GraphQL, in plain Cypher rather than APOC; no visual overlay yet (#9) |
 | [#9](../../issues/9) | Interactive graph visualiser | |
 | [#6](../../issues/6) | Package the site as containers | Done, except a "Graph" link in the navigation, which waits for a graph view |
 | [#7](../../issues/7) | Release and deploy pipelines, with self-ingestion of deployments | Done: tagged images on GHCR; the dogfood deploy ([ADR-0010](adr/0010-dogfood-on-fly-io.md)) is the only deployment, and it records itself |

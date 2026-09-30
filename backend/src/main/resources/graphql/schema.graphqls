@@ -9,6 +9,10 @@ type Query {
     pipelinesForRepo(repoId: ID!): [Pipeline!]!
     impactAnalysis(repoId: ID!): ImpactAnalysis!
     auditEventsForRepo(repoId: ID!): [AuditEvent!]!
+    "What a change to a node reaches, with the path and confidence that explain each node (#21). nodeId is Type:key."
+    impact(nodeId: ID!, depth: Int = 3, minConfidence: Float = 0.5, direction: ImpactDirection = DOWNSTREAM): Impact!
+    "Why a deployment failed: its lineage, the last success before it and the dependencies deployed since (#21)."
+    whyDeploymentFailed(id: ID!): WhyFailed!
 }
 
 type Mutation {
@@ -86,6 +90,7 @@ type AuditEvent {
     timestamp: String!
 }
 
+"Deprecated with GET /api/v1/graph/repositories/{repoId}/impact: use Query.impact."
 type ImpactAnalysis {
     repoId: ID!
     dependents: [Repository!]!
@@ -101,4 +106,75 @@ input RepositoryInput {
     serviceId: String
     language: String
     description: String
+}
+
+# Impact analysis (#21). Nodes are the generated GraphNode types (schema.generated.graphqls), so a new
+# node type in the registry is answerable here without a schema change.
+
+enum ImpactDirection {
+    DOWNSTREAM
+    UPSTREAM
+}
+
+"One hop of an explanation: the edge as walked - its inverse name when walked against its direction - and its confidence."
+type ImpactStep {
+    edge: String!
+    from: ID!
+    to: ID!
+    confidence: Float!
+    inferred: Boolean!
+}
+
+type AffectedNode {
+    node: GraphNode!
+    distance: Int!
+    "The product of the provenance confidence of the edges on path."
+    confidence: Float!
+    "True when path holds an inferred edge."
+    inferred: Boolean!
+    path: [ImpactStep!]!
+}
+
+"Affected nodes of one type; the type 'excluded' counts those below minConfidence."
+type TypeCount {
+    type: String!
+    count: Int!
+}
+
+type Impact {
+    root: GraphNode!
+    depth: Int!
+    direction: ImpactDirection!
+    minConfidence: Float!
+    "True when more than 1000 nodes were reached, or the walk was cut short."
+    truncated: Boolean!
+    affected: [AffectedNode!]!
+    byType: [TypeCount!]!
+}
+
+type DeploymentRecord {
+    id: ID!
+    repository: ID
+    commitSha: String
+    deployedAt: String!
+    status: String!
+}
+
+type FailureReason {
+    kind: String!
+    detail: String!
+}
+
+type WhyFailed {
+    deployment: GraphNode!
+    status: String!
+    deployedAt: String!
+    artifact: GraphNode
+    commitSha: String
+    repository: GraphNode
+    pipeline: GraphNode
+    environment: GraphNode
+    changedDependencies: [DeploymentRecord!]!
+    precedingSuccessfulDeployment: DeploymentRecord
+    reasons: [FailureReason!]!
 }

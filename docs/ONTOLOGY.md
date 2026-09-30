@@ -121,17 +121,17 @@ can actually populate them. They are registry additions, not code changes.
 Every relationship declares the types it may connect and the name of its inverse. The inverse is a
 traversal concept, not a second stored edge.
 
-| Type | From | To | Inverse |
-| --- | --- | --- | --- |
-| OWNED_BY | Repository, Service, CloudResource | Team | OWNS |
-| OWNS_RESOURCE | Repository, Service | CloudResource | OWNED_BY_REPO |
-| DEPENDS_ON | Repository, Service | Repository, Service | DEPENDED_ON_BY |
-| HAS_PIPELINE | Repository | Pipeline | PIPELINE_OF |
-| RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_OF |
-| BUILT_FROM | Artifact | Repository | BUILDS |
-| DEPLOYED_TO | Artifact | Deployment | DEPLOYMENT_OF |
-| TO_ENVIRONMENT | Deployment | Environment | HOSTS |
-| PROVIDES | Repository | Service | PROVIDED_BY |
+| Type | From | To | Inverse | Impact (downstream) | Ownership |
+| --- | --- | --- | --- | --- | --- |
+| OWNED_BY | Repository, Service, CloudResource | Team | OWNS | none | owner |
+| OWNS_RESOURCE | Repository, Service | CloudResource | OWNED_BY_REPO | propagates (forward) | inherits |
+| DEPENDS_ON | Repository, Service | Repository, Service | DEPENDED_ON_BY | propagates (inverse) | none |
+| HAS_PIPELINE | Repository | Pipeline | PIPELINE_OF | propagates (forward) | inherits |
+| RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_OF | none | none |
+| BUILT_FROM | Artifact | Repository | BUILDS | propagates (inverse) | inherits |
+| DEPLOYED_TO | Artifact | Deployment | DEPLOYMENT_OF | propagates (forward) | inherits |
+| TO_ENVIRONMENT | Deployment | Environment | HOSTS | propagates (forward) | none |
+| PROVIDES | Repository | Service | PROVIDED_BY | propagates (forward) | inherits |
 
 This table is a copy of `edges.yaml`. The website's
 [ontology reference](https://maximumtrainer.github.io/SdlcKnowledgeGraph/reference/ontology) is
@@ -211,6 +211,96 @@ known}`. Naming any source but `manual` also needs the `graph:write:<source>` sc
 ([AUTH](AUTH.md#source-scopes)), so a registry entry is also the name of a permission: it is
 lower-case words joined by hyphens, and the registry refuses to load a name that is not, a name
 declared twice, or a list without `manual`.
+
+## Traversal semantics
+
+Two questions come before any other: "what depends on this change?" and "why did the deployment
+fail?" ([#21](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/21)). Both are walks over
+several hops, and the registry, not the query, says which edges a walk may take.
+
+### Which edges a change travels along
+
+An edge flagged `impact: propagates` in
+[`edges.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/resources/ontology/v1/edges.yaml)
+is one a change travels along; an edge without the flag is never walked by an impact query.
+`downstream` says which way the change travels: `forward`, the default, as the edge is stored, or
+`inverse`, against it. `DEPENDS_ON` points from the dependent to what it depends on, and a change
+travels the other way, so its downstream reading is `DEPENDED_ON_BY`; `BUILT_FROM` likewise reads
+`BUILDS`. A downstream walk from a repository therefore reaches its dependents, the services it
+provides, its pipelines, the cloud resources it owns, the artifacts built from it, their
+deployments and the environments those went to. An upstream walk reads every propagating edge the
+other way: what a node's changes come from.
+
+`TraversalFilterBuilder` turns the flags into the list of relationship types and directions a walk
+takes. No query names an edge, so flagging a new edge in the registry adds it to the blast radius
+without a code change. The registry refuses a `downstream` on an edge that does not propagate.
+
+Each step of an answer is named as it was walked: an edge's own name along its stored direction,
+its declared inverse against it. The path from `shared-lib` to a database its dependent owns reads
+`DEPENDED_ON_BY, OWNS_RESOURCE`.
+
+### Confidence
+
+A path is as trustworthy as all of its edges together, so its confidence is the product of each
+edge's provenance `confidence`, stored as `prov_confidence`. An edge with no `prov_confidence`,
+written before provenance was recorded, counts as `1.0`. Several paths may reach one node: the most
+confident explains it, the shorter breaking a tie, and the node is `inferred` only when that path
+holds an edge whose provenance says `inferred` (`prov_inferred`). A node reached for certain is not
+made doubtful by a guess that also reaches it.
+
+`minConfidence` (default `0.5`) leaves out nodes whose best path is below it; they are still
+counted, as `byType.excluded`. `depth` is 1 to 5 (default 3). At most 1,000 affected nodes are
+listed, nearest first, then most confident; `byType` counts all of them and `truncated` says the
+list was cut. Closed facts, those with a `validTo`, are history and are not walked.
+
+### Ownership
+
+`ownership: owner` marks the edge that names an owner, `OWNED_BY`. `ownership: inherits` passes
+ownership on against the direction a change travels: a cloud resource with no owner of its own is
+owned by whoever owns the repository that owns it (`OWNED_BY_REPO, OWNED_BY`), and a deployment by
+whoever owns the repository its artifact was built from (`DEPLOYMENT_OF, BUILT_FROM, OWNED_BY`).
+Only a propagating edge can inherit, since only it has a direction; the registry refuses the flag
+elsewhere. The nearest owners answer: a node's own `OWNED_BY` when it has one, otherwise the
+owners of the nearest things it inherits from, each team once, by its most confident path.
+`DEPENDS_ON` does not inherit: a library's owner does not own the repositories that use it.
+
+### Why a deployment failed
+
+A deployment's lineage is the one the deployment ingest writes: `Artifact -BUILT_FROM{commitSha}->
+Repository` and `Artifact -DEPLOYED_TO-> Deployment -TO_ENVIRONMENT-> Environment`. The window runs
+from the last successful deployment of the same repository to the same environment up to the
+failed one. A repository the failed one reaches through `DEPENDS_ON` in one or two hops, and that
+was deployed to the same environment inside the window, is a changed dependency. With no earlier
+success the window has no start, which is itself reported. A deployment is failed when its
+`status` is `FAILED`; any other status has nothing to explain and answers with no reasons.
+
+### The queries
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/v1/graph/impact?nodeId=Type:key&depth=3&minConfidence=0.5&direction=downstream` | `{root, depth, direction, minConfidence, truncated, affected: [{node, distance, confidence, inferred, path}], byType}` |
+| `GET /api/v1/graph/why-failed?deploymentId=Deployment:key` | `{deployment, status, artifact, commitSha, repository, pipeline, environment, changedDependencies, precedingSuccessfulDeployment, reasons}` |
+| `GET /api/v1/graph/owners?nodeId=Type:key` | `{node, owners: [{team, via, confidence}]}`; no owners is `[]`, not 404 |
+
+A node id is `Type:key`, the `id` every node has. A malformed parameter is `400 {error, field}`,
+and a node that resolves to nothing `404`. The deployment is a query parameter rather than a path
+segment because its key holds `/` and `#`. GraphQL has `impact` and `whyDeploymentFailed`, whose
+nodes are the generated `<Type>Node` types. All of them need `graph:read`.
+
+### How it runs
+
+Each walk is one Cypher statement, a Neo4j 5 quantified path pattern whose relationship types come
+from the registry and whose direction is checked per step, in `Neo4jImpactQueries` behind
+`ImpactQueryPort`. The issue asked for APOC's `apoc.path.expandConfig`; it is not used, because the
+instances this runs against, the dogfood one among them, have no plugins, and nothing else in the
+application needs APOC. Plain Cypher keeps the query portable at the cost of enumerating paths
+rather than expanding a frontier, which the depth bound keeps affordable: on a graph of 10,003
+nodes a depth-5 walk reaching 769 nodes measured a p95 of 266 ms locally (`ImpactPerformanceIT`,
+which asserts a looser ceiling so a slow CI runner does not fail it).
+
+`GET /api/v1/graph/repositories/{repoId}/impact` is deprecated: it answers from the same walk, cut
+back to its old `{repoId, dependents, cloudResources, deployments}`, with `Deprecation: true` and a
+`Link` to its successor.
 
 ## Identity
 
