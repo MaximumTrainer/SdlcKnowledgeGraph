@@ -79,7 +79,7 @@ class ImpactScorerTest {
     }
 
     @Test
-    fun `a matched path boosts the score, and the score never leaves (0, 1]`() {
+    fun `a matched path boosts the score, and the score stays above 0 and at most 1`() {
         assertEquals(0.5, ImpactScorer.score(1, EnvironmentTier.OTHER, pathMatched = true), 1e-12)
         assertEquals(1.0, ImpactScorer.score(1, EnvironmentTier.PRODUCTION, pathMatched = true), 1e-12)
         for (hops in 0..10) {

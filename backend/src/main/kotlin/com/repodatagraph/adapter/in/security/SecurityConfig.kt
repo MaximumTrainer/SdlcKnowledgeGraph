@@ -3,6 +3,7 @@ package com.repodatagraph.adapter.`in`.security
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.repodatagraph.config.AuthMode
 import com.repodatagraph.config.AuthProperties
+import com.repodatagraph.config.ReadsOverPost
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -112,8 +113,9 @@ class SecurityConfig(
 
     /**
      * The anonymous read-only mode's chain: reads, GraphQL queries (ReadOnlyGuard refuses a mutation
-     * before it gets here) and the public families answer for anyone; anything else is refused. The
-     * spread copies a handful of patterns once, when the chain is built.
+     * before it gets here), the queries sent as a POST ([ReadsOverPost]) and the public families answer
+     * for anyone; anything else is refused. The spread copies a handful of patterns once, when the
+     * chain is built.
      */
     @Suppress("SpreadOperator")
     private fun anonymousReadOnly(http: HttpSecurity): SecurityFilterChain {
@@ -130,6 +132,8 @@ class SecurityConfig(
                 }
                 ANONYMOUS_READS.forEach { method -> it.requestMatchers(HttpMethod.valueOf(method)).permitAll() }
                 it.requestMatchers(HttpMethod.POST, GRAPHQL_PATH).permitAll()
+                // Queries sent as a POST (#87), which ReadOnlyGuard has already let through as reads.
+                it.requestMatchers(HttpMethod.POST, *ReadsOverPost.PATHS.toTypedArray()).permitAll()
                 it.anyRequest().denyAll()
             }.exceptionHandling { it.authenticationEntryPoint(refusal) }
         return http.build()

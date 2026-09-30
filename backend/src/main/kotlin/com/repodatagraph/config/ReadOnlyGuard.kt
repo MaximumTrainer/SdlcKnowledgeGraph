@@ -31,6 +31,7 @@ data class AllowedWrite(
  * Deny-by-default in two senses. Every method other than GET, HEAD and OPTIONS is refused on every
  * path, not only under `/api/v1`, so a write endpoint added later - or reached by a path spelled
  * differently from the one a pattern expected - is refused until someone lists it in [ALLOWLIST].
+ * A query that only reads but is sent as a POST passes because it is listed in [ReadsOverPost].
  * And a GraphQL request is let through only when its document can be parsed and shown to contain no
  * mutation; anything that cannot be shown safe is refused.
  *
@@ -66,6 +67,8 @@ class ReadOnlyGuard internal constructor(
             isWebSocketUpgrade(request) -> refuse(response)
             request.method in READ_METHODS -> passReadUnlessMutation(request, response, chain, path)
             AllowedWrite(request.method, path) in allowlist -> chain.doFilter(request, response)
+            // A query sent as a POST writes nothing, so it is answered as a GET would be (#87).
+            request.method == "POST" && path in ReadsOverPost.PATHS -> chain.doFilter(request, response)
             request.method == "POST" && path == GRAPHQL_PATH -> passGraphQlUnlessMutation(request, response, chain)
             else -> refuse(response)
         }

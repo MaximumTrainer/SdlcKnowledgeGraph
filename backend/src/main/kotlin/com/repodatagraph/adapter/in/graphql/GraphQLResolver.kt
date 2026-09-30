@@ -1,11 +1,15 @@
 package com.repodatagraph.adapter.`in`.graphql
 
 import com.repodatagraph.domain.identity.GitRemoteParser
+import com.repodatagraph.domain.model.ChangeImpactQuery
 import com.repodatagraph.domain.model.DeploymentRecord
 import com.repodatagraph.domain.model.ImpactDirection
+import com.repodatagraph.domain.model.ImpactHit
+import com.repodatagraph.domain.model.ImpactScoring
 import com.repodatagraph.domain.model.ImpactSpec
 import com.repodatagraph.domain.model.Repository
 import com.repodatagraph.domain.model.nodeIdParameter
+import com.repodatagraph.domain.port.`in`.ChangeImpactUseCase
 import com.repodatagraph.domain.port.`in`.GraphQueryUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import org.springframework.graphql.data.method.annotation.Argument
@@ -19,6 +23,7 @@ class GraphQLResolver(
     private val repositoryUseCase: RepositoryUseCase,
     private val graphQueryUseCase: GraphQueryUseCase,
     private val gitRemoteParser: GitRemoteParser,
+    private val changeImpactUseCase: ChangeImpactUseCase,
 ) {
     @QueryMapping
     fun repository(
@@ -123,6 +128,61 @@ class GraphQLResolver(
             "reasons" to result.reasons,
         )
     }
+
+    /** What a change reaches, ranked (#87): the same answer as `POST /api/v1/impact`. */
+    @QueryMapping
+    fun changeImpact(
+        @Argument input: Map<String, Any?>,
+    ): Map<String, Any?> {
+        val query =
+            ChangeImpactQuery.of(
+                repositoryKey = input["repositoryKey"] as? String,
+                paths = (input["paths"] as? List<*>)?.map { it as? String },
+                sha = input["sha"] as? String,
+                depth = input["depth"] as? Int,
+                limit = input["limit"] as? Int,
+            )
+        val result = changeImpactUseCase.changeImpact(query)
+        return mapOf(
+            "repository" to GraphNodeView.of(result.repository),
+            "depth" to result.depth,
+            "limit" to result.limit,
+            "scoring" to
+                mapOf(
+                    "version" to ImpactScoring.VERSION,
+                    "formula" to ImpactScoring.FORMULA,
+                    "tierWeights" to
+                        ImpactScoring.TIER_WEIGHTS.entries
+                            .sortedBy { it.key.wire }
+                            .map { (tier, weight) -> mapOf("tier" to tier.wire, "weight" to weight) },
+                    "pathMatchBoost" to ImpactScoring.PATH_MATCH_BOOST,
+                ),
+            "pathFilter" to result.pathFilter.wire,
+            "matchedPaths" to result.matchedPaths,
+            "changeScope" to result.changeScope.wire,
+            "truncated" to result.truncated,
+            "hits" to result.hits.map(::hit),
+        )
+    }
+
+    private fun hit(hit: ImpactHit): Map<String, Any?> =
+        mapOf(
+            "node" to GraphNodeView.of(hit.node),
+            "hops" to hit.hops,
+            "score" to hit.score,
+            "confidence" to hit.confidence,
+            "inferred" to hit.inferred,
+            "tier" to hit.tier.wire,
+            "environment" to hit.environment?.let { mapOf("id" to it.id, "key" to it.key.key, "tier" to hit.tier.wire) },
+            "pathMatched" to hit.pathMatched,
+            "owners" to hit.owners.map { mapOf("team" to GraphNodeView.of(it.team), "via" to it.via, "confidence" to it.confidence) },
+            "citation" to
+                mapOf(
+                    "nodeKey" to hit.citation.nodeKey,
+                    "edgePath" to hit.citation.edgePath,
+                    "provenance" to GraphNodeView.provenance(hit.citation.provenance),
+                ),
+        )
 
     private fun record(record: DeploymentRecord): Map<String, Any?> =
         mapOf(

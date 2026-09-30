@@ -13,6 +13,11 @@ type Query {
     impact(nodeId: ID!, depth: Int = 3, minConfidence: Float = 0.5, direction: ImpactDirection = DOWNSTREAM): Impact!
     "Why a deployment failed: its lineage, the last success before it and the dependencies deployed since (#21)."
     whyDeploymentFailed(id: ID!): WhyFailed!
+    """
+    What a change to a repository reaches, ranked, with owners and a citation per hit (#87): the same answer as
+    POST /api/v1/impact. Named changeImpact because impact is #21's blast radius, and GraphQL cannot overload a field.
+    """
+    changeImpact(input: ChangeImpactInput!): ChangeImpact!
 }
 
 type Mutation {
@@ -177,4 +182,82 @@ type WhyFailed {
     changedDependencies: [DeploymentRecord!]!
     precedingSuccessfulDeployment: DeploymentRecord
     reasons: [FailureReason!]!
+}
+
+# Impact analysis of a change (#87), ranked for an agent's context pack.
+
+input ChangeImpactInput {
+    "Key of the Repository that is about to change, e.g. github.com/acme/payments."
+    repositoryKey: String!
+    "Paths the change touches, read against the repository's manifest and IaC index where it has one."
+    paths: [String!]
+    "The commit of the change. Answered with changeScope unknown until Change nodes exist (#85)."
+    sha: String
+    "Hops to walk, 1 to 4."
+    depth: Int = 2
+    "Hits to return, 1 to 500."
+    limit: Int = 50
+}
+
+type TierWeight {
+    tier: String!
+    weight: Float!
+}
+
+"The formula the scores came from; its version changes whenever the formula does."
+type ImpactScoring {
+    version: String!
+    formula: String!
+    tierWeights: [TierWeight!]!
+    pathMatchBoost: Float!
+}
+
+type ImpactEnvironment {
+    id: ID!
+    key: String!
+    "production, pre_production, development or other: what the hit was weighted by."
+    tier: String!
+}
+
+"The facts a hit rests on: the node, the path that reached it, and where the node came from."
+type Citation {
+    nodeKey: ID!
+    edgePath: [ImpactStep!]!
+    provenance: Provenance!
+}
+
+type ImpactOwner {
+    team: GraphNode!
+    via: [ImpactStep!]!
+    confidence: Float!
+}
+
+type ImpactHit {
+    node: GraphNode!
+    hops: Int!
+    "min(1, 1 / (1 + hops) * tierWeight * pathBoost), scoring version 1."
+    score: Float!
+    confidence: Float!
+    inferred: Boolean!
+    tier: String!
+    environment: ImpactEnvironment
+    pathMatched: Boolean!
+    owners: [ImpactOwner!]!
+    citation: Citation!
+}
+
+type ChangeImpact {
+    repository: GraphNode!
+    depth: Int!
+    limit: Int!
+    scoring: ImpactScoring!
+    "not_requested, not_applied (no index to read the paths against) or applied."
+    pathFilter: String!
+    matchedPaths: [String!]!
+    "not_requested, or unknown: a sha cannot scope the answer until Change nodes exist (#85)."
+    changeScope: String!
+    "True when there were more hits than limit; how many more is not said."
+    truncated: Boolean!
+    "Score descending, then hops ascending, then node id ascending."
+    hits: [ImpactHit!]!
 }

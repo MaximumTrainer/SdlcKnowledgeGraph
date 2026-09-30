@@ -1,8 +1,10 @@
 package com.repodatagraph.domain.port.out
 
 import com.repodatagraph.domain.model.DeploymentFacts
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.OwnerPath
+import com.repodatagraph.domain.model.PathIndexEntry
 import com.repodatagraph.domain.model.PathSearch
 import com.repodatagraph.domain.model.Traversal
 
@@ -33,6 +35,32 @@ interface ImpactQueryPort {
         ownerEdges: Set<String>,
         maxDepth: Int,
     ): List<OwnerPath>
+
+    /**
+     * [ownerPaths] for several nodes at once (#87), keyed by node; a node with no owner path is absent
+     * or maps to an empty list.
+     */
+    fun ownerPathsOf(
+        nodes: Collection<NodeKey>,
+        inheritance: Traversal,
+        ownerEdges: Set<String>,
+        maxDepth: Int,
+    ): Map<NodeKey, List<OwnerPath>>
+
+    /**
+     * What each of [nodes] is placed in, one step along [edges] as stored (#87): for a deployment, the
+     * environment it targeted. Closed facts are not followed.
+     */
+    fun placements(
+        nodes: Collection<NodeKey>,
+        edges: Set<String>,
+    ): Map<NodeKey, List<GraphNode>>
+
+    /**
+     * The files the graph knows [repository] holds and what each names (#87): its IaC files and the
+     * manifests its dependencies were read from. Empty when the graph holds no such index for it.
+     */
+    fun pathIndex(repository: NodeKey): List<PathIndexEntry>
 
     /**
      * The lineage of a deployment and the deployments around it, or null when there is no such
