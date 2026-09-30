@@ -32,14 +32,6 @@ class ProvenanceAttributionTest {
     }
 
     @Test
-    fun `the anonymous principal is recorded as anonymous, not left blank`() {
-        val provenance = Provenance.manual(now, Principal.ANONYMOUS)
-
-        assertThat(provenance.writtenBy).isEqualTo("anonymous")
-        assertThat(provenance.principalType).isEqualTo("user")
-    }
-
-    @Test
     fun `a fact from a connector names no writer yet, until machine principals exist`() {
         val provenance = Provenance(sourceSystem = "github", ingestedAt = now, validFrom = now)
 

@@ -7,6 +7,7 @@ import com.repodatagraph.domain.model.GraphEdge
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Principal
+import com.repodatagraph.domain.model.PrincipalType
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.IdentityResolver
@@ -52,10 +53,10 @@ class GraphWriteCountingTest {
             PropertyValidator(),
             graphStore,
             metrics,
-            StatedProvenance(registry, {}) { Principal.ANONYMOUS },
+            StatedProvenance(registry, {}) { WRITER },
         )
     private val edges =
-        EdgeService(registry, PropertyValidator(), graphStore, metrics, StatedProvenance(registry, {}) { Principal.ANONYMOUS })
+        EdgeService(registry, PropertyValidator(), graphStore, metrics, StatedProvenance(registry, {}) { WRITER })
 
     private val platform = NodeKey("Team", "platform")
     private val web = NodeKey("Repository", "web")
@@ -137,5 +138,9 @@ class GraphWriteCountingTest {
         edges.delete("OWNED_BY", web.id, platform.id)
 
         assertThat(count("sdlc.edge.writes", "OWNED_BY", "deleted")).isEqualTo(1.0)
+    }
+
+    private companion object {
+        val WRITER = Principal("dan", PrincipalType.USER)
     }
 }

@@ -8,8 +8,10 @@ import org.springframework.boot.SpringApplication
 import org.springframework.mock.env.MockEnvironment
 
 /**
- * The two ways an instance could come up with a gate that is not what its operator meant (#114, FR-5):
- * the development bypass in production, and authentication on with nobody to trust.
+ * An instance either knows who is calling or accepts no writes (#118). The development bypass is gone
+ * and is refused by name wherever it is still set, and an instance with no identity provider starts
+ * only read-only - the anonymous read-only mode - so an unauthenticated writable instance is not
+ * something an operator can reach by omission (#48, FR6).
  */
 class AuthGuardTest {
     private val guard = AuthGuard()
@@ -17,56 +19,68 @@ class AuthGuardTest {
 
     private fun environment(
         vararg profiles: String,
-        disabled: String? = null,
         issuer: String? = null,
+        readOnly: String? = null,
+        extra: Map<String, String> = emptyMap(),
     ) = MockEnvironment().apply {
         setActiveProfiles(*profiles)
-        disabled?.let { setProperty("sdlc.auth.disabled", it) }
         issuer?.let { setProperty("sdlc.auth.issuer-uri", it) }
+        readOnly?.let { setProperty("sdlc.read-only", it) }
+        extra.forEach { (name, value) -> setProperty(name, value) }
+    }
+
+    private fun refusal(environment: MockEnvironment): String =
+        assertThrows<IllegalStateException> { guard.postProcessEnvironment(environment, application) }.message!!
+
+    @Test
+    fun `refuses AUTH_DISABLED as a setting that no longer exists`() {
+        val message =
+            refusal(environment("docker", issuer = "https://id.example.test/realms/sdlc", extra = mapOf("AUTH_DISABLED" to "true")))
+
+        assertTrue(message.contains("AUTH_DISABLED") && message.contains("not a setting"), message)
     }
 
     @Test
-    fun `refuses the bypass under the prod profile, naming the flag`() {
-        val error =
-            assertThrows<IllegalStateException> {
-                guard.postProcessEnvironment(environment("prod", disabled = "true"), application)
-            }
+    fun `refuses it whatever its value, since it switches nothing any more`() {
+        val message =
+            refusal(environment("docker", issuer = "https://id.example.test/realms/sdlc", extra = mapOf("AUTH_DISABLED" to "false")))
 
-        assertTrue(error.message!!.contains("AUTH_DISABLED"), error.message)
+        assertTrue(message.contains("AUTH_DISABLED"), message)
     }
 
     @Test
-    fun `refuses the bypass when prod is one of several profiles`() {
-        assertThrows<IllegalStateException> {
-            guard.postProcessEnvironment(environment("docker", "prod", disabled = "true"), application)
-        }
+    fun `refuses the property it used to set, naming the environment variable`() {
+        val message =
+            refusal(environment("docker", issuer = "https://id.example.test/realms/sdlc", extra = mapOf("sdlc.auth.disabled" to "true")))
+
+        assertTrue(message.contains("AUTH_DISABLED") && message.contains("not a setting"), message)
     }
 
     @Test
-    fun `allows the bypass outside prod`() {
-        assertDoesNotThrow { guard.postProcessEnvironment(environment("docker", disabled = "true"), application) }
+    fun `refuses no identity provider on a writable instance, naming both settings`() {
+        val message = refusal(environment("docker", issuer = " ", readOnly = "false"))
+
+        assertTrue(message.contains("AUTH_ISSUER_URI"), message)
+        assertTrue(message.contains("SDLC_READ_ONLY"), message)
     }
 
     @Test
-    fun `refuses authentication on with no issuer to trust, naming the setting`() {
-        val error =
-            assertThrows<IllegalStateException> {
-                guard.postProcessEnvironment(environment("docker", disabled = "false", issuer = " "), application)
-            }
+    fun `treats unset settings as no identity provider on a writable instance`() {
+        val message = refusal(environment("docker"))
 
-        assertTrue(error.message!!.contains("AUTH_ISSUER_URI"), error.message)
+        assertTrue(message.contains("AUTH_ISSUER_URI") && message.contains("SDLC_READ_ONLY"), message)
     }
 
     @Test
-    fun `treats an unset flag as authentication on`() {
-        assertThrows<IllegalStateException> { guard.postProcessEnvironment(environment("docker"), application) }
+    fun `accepts no identity provider on a read-only instance`() {
+        assertDoesNotThrow { guard.postProcessEnvironment(environment("docker", issuer = "", readOnly = "true"), application) }
     }
 
     @Test
-    fun `accepts authentication on with an issuer, in prod too`() {
+    fun `accepts an identity provider on a writable instance, in prod too`() {
         assertDoesNotThrow {
             guard.postProcessEnvironment(
-                environment("prod", disabled = "false", issuer = "https://id.example.test/realms/sdlc"),
+                environment("prod", issuer = "https://id.example.test/realms/sdlc", readOnly = "false"),
                 application,
             )
         }
