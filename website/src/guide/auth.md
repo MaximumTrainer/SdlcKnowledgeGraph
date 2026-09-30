@@ -117,7 +117,8 @@ cannot tell who is writing, so it may only run read-only. ...
 That is [#48](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/48)'s FR6, and requirement D13 of the [deployment contract](/guide/deployment).
 Started read-only, it:
 
-- answers every read, REST and GraphQL, without a token, and decodes no token at all;
+- answers every read, REST and GraphQL, without a token, and decodes no token at all - including
+  `POST /api/v1/impact`, a read sent as a POST;
 - refuses every write with `403 {"error": "this instance is read-only"}`, whether or not it carries a
   token, so no fact is ever written by nobody;
 - still takes the ingest endpoints' writes, behind their own `INGEST_TOKEN` (D6), so the deploy
@@ -138,6 +139,7 @@ AUTH_ISSUER_URI= OIDC_AUTHORITY= SDLC_READ_ONLY=true docker compose up -d --buil
 | --- | --- |
 | `GET` (and `HEAD`) under `/api/v1` | `graph:read` |
 | `POST`, `PUT`, `PATCH`, `DELETE` under `/api/v1` | `graph:write` |
+| `POST /api/v1/impact`, a query whose input is a body ([#87](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/87)) | `graph:read` |
 | A GraphQL query or subscription | `graph:read` |
 | A GraphQL mutation | `graph:write` |
 | A GraphQL document holding a query and a mutation | both |
@@ -183,6 +185,13 @@ controller's mappings as Spring MVC does and fails while any route falls outside
 the acceptance scenario "every route is guarded" calls every mapped route with a token holding no
 graph scope and expects each one not on its explicit allowlist to refuse it. A new controller cannot
 be served unguarded without one of them failing.
+
+A query whose input is too structured for a query string is sent as a POST but only reads, so it
+needs `graph:read`, not `graph:write`. Such routes are listed once, by exact path, in
+[`ReadsOverPost`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/kotlin/com/repodatagraph/config/ReadsOverPost.kt),
+which the scope policy, the read-only guard and the anonymous read-only mode all read, so the three
+cannot disagree about what a POST may do. `POST /api/v1/impact` is the only one. A route belongs
+there only if its handler writes nothing at all.
 
 A path outside every family - an actuator endpoint other than the public ones, the GraphiQL page -
 still needs a valid token, as it did before scopes, but no particular scope.

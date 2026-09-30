@@ -287,6 +287,109 @@ and a node that resolves to nothing `404`. The deployment is a query parameter r
 segment because its key holds `/` and `#`. GraphQL has `impact` and `whyDeploymentFailed`, whose
 nodes are the generated `<Type>Node` types. All of them need `graph:read`.
 
+### Impact of a change, ranked for an agent
+
+`POST /api/v1/impact` ([#87](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/87)) asks
+the question a coding agent asks before it edits: "I am about to change this repository - what runs
+on it, in which environments, who owns each of those things, and which matters most?" The answer is
+built to be put into a context pack under a token budget, so it is ranked, bounded and stable: two
+identical requests against an unchanged graph return byte-identical bodies.
+
+```json
+{ "repositoryKey": "github.com/acme/payments", "paths": ["infra/db.tf"], "sha": "4f1c2d9", "depth": 2, "limit": 50 }
+```
+
+Only `repositoryKey` is required. `depth` is 1 to 4 (default 2) and `limit` 1 to 500 (default 50);
+outside them the request is `400 {error, field}`, the error naming the bound, and a repository the
+graph does not hold is `404`. It is a POST because its input is a body, not because it writes: it
+needs `graph:read`, and a read-only instance answers it ([Authentication](AUTH.md#scopes)).
+
+**The walk** is the downstream blast radius above, from the repository, with no confidence floor:
+every hit carries its `confidence` and `inferred` instead. The issue named the edges `DEPENDS_ON`,
+`BUILT_BY`/`PRODUCES`, `DEPLOYED_TO`, `RUNS_ON` and `OWNED_BY`; the registry's names are what is
+walked, because the walk is whatever `impact: propagates` says:
+
+| The issue's edge | What the registry walks |
+| --- | --- |
+| `DEPENDS_ON` | `DEPENDS_ON`, read `DEPENDED_ON_BY` |
+| `BUILT_BY` / `PRODUCES` | `BUILT_FROM`, read `BUILDS` (Repository to Artifact) |
+| `DEPLOYED_TO` | `DEPLOYED_TO` (Artifact to Deployment), then `TO_ENVIRONMENT` |
+| `RUNS_ON` | no such edge; a running service is `PROVIDES`, infrastructure `OWNS_RESOURCE` |
+| `OWNED_BY` | not walked: it names owners, which every hit carries |
+
+Each node is reached by its **nearest** path - the fewest hops, then the most confident - because
+how far a change travels is the length of the shortest way there. That path is the hit's `hops` and
+its citation.
+
+**Environments.** `Environment.tier` is `production`, `pre_production`, `development` or `other`.
+It is optional: an environment written before it existed, or by a writer that does not set it, is
+read as `other`, never guessed from its name, since there is no migration mechanism yet
+([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)). Set it by editing the
+Environment, in the web interface or through `PUT /api/v1/nodes/Environment/{key}`. A hit is placed in an environment by the propagating edges
+that end at one (`TO_ENVIRONMENT`), found from the registry like every other edge: a Deployment
+runs in the environment it targeted, an Environment is its own, and a node in several environments
+counts as in the most critical of them. A node in no environment is weighted as `other`.
+
+**Scoring version 1**, which every answer states as `scoring.version` so a consumer can notice a
+change of formula ([ADR-0011](adr/0011-impact-scoring-versioned-and-deterministic.md)):
+
+```text
+score = min(1, 1 / (1 + hops) * tierWeight * pathBoost)
+```
+
+| Tier | Weight |
+| --- | --- |
+| `production` | 1.0 |
+| `pre_production` | 0.6 |
+| `other`, and no environment | 0.5 |
+| `development` | 0.3 |
+
+`pathBoost` is 2 for a hit a requested path names (below) and 1 otherwise. The weights put a
+production deployment two hops away (0.33) above anything outside an environment one hop away
+(0.25), and that above a pre-production deployment two hops away (0.2). The hits are ordered by
+score descending, then hops ascending, then node id ascending, a total order, so nothing is left
+to the order the database returned rows in. At most `limit` are returned; `truncated: true` says
+there were more, and how many more is not said.
+
+**Owners** are #21's: the nearest `OWNED_BY` of each hit, directly or through what it inherits
+ownership from. CODEOWNERS needs nothing extra: the GitHub connector already records each team a
+CODEOWNERS file names as an `OWNED_BY` edge carrying the `pathPatterns` it was named against
+([Adapters](ADAPTERS.md#the-github-connector)); a CODEOWNERS handle that is a person rather than a
+team stays in the repository's `codeowners` property and is not an owner here.
+
+**Paths.** The GitHub connector indexes what a repository holds: an `IacFile` per
+infrastructure-as-code file (`CONTAINS_IAC`), with the resource identifiers it names, and the
+`manifest` each `DEPENDS_ON` edge was read from. `pathFilter` says what the requested `paths` could
+do:
+
+| `pathFilter` | When | Effect |
+| --- | --- | --- |
+| `not_requested` | No `paths` | None |
+| `not_applied` | The repository has no index entry at all | None: the unfiltered answer, said to be unfiltered |
+| `applied` | The repository has an index | `matchedPaths` lists the requested paths the index holds; a hit an `IacFile` among them names, by resource id, name or key, gets `pathBoost` 2 and `pathMatched: true` |
+
+Nothing is removed from the answer by a path: which parts of a repository a source file affects is
+the caller's code index to say, not this graph's. A matched manifest is reported but boosts nothing,
+because what a manifest names is what the repository depends on - upstream of a change.
+
+**A commit.** A `sha` would restrict deployments to those whose artifact contains the change. That
+needs Change nodes ([#85](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/85)), which
+do not exist yet, so a request with a `sha` answers `"changeScope": "unknown"` and the unscoped hits;
+one without says `not_requested`.
+
+Each hit is `{node, hops, score, confidence, inferred, tier, environment, pathMatched, owners,
+citation}`, where `citation` is `{nodeKey, edgePath, provenance}`: the node's id, the edges of the
+path that reached it with their confidences, and the node's own provenance, so a consumer cites the
+facts rather than the query. GraphQL answers the same as `changeImpact(input: ChangeImpactInput!)`:
+`impact` is #21's blast radius, and GraphQL cannot overload a field by its arguments.
+`ChangeImpactService` does the work in front of #21's `ImpactQueryPort`, and `ImpactScorer` holds the
+formula and the order.
+
+The issue also asked that a one-hop `GET /api/v1/impact/{repositoryId}` stay as a deprecated alias
+answered by this endpoint at depth 1. No such route exists: the one-hop repository impact is
+`GET /api/v1/graph/repositories/{repoId}/impact`, already deprecated in favour of `GET
+/api/v1/graph/impact`, and both are left as they are.
+
 ### How it runs
 
 Each walk is one Cypher statement, a Neo4j 5 quantified path pattern whose relationship types come
