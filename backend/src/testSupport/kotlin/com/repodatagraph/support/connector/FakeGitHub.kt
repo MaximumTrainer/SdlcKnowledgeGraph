@@ -62,7 +62,7 @@ class FakeGitHub {
         pages.flatMap { it }.forEach { repo ->
             server.stubFor(
                 get(urlPathEqualTo("/repos/$org/${repo.name}"))
-                    .willReturn(jsonResponse(repo.json(org))),
+                    .willReturn(jsonResponse(repo.json(org, detailed = true))),
             )
         }
         pages.forEachIndexed { index, page ->
@@ -202,10 +202,21 @@ data class FakeRepo(
     val language: String? = null,
     val description: String? = null,
     val pushedAt: String = "2026-09-01T10:00:00Z",
+    /** The upstream's `owner/name` when this repository is a fork (#86, FR-7). */
+    val forkOf: String? = null,
 ) {
-    fun json(org: String): String =
+    /**
+     * As GitHub spells it. The org listing says only whether a repository is a fork; which repository
+     * it was forked from is in `parent`, which only a read of the repository itself returns - so the
+     * fake leaves it out of the listing too, and a connector that trusted the listing would miss it.
+     */
+    fun json(
+        org: String,
+        detailed: Boolean = false,
+    ): String =
         """
         {
+          "fork": ${forkOf != null},${parentJson(detailed)}
           "node_id": "$nodeId",
           "name": "$name",
           "full_name": "$org/$name",
@@ -219,4 +230,12 @@ data class FakeRepo(
           "topics": ${topics.joinToString(",", "[", "]") { "\"$it\"" }}
         }
         """.trimIndent()
+
+    private fun parentJson(detailed: Boolean): String =
+        if (!detailed || forkOf == null) {
+            ""
+        } else {
+            """
+            "parent": { "full_name": "$forkOf", "html_url": "https://github.com/$forkOf" },"""
+        }
 }
