@@ -93,11 +93,17 @@ test.beforeAll(async () => {
   await markInferred('OWNS_RESOURCE', PAYMENTS_ID, BUCKET_ID, 0.7)
 })
 
-/** Opens the graph view of the payments repository, with its test hook, and waits for the layout. */
+/**
+ * Opens the graph view of the payments repository, with its test hook, and waits for the layout and
+ * for the type filters, which fill in from the ontology and move the canvas down when they arrive.
+ */
 const openGraph = async (page: Page) => {
   const [type, ...key] = PAYMENTS_ID.split(':')
   await page.goto(`/graph/${type}:${encodeURIComponent(key.join(':'))}?e2e=1`)
   await page.waitForFunction(() => window.__cyReady === true)
+  await expect(
+    page.getByRole('group', { name: 'Node types' }).getByLabel('Repository', { exact: true })
+  ).toBeVisible()
 }
 
 const nodeCount = (page: Page) => page.evaluate(() => window.__cy?.nodes().length ?? 0)
