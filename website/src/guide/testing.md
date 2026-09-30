@@ -235,6 +235,12 @@ Reuse is a local convenience. CI creates a fresh container each run.
 Every acceptance scenario starts from an empty graph: a Cucumber `@Before` hook runs
 `MATCH (n) DETACH DELETE n`. Scenarios must not depend on each other's data.
 
+There is no separate slow suite. A test that measures, like `ImpactPerformanceIT` (a depth-5 blast
+radius over 10,003 nodes, [#21](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/21)),
+runs in `integrationTest`, prints what it measured and asserts a ceiling several times the target, so
+a busy CI runner does not fail it while a query gone quadratic still does. It removes what it seeded,
+because the integration tests share one database.
+
 ## Contract tests
 
 The frontend and backend are tested against each other without running both at once. Consumer tests
