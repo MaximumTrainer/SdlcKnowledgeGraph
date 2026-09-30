@@ -61,6 +61,31 @@ class OntologyCodegenTest {
                     GenEnvironment("production", "Serves customers", listOf("prod", "live")),
                     GenEnvironment("dogfood", null, emptyList()),
                 ),
+            templates =
+                listOf(
+                    GenTemplate(
+                        name = "change-impact",
+                        description = "What a change reaches",
+                        start = listOf("Repository"),
+                        owners = true,
+                        steps =
+                            listOf(
+                                GenTemplateStep(
+                                    "DEPENDED_ON_BY",
+                                    min = 0,
+                                    max = 4,
+                                    then = listOf(GenTemplateStep("BUILDS", then = listOf(GenTemplateStep("DEPLOYED_TO", current = true)))),
+                                ),
+                            ),
+                    ),
+                    GenTemplate(
+                        name = "data-consumers",
+                        description = "Who reads it",
+                        start = listOf("CloudResource"),
+                        owners = false,
+                        steps = listOf(GenTemplateStep("DEPENDED_ON_BY", where = mapOf("kind" to "data"))),
+                    ),
+                ),
         )
 
     private val sdl = OntologyCodegen.graphqlSdl(ontology)
@@ -204,6 +229,33 @@ class OntologyCodegenTest {
             json,
         )
         assertTrue(json.contains("""    { "name": "dogfood", "description": null, "aliases": [] }"""), json)
+    }
+
+    @Test
+    fun `the JSON snapshot lists the traversal templates with every step spelt out, as the ontology endpoint does (#96)`() {
+        assertTrue(json.contains("  \"templates\": [\n"), json)
+        assertTrue(
+            json.contains(
+                """    { "name": "change-impact", "description": "What a change reaches", "start": ["Repository"], "owners": true, """ +
+                    """"steps": [{"edge":"DEPENDED_ON_BY","where":{},"min":0,"max":4,"current":false,"then":[""" +
+                    """{"edge":"BUILDS","where":{},"min":1,"max":1,"current":false,"then":[""" +
+                    """{"edge":"DEPLOYED_TO","where":{},"min":1,"max":1,"current":true,"then":[]}]}]}] },""",
+            ),
+            json,
+        )
+        assertTrue(json.contains(""""steps": [{"edge":"DEPENDED_ON_BY","where":{"kind":"data"},"min":1,"max":1,"current":false,"then":[]}] }"""), json)
+    }
+
+    @Test
+    fun `generated TypeScript names the templates a context pack may ask for (#96)`() {
+        assertTrue(typescript.contains("export type ContextPackTemplate = 'change-impact' | 'data-consumers'\n"), typescript)
+        // Broken as Prettier breaks it, since the file is held to the frontend's formatting too.
+        assertTrue(
+            typescript.contains(
+                "export const CONTEXT_PACK_TEMPLATES: readonly ContextPackTemplate[] = [\n  'change-impact',\n  'data-consumers'\n]\n",
+            ),
+            typescript,
+        )
     }
 
     @Test

@@ -55,6 +55,16 @@ class OntologyMarkdownTest {
     }
 
     @Test
+    fun `the context pack templates are listed, each with where it starts and what it is for (#96)`() {
+        val templates = OntologyMarkdown.render(shipped).substringAfter("\n## Context pack templates\n", "")
+
+        assertThat(templates).isNotEmpty()
+        shipped.templates.forEach { template ->
+            assertThat(templates).contains("- ${template.name} (from ${template.start.joinToString()}): ${template.description}")
+        }
+    }
+
+    @Test
     fun `meta types and deprecated properties are left out`() {
         val markdown = OntologyMarkdown.render(shipped)
 
