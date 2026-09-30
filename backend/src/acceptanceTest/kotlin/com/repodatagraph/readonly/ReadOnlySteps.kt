@@ -64,6 +64,12 @@ class ReadOnlySteps(
         response = restTemplate.exchange("/graphql", HttpMethod.POST, jsonEntity(payload), String::class.java)
     }
 
+    @When("I send the impact query for {string}")
+    fun iSendTheImpactQuery(repositoryKey: String) {
+        val payload = objectMapper.writeValueAsString(mapOf("repositoryKey" to repositoryKey))
+        response = restTemplate.exchange("/api/v1/impact", HttpMethod.POST, jsonEntity(payload), String::class.java)
+    }
+
     @Then("the response status is {int}")
     fun theResponseStatusIs(expected: Int) {
         assertEquals(expected, lastResponse().statusCode.value(), "body: ${lastResponse().body}")

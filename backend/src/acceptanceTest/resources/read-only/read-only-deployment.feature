@@ -50,6 +50,12 @@ Feature: A read-only deployment refuses every write
     When I send the GraphQL document "{ repositories { id } }"
     Then the response status is 200
 
+  Scenario: The impact query is answered, although it is sent as a POST
+    # #87. Its input is a structured body rather than a query string, but it only reads, so a
+    # read-only instance answers it as it answers a GET: here with 404, the repository not being there.
+    When I send the impact query for "github.com/acme/nothing"
+    Then the response status is 404
+
   Scenario: GraphiQL is not served, so nothing invites writes that would be refused
     When I send a GET to "/graphiql"
     Then the response status is 404
