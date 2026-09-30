@@ -162,10 +162,18 @@ class OntologyCodegenTest {
 
     @Test
     fun `the JSON snapshot says which property labels each node type (#9)`() {
-        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": \"name\"\n"), json)
+        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": \"name\",\n"), json)
         val unlabelled = GenNodeType("Team", null, listOf("name"), listOf(GenProperty("name", "string", true, null)))
         val json = OntologyCodegen.json(ontology.copy(nodeTypes = listOf(unlabelled)))
-        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": null\n"), json)
+        assertTrue(json.contains("\"meta\": false,\n      \"displayProperty\": null,\n"), json)
+    }
+
+    @Test
+    fun `the JSON snapshot names each node type's alias, and an empty one for a type with none (#88)`() {
+        assertTrue(json.contains("\"alias\": []\n"), json)
+        val aliased = ontology.nodeTypes.single().copy(alias = listOf("provider", "providerId"))
+        val json = OntologyCodegen.json(ontology.copy(nodeTypes = listOf(aliased)))
+        assertTrue(json.contains("\"alias\": [\"provider\", \"providerId\"]\n"), json)
     }
 
     @Test

@@ -52,9 +52,21 @@ class DerivedProperties(
         return mapOf(SHA to sha.lowercase())
     }
 
-    private companion object {
-        const val REPOSITORY_KEY = "repositoryKey"
-        const val SHA = "sha"
+    companion object {
+        private const val REPOSITORY_KEY = "repositoryKey"
+        private const val SHA = "sha"
+        private const val PROVIDER = "provider"
+        private const val PROVIDER_ID = "providerId"
+
+        /** The hosts that are one provider each, whose repositories' provider ids that provider assigns. */
+        private val PROVIDER_OF_HOST = mapOf("github.com" to "github", "gitlab.com" to "gitlab")
+
+        /**
+         * Properties of [type] the server derives and a caller may not send, each with what it is
+         * derived from. `orgRepo` was a Repository's required identity before #8 and is `org/name`
+         * now, emitted on output for compatibility and refused on input (#88).
+         */
+        fun derivedOnly(type: String): Map<String, String> = if (type == "Repository") mapOf("orgRepo" to "url") else emptyMap()
     }
 
     /**
@@ -64,16 +76,43 @@ class DerivedProperties(
      */
     private fun repository(props: Map<String, Any?>): Map<String, Any?> {
         val url = props["url"]?.toString()?.trim()
-        if (url.isNullOrEmpty()) return props
+        val remote = if (url.isNullOrEmpty()) null else gitRemoteParser.parse(url)
+        val located =
+            if (remote == null) {
+                props
+            } else {
+                props +
+                    mapOf(
+                        // The canonical form, not the one supplied, so the graph stores one spelling.
+                        "url" to remote.canonicalUrl,
+                        "host" to remote.host,
+                        "org" to remote.org,
+                        "name" to remote.name,
+                    )
+            }
+        return providerAlias(located)
+    }
 
-        val remote = gitRemoteParser.parse(url)
-        return props +
-            mapOf(
-                // The canonical form, not the one supplied, so the graph stores one spelling.
-                "url" to remote.canonicalUrl,
-                "host" to remote.host,
-                "org" to remote.org,
-                "name" to remote.name,
+    /**
+     * The provider id as the string it is, whatever JSON type it came as, and its provider in lower
+     * case (#88). A provider id on github.com or gitlab.com is that provider's unless the caller said
+     * otherwise, so a GitHub App holding only the id need not also say GitHub; on any other host the
+     * provider has to be named, and the validator says so.
+     */
+    private fun providerAlias(props: Map<String, Any?>): Map<String, Any?> {
+        // A blank value is no value: stored, it would be an alias every other blank collides with.
+        val providerId = props[PROVIDER_ID]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        val stated =
+            props[PROVIDER]
+                ?.toString()
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { it.isNotEmpty() }
+        val provider = stated ?: PROVIDER_OF_HOST[props["host"]?.toString()]?.takeIf { providerId != null }
+        return props - PROVIDER_ID - PROVIDER +
+            listOfNotNull(
+                providerId?.let { PROVIDER_ID to it },
+                provider?.let { PROVIDER to it },
             )
     }
 }

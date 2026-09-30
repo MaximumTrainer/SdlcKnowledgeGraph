@@ -29,10 +29,12 @@ class NodeValidationException(
  * Another node already holds the identity key these properties derive to.
  *
  * The id is returned because the useful next action is almost always to open the node that already
- * exists, not to invent a different name for the same real-world thing.
+ * exists, not to invent a different name for the same real-world thing. [alias] is set when what
+ * collided was the node's alias rather than its key (#88), such as a Repository's provider id.
  */
 class NodeExistsException(
     val existingId: String,
+    val alias: Map<String, String>? = null,
 ) : RuntimeException("a node already exists with this identity: $existingId")
 
 /**

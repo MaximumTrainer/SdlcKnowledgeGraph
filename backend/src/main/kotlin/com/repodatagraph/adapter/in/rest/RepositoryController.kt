@@ -3,6 +3,7 @@ package com.repodatagraph.adapter.`in`.rest
 import com.repodatagraph.adapter.`in`.rest.dto.CreateRepositoryRequest
 import com.repodatagraph.adapter.`in`.rest.dto.RepositoryResponse
 import com.repodatagraph.domain.identity.GitRemoteParser
+import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import com.repodatagraph.domain.port.`in`.RepositoryUseCase
 import io.swagger.v3.oas.annotations.Operation
@@ -38,7 +39,7 @@ class RepositoryController(
     fun registerRepository(
         @RequestBody request: CreateRepositoryRequest,
     ): ResponseEntity<RepositoryResponse> {
-        val created = nodeUseCase.create("Repository", propsOf(request))
+        val created = nodeUseCase.create(REPOSITORY, propsOf(request))
         return ResponseEntity
             .status(HttpStatus.CREATED)
             .header(DEPRECATION_HEADER, "true")
@@ -61,10 +62,36 @@ class RepositoryController(
             "description" to request.description,
         ).filterValues { it != null }
 
+    /**
+     * Every repository, or with `url` the one that remote resolves to (#88): a list either way, so the
+     * route answers one shape, holding at most one repository when a url is given and none when
+     * nothing resolves. A remote a repository had before a rename resolves to it too.
+     */
     @GetMapping
-    @Operation(summary = "List all registered repositories")
-    fun listRepositories(): ResponseEntity<List<RepositoryResponse>> =
-        ResponseEntity.ok(repositoryUseCase.listRepositories().map { RepositoryResponse.from(it) })
+    @Operation(summary = "List all registered repositories, or find the one a git remote resolves to, before or after a rename")
+    fun listRepositories(
+        @RequestParam(required = false) url: String?,
+    ): ResponseEntity<List<RepositoryResponse>> {
+        if (url == null) return ResponseEntity.ok(repositoryUseCase.listRepositories().map { RepositoryResponse.from(it) })
+        return ResponseEntity.ok(listOfNotNull(resolve(url)).map { RepositoryResponse.from(it) })
+    }
+
+    /**
+     * Lookup by the id the provider gives a repository (#88): GitHub's numeric repository id, which a
+     * GitHub App holds and which survives a rename or a transfer between organisations. Neither part
+     * can hold a slash, so both travel as path segments.
+     */
+    @GetMapping("/by-provider/{provider}/{providerId}")
+    @Operation(summary = "Find a repository by the id its provider gives it, such as GitHub's repository id")
+    fun getRepositoryByProviderId(
+        @PathVariable provider: String,
+        @PathVariable providerId: String,
+    ): ResponseEntity<RepositoryResponse> {
+        val node =
+            repositoryUseCase.findByProviderId(provider, providerId)
+                ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(RepositoryResponse.from(node))
+    }
 
     /**
      * Lookup by the key a repository resolves to, rather than by the id the graph assigned.
@@ -80,11 +107,18 @@ class RepositoryController(
     fun getRepositoryByKey(
         @RequestParam key: String,
     ): ResponseEntity<RepositoryResponse> {
-        val canonical = gitRemoteParser.parse(key).key
-        val node =
-            nodeUseCase.get("Repository", canonical)
-                ?: return ResponseEntity.notFound().build()
+        val node = resolve(key) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(RepositoryResponse.from(node))
+    }
+
+    /**
+     * The repository [remote] resolves to: the one holding its key now, else the one that held it
+     * before a rename (#88). The current holder wins, so a new repository created under a remote an
+     * older one has left is found as itself.
+     */
+    private fun resolve(remote: String): GraphNode? {
+        val canonical = gitRemoteParser.parse(remote).key
+        return nodeUseCase.get(REPOSITORY, canonical) ?: repositoryUseCase.findByPreviousKey(canonical)
     }
 
     @GetMapping("/{id}")
@@ -108,6 +142,7 @@ class RepositoryController(
     }
 
     private companion object {
+        const val REPOSITORY = "Repository"
         const val DEPRECATION_HEADER = "Deprecation"
         const val LINK_HEADER = "Link"
         const val SUCCESSOR_LINK = "</api/v1/nodes/Repository>; rel=\"successor-version\""

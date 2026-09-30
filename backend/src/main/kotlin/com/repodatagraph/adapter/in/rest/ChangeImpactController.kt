@@ -36,7 +36,16 @@ class ChangeImpactController(
     fun impact(
         @RequestBody request: ChangeImpactRequest,
     ): ResponseEntity<ChangeImpactResponse> {
-        val query = ChangeImpactQuery.of(request.repositoryKey, request.paths, request.sha, request.depth, request.limit)
+        val query =
+            ChangeImpactQuery.of(
+                request.repositoryKey,
+                request.paths,
+                request.sha,
+                request.depth,
+                request.limit,
+                request.provider,
+                request.providerId,
+            )
         return ResponseEntity.ok(ChangeImpactResponse.from(useCase.changeImpact(query)))
     }
 }

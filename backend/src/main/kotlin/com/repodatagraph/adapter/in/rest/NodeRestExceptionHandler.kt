@@ -52,10 +52,15 @@ class NodeRestExceptionHandler {
             mapOf("errors" to exception.errors.map { mapOf("field" to it.field, "message" to it.message) }),
         )
 
+    /**
+     * The same refusal whether the key or the alias collided, since either way the thing already
+     * exists (#88); `alias` says which it was, and is absent for a key.
+     */
     @ExceptionHandler(NodeExistsException::class)
     fun onNodeExists(exception: NodeExistsException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.status(HttpStatus.CONFLICT).body(
-            mapOf("error" to "node exists", "existingId" to exception.existingId),
+            mapOf("error" to "node exists", "existingId" to exception.existingId) +
+                listOfNotNull(exception.alias?.let { "alias" to it }),
         )
 
     @ExceptionHandler(ImmutableIdentityException::class)

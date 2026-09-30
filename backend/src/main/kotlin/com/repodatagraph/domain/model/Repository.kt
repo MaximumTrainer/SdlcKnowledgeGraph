@@ -25,4 +25,14 @@ data class Repository(
     val serviceId: String? = null,
     val language: String? = null,
     val description: String? = null,
-)
+    /** Who assigns [providerId]: github, gitlab or other (#88). */
+    val provider: String? = null,
+    /** The provider's stable id for the repository, an alias that survives a rename (#88). */
+    val providerId: String? = null,
+) {
+    /**
+     * `org/name`, the identity a repository had before it was keyed on its remote (#8). Derived, never
+     * stored or accepted, and emitted only for callers that still read it (#88).
+     */
+    val orgRepo: String get() = "$org/$name"
+}

@@ -14,6 +14,7 @@ import java.time.Instant
  * reconcile. Keys are never random, so re-ingesting the same fact is idempotent.
  */
 @Component
+@Suppress("TooManyFunctions") // Key, identity and alias resolution share one set of rules.
 class IdentityResolver(
     private val gitRemoteParser: GitRemoteParser = GitRemoteParser(),
 ) {
@@ -40,6 +41,20 @@ class IdentityResolver(
             in KEYED_BY_ONE_PROPERTY -> NodeKey(type, required(props, KEYED_BY_ONE_PROPERTY.getValue(type), type).trim())
             else -> throw IdentityResolutionException("no identity rule for node type '$type'")
         }
+
+    /**
+     * The values of [nodeType]'s alias in [props] (#88), in the order the registry names them and
+     * trimmed, or null unless every one of them has a value. An alias stands beside the key rather
+     * than inside it: it finds a node, and [keyFor] never reads it.
+     */
+    fun aliasFor(
+        nodeType: NodeTypeDef,
+        props: Map<String, Any?>,
+    ): Map<String, String>? {
+        if (nodeType.alias.isEmpty()) return null
+        val values = nodeType.alias.associateWith { props[it]?.toString()?.trim().orEmpty() }
+        return values.takeIf { found -> found.values.none { it.isEmpty() } }
+    }
 
     /**
      * Normalises any remote form to `host/org/name`, lowercased.

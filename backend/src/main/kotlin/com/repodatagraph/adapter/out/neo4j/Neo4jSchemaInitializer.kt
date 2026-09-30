@@ -9,7 +9,7 @@ import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.stereotype.Component
 
 /**
- * Creates one uniqueness constraint per declared node type.
+ * Creates one uniqueness constraint per declared node type, and one more for each type's alias.
  *
  * Identity is only worth deriving if the database enforces it. Without the constraint, a race
  * between two connectors reporting the same repository produces two nodes and every traversal
@@ -40,6 +40,17 @@ class Neo4jSchemaInitializer(
             neo4jClient
                 .query("CREATE INDEX ${lowered}_prov_source IF NOT EXISTS FOR (n:$label) ON (n.prov_sourceSystem)")
                 .run()
+
+            // An alias is unique where every part of it is present (#88): a node that lacks any part
+            // is outside the constraint, which is what lets a repository exist before its provider
+            // id is known. One constraint over all the parts, so a GitHub id and a GitLab id that
+            // happen to be the same number do not collide.
+            if (nodeType.alias.isNotEmpty()) {
+                val properties = nodeType.alias.joinToString { "n.${cypher.propertyName(nodeType.name, it)}" }
+                neo4jClient
+                    .query("CREATE CONSTRAINT ${lowered}_alias IF NOT EXISTS FOR (n:$label) REQUIRE ($properties) IS UNIQUE")
+                    .run()
+            }
         }
 
         LogEvents.ontologyConstraintsEnsured(registry.allNodeTypes().size)

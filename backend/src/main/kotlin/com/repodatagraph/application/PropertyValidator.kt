@@ -1,6 +1,7 @@
 package com.repodatagraph.application
 
 import com.repodatagraph.domain.exception.PropertyError
+import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyType
@@ -26,7 +27,31 @@ class PropertyValidator {
     fun validate(
         nodeType: NodeTypeDef,
         props: Map<String, Any?>,
-    ): List<PropertyError> = validate(nodeType.properties, props)
+    ): List<PropertyError> {
+        val derived = DerivedProperties.derivedOnly(nodeType.name)
+        // A property the server derives is named as such, which says what to send instead (#88).
+        val errors =
+            validate(nodeType.properties, props).map { error ->
+                derived[error.field]
+                    ?.takeIf { error.message == NOT_IN_ONTOLOGY }
+                    ?.let { PropertyError(error.field, "${error.field} is derived from $it and is not accepted") }
+                    ?: error
+            }
+        return errors + partialAlias(nodeType, props)
+    }
+
+    /**
+     * Half an alias finds nothing, and the constraint that keeps an alias unique ignores a node that
+     * lacks any part of it, so a write naming some of its properties must name all of them (#88).
+     */
+    private fun partialAlias(
+        nodeType: NodeTypeDef,
+        props: Map<String, Any?>,
+    ): List<PropertyError> {
+        val (present, absent) = nodeType.alias.partition { !isAbsent(props, it) }
+        if (present.isEmpty()) return emptyList()
+        return absent.map { PropertyError(it, "$it is required with ${present.joinToString()}") }
+    }
 
     fun validate(
         declared: List<PropertyDef>,

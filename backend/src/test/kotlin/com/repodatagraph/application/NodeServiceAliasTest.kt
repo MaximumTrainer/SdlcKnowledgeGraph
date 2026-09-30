@@ -1,5 +1,8 @@
 package com.repodatagraph.application
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.repodatagraph.domain.exception.ImmutableIdentityException
 import com.repodatagraph.domain.exception.NodeExistsException
 import com.repodatagraph.domain.exception.NodeNotFoundException
@@ -18,6 +21,7 @@ import com.repodatagraph.domain.ontology.PropertyType
 import com.repodatagraph.domain.ontology.SourceSystemDef
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.SourceWriteAuthorization
+import com.repodatagraph.observability.EventLog
 import com.repodatagraph.observability.GraphWriteMetrics
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -30,6 +34,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.slf4j.LoggerFactory
 import java.time.Instant
 
 /**
@@ -138,6 +143,32 @@ class NodeServiceAliasTest {
         assertThat(written.firstValue.provenance.writtenBy).isEqualTo("dan")
         assertThat(renamed.key).isEqualTo(newKey)
         verify(graphStore, never()).upsertNode(any())
+    }
+
+    /** A rename is the one write that moves a node, so it is logged naming both keys (#88). */
+    @Test
+    fun `a rename is logged naming the key the node left and the key it took`() {
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        val logger = LoggerFactory.getLogger("${EventLog.LOGGER_PREFIX}.node.renamed") as Logger
+        logger.addAppender(appender)
+        whenever(graphStore.findNode(oldKey)).thenReturn(stored())
+        whenever(graphStore.findNodeByAlias("Repository", alias)).thenReturn(stored())
+        whenever(graphStore.renameNode(eq(oldKey), any())).thenAnswer { it.arguments[1] }
+
+        try {
+            service.update("Repository", oldKey.key, props("https://github.com/acme-platform/payments-service"))
+        } finally {
+            logger.detachAppender(appender)
+        }
+
+        assertThat(
+            appender.list
+                .single()
+                .keyValuePairs
+                .associate { it.key to it.value },
+        ).containsEntry("event", "node.renamed")
+            .containsEntry("from", oldKey.key)
+            .containsEntry("to", newKey.key)
     }
 
     /** The provider id is consulted first: a writer holding the new remote finds the node by its id. */

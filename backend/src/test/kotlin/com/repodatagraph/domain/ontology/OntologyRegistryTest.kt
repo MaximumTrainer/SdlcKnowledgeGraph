@@ -147,8 +147,8 @@ class OntologyRegistryTest {
     private val shipped by lazy { YamlOntologyLoader(DefaultResourceLoader()).load() }
 
     @Test
-    fun `the shipped registry is a minor version on from 1_0_0, since it only adds (#85)`() {
-        assertEquals("1.1.0", shipped.version)
+    fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88)`() {
+        assertEquals("1.2.0", shipped.version)
     }
 
     @Test
@@ -256,8 +256,9 @@ class OntologyRegistryTest {
         val error = assertThrows<InvalidOntologyException> { OntologyRegistry("1.0.0", listOf(aliased), emptyList()) }
 
         assertEquals(
-            "node type 'Repository' alias references 'provider', which it does not declare; " +
-                "alias property 'name' is part of its identity; alias property 'providerId' is required",
+            "node type 'Repository' alias property 'name' is part of its identity; " +
+                "node type 'Repository' alias property 'providerId' is required; " +
+                "node type 'Repository' alias references 'provider', which it does not declare",
             error.message,
         )
     }

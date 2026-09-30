@@ -40,7 +40,7 @@ class ChangeImpactService(
     private val lineage: ChangeLineagePort,
 ) : ChangeImpactUseCase {
     override fun changeImpact(query: ChangeImpactQuery): ChangeImpactResult {
-        val repository = graphStore.findNode(query.repository) ?: throw NodeNotFoundException(listOf(query.repository))
+        val repository = repositoryOf(query)
         val search = queries.paths(repository.key, traversals.impact(ImpactDirection.DOWNSTREAM), query.depth, MAX_PATHS)
         val scope = shaScope(repository.key, query.sha)
         val nearest = ImpactScorer.nearest(repository.key, scope.keep(search.paths))
@@ -67,6 +67,27 @@ class ChangeImpactService(
             truncated = search.truncated || ranked.size > query.limit,
             hits = kept.map { it.copy(owners = ownerResolver.resolve(it.node, ownerPaths[it.node.key].orEmpty()).owners) },
         )
+    }
+
+    /**
+     * The repository asked about (#88, FR5): by its provider id first, since that survives a rename,
+     * then by its key, then by a key it had before a rename. Not found names what was asked for.
+     */
+    private fun repositoryOf(query: ChangeImpactQuery): GraphNode {
+        query.alias?.let { alias -> graphStore.findNodeByAlias(REPOSITORY, alias)?.let { return it } }
+        val key = query.repository
+        return key?.let { graphStore.findNode(it) ?: graphStore.findNodeByPreviousKey(it) }
+            ?: throw NodeNotFoundException(
+                listOf(
+                    key ?: NodeKey(
+                        REPOSITORY,
+                        query.alias
+                            ?.values
+                            ?.joinToString(":")
+                            .orEmpty(),
+                    ),
+                ),
+            )
     }
 
     /**
@@ -172,6 +193,7 @@ class ChangeImpactService(
 
     private companion object {
         const val ENVIRONMENT = "Environment"
+        const val REPOSITORY = "Repository"
         const val DEPLOYMENT = "Deployment"
         const val TIER = "tier"
 

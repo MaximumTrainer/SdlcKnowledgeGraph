@@ -18,6 +18,14 @@ object LogEvents {
     ) =
         EventLog.emit("node.created", Level.INFO, "node created", mapOf("type" to type, "key" to key, "properties" to properties))
 
+    /** A node moved to a new key through its alias, such as a repository renamed on its provider (#88). Names the keys it left and took. */
+    fun nodeRenamed(
+        type: String,
+        from: String,
+        to: String,
+    ) =
+        EventLog.emit("node.renamed", Level.INFO, "node renamed", mapOf("type" to type, "from" to from, "to" to to))
+
     /** A node write was refused by the ontology. Names the fields at fault, never their values. */
     fun nodeRejected(
         type: String,

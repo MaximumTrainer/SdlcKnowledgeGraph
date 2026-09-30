@@ -40,6 +40,8 @@ data class NodeTypeResponse(
     val meta: Boolean,
     /** The property a node of this type is labelled with where it is drawn (#9); null for its key. */
     val displayProperty: String?,
+    /** Properties that together find a node beside its key, unique where all are present (#88); empty for none. */
+    val alias: List<String>,
 ) {
     companion object {
         fun from(nodeType: NodeTypeDef): NodeTypeResponse =
@@ -50,6 +52,7 @@ data class NodeTypeResponse(
                 properties = nodeType.properties.map(PropertyResponse::from),
                 meta = nodeType.meta,
                 displayProperty = nodeType.displayProperty,
+                alias = nodeType.alias,
             )
     }
 }

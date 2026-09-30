@@ -54,6 +54,8 @@ class YamlOntologyLoaderProvenanceTest {
                 "writtenBy",
                 "principalType",
                 "onBehalfOfTeam",
+                // The keys a node had before a rename (#88), appended so none of the others moved.
+                "previousKeys",
             ),
             registry.provenance.map { it.name },
         )

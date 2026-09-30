@@ -141,6 +141,8 @@ class GraphQLResolver(
                 sha = input["sha"] as? String,
                 depth = input["depth"] as? Int,
                 limit = input["limit"] as? Int,
+                provider = input["provider"] as? String,
+                providerId = input["providerId"] as? String,
             )
         val result = changeImpactUseCase.changeImpact(query)
         return mapOf(

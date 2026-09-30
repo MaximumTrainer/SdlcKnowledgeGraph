@@ -1,7 +1,7 @@
 package com.repodatagraph.domain.ontology
 
 import kotlin.reflect.KClass
-import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 
 /**
  * Checks the typed Kotlin classes against the registry and refuses to start on a mismatch.
@@ -14,6 +14,11 @@ import kotlin.reflect.full.memberProperties
  * The rule is directional. Every required registry property must exist on the class, and every class
  * property must be declared in the registry. An optional registry property may be absent from the
  * class, because connectors populate properties the core model does not model itself.
+ *
+ * A class property is one its primary constructor takes: what a node of the type stores. A computed
+ * property is derived from those and never stored, so the registry has nothing to declare for it -
+ * which is how `Repository.orgRepo` is still emitted for compatibility after the registry stopped
+ * accepting it (#88).
  */
 class OntologyDriftValidator(
     private val registry: OntologyRegistry,
@@ -42,7 +47,12 @@ class OntologyDriftValidator(
         nodeType: NodeTypeDef,
         kClass: KClass<*>,
     ): List<String> {
-        val classProperties = kClass.memberProperties.map { it.name }.toSet() - STRUCTURAL_PROPERTIES
+        val classProperties =
+            kClass.primaryConstructor
+                ?.parameters
+                .orEmpty()
+                .mapNotNull { it.name }
+                .toSet() - STRUCTURAL_PROPERTIES
         val declaredProperties = nodeType.properties.map { it.name }.toSet()
 
         val missingFromClass =

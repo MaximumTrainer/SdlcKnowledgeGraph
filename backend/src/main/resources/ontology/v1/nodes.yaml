@@ -17,6 +17,11 @@ nodes:
   Repository:
     description: A git repository, the anchor for most of the graph.
     identity: [host, org, name]
+    # The provider's own id for the repository (#88), which survives a rename or a transfer between
+    # organisations where the remote does not. An alias rather than part of the key: unique where
+    # present, enforced by a constraint, and consulted before the key, so a write carrying it moves
+    # the node that holds it instead of creating a second one.
+    alias: [provider, providerId]
     displayProperty: name
     properties:
       - { name: url, type: string, required: true, description: "The git remote, in any form; stored canonicalised as https://host/org/name" }
@@ -35,6 +40,9 @@ nodes:
       # What this repository publishes, so a dependency naming one of them resolves to it rather than
       # to a third-party Library with the same name.
       - { name: packageNames, type: "string[]", required: false, description: "Package names this repository publishes" }
+      # Derived from the host when absent and the host is github.com or gitlab.com.
+      - { name: provider, type: string, required: false, description: "Who assigns providerId. Derived from url on github.com and gitlab.com", enum: [github, gitlab, other] }
+      - { name: providerId, type: string, required: false, description: "The provider's stable id for the repository, such as GitHub's numeric repository id" }
 
   Team:
     description: A group that owns repositories, services or infrastructure.
