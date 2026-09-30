@@ -51,6 +51,25 @@ class ScopePolicyTest {
         assertEquals(RouteRequirement.Scopes(setOf(GraphScope.WRITE)), ScopePolicy.requirementFor(method, path))
     }
 
+    @Test
+    fun `a query sent as a POST because its input is a body needs graph read, not graph write`() {
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.READ)), ScopePolicy.requirementFor("POST", "/api/v1/impact"))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        // Only the method and the exact path named: anything else under it is a write as ever.
+        "PUT, /api/v1/impact",
+        "DELETE, /api/v1/impact",
+        "POST, /api/v1/impact/extra",
+    )
+    fun `a read over POST covers only the method and the path it names`(
+        method: String,
+        path: String,
+    ) {
+        assertEquals(RouteRequirement.Scopes(setOf(GraphScope.WRITE)), ScopePolicy.requirementFor(method, path))
+    }
+
     @ParameterizedTest
     @CsvSource(
         "GET, /api/v1/ontology",
