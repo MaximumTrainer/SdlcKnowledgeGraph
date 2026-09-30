@@ -148,7 +148,7 @@ class OntologyRegistryTest {
 
     @Test
     fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88)`() {
-        assertEquals("1.2.0", shipped.version)
+        assertEquals("1.3.0", shipped.version)
     }
 
     @Test

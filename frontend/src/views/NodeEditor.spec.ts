@@ -320,3 +320,88 @@ describe('NodeEditor, registering a repository', () => {
     expect(wrapper.find('[data-test="remote-key"]').exists()).toBe(false)
   })
 })
+
+/**
+ * The registry says what each property means, shows a value, and names the only values a closed set
+ * allows (#81). The form uses all three: a select for a closed set, the description beside the field,
+ * and the first example as the placeholder, so a person sees what an agent reading the ontology sees.
+ */
+describe('NodeEditor, a self-described property', () => {
+  const stored = {
+    id: 'Sample:s1',
+    type: 'Sample',
+    key: 's1',
+    props: { name: 's1', stage: 'retired' },
+    provenance: { sourceSystem: 'manual', confidence: 1, inferred: false }
+  }
+
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/nodes/Sample/s1', () => HttpResponse.json(stored))
+    )
+  })
+
+  const options = (wrapper: Awaited<ReturnType<typeof editorFor>>, name: string) =>
+    wrapper.findAll(`select[name="${name}"] option`).map(option => option.attributes('value'))
+
+  it('offers a closed set as a choice of its values, and none of an optional one', async () => {
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    expect(wrapper.find('select[name="stage"]').exists()).toBe(true)
+    expect(wrapper.find('input[name="stage"]').exists()).toBe(false)
+    expect(options(wrapper, 'stage')).toEqual(['', 'draft', 'live'])
+  })
+
+  it('asks for a choice of a required closed set, without offering none as one', async () => {
+    const wrapper = await editorFor({ type: 'Gadget' })
+
+    const placeholder = wrapper.find('select[name="kind"] option[value=""]')
+    expect(placeholder.attributes('disabled')).toBeDefined()
+    expect(options(wrapper, 'kind')).toEqual(['', 'library', 'api'])
+  })
+
+  it('shows the description as help, tied to its field', async () => {
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    const help = wrapper.find('#help-name')
+    expect(help.text()).toBe("The sample's name, unique among samples")
+    expect(wrapper.find('input[name="name"]').attributes('aria-describedby')).toContain('help-name')
+  })
+
+  it('shows the first example as the placeholder', async () => {
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    expect(wrapper.find('input[name="name"]').attributes('placeholder')).toBe('alpha')
+    expect(wrapper.find('input[name="count"]').attributes('placeholder')).toBeUndefined()
+  })
+
+  it('sends the value chosen', async () => {
+    let sent: Record<string, unknown> = {}
+    server.use(
+      http.post('/api/v1/nodes/Sample', async ({ request }) => {
+        sent = ((await request.json()) as { props: Record<string, unknown> }).props
+        return HttpResponse.json({ ...stored, props: sent }, { status: 201 })
+      })
+    )
+    const wrapper = await editorFor({ type: 'Sample' })
+
+    await wrapper.find('input[name="name"]').setValue('s2')
+    await wrapper.find('select[name="stage"]').setValue('live')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sent).toMatchObject({ name: 's2', stage: 'live' })
+  })
+
+  it('keeps a stored value outside the set visible, rather than silently changing it', async () => {
+    // Written before the set was declared: the server will refuse it on save and say which values
+    // it allows, but the form shows what is stored rather than pretending it is something else.
+    const wrapper = await editorFor({ type: 'Sample', id: 's1' })
+
+    expect(options(wrapper, 'stage')).toEqual(['', 'draft', 'live', 'retired'])
+    expect((wrapper.find('select[name="stage"]').element as HTMLSelectElement).value).toBe(
+      'retired'
+    )
+  })
+})

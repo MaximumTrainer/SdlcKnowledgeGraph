@@ -1,10 +1,12 @@
 package com.repodatagraph.application.ingest
 
+import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
 import com.repodatagraph.domain.identity.GitRemoteParser
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.ontology.IdentityResolver
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.core.io.DefaultResourceLoader
 import java.time.Instant
 
 /**
@@ -12,7 +14,7 @@ import java.time.Instant
  * each was deployed, joined by the edges "why did the deployment fail" has to walk.
  */
 class DeploymentReportMapperTest {
-    private val mapper = DeploymentReportMapper(IdentityResolver(), GitRemoteParser())
+    private val mapper = DeploymentReportMapper(IdentityResolver(), GitRemoteParser(), YamlOntologyLoader(DefaultResourceLoader()).load())
 
     private val deployedAt = Instant.parse("2026-09-29T12:00:00Z")
     private val runUrl = "https://github.com/maximumtrainer/sdlcknowledgegraph/actions/runs/42"
@@ -79,7 +81,39 @@ class DeploymentReportMapperTest {
         assertThat(pipeline).containsEntry("provider", "github-actions")
         assertThat(pipeline).containsEntry("repoKey", repository.key)
         assertThat(pipeline).containsEntry("workflowPath", ".github/workflows/deploy-dogfood.yml")
-        assertThat(pipeline).containsEntry("lastRunStatus", "FAILED")
+        assertThat(pipeline).containsEntry("lastRunStatus", "failure")
+    }
+
+    @Test
+    fun `says how the pipeline's run ended in the registry's words, not the report's (#81)`() {
+        // A deployment keeps the report's SUCCESS or FAILED, which why-failed reads; a pipeline's last
+        // run is told in the words the seed uses for the same thing, which its enum declares.
+        val succeeded = mapper.map(report.copy(status = "SUCCESS"))
+
+        assertThat(
+            succeeded.delta.nodes
+                .single { it.type == "Pipeline" }
+                .props,
+        ).containsEntry("lastRunStatus", "success")
+        assertThat(
+            succeeded.delta.nodes
+                .first { it.type == "Deployment" }
+                .props,
+        ).containsEntry("status", "SUCCESS")
+    }
+
+    @Test
+    fun `types an environment by its name where the name is a type, and as other where it is not (#81)`() {
+        assertThat(nodes("Environment").single().props).containsEntry("type", "production")
+
+        val dogfood = mapper.map(report.copy(environment = "dogfood"))
+
+        assertThat(
+            dogfood.delta.nodes
+                .single { it.type == "Environment" }
+                .props,
+        ).containsEntry("name", "dogfood")
+            .containsEntry("type", "other")
     }
 
     @Test

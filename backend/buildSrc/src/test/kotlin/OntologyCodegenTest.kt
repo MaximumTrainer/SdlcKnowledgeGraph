@@ -64,7 +64,10 @@ class OntologyCodegenTest {
 
     @Test
     fun `the provenance envelope is rendered from the registry (#114)`() {
-        assertTrue(sdl.contains("type Provenance {\n  sourceSystem: String!\n  confidence: Float!\n  writtenBy: String\n}"), sdl)
+        assertTrue(
+            sdl.contains("type Provenance {\n  sourceSystem: String!\n  confidence: Float!\n  \"\"\"Who made the write\"\"\"\n  writtenBy: String\n}"),
+            sdl,
+        )
         assertTrue(
             typescript.contains(
                 "export interface Provenance {\n  sourceSystem: string\n  confidence: number\n  writtenBy: string | null\n}",
@@ -72,7 +75,10 @@ class OntologyCodegenTest {
             typescript,
         )
         assertTrue(json.contains("\"provenance\": {"), json)
-        assertTrue(json.contains("""{ "name": "writtenBy", "type": "string", "required": false, "description": "Who made the write" }"""), json)
+        assertTrue(
+            json.contains("""{ "name": "writtenBy", "type": "string", "required": false, "description": "Who made the write", "examples": [] }"""),
+            json,
+        )
     }
 
     @Test
@@ -98,7 +104,7 @@ class OntologyCodegenTest {
 
     @Test
     fun `SDL property types follow the registry type mapping`() {
-        assertTrue(sdl.contains("  name: String!"), sdl)
+        assertTrue(sdl.contains("  \"\"\"Repository name\"\"\"\n  name: String!"), sdl)
         assertTrue(sdl.contains("  language: String\n"), sdl)
         assertTrue(sdl.contains("  topics: [String!]!"), sdl)
         assertTrue(sdl.contains("  stars: Int\n"), sdl)
@@ -121,6 +127,7 @@ class OntologyCodegenTest {
 
         val repositoryInterface = typescript.substringAfter("export interface Repository {").substringBefore("\n}")
         assertEquals(1, repositoryInterface.lines().count { it.trimEnd() == "  id: string" }, repositoryInterface)
+        assertFalse(repositoryInterface.contains("Never emitted"), repositoryInterface)
     }
 
     @Test

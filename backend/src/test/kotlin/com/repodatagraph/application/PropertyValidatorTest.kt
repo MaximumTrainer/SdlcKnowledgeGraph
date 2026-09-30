@@ -3,6 +3,7 @@ package com.repodatagraph.application
 import com.repodatagraph.domain.exception.PropertyError
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.PropertyDef
+import com.repodatagraph.domain.ontology.PropertyFormat
 import com.repodatagraph.domain.ontology.PropertyType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -193,5 +194,57 @@ class PropertyValidatorTest {
     fun `orgRepo is refused as derived from url (#88)`() {
         assertThat(validator.validate(aliased, mapOf("url" to "acme/payments", "orgRepo" to "acme/payments")))
             .containsExactly(PropertyError("orgRepo", "orgRepo is derived from url and is not accepted"))
+    }
+
+    private val shaped =
+        listOf(
+            PropertyDef("url", PropertyType.STRING, required = true, format = PropertyFormat.URL),
+            PropertyDef("email", PropertyType.STRING, format = PropertyFormat.EMAIL),
+            PropertyDef("provider", PropertyType.STRING, enum = listOf("aws", "azure", "gcp")),
+            PropertyDef("resourceId", PropertyType.STRING, format = PropertyFormat.ARN, formatWhen = mapOf("provider" to "aws")),
+        )
+
+    @Test
+    fun `a value not of its declared format is refused as expected that format (#81)`() {
+        val errors = validator.validate(shaped, mapOf("url" to "not a url", "email" to "not an email"))
+
+        assertThat(errors).containsExactly(PropertyError("url", "expected url"), PropertyError("email", "expected email"))
+    }
+
+    @Test
+    fun `a format is checked only when there is a value (#81)`() {
+        assertThat(validator.validate(shaped, mapOf("url" to "https://github.com/acme/payments", "email" to null))).isEmpty()
+        assertThat(validator.validate(shaped, mapOf("url" to "https://github.com/acme/payments"))).isEmpty()
+    }
+
+    @Test
+    fun `a conditional format is checked only where its condition holds (#81)`() {
+        val onAzure = mapOf("url" to "https://x.example/a", "provider" to "azure", "resourceId" to "/subscriptions/1/rg/logs")
+        val onAws = mapOf("url" to "https://x.example/a", "provider" to "aws", "resourceId" to "/subscriptions/1/rg/logs")
+
+        assertThat(validator.validate(shaped, onAzure)).isEmpty()
+        assertThat(validator.validate(shaped, onAws)).containsExactly(PropertyError("resourceId", "expected arn"))
+    }
+
+    @Test
+    fun `a value outside its enum is refused naming every allowed value, in declared order (#81)`() {
+        val status =
+            listOf(
+                PropertyDef(
+                    "status",
+                    PropertyType.STRING,
+                    required = true,
+                    enum = listOf("PENDING", "IN_PROGRESS", "SUCCESS", "FAILED", "ROLLED_BACK", "CANCELLED"),
+                ),
+            )
+
+        assertThat(validator.validate(status, mapOf("status" to "DONE"))).containsExactly(
+            PropertyError("status", "status must be one of PENDING, IN_PROGRESS, SUCCESS, FAILED, ROLLED_BACK, CANCELLED"),
+        )
+    }
+
+    @Test
+    fun `a value of the wrong type is not also reported as the wrong format (#81)`() {
+        assertThat(validator.validate(shaped, mapOf("url" to 42))).containsExactly(PropertyError("url", "expected string"))
     }
 }
