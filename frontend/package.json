@@ -31,7 +31,7 @@
     "@types/cytoscape": "^3.21.9",
     "@types/node": "^26.6.2",
     "@vitejs/plugin-vue": "^6.0.9",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.2",
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.11.0",
