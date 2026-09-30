@@ -11,13 +11,11 @@ import com.repodatagraph.domain.identity.DerivedProperties
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
-import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.ServicePrincipal
 import com.repodatagraph.domain.ontology.IdentityResolver
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.NodeUseCase
-import com.repodatagraph.domain.port.out.CurrentPrincipal
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
@@ -40,13 +38,16 @@ class NodeService(
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
     private val metrics: GraphWriteMetrics,
-    private val currentPrincipal: CurrentPrincipal,
+    private val statedProvenance: StatedProvenance,
 ) : NodeUseCase {
     override fun create(
         type: String,
         props: Map<String, Any?>,
+        sourceSystem: String,
     ): GraphNode {
         val nodeType = writable(type)
+        // Whether the principal may state this at all, before anything else is looked at (#117).
+        val provenance = statedProvenance.forWrite(sourceSystem)
         // Before validation, so the registry can require the identity properties honestly: a caller
         // supplies a Repository's remote and gets host, org and name filled in from it (#8).
         val expanded = derivedProperties.expand(type, props)
@@ -55,7 +56,7 @@ class NodeService(
         val key = identityResolver.keyFor(type, expanded)
         graphStore.findNode(key)?.let { throw NodeExistsException(it.id) }
 
-        return graphStore.upsertNode(GraphNode(key, expanded, Provenance.manual(by = currentPrincipal.current()))).also {
+        return graphStore.upsertNode(GraphNode(key, expanded, provenance)).also {
             LogEvents.nodeCreated(type, key.key, props.keys.sorted())
             metrics.node(type, WriteOutcome.CREATED)
         }
@@ -94,8 +95,10 @@ class NodeService(
         type: String,
         key: String,
         props: Map<String, Any?>,
+        sourceSystem: String,
     ): GraphNode {
         val nodeType = writable(type)
+        val provenance = statedProvenance.forWrite(sourceSystem)
         val existingKey = nodeKey(type, key)
         val existing = graphStore.findNode(existingKey) ?: throw NodeNotFoundException(listOf(existingKey))
 
@@ -107,7 +110,7 @@ class NodeService(
             throw ImmutableIdentityException(identityPropertiesChanged(type, existing.props, expanded, existingKey))
         }
 
-        return graphStore.upsertNode(GraphNode(existingKey, expanded, Provenance.manual(by = currentPrincipal.current()))).also {
+        return graphStore.upsertNode(GraphNode(existingKey, expanded, provenance)).also {
             metrics.node(type, WriteOutcome.UPDATED)
         }
     }

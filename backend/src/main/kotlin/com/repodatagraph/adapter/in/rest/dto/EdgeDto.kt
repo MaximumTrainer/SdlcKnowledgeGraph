@@ -13,6 +13,8 @@ data class EdgeRequestBody(
     val fromId: String,
     val toId: String,
     val props: Map<String, Any?> = emptyMap(),
+    /** The system of record the relationship is stated as (#117); `manual` when left out. */
+    val provenance: ProvenanceRequest? = null,
 )
 
 /** Just enough of a node to identify it and show it, without inlining the whole thing at both ends. */

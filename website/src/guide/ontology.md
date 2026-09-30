@@ -155,7 +155,7 @@ every edge carries the same envelope:
 
 ```kotlin
 data class Provenance(
-    val sourceSystem: String,   // "github", "servicenow:prod", "aws:123456789012", "manual"
+    val sourceSystem: String,   // "manual", "github", "servicenow", "aws": one sources.yaml declares
     val sourceId: String?,      // the identifier in that system
     val ingestedAt: Instant,
     val observedAt: Instant?,   // when the source says it was true
@@ -187,10 +187,32 @@ with that of the latest write; merging several sources' provenance on one node (
 `sourceSystems`, keeping the highest `confidence`) is part of the connector work
 ([#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22)).
 
-Today every write comes from a person, through the interface or the API, so `sourceSystem` is
-always `manual`, `confidence` is `1.0`, `inferred` is `false` and `syncRunId` is null. The user
-interface shows the envelope on every node's page; drawing inferred edges differently from asserted
-ones will matter once a connector writes the first inferred one.
+A write through the API is `manual` unless it names another source, and then `confidence` is `1.0`,
+`inferred` is `false` and `syncRunId` is null; a connector's run stamps its own source and run. The
+user interface shows the envelope on every node's page; drawing inferred edges differently from
+asserted ones will matter once a connector writes the first inferred one.
+
+### Source systems
+
+The values `sourceSystem` may take are declared in the registry too, in
+[`sources.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/resources/ontology/v1/sources.yaml)
+([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117)), and published by `GET /api/v1/ontology` as `sources: [{name,
+description}]`, in declaration order, and in `ontology.json`, so the drift check covers them:
+
+| Source | What states it |
+| --- | --- |
+| `manual` | a principal writing through the API in its own name |
+| `github`, `servicenow` | those connectors |
+| `github-actions`, `dogfood-seed` | deployment reports and the seed job, through the ingest endpoints |
+| `aws` | the AWS connector, still to come |
+| `sdlc-knowledge-graph` | the application's own `SyncRun` and `ConnectorState` records |
+
+A node or edge write may name one of them as `{"provenance": {"sourceSystem": "github"}}` beside its
+`props`; a source not declared is refused with `400 {error: "unknown source system", sourceSystem,
+known}`. Naming any source but `manual` also needs the `graph:write:<source>` scope
+([AUTH](/guide/auth#source-scopes)), so a registry entry is also the name of a permission: it is
+lower-case words joined by hyphens, and the registry refuses to load a name that is not, a name
+declared twice, or a list without `manual`.
 
 ## Identity
 
@@ -225,10 +247,10 @@ labels that reach Cypher are declared ones.
 
 | Request | Result |
 | --- | --- |
-| `POST /api/v1/nodes/{type}` with `{props}` | `201` with the derived identity, and a `Location` |
+| `POST /api/v1/nodes/{type}` with `{props, provenance?}` | `201` with the derived identity, and a `Location` |
 | `GET /api/v1/nodes/{type}?limit=&cursor=` | `200 {items, nextCursor}`, in key order |
 | `GET /api/v1/nodes/{type}/{key}` | `200` or `404` |
-| `PUT /api/v1/nodes/{type}/{key}` with `{props}` | `200`, same id and same key |
+| `PUT /api/v1/nodes/{type}/{key}` with `{props, provenance?}` | `200`, same id and same key |
 | `DELETE /api/v1/nodes/{type}/{key}?cascade=` | `204`, or `409` while edges remain |
 
 The segment after the type is the derived key, which contains slashes for most types
@@ -283,6 +305,8 @@ expressed at all.
 | Either end does not exist | `404 {error: "node not found", missing: [...]}` |
 | Both ends the same node | `400 {error: "self edge", nodeId}` |
 | Property missing, wrong type, undeclared, or outside its enum | `400 {errors: [{field, message}]}` |
+| `provenance.sourceSystem` not declared in `sources.yaml` | `400 {error: "unknown source system", sourceSystem, known}` |
+| A source the token has no `graph:write:<source>` for | `403 {error: "insufficient scope", required, held}` |
 
 Every refusal carries what makes the next attempt possible. "Not allowed" without the pairs that are
 allowed would leave a client guessing, and a form cannot offer a choice it has not been told about.

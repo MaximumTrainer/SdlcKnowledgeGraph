@@ -258,6 +258,13 @@
             "additionalProperties" : { },
             "type" : "object"
           },
+          "provenance" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ProvenanceRequest"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "toId" : {
             "type" : "string"
           },
@@ -469,6 +476,13 @@
           "props" : {
             "additionalProperties" : { },
             "type" : "object"
+          },
+          "provenance" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ProvenanceRequest"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "props" ],
@@ -540,11 +554,17 @@
           "provenance" : {
             "$ref" : "#/components/schemas/ProvenanceEnvelopeResponse"
           },
+          "sources" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SourceSystemResponse"
+            },
+            "type" : "array"
+          },
           "version" : {
             "type" : "string"
           }
         },
-        "required" : [ "edgeTypes", "nodeTypes", "provenance", "version" ],
+        "required" : [ "edgeTypes", "nodeTypes", "provenance", "sources", "version" ],
         "type" : "object"
       },
       "Pipeline" : {
@@ -652,6 +672,14 @@
           }
         },
         "required" : [ "properties" ],
+        "type" : "object"
+      },
+      "ProvenanceRequest" : {
+        "properties" : {
+          "sourceSystem" : {
+            "type" : [ "string", "null" ]
+          }
+        },
         "type" : "object"
       },
       "Repository" : {
@@ -805,6 +833,18 @@
           }
         },
         "required" : [ "name", "ownedBy", "validFrom" ],
+        "type" : "object"
+      },
+      "SourceSystemResponse" : {
+        "properties" : {
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
         "type" : "object"
       },
       "SyncAccepted" : {
@@ -1258,7 +1298,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "State a relationship between two existing nodes",
+        "summary" : "State a relationship between two existing nodes, as manual or as a source the caller's scopes allow",
         "tags" : [ "Edges" ]
       }
     },
@@ -1791,7 +1831,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Create a node of a declared type, with a server-derived identity",
+        "summary" : "Create a node of a declared type, with a server-derived identity, as manual or a permitted source",
         "tags" : [ "Nodes" ]
       }
     },

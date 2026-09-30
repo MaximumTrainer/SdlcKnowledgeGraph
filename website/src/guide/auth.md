@@ -14,9 +14,11 @@ There are two kinds of principal:
 
 Both present a bearer JWT from the instance's identity provider (`AUTH_ISSUER_URI`) and pass the
 same gate, and what either may do is decided by the [scopes](#scopes) on its token
-([#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116)): `graph:read` to read the graph, `graph:write` to change it. With the
-development bypass (`AUTH_DISABLED=true`) none of this applies: every caller is `anonymous`, a user,
-and nothing is refused.
+([#116](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/116)): `graph:read` to read the graph, `graph:write` to change it, and
+`graph:write:<source>` to state facts as a system of record rather than as oneself
+([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117), [below](#source-scopes)). With the development bypass
+(`AUTH_DISABLED=true`) none of this applies: every caller is `anonymous`, a user, and no scope is
+checked.
 
 ## Scopes
 
@@ -27,6 +29,7 @@ and nothing is refused.
 | A GraphQL query or subscription | `graph:read` |
 | A GraphQL mutation | `graph:write` |
 | A GraphQL document holding a query and a mutation | both |
+| A node or edge write whose `provenance.sourceSystem` is not `manual` | `graph:write` and `graph:write:<source>` ([Source scopes](#source-scopes)) |
 | `GET /api/v1/ontology`, `GET /api/v1/ontology/nodes/{type}` | nothing: public, with or without a token |
 | The ingest endpoints, the webhook receivers | nothing: they have a credential of their own |
 
@@ -72,6 +75,63 @@ be served unguarded without one of them failing.
 A path outside every family - an actuator endpoint other than the public ones, the GraphiQL page -
 still needs a valid token, as it did before scopes, but no particular scope.
 
+### Source scopes
+
+A node or edge written through the API may say which system of record it speaks for
+([#117](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/117)), so that a connector's facts carry its source rather than `manual`:
+
+```json
+POST /api/v1/nodes/CloudResource
+{"props": {"provider": "aws", "resourceId": "arn:aws:s3:::acme", "resourceType": "s3-bucket", "name": "acme"},
+ "provenance": {"sourceSystem": "aws"}}
+```
+
+The same `provenance` object is accepted by `PUT /api/v1/nodes/{type}/{key}` and
+`POST /api/v1/edges`. It carries `sourceSystem` only: who wrote the fact, when and how sure are the
+server's to record. Left out, the write is `manual`, as every write was before.
+
+| `sourceSystem` | Needs |
+| --- | --- |
+| `manual`, or none | `graph:write` |
+| any other declared source, such as `github` | `graph:write` and `graph:write:github` |
+| a source `sources.yaml` does not declare | refused with `400`, whatever the token holds |
+
+So a connector granted `graph:write:github` can state GitHub's facts and no one else's, and a person,
+granted no source scope, can state only their own word. A write naming a source the token holds no
+scope for is refused before anything is written, with the same 403, challenge and `scope.refused`
+event as a missing `graph:write`:
+
+```json
+403 {"error": "insufficient scope", "required": ["graph:write", "graph:write:aws"],
+     "held": ["graph:read", "graph:write", "graph:write:github", "graph:write:github-actions"]}
+```
+
+`required` is everything the write needs and `held` every graph scope the token carries. A source
+nobody declared is a malformed write rather than a missing permission, so it is answered with the
+declared ones, and is refused under the development bypass too:
+
+```json
+400 {"error": "unknown source system", "sourceSystem": "jira",
+     "known": ["manual", "github", "github-actions", "servicenow", "aws", "dogfood-seed", "sdlc-knowledge-graph"]}
+```
+
+The sources are declared in the registry, in
+[`sources.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/resources/ontology/v1/sources.yaml),
+and published by `GET /api/v1/ontology` under `sources`. A name is matched exactly, and is
+lower-case words joined by hyphens, because it ends a scope. Which scope each connector needs is in
+[Adapters](/guide/adapters#source-systems-and-write-scopes).
+
+- **`graph:write` is still needed.** A source scope adds to it and never stands in for it: a token
+  holding `graph:write:github` alone is refused by the route check, naming `graph:write`.
+- **Only a write names a source.** Deleting a node or an edge names none and needs `graph:write`,
+  whoever wrote what is deleted. The GraphQL mutations name none either: they always write `manual`.
+- **Neither the ingest endpoints nor scheduled connector runs are checked.** The deployment and seed
+  endpoints stamp their own connector's source (`github-actions`, `dogfood-seed`) and are guarded by
+  `INGEST_TOKEN`; a sync the application runs itself is not a request. Every source they stamp is
+  declared all the same, which `SourceSystemsIT` checks.
+- **The source check runs after the request is let in**, because the source is in the body, and
+  before the store is touched. An undeclared source is refused before any scope is compared.
+
 ### In the web interface
 
 The web interface reads the scopes from the signed-in user's access token and offers only what they
@@ -87,11 +147,11 @@ scope mapping, to the realm roles `graph-reader` and `graph-writer`, and Keycloa
 with role mappings into a token when the user (or the client's service account) holds one of those
 roles. So the same client, `sdlc-ui`, issues `dan` both scopes and `reader` only `graph:read`:
 
-| Client | `graph:read` | `graph:write` |
-| --- | --- | --- |
-| `sdlc-ui` | default | default |
-| `github-connector` | default | default |
-| `triage-agent` | default | optional: only when the token request asks for `scope=graph:write` |
+| Client | `graph:read` | `graph:write` | Source scopes |
+| --- | --- | --- | --- |
+| `sdlc-ui` | default | default | none |
+| `github-connector` | default | default | `graph:write:github`, `graph:write:github-actions`, default |
+| `triage-agent` | default | optional: only when the token request asks for `scope=graph:write` | none |
 
 A default scope is in every token the client is issued; an optional one only when asked for, which
 is how the same agent gets a read-only token for a task that only reads:
@@ -108,6 +168,13 @@ curl -s http://localhost:8081/realms/sdlc/protocol/openid-connect/token \
 
 Asking for a scope a client was never given is refused by Keycloak (`invalid_scope`), not silently
 dropped.
+
+Each source but `manual` has a client scope of its own, `graph:write:<source>`, with *Include in
+token scope* on and no role scope mapping: it is granted by assigning it to a client, and a client
+holds it for every token it is issued. A service principal may be given several; no user is given
+any, since `sdlc-ui` has none, so a person can state only `manual` facts. Keycloak is where these
+grants live: registering a service principal records its owner, not its scopes, and the API reads
+what a principal may do from the token it presents, never from the registry.
 
 A realm export that declares any client scope replaces all of Keycloak's built-in ones, so the
 development realm spells those out too (`basic`, which puts `sub` in the token, among them). Keep
@@ -194,7 +261,9 @@ off. Its client id is the name you register. In the realm export that is:
 
 Give its client the graph scopes it needs as default client scopes (or `graph:write` as an optional
 one, for an agent that should usually only read), and give its service account the matching roles,
-`graph-reader` and `graph-writer` (see [Issuing them in Keycloak](#issuing-them-in-keycloak)).
+`graph-reader` and `graph-writer` (see [Issuing them in Keycloak](#issuing-them-in-keycloak)). A
+connector that states its system's facts also needs that source's `graph:write:<source>`, and only
+that one ([Source scopes](#source-scopes)).
 
 The connector or agent then asks the token endpoint for a token and sends it like any other:
 
@@ -224,7 +293,7 @@ and three confidential clients with the client-credentials grant:
 
 | Client | Secret | Graph scopes | Purpose |
 | --- | --- | --- | --- |
-| `github-connector` | `github-connector-dev-only` | both | An example connector |
+| `github-connector` | `github-connector-dev-only` | both, and `graph:write:github` and `graph:write:github-actions` | An example connector |
 | `triage-agent` | `triage-agent-dev-only` | `graph:read`, and `graph:write` when asked for | An example agent |
 | `rogue-agent` | `rogue-agent-dev-only` | none | A client nobody registers, to see the 403 |
 
@@ -236,7 +305,8 @@ imports. None of the clients is registered when the stack starts: register them 
 - The ingest endpoints (`/api/v1/ingest/...`) keep their own shared bearer token, `INGEST_TOKEN`,
   which is never decoded as a JWT. Their callers - the deploy pipeline and the seed job - could
   become service principals now, and their writes would then name them; that is a separate change.
-- A scheduled connector run inside the application writes as no principal: nobody asked for it.
+- A scheduled connector run inside the application writes as no principal: nobody asked for it. It
+  stamps its own source without a scope check, and so do the ingest endpoints.
 - Agents are `service` principals like connectors. An agent acting for a particular user (token
   exchange, so that the agent can see no more than that user) is an open question in ADR-0005, not
   part of this.

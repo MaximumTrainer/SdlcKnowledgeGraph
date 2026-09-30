@@ -34,6 +34,16 @@ data class PropertyDef(
     val enum: List<String>? = null,
 )
 
+/**
+ * A system of record a fact's provenance may name (#117): `manual`, for what a principal states
+ * through the API, or the system a connector reads. Declared in sources.yaml; writing as any source
+ * but `manual` needs the `graph:write:<name>` scope.
+ */
+data class SourceSystemDef(
+    val name: String,
+    val description: String? = null,
+)
+
 data class NodeTypeDef(
     val name: String,
     val description: String?,

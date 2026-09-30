@@ -3,8 +3,9 @@
 ## Status
 
 Accepted, amended by [#114](../../../issues/114) (AUTH-1, below), which is the first slice to be
-built, by [#115](../../../issues/115) (AUTH-2, machine principals, below) and by
-[#116](../../../issues/116) (AUTH-3, scopes, below). The rest of the sequence - making the login the
+built, by [#115](../../../issues/115) (AUTH-2, machine principals, below), by
+[#116](../../../issues/116) (AUTH-3, scopes, below) and by [#117](../../../issues/117) (AUTH-4,
+source-scoped writes, below). The rest of the sequence - making the login the
 default (AUTH-5) - elaborates those slices without changing their shape. The original work items are
 [#3](../../../issues/3) and [#2](../../../issues/2), tracked under [#94](../../../issues/94).
 
@@ -194,5 +195,39 @@ The service principal registry needs `graph:write` to change and `graph:read` to
 AUTH-2's users-only rule. The web interface hides what the user's scopes do not allow, and shows the
 refusal's reason if one slips through. `AUTH_DISABLED=true` checks no scopes.
 
-**Out of scope:** per-source write scopes (AUTH-4) and anything finer, which is policy
+**Out of scope:** per-source write scopes (AUTH-4, below) and anything finer, which is policy
 ([#95](../../../issues/95)), not scopes.
+
+## Amendment: AUTH-4, source-scoped writes (#117)
+
+**A write names the system it speaks for, and needs that system's scope.** A node or edge written
+through the API may carry `provenance.sourceSystem`; one that names none is `manual`, as every API
+write was before. Naming `manual` needs `graph:write`; naming any other source needs
+`graph:write:<source>` as well. A connector granted `graph:write:github` can assert GitHub's facts and
+no one else's, and a person, granted no source scope, only their own word. This is what lets a fact's
+provenance be trusted as far as the principal behind it is, and it is the precondition for a
+confidence policy ([#95](../../../issues/95)) and for connectors that write through the API.
+
+**The sources are declared in the registry.** `sources.yaml`, beside the node, edge and provenance
+declarations, lists every source a fact may name; it is published by `GET /api/v1/ontology`, rendered
+into `ontology.json` and held there by the drift check. A write naming an undeclared source is
+malformed, not unauthorised: it is refused with `400` and the list of known sources, whoever sends it
+and with the development bypass on. Every source the application's own connectors and ingest
+endpoints stamp is declared too, and a test fails when one is not.
+
+**Checked in the application, refused like any missing scope.** The source is in the request body,
+so the check cannot be a route rule; the node and edge services ask a port whether the principal may
+write as the source, before anything touches the store, and the adapter reads the token's graph
+scopes as the route check does. The refusal is the AUTH-3 one - the same `403 {"error":
+"insufficient scope", "required": [...], "held": [...]}`, challenge and security event - with
+`required` naming `graph:write` and the source's scope. The development bypass checks no source
+scopes.
+
+**Granted in the identity provider, not in the registry.** Each source but `manual` is a Keycloak
+client scope with no role mapping, granted by assigning it to a client; a service principal may hold
+several, and users are given none. The service principal registry records who owns a client, not
+what it may write: the token is the authority, so there is one place to grant or revoke a source.
+
+**Out of scope.** GraphQL mutations and deletes name no source and are unchanged; the ingest
+endpoints and scheduled connector runs stamp their own source without a scope check. Rules on how
+far a source's facts are trusted relative to another's are policy (#95), not scopes.

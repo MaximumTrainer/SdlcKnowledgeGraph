@@ -115,6 +115,34 @@ Webhook endpoints will be exempt from the bearer authentication that
 [ADR-0005](adr/0005-auth-oidc-github-first.md) introduces, but must verify their own signature. A
 connector that cannot verify a signature must reject the request.
 
+## Source systems and write scopes
+
+Every fact names the system that stated it, `provenance.sourceSystem`, and the systems a fact may
+name are declared once, in the registry's
+[`sources.yaml`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/resources/ontology/v1/sources.yaml)
+([#117](../../issues/117)). `GET /api/v1/ontology` publishes them under `sources`, and
+`SourceSystemsIT` fails while a connector the application runs stamps one that is not declared.
+
+A connector running inside the application stamps its source on what it writes and is not held to
+any scope: a scheduled run is not a request. A connector or agent writing **through the API**, as a
+service principal, names the source in the write (`{"props": ..., "provenance": {"sourceSystem":
+"github"}}`) and needs `graph:write` plus that source's own scope, so it can assert its own system's
+facts and nobody else's ([AUTH](AUTH.md#source-scopes)):
+
+| Source | Stated by | Scope to write it through the API |
+| --- | --- | --- |
+| `manual` | a person or a service principal, for itself | `graph:write` |
+| `github` | [the GitHub connector](#the-github-connector) | `graph:write:github` |
+| `github-actions` | [deployment reports](#self-ingestion-deployments-from-the-pipeline), through `INGEST_TOKEN` today | `graph:write:github-actions` |
+| `servicenow` | [the ServiceNow connector](#the-servicenow-connector) | `graph:write:servicenow` |
+| `aws` | the AWS connector, still to come ([#25](../../issues/25)) | `graph:write:aws` |
+| `dogfood-seed` | [the seed job](#seeding-this-repository-on-the-dogfood-instance), through `INGEST_TOKEN` | `graph:write:dogfood-seed` |
+| `sdlc-knowledge-graph` | the application itself, for its `SyncRun` and `ConnectorState` records | `graph:write:sdlc-knowledge-graph`, which no one should be given |
+
+A source name is lower-case words joined by hyphens, because it is the last segment of a scope. A
+qualified name such as `servicenow:prod` cannot be declared; a second instance of a system is told
+apart by its facts' keys and properties, not by a second source.
+
 ## Testing rule
 
 Every connector ships a fake of its source system, using WireMock for HTTP APIs or SDK-level mocks
@@ -240,24 +268,28 @@ connector small, and what stops six connectors each getting provenance slightly 
    stamped, that a tombstone closes rather than deletes. Your feature only needs to prove the part
    that is about *your* source system.
 2. **Implement `SourceConnector`**, or `ItsmConnector` / `CloudConnector` if one fits.
-3. **Declare every node and edge type you produce** in `descriptor()`. `AdapterRegistry` checks them
+3. **Declare your source system** in `sources.yaml`, as your descriptor's `sourceSystem`, and run
+   `./gradlew generateOntology`. `SourceSystemsIT` fails until you do, and a principal writing your
+   system's facts through the API needs `graph:write:<your source>`
+   ([above](#source-systems-and-write-scopes)).
+4. **Declare every node and edge type you produce** in `descriptor()`. `AdapterRegistry` checks them
    against the ontology at startup and refuses to boot on an unknown one, because a connector writing
    an undeclared type fills the graph with nodes no traversal can reach.
-4. **Return pages, not everything.** An estate does not fit in memory, and a page that fails leaves
+5. **Return pages, not everything.** An estate does not fit in memory, and a page that fails leaves
    the pages before it intact — the run is marked `PARTIAL` rather than lost.
-5. **Report a watermark** on each page if the source can say where you got to. It is stored only after
+6. **Report a watermark** on each page if the source can say where you got to. It is stored only after
    a wholly successful run, so a partial one is retried rather than skipped.
-6. **Never construct provenance.** Set `observedAt` when the source says the fact was true, and
+7. **Never construct provenance.** Set `observedAt` when the source says the fact was true, and
    `confidence`/`inferred` when you are guessing rather than reporting. Who reported it and in which
    run is stamped for you.
-7. **Never invent an identifier.** Return the properties an identity is derived from and let the
+8. **Never invent an identifier.** Return the properties an identity is derived from and let the
    resolver derive the key, or the same thing seen by two connectors becomes two nodes.
-8. **Emit a tombstone** when the source reports that something has ended. It closes the fact's
+9. **Emit a tombstone** when the source reports that something has ended. It closes the fact's
    validity; it does not delete it. A bad day at the source must not erase history. Facts the source
    simply stops mentioning are closed for you by reconciliation, below, if your full sync is complete.
-9. **Implement `verifyWebhook`** if you accept webhooks, using `WebhookSignatureVerifier` for the
+10. **Implement `verifyWebhook`** if you accept webhooks, using `WebhookSignatureVerifier` for the
    constant-time HMAC compare. It defaults to refusing everything, which is the right default.
-10. **Register configuration** under `connectors.<name>`, with credentials from environment
+11. **Register configuration** under `connectors.<name>`, with credentials from environment
     variables. Connectors are disabled by default: being on the classpath is not consent to reach a
     real system.
 

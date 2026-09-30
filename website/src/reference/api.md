@@ -15,7 +15,7 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/connectors/{name}/sync` | Ask a connector to sync now | 200 |
 | `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
 | `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees | 200 |
-| `POST` | `/api/v1/edges` | State a relationship between two existing nodes | 200 |
+| `POST` | `/api/v1/edges` | State a relationship between two existing nodes, as manual or as a source the caller's scopes allow | 200 |
 | `GET` | `/api/v1/graph/cloud-resources` | Cloud resources owned by a repository | 200 |
 | `GET` | `/api/v1/graph/dependencies` | Repositories this repository depends on | 200 |
 | `GET` | `/api/v1/graph/dependents` | Repositories that depend on this repository | 200 |
@@ -32,7 +32,7 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/ingest/deployment` | Record a deployment reported by the deploy pipeline | 200 |
 | `POST` | `/api/v1/ingest/seed` | Record repositories, teams, pipelines and dependencies read by the dogfood seed | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |
-| `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity | 200 |
+| `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity, as manual or a permitted source | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
 | `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id | 200 |
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity | 200 |

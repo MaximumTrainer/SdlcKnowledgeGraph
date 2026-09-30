@@ -5,7 +5,7 @@
 # a prov_ prefix (ProvenanceMapper), so none can collide with a domain property.
 provenance:
   properties:
-    - { name: sourceSystem, type: string, required: true, description: "The system of record: github, servicenow:prod, manual" }
+    - { name: sourceSystem, type: string, required: true, description: "The system of record, one sources.yaml declares: manual, github, servicenow and so on" }
     - { name: sourceId, type: string, required: false, description: "The fact's identifier in that system, when it has one" }
     - { name: ingestedAt, type: instant, required: true }
     - { name: observedAt, type: instant, required: false, description: "When the source says the fact was true" }

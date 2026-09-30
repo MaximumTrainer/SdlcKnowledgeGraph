@@ -52,8 +52,10 @@ class GraphWriteCountingTest {
             PropertyValidator(),
             graphStore,
             metrics,
-        ) { Principal.ANONYMOUS }
-    private val edges = EdgeService(registry, PropertyValidator(), graphStore, metrics) { Principal.ANONYMOUS }
+            StatedProvenance(registry, {}) { Principal.ANONYMOUS },
+        )
+    private val edges =
+        EdgeService(registry, PropertyValidator(), graphStore, metrics, StatedProvenance(registry, {}) { Principal.ANONYMOUS })
 
     private val platform = NodeKey("Team", "platform")
     private val web = NodeKey("Repository", "web")

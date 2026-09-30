@@ -4,6 +4,7 @@ import com.repodatagraph.domain.exception.InvalidEdgeException
 import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.UnknownEdgeTypeException
 import com.repodatagraph.domain.exception.UnknownNodeTypeException
+import com.repodatagraph.domain.exception.UnknownSourceSystemException
 import com.repodatagraph.domain.ontology.IdentityResolutionException
 import com.repodatagraph.observability.LogEvents
 import org.springframework.http.HttpStatus
@@ -32,6 +33,16 @@ class RestExceptionHandler {
     @ExceptionHandler(UnknownEdgeTypeException::class)
     fun onUnknownEdgeType(exception: UnknownEdgeTypeException): ResponseEntity<Map<String, Any>> =
         ResponseEntity.badRequest().body(mapOf("error" to "unknown edge type", "type" to exception.type))
+
+    /**
+     * A write naming a source system the registry does not declare (#117): malformed whoever sent it,
+     * so a 400 rather than a 403, listing the sources that are declared so the caller can pick one.
+     */
+    @ExceptionHandler(UnknownSourceSystemException::class)
+    fun onUnknownSourceSystem(exception: UnknownSourceSystemException): ResponseEntity<Map<String, Any>> =
+        ResponseEntity.badRequest().body(
+            mapOf("error" to "unknown source system", "sourceSystem" to exception.sourceSystem, "known" to exception.known),
+        )
 
     @ExceptionHandler(InvalidEdgeException::class)
     fun onInvalidEdge(exception: InvalidEdgeException): ResponseEntity<Map<String, Any>> =

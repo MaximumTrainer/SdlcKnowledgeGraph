@@ -8,6 +8,7 @@ import com.repodatagraph.domain.exception.NodeHasEdgesException
 import com.repodatagraph.domain.exception.NodeTypeNotFoundException
 import com.repodatagraph.domain.exception.NodeValidationException
 import com.repodatagraph.domain.exception.PropertyError
+import com.repodatagraph.domain.exception.UnknownSourceSystemException
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.NodePage
@@ -73,7 +74,7 @@ class NodeControllerTest {
     @Test
     fun `a key holding characters a URI reserves is encoded in the Location, not refused`() {
         val key = "ghcr.io/acme/payments@sha256:1#production#1790769600"
-        whenever(nodeUseCase.create(eq("Deployment"), any()))
+        whenever(nodeUseCase.create(eq("Deployment"), any(), any()))
             .thenReturn(GraphNode(NodeKey("Deployment", key), mapOf("status" to "SUCCESS"), Provenance.manual()))
 
         mockMvc
@@ -101,7 +102,7 @@ class NodeControllerTest {
 
     @Test
     fun `a type with an API of its own is not written through the generic one`() {
-        whenever(nodeUseCase.create(eq("ServicePrincipal"), any()))
+        whenever(nodeUseCase.create(eq("ServicePrincipal"), any(), any()))
             .thenThrow(ManagedNodeTypeException("ServicePrincipal", "/api/v1/service-principals"))
 
         mockMvc
@@ -114,7 +115,7 @@ class NodeControllerTest {
 
     @Test
     fun `POST returns 201, the derived identity and a Location header`() {
-        whenever(nodeUseCase.create(eq("Team"), any())).thenReturn(platform)
+        whenever(nodeUseCase.create(eq("Team"), any(), any())).thenReturn(platform)
 
         mockMvc
             .perform(body(post("/api/v1/nodes/Team"), mapOf("props" to mapOf("name" to "platform"))))
@@ -129,7 +130,7 @@ class NodeControllerTest {
 
     @Test
     fun `POST to a type the registry does not declare returns 404`() {
-        whenever(nodeUseCase.create(eq("Widget"), any())).thenThrow(NodeTypeNotFoundException("Widget"))
+        whenever(nodeUseCase.create(eq("Widget"), any(), any())).thenThrow(NodeTypeNotFoundException("Widget"))
 
         mockMvc
             .perform(body(post("/api/v1/nodes/Widget"), mapOf("props" to mapOf("name" to "x"))))
@@ -140,7 +141,7 @@ class NodeControllerTest {
 
     @Test
     fun `a validation failure returns 400 naming every field at fault`() {
-        whenever(nodeUseCase.create(eq("Team"), any()))
+        whenever(nodeUseCase.create(eq("Team"), any(), any()))
             .thenThrow(
                 NodeValidationException(
                     listOf(
@@ -161,7 +162,7 @@ class NodeControllerTest {
 
     @Test
     fun `an identity collision returns 409 with the id that already holds the key`() {
-        whenever(nodeUseCase.create(eq("Team"), any())).thenThrow(NodeExistsException("Team:platform"))
+        whenever(nodeUseCase.create(eq("Team"), any(), any())).thenThrow(NodeExistsException("Team:platform"))
 
         mockMvc
             .perform(body(post("/api/v1/nodes/Team"), mapOf("props" to mapOf("name" to "platform"))))
@@ -172,7 +173,7 @@ class NodeControllerTest {
 
     @Test
     fun `PUT returns 200 and the updated node`() {
-        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any())).thenReturn(platform)
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any())).thenReturn(platform)
 
         mockMvc
             .perform(body(put("/api/v1/nodes/Team/platform"), mapOf("props" to mapOf("name" to "platform"))))
@@ -181,8 +182,68 @@ class NodeControllerTest {
     }
 
     @Test
+    fun `the source a POST names is handed to the use case (#117)`() {
+        whenever(nodeUseCase.create(eq("Team"), any(), any())).thenReturn(platform)
+
+        mockMvc
+            .perform(
+                body(
+                    post("/api/v1/nodes/Team"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("sourceSystem" to "github")),
+                ),
+            ).andExpect(status().isCreated)
+
+        verify(nodeUseCase).create("Team", mapOf("name" to "platform"), "github")
+    }
+
+    @Test
+    fun `a POST naming no source states a manual fact (#117)`() {
+        whenever(nodeUseCase.create(eq("Team"), any(), any())).thenReturn(platform)
+
+        mockMvc
+            .perform(body(post("/api/v1/nodes/Team"), mapOf("props" to mapOf("name" to "platform"))))
+            .andExpect(status().isCreated)
+
+        verify(nodeUseCase).create("Team", mapOf("name" to "platform"), "manual")
+    }
+
+    @Test
+    fun `the source a PUT names is handed to the use case (#117)`() {
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any())).thenReturn(platform)
+
+        mockMvc
+            .perform(
+                body(
+                    put("/api/v1/nodes/Team/platform"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("sourceSystem" to "servicenow")),
+                ),
+            ).andExpect(status().isOk)
+
+        verify(nodeUseCase).update("Team", "platform", mapOf("name" to "platform"), "servicenow")
+    }
+
+    @Test
+    fun `a source the registry does not declare is a 400 listing the known ones (#117)`() {
+        whenever(nodeUseCase.create(eq("Team"), any(), eq("jira")))
+            .thenThrow(UnknownSourceSystemException("jira", listOf("manual", "github", "aws")))
+
+        mockMvc
+            .perform(
+                body(
+                    post("/api/v1/nodes/Team"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("sourceSystem" to "jira")),
+                ),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("unknown source system"))
+            .andExpect(jsonPath("$.sourceSystem").value("jira"))
+            .andExpect(jsonPath("$.known.length()").value(3))
+            .andExpect(jsonPath("$.known[0]").value("manual"))
+            .andExpect(jsonPath("$.known[2]").value("aws"))
+    }
+
+    @Test
     fun `PUT that would move the node to another identity returns 409 naming the fields`() {
-        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any()))
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any()))
             .thenThrow(ImmutableIdentityException(listOf("name")))
 
         mockMvc

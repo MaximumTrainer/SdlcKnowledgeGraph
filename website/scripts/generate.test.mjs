@@ -87,6 +87,21 @@ describe('ontologyPage', () => {
   test('is generated, and says so', () => {
     assert.ok(page.includes('DO NOT EDIT'))
   })
+
+  test('documents every source system and the scope that writes as it (#117)', () => {
+    const withSources = ontologyPage({
+      ...ontology,
+      sources: [
+        { name: 'manual', description: 'Stated through the API' },
+        { name: 'github', description: null }
+      ]
+    })
+
+    assert.ok(withSources.includes('## Source systems'))
+    assert.ok(withSources.includes('| `manual` | `graph:write` | Stated through the API |'))
+    assert.ok(withSources.includes('| `github` | `graph:write:github` |  |'))
+    assert.ok(!page.includes('## Source systems'))
+  })
 })
 
 describe('adrIndexPage', () => {

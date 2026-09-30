@@ -1,0 +1,19 @@
+# The source systems a fact's provenance may name (#117). See docs/AUTH.md.
+#
+# A node or edge written through the API names the system of record it speaks for as
+# provenance.sourceSystem, and a write that names none is manual. Naming `manual` needs the graph:write
+# scope; naming any other source needs graph:write:<name> as well, so a connector can assert only its
+# own system's facts. A write naming a source not declared here is refused with 400.
+#
+# Declared beside the types so the list is one list: served by GET /api/v1/ontology under `sources`,
+# rendered into ontology.json and held to it by the ontology drift check. A name is lower-case words
+# joined by hyphens, because it is the last segment of a scope. Every source a connector or ingest
+# endpoint stamps is declared here, which SourceSystemsIT checks.
+sources:
+  - { name: manual, description: "Stated through the API by the principal that made the write. Needs graph:write only" }
+  - { name: github, description: "Repositories, teams, manifests and ownership read from GitHub by the GitHub connector" }
+  - { name: github-actions, description: "Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment)" }
+  - { name: servicenow, description: "Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector" }
+  - { name: aws, description: "Cloud resources read from AWS. Declared for the AWS connector; none ships yet" }
+  - { name: dogfood-seed, description: "What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed)" }
+  - { name: sdlc-knowledge-graph, description: "The graph's record of itself: the sync runs and connector states it keeps" }

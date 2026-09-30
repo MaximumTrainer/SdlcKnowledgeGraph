@@ -311,3 +311,18 @@ second relationship.
 | `DEPENDS_ON` | `scope` | `string` | no |
 | `DEPENDS_ON` | `relType` | `string` | no |
 | `BUILT_FROM` | `commitSha` | `string` | no |
+
+## Source systems
+
+What `provenance.sourceSystem` may name. A write through the API naming any source but
+`manual` also needs that source's scope; see [Authentication](/guide/auth#source-scopes).
+
+| Source | Scope to write as it | Description |
+| --- | --- | --- |
+| `manual` | `graph:write` | Stated through the API by the principal that made the write. Needs graph:write only |
+| `github` | `graph:write:github` | Repositories, teams, manifests and ownership read from GitHub by the GitHub connector |
+| `github-actions` | `graph:write:github-actions` | Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) |
+| `servicenow` | `graph:write:servicenow` | Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector |
+| `aws` | `graph:write:aws` | Cloud resources read from AWS. Declared for the AWS connector; none ships yet |
+| `dogfood-seed` | `graph:write:dogfood-seed` | What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed) |
+| `sdlc-knowledge-graph` | `graph:write:sdlc-knowledge-graph` | The graph's record of itself: the sync runs and connector states it keeps |

@@ -18,6 +18,8 @@ interface EdgeUseCase {
      * @throws com.repodatagraph.domain.exception.SelfEdgeException if both ends are the same node
      * @throws com.repodatagraph.domain.exception.EdgeValidationException if the properties do not satisfy the registry
      * @throws com.repodatagraph.domain.exception.NodeNotFoundException if either end does not exist
+     * @throws com.repodatagraph.domain.exception.UnknownSourceSystemException if the registry does not declare the source
+     * @throws com.repodatagraph.domain.exception.SourceNotPermittedException if the principal may not write as the source
      */
     fun create(request: EdgeRequest): EdgeWrite
 

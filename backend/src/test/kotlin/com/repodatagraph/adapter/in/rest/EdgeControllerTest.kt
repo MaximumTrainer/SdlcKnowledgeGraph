@@ -7,7 +7,9 @@ import com.repodatagraph.domain.exception.NodeNotFoundException
 import com.repodatagraph.domain.exception.PropertyError
 import com.repodatagraph.domain.exception.SelfEdgeException
 import com.repodatagraph.domain.exception.UnknownEdgeTypeException
+import com.repodatagraph.domain.exception.UnknownSourceSystemException
 import com.repodatagraph.domain.model.Direction
+import com.repodatagraph.domain.model.EdgeRequest
 import com.repodatagraph.domain.model.EdgeView
 import com.repodatagraph.domain.model.EdgeWrite
 import com.repodatagraph.domain.model.GraphEdge
@@ -15,8 +17,10 @@ import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.port.`in`.EdgeUseCase
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -88,6 +92,51 @@ class EdgeControllerTest {
             .andExpect(jsonPath("$.to.key").value("github.com/acme/shared-lib"))
             .andExpect(jsonPath("$.props.kind").value("library"))
             .andExpect(jsonPath("$.provenance.sourceSystem").value("manual"))
+    }
+
+    @Test
+    fun `the source the body names is handed to the use case (#117)`() {
+        whenever(edgeUseCase.create(any())).thenReturn(EdgeWrite(edge, "DEPENDED_ON_BY", created = true))
+
+        mockMvc
+            .perform(
+                post("/api/v1/edges")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body(createRequest + ("provenance" to mapOf("sourceSystem" to "github")))),
+            ).andExpect(status().isCreated)
+
+        val stated = argumentCaptor<EdgeRequest>()
+        verify(edgeUseCase).create(stated.capture())
+        assertEquals("github", stated.firstValue.sourceSystem)
+    }
+
+    @Test
+    fun `a body naming no source states a manual fact (#117)`() {
+        whenever(edgeUseCase.create(any())).thenReturn(EdgeWrite(edge, "DEPENDED_ON_BY", created = true))
+
+        mockMvc
+            .perform(post("/api/v1/edges").contentType(MediaType.APPLICATION_JSON).content(body(createRequest)))
+            .andExpect(status().isCreated)
+
+        val stated = argumentCaptor<EdgeRequest>()
+        verify(edgeUseCase).create(stated.capture())
+        assertEquals("manual", stated.firstValue.sourceSystem)
+    }
+
+    @Test
+    fun `a source the registry does not declare is a 400 listing the known ones (#117)`() {
+        whenever(edgeUseCase.create(any())).thenThrow(UnknownSourceSystemException("jira", listOf("manual", "github")))
+
+        mockMvc
+            .perform(
+                post("/api/v1/edges")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body(createRequest + ("provenance" to mapOf("sourceSystem" to "jira")))),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("unknown source system"))
+            .andExpect(jsonPath("$.sourceSystem").value("jira"))
+            .andExpect(jsonPath("$.known[0]").value("manual"))
+            .andExpect(jsonPath("$.known[1]").value("github"))
     }
 
     @Test

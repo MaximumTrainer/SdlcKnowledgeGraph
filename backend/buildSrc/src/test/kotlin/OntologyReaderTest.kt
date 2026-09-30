@@ -59,4 +59,14 @@ class OntologyReaderTest {
 
         assertEquals(listOf("host", "org", "name"), repository.identity)
     }
+
+    @Test
+    fun `the registry declares the source systems a write may name, manual first (#117)`() {
+        val names = ontology.sources.map { it.name }
+
+        assertEquals("manual", names.first(), names.toString())
+        listOf("manual", "github", "github-actions", "aws", "servicenow")
+            .forEach { assertTrue(it in names, "$it is missing from $names") }
+        ontology.sources.forEach { assertTrue(!it.description.isNullOrBlank(), "${it.name} has no description") }
+    }
 }
