@@ -1,0 +1,19 @@
+edges:
+  OWNED_BY:
+    description: Ownership of a repository by a team.
+    from: [Repository]
+    to: [Team]
+    inverse: OWNS
+    properties:
+      - name: rule
+        type: string
+        required: false
+        description: "Which evidence established the ownership"
+        enum: [manual, codeowners]
+        examples: [codeowners]
+
+  PROVIDES:
+    description: A repository provides a running service.
+    from: [Repository]
+    to: [Repository]
+    inverse: PROVIDED_BY
