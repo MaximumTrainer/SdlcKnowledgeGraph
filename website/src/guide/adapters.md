@@ -622,11 +622,18 @@ The report becomes:
 | Fact | Key |
 | --- | --- |
 | `Repository`, merged into the one already there | `github.com/org/name` |
-| `Pipeline`, with `lastRunStatus` | `github-actions:<repoKey>:<workflowPath>` |
+| `Pipeline`, with `lastRunStatus` `success` or `failure` | `github-actions:<repoKey>:<workflowPath>` |
 | `Artifact` per entry, with `commitSha` and the tag as `version` | `<registry>/<name>@<digest>` |
 | `Deployment` per artifact, with `status`, `deployedBy` | `<artifactKey>#<environmentKey>#<epoch seconds>` |
-| `Environment`, with `prod`, `stg` and the other aliases resolved | `production`, `staging`, … |
+| `Environment`, with `prod`, `stg` and the other aliases resolved, typed by its name where that is a type the ontology knows and `other` where it is not | `production`, `staging`, … |
 | `HAS_PIPELINE`, `BUILT_FROM {commitSha}`, `DEPLOYED_TO`, `TO_ENVIRONMENT` | between the above |
+
+A Deployment keeps the report's `SUCCESS` or `FAILED`, which is what why-failed reads, while the
+pipeline's last run is told in the words `Pipeline.lastRunStatus` allows, the ones the seed uses too
+([#81](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/81)). A pipeline provider is
+written as reported, even one outside `Pipeline.provider`'s enum, because it is part of the key; the
+enum conformance report ([Ontology](/guide/ontology#enums-and-the-writers-they-had-to-agree-with))
+lists any such value.
 
 Every fact has provenance `sourceSystem=github-actions`, with `sourceId` set to the run URL and
 `observedAt` set to the time of the deploy. `GET /api/v1/graph/deployments?repoId=…` then lists the
@@ -679,8 +686,9 @@ through the `dogfood-seed` connector.
 
 An edge names its ends by their position in `nodes`. A seed may write only `Repository`, `Team` and
 `Pipeline` nodes and `OWNED_BY`, `HAS_PIPELINE` and `DEPENDS_ON` edges. Every property is checked
-against the ontology exactly as the node and edge APIs check it, and an edge only joins the types the
-ontology lets it join. A batch holds at most 500 nodes and 2000 edges.
+against the ontology exactly as the node and edge APIs check it, enums and formats included, and a
+Repository's `url` is judged as it will be stored, so any remote form passes its `url` format. An
+edge only joins the types the ontology lets it join. A batch holds at most 500 nodes and 2000 edges.
 
 The answers are those of the deployment endpoint: `202 {created, nodes, edges}`, `400 {error, fields}`
 naming every problem, `401` without the token and `503` on an instance with none. Keys are derived,
@@ -689,7 +697,9 @@ same batch twice is one delivery. Every fact has provenance `sourceSystem=dogfoo
 told from what the GitHub connector writes once it replaces the seed.
 
 The writer is `scripts/dogfood-seed.mjs`, run daily and on demand by `.github/workflows/dogfood-seed.yml`.
-It reads the repository, `CODEOWNERS`, each workflow file's latest run on the default branch, and the
+It reads the repository, `CODEOWNERS`, each workflow file's latest run on the default branch (its
+conclusion, or its status while it has none, folded onto `success`, `failure`, `cancelled`,
+`in_progress` or `unknown`), and the
 dependencies in `frontend/package.json` and `backend/build.gradle.kts` that name a git remote. Registry
 versions and local paths are not repositories, so they are left out. It fails when the instance cannot
 be reached, and when the instance holds more nodes than `SEED_NODE_CEILING` (1000), the cheap sign
