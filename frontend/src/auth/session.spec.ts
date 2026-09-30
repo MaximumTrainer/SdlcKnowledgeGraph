@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { User } from 'oidc-client-ts'
 import { CALLBACK_PATH, createAuthSession, settings, type SignInManager } from './session'
+import { accessTokenWith } from '@/test/authSession'
 
 /**
  * The session is a thin layer over oidc-client-ts's UserManager, which does the protocol: the
@@ -87,5 +88,27 @@ describe('createAuthSession', () => {
     await session.accessToken()
 
     expect(session.username.value).toBe('dan')
+  })
+
+  it('knows which graph scopes the signed-in user holds (#116)', async () => {
+    const token = accessTokenWith({ sub: 'reader', scope: 'openid graph:read' })
+    const { manager } = fakeManager(user({ access_token: token }))
+    const session = createAuthSession(config, manager)
+
+    await session.accessToken()
+
+    expect(session.scopes.value).toEqual(['graph:read'])
+  })
+
+  it('holds no scopes before a session loads, and learns them when one does', () => {
+    const { manager, loaded } = fakeManager(null)
+    const session = createAuthSession(config, manager)
+    expect(session.scopes.value).toEqual([])
+
+    loaded.forEach(cb =>
+      cb(user({ access_token: accessTokenWith({ scope: 'graph:read graph:write' }) }))
+    )
+
+    expect(session.scopes.value).toEqual(['graph:read', 'graph:write'])
   })
 })

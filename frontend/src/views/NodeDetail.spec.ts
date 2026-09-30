@@ -5,6 +5,13 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { server } from '@/test/msw/server'
 import { ontologyFixture } from '@/test/fixtures/ontology'
 import NodeDetail from './NodeDetail.vue'
+import {
+  insufficientScope,
+  providing,
+  READ_ONLY,
+  READ_WRITE,
+  sessionWith
+} from '@/test/authSession'
 
 /**
  * A Repository node is a pointer at something that exists elsewhere, and the first thing anyone
@@ -147,5 +154,61 @@ describe('NodeDetail', () => {
     const wrapper = await mountDetail('Repository', 'github.com/acme/payments')
 
     expect(wrapper.find('[data-test="provenance-written-by"]').text()).toBe('not recorded')
+  })
+})
+
+/** What a user may change is what their token's scopes allow (#116). */
+describe('NodeDetail, for a user who may only read', () => {
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/nodes/Team/platform', () => HttpResponse.json(team)),
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/edges', () => HttpResponse.json({ items: [] }))
+    )
+  })
+
+  const detailAs = async (scopes: string[]) => {
+    const r = router()
+    await r.push('/nodes/Team/platform')
+    await r.isReady()
+    const wrapper = mount(NodeDetail, {
+      global: { plugins: [r], provide: providing(sessionWith(scopes)) },
+      props: { type: 'Team', id: 'platform' }
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('shows the node but offers no way to edit, delete or relate it', async () => {
+    const wrapper = await detailAs(READ_ONLY)
+
+    expect(wrapper.find('h1').text()).toBe('platform')
+    expect(wrapper.find('[data-test="edit-node"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="delete-node"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-relationship"]').exists()).toBe(false)
+  })
+
+  it('offers them to a user who may write', async () => {
+    const wrapper = await detailAs(READ_WRITE)
+
+    expect(wrapper.find('[data-test="edit-node"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="delete-node"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="add-relationship"]').exists()).toBe(true)
+  })
+
+  it('says which scope was missing when a delete is refused for it', async () => {
+    server.use(
+      http.delete('/api/v1/nodes/Team/platform', () =>
+        HttpResponse.json(insufficientScope, { status: 403 })
+      )
+    )
+    const wrapper = await detailAs(READ_WRITE)
+
+    await wrapper.find('[data-test="delete-node"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.error').text()).toBe(
+      'You do not have permission to do that: it needs graph:write, and you hold graph:read.'
+    )
   })
 })

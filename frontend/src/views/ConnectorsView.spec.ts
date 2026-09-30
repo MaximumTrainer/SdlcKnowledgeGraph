@@ -3,6 +3,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/test/msw/server'
 import ConnectorsView from './ConnectorsView.vue'
+import {
+  insufficientScope,
+  providing,
+  READ_ONLY,
+  READ_WRITE,
+  sessionWith
+} from '@/test/authSession'
 
 /**
  * The connectors screen answers one question before any other: is anything actually ingesting?
@@ -117,5 +124,43 @@ describe('ConnectorsView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-test="sync-sleeping"]').exists()).toBe(false)
+  })
+})
+
+/** Starting a sync writes to the graph, so it needs graph:write (#116). */
+describe('ConnectorsView, for a user who may only read', () => {
+  beforeEach(() => {
+    server.use(http.get('/api/v1/connectors', () => HttpResponse.json(connectors)))
+  })
+
+  const viewAs = async (scopes: string[]) => {
+    const wrapper = mount(ConnectorsView, {
+      global: { provide: providing(sessionWith(scopes)) }
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('shows every connector but offers no sync', async () => {
+    const wrapper = await viewAs(READ_ONLY)
+
+    expect(wrapper.find('[data-test="enabled-fake"]').text()).toBe('enabled')
+    expect(wrapper.find('[data-test="sync-fake"]').exists()).toBe(false)
+  })
+
+  it('says which scope was missing when a sync is refused for it', async () => {
+    server.use(
+      http.post('/api/v1/connectors/fake/sync', () =>
+        HttpResponse.json(insufficientScope, { status: 403 })
+      )
+    )
+    const wrapper = await viewAs(READ_WRITE)
+
+    await wrapper.find('[data-test="sync-fake"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="sync-result"]').text()).toBe(
+      'You do not have permission to do that: it needs graph:write, and you hold graph:read.'
+    )
   })
 })

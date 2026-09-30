@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { server } from '@/test/msw/server'
 import { ontologyFixture } from '@/test/fixtures/ontology'
 import NodeList from './NodeList.vue'
+import { providing, READ_ONLY, READ_WRITE, sessionWith } from '@/test/authSession'
 
 /**
  * The columns are the type's declared properties, not a hand-written list, which is what lets a type
@@ -78,5 +79,37 @@ describe('NodeList', () => {
     const wrapper = await listFor('Team')
 
     expect(wrapper.text()).toContain('No Team nodes yet')
+  })
+})
+
+/** What a user may change is what their token's scopes allow (#116). */
+describe('NodeList, for a user who may only read', () => {
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/nodes/Team', () => HttpResponse.json({ items: teams, nextCursor: null }))
+    )
+  })
+
+  const listAs = async (scopes: string[]) => {
+    const wrapper = mount(NodeList, {
+      props: { type: 'Team' },
+      global: { plugins: [router()], provide: providing(sessionWith(scopes)) }
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('offers no way to create a node', async () => {
+    const wrapper = await listAs(READ_ONLY)
+
+    expect(wrapper.findAll('[data-test="node-key"]')).toHaveLength(2)
+    expect(wrapper.find('[data-test="new-node"]').exists()).toBe(false)
+  })
+
+  it('offers it to a user who may write', async () => {
+    const wrapper = await listAs(READ_WRITE)
+
+    expect(wrapper.find('[data-test="new-node"]').exists()).toBe(true)
   })
 })
