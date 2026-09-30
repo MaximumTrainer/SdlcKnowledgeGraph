@@ -6,6 +6,7 @@ enum class PropertyType(
 ) {
     STRING("string"),
     INT("int"),
+    FLOAT("float"),
     BOOLEAN("boolean"),
     INSTANT("instant"),
     STRING_ARRAY("string[]"),

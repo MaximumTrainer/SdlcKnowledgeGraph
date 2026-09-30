@@ -314,6 +314,19 @@ jobs:
           CONFORMANCE_BASE_URL: http://localhost:5173
           EXPECTED_COMMIT: ${{ github.sha }}
         run: npx playwright test --config=conformance.config.ts
+      # The login (#114): the same images restarted behind the Keycloak of the auth profile, with the
+      # development realm. The API refuses a request without a token, the probes stay public, and the
+      # browser signs in as dan, creates a node and reads his name in its provenance. The default stack
+      # above runs the development bypass, since it has no identity provider.
+      - name: Restart the stack behind a login
+        run: docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --wait
+        env:
+          SDLC_COMMIT: ${{ github.sha }}
+      - name: Browser tests behind a login
+        working-directory: e2e
+        env:
+          CI: "true"
+        run: npx playwright test --config=auth.config.ts
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
@@ -323,7 +336,7 @@ jobs:
           if-no-files-found: ignore
       - name: Stack logs on failure
         if: failure()
-        run: docker compose --profile monitoring logs --no-color
+        run: docker compose --profile monitoring --profile auth logs --no-color
       - name: Stop the stack
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile monitoring --profile auth down -v

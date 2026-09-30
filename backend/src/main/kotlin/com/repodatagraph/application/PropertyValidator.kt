@@ -91,6 +91,7 @@ class PropertyValidator {
             // Booleans are numbers in some serialisations; accepting one here would let `true`
             // become 1 in the graph, which no later reader could tell from a real count.
             PropertyType.INT -> value is Int || value is Long || value is Short
+            PropertyType.FLOAT -> value is Number
             PropertyType.BOOLEAN -> value is Boolean
             PropertyType.INSTANT -> value is Instant || (value is String && runCatching { Instant.parse(value) }.isSuccess)
             PropertyType.STRING_ARRAY -> value is Collection<*> && value.all { it is String }

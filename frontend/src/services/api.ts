@@ -233,7 +233,7 @@ export const edgeApi = {
  */
 export interface OntologyProperty {
   name: string
-  type: 'string' | 'int' | 'boolean' | 'instant' | 'string[]'
+  type: 'string' | 'int' | 'float' | 'boolean' | 'instant' | 'string[]'
   required: boolean
   description: string | null
   /** Present when the registry constrains the value, so a form can offer a choice rather than a box. */
@@ -262,6 +262,8 @@ export interface Ontology {
   version: string
   nodeTypes: OntologyNodeType[]
   edgeTypes: OntologyEdgeType[]
+  /** The provenance envelope every node and edge carries (#114). */
+  provenance?: { properties: OntologyProperty[] }
 }
 
 /**

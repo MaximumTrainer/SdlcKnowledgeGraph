@@ -118,6 +118,14 @@
       "type" : "string"
     } ]
   }, {
+    "name" : "auth.disabled",
+    "level" : "WARN",
+    "message" : "authentication is disabled; every request is anonymous",
+    "description" : "The API started with AUTH_DISABLED=true, the development bypass (#114). Every request is let through and every write is recorded as anonymous. Logged on every start, and refused outright under the prod profile.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ ]
+  }, {
     "name" : "ontology.constraints.ensured",
     "level" : "INFO",
     "message" : "key constraints ensured",

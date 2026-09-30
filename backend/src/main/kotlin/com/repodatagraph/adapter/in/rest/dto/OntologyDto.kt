@@ -13,6 +13,8 @@ data class OntologyResponse(
     val version: String,
     val nodeTypes: List<NodeTypeResponse>,
     val edgeTypes: List<EdgeTypeResponse>,
+    /** The provenance envelope every node and edge carries, so a client can render it generically. */
+    val provenance: ProvenanceEnvelopeResponse,
 ) {
     companion object {
         fun from(registry: OntologyRegistry): OntologyResponse =
@@ -20,6 +22,7 @@ data class OntologyResponse(
                 version = registry.version,
                 nodeTypes = registry.allNodeTypes().map(NodeTypeResponse::from),
                 edgeTypes = registry.allEdgeTypes().map(EdgeTypeResponse::from),
+                provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
             )
     }
 }
@@ -64,6 +67,10 @@ data class EdgeTypeResponse(
             )
     }
 }
+
+data class ProvenanceEnvelopeResponse(
+    val properties: List<PropertyResponse>,
+)
 
 data class PropertyResponse(
     val name: String,

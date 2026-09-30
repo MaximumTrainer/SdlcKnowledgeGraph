@@ -2,7 +2,8 @@
 #
 #   docker compose up -d neo4j                 # database only (run backend/frontend from source)
 #   docker compose up -d --build --wait        # full stack: neo4j + backend (8080) + frontend (5173)
-#   docker compose --profile auth up -d        # + Keycloak (8081) as the local OIDC provider
+#   docker compose -f compose.yaml -f compose.auth.yaml --profile auth up -d --build --wait
+#                                              # + Keycloak (8081), with the API and UI behind a login
 #   docker compose --profile governance up -d  # + OPA (8181) for policy-as-code
 #   docker compose --profile monitoring up -d --build --wait   # + Prometheus (9090), Alertmanager (9093), Grafana (3000)
 #   docker compose down -v                     # stop and wipe the graph
@@ -44,6 +45,12 @@ services:
       # Writable by default, which is what local work and the browser suite need. CI restarts the
       # backend read-only to run the deployment conformance suite against it.
       SDLC_READ_ONLY: ${SDLC_READ_ONLY:-false}
+      # No identity provider in the default stack, so the API runs its development bypass: every
+      # caller is anonymous, and it says so on every start (#114). compose.auth.yaml turns the login on
+      # against the Keycloak in the auth profile.
+      AUTH_DISABLED: ${AUTH_DISABLED:-true}
+      AUTH_ISSUER_URI: ${AUTH_ISSUER_URI:-}
+      AUTH_JWK_SET_URI: ${AUTH_JWK_SET_URI:-}
     ports:
       - "8080:8080"
     depends_on:
@@ -60,6 +67,10 @@ services:
     build:
       context: ./frontend
     image: sdlc-graph-frontend:local
+    environment:
+      # Empty: no login, matching the API's bypass above. compose.auth.yaml names the Keycloak realm.
+      OIDC_AUTHORITY: ${OIDC_AUTHORITY:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-sdlc-ui}
     ports:
       - "5173:80"
     depends_on:
@@ -73,16 +84,28 @@ services:
       timeout: 3s
       retries: 12
 
-  # Local OIDC provider stand-in (see docs/adr/0005-auth-oidc-github-first.md). Admin console: http://localhost:8081
+  # Local OIDC provider (docs/adr/0005-auth-oidc-github-first.md). Admin console: http://localhost:8081
+  # It imports the development realm the acceptance suite signs in against: realm "sdlc", the public
+  # PKCE client "sdlc-ui" for the web interface, and the user "dan" (password "dan").
   keycloak:
     profiles: ["auth"]
     image: quay.io/keycloak/keycloak:26.0
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./backend/src/acceptanceTest/resources/keycloak:/opt/keycloak/data/import:ro
     ports:
       - "8081:8080"
+    healthcheck:
+      # The image has no curl or wget, so bash asks the management port directly.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
 
   # Policy-as-code engine for RBAC decisions (M3). Policies will be mounted from policy/ once #30 lands.
   opa:

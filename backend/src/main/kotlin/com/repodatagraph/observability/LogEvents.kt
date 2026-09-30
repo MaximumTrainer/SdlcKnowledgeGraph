@@ -73,6 +73,10 @@ object LogEvents {
     ) =
         EventLog.emit("ingest.unauthorized", Level.WARN, "ingest refused without a valid token", mapOf("endpoint" to endpoint), security = true)
 
+    /** The API started with AUTH_DISABLED=true, the development bypass (#114). Every request is let through and every write is recorded as anonymous. Logged on every start, and refused outright under the prod profile. */
+    fun authDisabled() =
+        EventLog.emit("auth.disabled", Level.WARN, "authentication is disabled; every request is anonymous", mapOf(), security = true)
+
     /** The store has a uniqueness constraint on the key of every node type. */
     fun ontologyConstraintsEnsured(
         nodeTypes: Int,

@@ -122,6 +122,12 @@ const remove = async (cascade: boolean) => {
         <dd>{{ node.provenance.ingestedAt }}</dd>
         <dt>inferred</dt>
         <dd>{{ node.provenance.inferred ? 'yes' : 'no' }}</dd>
+        <dt>written by</dt>
+        <dd data-test="provenance-written-by">{{ node.provenance.writtenBy ?? 'not recorded' }}</dd>
+        <dt>principal</dt>
+        <dd data-test="provenance-principal-type">
+          {{ node.provenance.principalType ?? 'not recorded' }}
+        </dd>
       </dl>
     </template>
   </section>

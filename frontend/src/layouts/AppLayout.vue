@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { infoApi, ontologyApi, type DeploymentInfo, type OntologyNodeType } from '@/services/api'
+import { AUTH_SESSION } from '@/auth/session'
 
 /**
  * The frame around every page: a header whose node-type navigation comes from the ontology, so a
@@ -9,6 +10,10 @@ import { infoApi, ontologyApi, type DeploymentInfo, type OntologyNodeType } from
  *
  * Meta types (the graph's own bookkeeping, such as sync runs) are left out of the navigation.
  */
+// Null when the deployment has no login (#114); the header then names no user.
+const session = inject(AUTH_SESSION, null)
+const username = computed(() => session?.username.value ?? null)
+
 const nodeTypes = ref<OntologyNodeType[] | null>(null)
 const ontologyVersion = ref<string | null>(null)
 const ontologyFailed = ref(false)
@@ -52,6 +57,17 @@ onMounted(() => {
         <div class="header-links">
           <router-link to="/connectors" class="header-link">Connectors</router-link>
           <router-link to="/sync-runs" class="header-link">Sync runs</router-link>
+          <template v-if="username">
+            <span class="header-user" data-test="signed-in-user">{{ username }}</span>
+            <button
+              type="button"
+              class="header-link sign-out"
+              data-test="sign-out"
+              @click="session?.signOut()"
+            >
+              Sign out
+            </button>
+          </template>
         </div>
       </div>
       <nav
@@ -105,6 +121,17 @@ onMounted(() => {
   color: #a0aec0;
   text-decoration: none;
   font-size: 0.9rem;
+}
+.header-user {
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+.sign-out {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
 }
 .header-link:hover,
 .header-link.router-link-active,

@@ -14,6 +14,7 @@ import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.`in`.EdgeUseCase
+import com.repodatagraph.domain.port.out.CurrentPrincipal
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.observability.GraphWriteMetrics
 import com.repodatagraph.observability.LogEvents
@@ -34,6 +35,7 @@ class EdgeService(
     private val validator: PropertyValidator,
     private val graphStore: GraphStore,
     private val metrics: GraphWriteMetrics,
+    private val currentPrincipal: CurrentPrincipal,
 ) : EdgeUseCase {
     override fun create(request: EdgeRequest): EdgeWrite {
         val edgeType = declared(request.type)
@@ -58,7 +60,7 @@ class EdgeService(
                     from = from,
                     to = to,
                     props = merged,
-                    provenance = Provenance.manual(),
+                    provenance = Provenance.manual(by = currentPrincipal.current()),
                 ),
             )
 

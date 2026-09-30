@@ -30,7 +30,17 @@ class YamlOntologyLoader(
             version = version,
             nodeTypes = readNodeTypes("$basePath/nodes.yaml"),
             edgeTypes = readEdgeTypes("$basePath/edges.yaml"),
+            provenance = readProvenance("$basePath/provenance.yaml"),
         )
+    }
+
+    /**
+     * The provenance envelope (#114). Optional, so a registry written before it was declared - such
+     * as the deliberately broken ones the tests load - still loads, with an empty envelope.
+     */
+    private fun readProvenance(path: String): List<PropertyDef> {
+        if (!resourceLoader.getResource("classpath:$path").exists()) return emptyList()
+        return readProperties(read(path).path("provenance"), "the provenance envelope")
     }
 
     private fun readNodeTypes(path: String): List<NodeTypeDef> {

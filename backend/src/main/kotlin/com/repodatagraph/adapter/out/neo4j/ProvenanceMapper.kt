@@ -24,6 +24,8 @@ object ProvenanceMapper {
     private const val VALID_FROM = "${PREFIX}validFrom"
     private const val VALID_TO = "${PREFIX}validTo"
     private const val SYNC_RUN_ID = "${PREFIX}syncRunId"
+    private const val WRITTEN_BY = "${PREFIX}writtenBy"
+    private const val PRINCIPAL_TYPE = "${PREFIX}principalType"
 
     fun toProperties(provenance: Provenance): Map<String, Any?> =
         mapOf(
@@ -36,6 +38,8 @@ object ProvenanceMapper {
             VALID_FROM to storable(provenance.validFrom),
             VALID_TO to storable(provenance.validTo),
             SYNC_RUN_ID to provenance.syncRunId,
+            WRITTEN_BY to provenance.writtenBy,
+            PRINCIPAL_TYPE to provenance.principalType,
         )
 
     /**
@@ -57,6 +61,8 @@ object ProvenanceMapper {
             validFrom = instant(properties[VALID_FROM]) ?: Instant.EPOCH,
             validTo = instant(properties[VALID_TO]),
             syncRunId = properties[SYNC_RUN_ID]?.toString(),
+            writtenBy = properties[WRITTEN_BY]?.toString(),
+            principalType = properties[PRINCIPAL_TYPE]?.toString(),
         )
 
     fun isProvenanceProperty(name: String): Boolean = name.startsWith(PREFIX)
