@@ -352,6 +352,12 @@ While any enabled connector is stale, the `connectors` component of `/actuator/h
 and names them; see [Observability](/guide/observability#health). It stays out of the readiness
 probe unless `observability.freshness-affects-readiness` is set.
 
+A connector's freshness is about the connector. What its facts are worth is measured per source
+system instead (#93): each source has a freshness window, facts it has not stated again within it
+are read back `stale`, and the `freshness` health component, which only ever warns, reports each
+source's lag. See [Ontology](/guide/ontology#freshness-and-reading-as-of-an-instant) and
+[Observability](/guide/observability#source-lag).
+
 ## The GitHub connector
 
 The first connector on the SPI, and the one the others are modelled on.

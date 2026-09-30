@@ -52,6 +52,29 @@ describe('NodeList', () => {
     )
   })
 
+  /** How far behind each source is, where a reader lands (#93, FR-6). */
+  it('warns of a source behind its freshness window', async () => {
+    server.use(
+      http.get('/api/v1/freshness', () =>
+        HttpResponse.json({
+          sources: [
+            {
+              source: 'aws',
+              window: 'PT6H',
+              windowSeconds: 21600,
+              lastSuccessAt: '2026-09-29T06:00:00Z',
+              lagSeconds: 108000,
+              lagging: true
+            }
+          ]
+        })
+      )
+    )
+    const wrapper = await listFor('Team')
+
+    expect(wrapper.find('[data-test="source-lag-aws"]').text()).toMatch(/behind/i)
+  })
+
   it('lists the nodes of that type by key', async () => {
     const wrapper = await listFor('Team')
 

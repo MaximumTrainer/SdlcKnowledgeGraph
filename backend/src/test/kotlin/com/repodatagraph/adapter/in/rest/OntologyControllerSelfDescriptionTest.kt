@@ -1,5 +1,6 @@
 package com.repodatagraph.adapter.`in`.rest
 
+import com.repodatagraph.domain.model.FreshnessPolicy
 import com.repodatagraph.domain.ontology.Deprecation
 import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Duration
 
 /**
  * What `GET /api/v1/ontology` tells a machine reader about each type and property (#81), and the
@@ -39,6 +41,11 @@ class OntologyControllerSelfDescriptionTest {
                 nodeTypes = listOf(REPOSITORY, CLOUD_RESOURCE),
                 edgeTypes = listOf(OWNS_RESOURCE),
             )
+
+        /** The windows are configuration, not registry (#93); the Markdown leaves them out. */
+        @Bean
+        fun freshnessPolicy(registry: OntologyRegistry): FreshnessPolicy =
+            FreshnessPolicy(Duration.ofHours(24), emptyMap(), registry.sources.map { it.name })
 
         private companion object {
             val REPOSITORY =

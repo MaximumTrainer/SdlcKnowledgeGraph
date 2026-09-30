@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.exception.EdgeNotAllowedException
 import com.repodatagraph.domain.exception.EdgeValidationException
 import com.repodatagraph.domain.exception.NodeNotFoundException
@@ -20,9 +21,11 @@ import com.repodatagraph.domain.port.`in`.EdgeUseCase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -54,6 +57,10 @@ class EdgeControllerTest {
 
     @MockitoBean
     private lateinit var edgeUseCase: EdgeUseCase
+
+    /** Whether a fact read back is stale (#93); never, unless a test says otherwise. */
+    @MockitoBean
+    private lateinit var factFreshness: FactFreshness
 
     private val provenance = Provenance.manual(Instant.parse("2026-01-01T00:00:00Z"))
     private val payments = NodeKey("Repository", "github.com/acme/payments")
@@ -251,7 +258,7 @@ class EdgeControllerTest {
 
     @Test
     fun `the edges of a node are listed under the name that end sees`() {
-        whenever(edgeUseCase.forNode(eq("Repository"), eq("github.com/acme/shared-lib"), eq(Direction.INCOMING), eq(null)))
+        whenever(edgeUseCase.forNode(eq("Repository"), eq("github.com/acme/shared-lib"), eq(Direction.INCOMING), eq(null), anyOrNull()))
             .thenReturn(
                 listOf(
                     EdgeView(
@@ -278,7 +285,7 @@ class EdgeControllerTest {
 
     @Test
     fun `listing defaults to both directions and no type filter`() {
-        whenever(edgeUseCase.forNode(any(), any(), any(), eq(null))).thenReturn(emptyList())
+        whenever(edgeUseCase.forNode(any(), any(), any(), eq(null), anyOrNull())).thenReturn(emptyList())
 
         mockMvc.perform(get("/api/v1/edges").param("nodeId", "Team:platform")).andExpect(status().isOk)
 
@@ -287,12 +294,82 @@ class EdgeControllerTest {
 
     @Test
     fun `listing can be filtered to one edge type`() {
-        whenever(edgeUseCase.forNode(any(), any(), any(), eq("OWNED_BY"))).thenReturn(emptyList())
+        whenever(edgeUseCase.forNode(any(), any(), any(), eq("OWNED_BY"), anyOrNull())).thenReturn(emptyList())
 
         mockMvc
             .perform(get("/api/v1/edges").param("nodeId", "Team:platform").param("edgeType", "OWNED_BY"))
             .andExpect(status().isOk)
 
         verify(edgeUseCase).forNode("Team", "platform", Direction.BOTH, "OWNED_BY")
+    }
+
+    @Test
+    fun `asOf is handed to the use case (#93)`() {
+        val asOf = Instant.parse("2026-09-30T01:30:00Z")
+        whenever(edgeUseCase.forNode(any(), any(), any(), anyOrNull(), anyOrNull())).thenReturn(emptyList())
+
+        mockMvc
+            .perform(get("/api/v1/edges").param("nodeId", "Environment:production").param("asOf", asOf.toString()))
+            .andExpect(status().isOk)
+
+        verify(edgeUseCase).forNode("Environment", "production", Direction.BOTH, null, asOf)
+    }
+
+    @Test
+    fun `a malformed asOf is a 400 naming it, and nothing is read (#93)`() {
+        mockMvc
+            .perform(get("/api/v1/edges").param("nodeId", "Environment:production").param("asOf", "01:30"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.field").value("asOf"))
+
+        verifyNoInteractions(edgeUseCase)
+    }
+
+    @Test
+    fun `a listed edge says whether it is stale, as its provenance (#93)`() {
+        val old = provenance.copy(sourceSystem = "github")
+        whenever(edgeUseCase.forNode(any(), any(), any(), anyOrNull(), anyOrNull())).thenReturn(
+            listOf(
+                EdgeView(
+                    type = "DEPENDS_ON",
+                    inverse = "DEPENDED_ON_BY",
+                    direction = Direction.OUTGOING,
+                    displayName = "DEPENDS_ON",
+                    other = GraphNode(sharedLib, emptyMap(), provenance),
+                    props = mapOf("kind" to "library"),
+                    provenance = old,
+                ),
+            ),
+        )
+        whenever(factFreshness.stale(old)).thenReturn(true)
+
+        mockMvc
+            .perform(get("/api/v1/edges").param("nodeId", payments.id))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.items[0].provenance.stale").value(true))
+            .andExpect(jsonPath("$.items[0].provenance.sourceSystem").value("github"))
+    }
+
+    @Test
+    fun `a stated edge says it is not stale (#93)`() {
+        whenever(edgeUseCase.create(any())).thenReturn(EdgeWrite(edge, "DEPENDED_ON_BY", created = true))
+
+        mockMvc
+            .perform(post("/api/v1/edges").contentType(MediaType.APPLICATION_JSON).content(body(createRequest)))
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.provenance.stale").value(false))
+    }
+
+    @Test
+    fun `a POST may not close the edge it states, so validTo is refused naming the field (#93)`() {
+        mockMvc
+            .perform(
+                post("/api/v1/edges")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body(createRequest + ("provenance" to mapOf("validTo" to "2026-09-15T00:00:00Z")))),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.errors[0].field").value("provenance.validTo"))
+
+        verifyNoInteractions(edgeUseCase)
     }
 }

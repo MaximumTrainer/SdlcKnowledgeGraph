@@ -10,6 +10,7 @@ import com.repodatagraph.domain.model.Neighbours
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.port.out.GraphStore
 import io.micrometer.core.instrument.MeterRegistry
+import java.time.Instant
 
 /**
  * The graph store with its failures made visible (#44, FR7). An operation that throws is counted in
@@ -37,6 +38,11 @@ class InstrumentedGraphStore(
     override fun upsertEdge(edge: GraphEdge) = observe("upsertEdge") { delegate.upsertEdge(edge) }
 
     override fun findNode(key: NodeKey) = observe("findNode") { delegate.findNode(key) }
+
+    override fun findNode(
+        key: NodeKey,
+        asOf: Instant,
+    ) = observe("findNode") { delegate.findNode(key, asOf) }
 
     override fun findNodeByAlias(
         type: String,
@@ -81,6 +87,13 @@ class InstrumentedGraphStore(
         direction: Direction,
         edgeType: String?,
     ): List<IncidentEdge> = observe("findEdges") { delegate.findEdges(key, direction, edgeType) }
+
+    override fun findEdges(
+        key: NodeKey,
+        direction: Direction,
+        edgeType: String?,
+        asOf: Instant,
+    ): List<IncidentEdge> = observe("findEdges") { delegate.findEdges(key, direction, edgeType, asOf) }
 
     override fun neighbourhood(
         frontier: Collection<NodeKey>,

@@ -1,6 +1,7 @@
 package com.repodatagraph.adapter.`in`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.exception.ImmutableIdentityException
 import com.repodatagraph.domain.exception.ManagedNodeTypeException
 import com.repodatagraph.domain.exception.NodeExistsException
@@ -16,8 +17,10 @@ import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.port.`in`.NodeUseCase
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -41,7 +44,7 @@ import java.time.Instant
  * assert on the body, not just the status.
  */
 @WebMvcTest(NodeController::class)
-@Import(NodeRestExceptionHandler::class)
+@Import(NodeRestExceptionHandler::class, RestExceptionHandler::class)
 class NodeControllerTest {
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -51,6 +54,10 @@ class NodeControllerTest {
 
     @MockitoBean
     private lateinit var nodeUseCase: NodeUseCase
+
+    /** Whether a fact read back is stale (#93); never, unless a test says otherwise. */
+    @MockitoBean
+    private lateinit var factFreshness: FactFreshness
 
     private val platform =
         GraphNode(
@@ -220,7 +227,7 @@ class NodeControllerTest {
                         .manual(Instant.parse("2026-01-01T00:00:00Z"))
                         .copy(previousKeys = listOf("github.com/acme/payments")),
             )
-        whenever(nodeUseCase.update(eq("Repository"), eq("github.com/acme/payments"), any(), any())).thenReturn(renamed)
+        whenever(nodeUseCase.update(eq("Repository"), eq("github.com/acme/payments"), any(), any(), anyOrNull())).thenReturn(renamed)
 
         mockMvc
             .perform(
@@ -236,7 +243,7 @@ class NodeControllerTest {
 
     @Test
     fun `PUT returns 200 and the updated node`() {
-        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any())).thenReturn(platform)
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any(), anyOrNull())).thenReturn(platform)
 
         mockMvc
             .perform(body(put("/api/v1/nodes/Team/platform"), mapOf("props" to mapOf("name" to "platform"))))
@@ -272,7 +279,7 @@ class NodeControllerTest {
 
     @Test
     fun `the source a PUT names is handed to the use case (#117)`() {
-        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any())).thenReturn(platform)
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any(), anyOrNull())).thenReturn(platform)
 
         mockMvc
             .perform(
@@ -306,7 +313,7 @@ class NodeControllerTest {
 
     @Test
     fun `PUT that would move the node to another identity returns 409 naming the fields`() {
-        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any()))
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any(), anyOrNull()))
             .thenThrow(ImmutableIdentityException(listOf("name")))
 
         mockMvc
@@ -417,7 +424,7 @@ class NodeControllerTest {
 
     @Test
     fun `a node addressed by key is updated and deleted the same way (#85)`() {
-        whenever(nodeUseCase.update(eq("ExternalWorkItem"), eq("chorus://task/01JABC"), any(), any())).thenReturn(workItem)
+        whenever(nodeUseCase.update(eq("ExternalWorkItem"), eq("chorus://task/01JABC"), any(), any(), anyOrNull())).thenReturn(workItem)
 
         mockMvc
             .perform(
@@ -439,6 +446,131 @@ class NodeControllerTest {
             .perform(body(post("/api/v1/nodes/ExternalWorkItem"), mapOf("props" to workItem.props)))
             .andExpect(status().isCreated)
             .andExpect(header().string("Location", "/api/v1/nodes/ExternalWorkItem/by-key?key=chorus://task/01JABC"))
+    }
+
+    @Test
+    fun `a node read back says whether it is stale, as its provenance (#93)`() {
+        whenever(nodeUseCase.get("Team", "platform")).thenReturn(platform)
+        whenever(factFreshness.stale(platform.provenance)).thenReturn(true)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.provenance.stale").value(true))
+            .andExpect(jsonPath("$.provenance.sourceSystem").value("manual"))
+            .andExpect(jsonPath("$.provenance.validFrom").value("2026-01-01T00:00:00Z"))
+    }
+
+    @Test
+    fun `a fresh node says it is not stale (#93)`() {
+        whenever(nodeUseCase.get("Team", "platform")).thenReturn(platform)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.provenance.stale").value(false))
+    }
+
+    @Test
+    fun `asOf is handed to the use case, and a node valid then is returned (#93)`() {
+        val asOf = Instant.parse("2026-09-30T01:30:00Z")
+        whenever(nodeUseCase.get("Team", "platform", asOf)).thenReturn(platform)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform").param("asOf", "2026-09-30T01:30:00Z"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.key").value("platform"))
+    }
+
+    @Test
+    fun `a node not valid at asOf is not found (#93)`() {
+        whenever(nodeUseCase.get("Team", "platform", Instant.parse("2020-01-01T00:00:00Z"))).thenReturn(null)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform").param("asOf", "2020-01-01T00:00:00Z"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `a node read by key takes asOf too (#93)`() {
+        val asOf = Instant.parse("2026-09-30T01:30:00Z")
+        whenever(nodeUseCase.get("ExternalWorkItem", "chorus://task/01JABC", asOf)).thenReturn(workItem)
+
+        mockMvc
+            .perform(get("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/01JABC").param("asOf", asOf.toString()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.key").value("chorus://task/01JABC"))
+    }
+
+    @Test
+    fun `a malformed asOf is a 400 naming it, and nothing is read (#93)`() {
+        mockMvc
+            .perform(get("/api/v1/nodes/Team/platform").param("asOf", "yesterday"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.field").value("asOf"))
+        mockMvc
+            .perform(get("/api/v1/nodes/ExternalWorkItem/by-key").param("key", "chorus://task/01JABC").param("asOf", "2026-09-30"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.field").value("asOf"))
+
+        verifyNoInteractions(nodeUseCase)
+    }
+
+    @Test
+    fun `the validTo a PUT names is handed to the use case (#93)`() {
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any(), anyOrNull())).thenReturn(platform)
+
+        mockMvc
+            .perform(
+                body(
+                    put("/api/v1/nodes/Team/platform"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("validTo" to "2026-09-15T00:00:00Z")),
+                ),
+            ).andExpect(status().isOk)
+
+        verify(nodeUseCase).update("Team", "platform", mapOf("name" to "platform"), "manual", Instant.parse("2026-09-15T00:00:00Z"))
+    }
+
+    @Test
+    fun `a validTo before the node's validFrom is a 400 naming the field (#93)`() {
+        whenever(nodeUseCase.update(eq("Team"), eq("platform"), any(), any(), anyOrNull()))
+            .thenThrow(NodeValidationException(listOf(PropertyError("provenance.validTo", "validTo must not be before validFrom"))))
+
+        mockMvc
+            .perform(
+                body(
+                    put("/api/v1/nodes/Team/platform"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("validTo" to "2020-01-01T00:00:00Z")),
+                ),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.errors[0].field").value("provenance.validTo"))
+    }
+
+    @Test
+    fun `a validTo that is not an instant is a 400 (#93)`() {
+        mockMvc
+            .perform(
+                body(
+                    put("/api/v1/nodes/Team/platform"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("validTo" to "next week")),
+                ),
+            ).andExpect(status().isBadRequest)
+
+        verifyNoInteractions(nodeUseCase)
+    }
+
+    @Test
+    fun `a POST may not close the fact it creates, so validTo is refused naming the field (#93)`() {
+        mockMvc
+            .perform(
+                body(
+                    post("/api/v1/nodes/Team"),
+                    mapOf("props" to mapOf("name" to "platform"), "provenance" to mapOf("validTo" to "2026-09-15T00:00:00Z")),
+                ),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.errors[0].field").value("provenance.validTo"))
+
+        verifyNoInteractions(nodeUseCase)
     }
 
     private fun body(

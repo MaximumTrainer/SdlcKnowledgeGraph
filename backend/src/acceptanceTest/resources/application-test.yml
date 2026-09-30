@@ -58,3 +58,9 @@ connectors:
     # Small on purpose: crossing a page boundary is what pagination has to prove, and proving it with
     # five hundred rows a page costs minutes of Testcontainers writes to say the same thing.
     page-size: 100
+
+# How long each source's facts stay fresh after it last stated them (#93). A short window for aws, so
+# a fact ingested nine hours ago is stale while the default day still covers every other source.
+freshness:
+  windows:
+    aws: PT6H

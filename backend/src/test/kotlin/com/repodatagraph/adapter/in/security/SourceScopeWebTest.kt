@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.repodatagraph.adapter.`in`.rest.NodeController
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
@@ -63,6 +64,11 @@ class SourceScopeWebTest {
 
     @MockitoBean
     private lateinit var nodeUseCase: NodeUseCase
+
+    /** Whether a fact read back is stale (#93); never, unless a test says otherwise. */
+    @MockitoBean
+    @Suppress("UnusedPrivateProperty")
+    private lateinit var factFreshness: FactFreshness
 
     @MockitoBean
     private lateinit var servicePrincipals: ServicePrincipalUseCase

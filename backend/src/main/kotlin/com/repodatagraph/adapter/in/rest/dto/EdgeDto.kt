@@ -1,11 +1,11 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.Direction
 import com.repodatagraph.domain.model.EdgeView
 import com.repodatagraph.domain.model.EdgeWrite
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodeKey
-import com.repodatagraph.domain.model.Provenance
 
 /** What a caller sends to state a relationship. Ids may be a full `Type:key` or a bare key. */
 data class EdgeRequestBody(
@@ -43,18 +43,20 @@ data class EdgeResponse(
     val from: NodeRefResponse,
     val to: NodeRefResponse,
     val props: Map<String, Any?>,
-    val provenance: Provenance,
+    val provenance: ProvenanceResponse,
 ) {
     companion object {
-        fun from(written: EdgeWrite) =
-            EdgeResponse(
-                type = written.edge.type,
-                inverse = written.inverse,
-                from = NodeRefResponse.from(written.edge.from),
-                to = NodeRefResponse.from(written.edge.to),
-                props = written.edge.props,
-                provenance = written.edge.provenance,
-            )
+        fun from(
+            written: EdgeWrite,
+            freshness: FactFreshness,
+        ) = EdgeResponse(
+            type = written.edge.type,
+            inverse = written.inverse,
+            from = NodeRefResponse.from(written.edge.from),
+            to = NodeRefResponse.from(written.edge.to),
+            props = written.edge.props,
+            provenance = ProvenanceResponse.of(written.edge.provenance, freshness),
+        )
     }
 }
 
@@ -66,19 +68,21 @@ data class EdgeViewResponse(
     val displayName: String,
     val other: NodeRefResponse,
     val props: Map<String, Any?>,
-    val provenance: Provenance,
+    val provenance: ProvenanceResponse,
 ) {
     companion object {
-        fun from(view: EdgeView) =
-            EdgeViewResponse(
-                type = view.type,
-                inverse = view.inverse,
-                direction = if (view.direction == Direction.OUTGOING) "out" else "in",
-                displayName = view.displayName,
-                other = NodeRefResponse.from(view.other),
-                props = view.props,
-                provenance = view.provenance,
-            )
+        fun from(
+            view: EdgeView,
+            freshness: FactFreshness,
+        ) = EdgeViewResponse(
+            type = view.type,
+            inverse = view.inverse,
+            direction = if (view.direction == Direction.OUTGOING) "out" else "in",
+            displayName = view.displayName,
+            other = NodeRefResponse.from(view.other),
+            props = view.props,
+            provenance = ProvenanceResponse.of(view.provenance, freshness),
+        )
     }
 }
 

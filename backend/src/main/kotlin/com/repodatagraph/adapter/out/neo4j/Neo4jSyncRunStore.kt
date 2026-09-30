@@ -63,6 +63,22 @@ class Neo4jSyncRunStore(
             .map { toRun(GraphRowMapper.toNode(LABEL, it["n"])) }
             .orElse(null)
 
+    override fun lastSuccessBySource(): Map<String, Instant> =
+        neo4jClient
+            .query(
+                """
+                MATCH (n:$LABEL)
+                WHERE n.status = ${'$'}success AND n.finishedAt IS NOT NULL AND n.sourceSystem IS NOT NULL
+                RETURN n.sourceSystem AS source, max(n.finishedAt) AS finishedAt
+                """.trimIndent(),
+            ).bindAll(mapOf("success" to SUCCESS))
+            .fetch()
+            .all()
+            .mapNotNull { row ->
+                val finished = ProvenanceMapper.instant(row["finishedAt"]) ?: return@mapNotNull null
+                row["source"].toString() to finished
+            }.toMap()
+
     /**
      * Picks the batch first, then deletes its relationships a bounded batch at a time, then the runs.
      *
@@ -149,6 +165,7 @@ class Neo4jSyncRunStore(
     private companion object {
         const val LABEL = "SyncRun"
         const val RUNNING = "RUNNING"
+        const val SUCCESS = "SUCCESS"
         const val FILTER =
             "WHERE (\$connector IS NULL OR n.connector = \$connector)" +
                 " AND (\$status IS NULL OR n.status = \$status)" +

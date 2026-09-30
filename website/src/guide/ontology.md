@@ -455,7 +455,9 @@ written before they existed.
 
 Neo4j does not store nested maps, so these are flattened to `prov_` prefixed properties, and an
 index on `prov_sourceSystem` is created for every type. Re-stating a node replaces its provenance
-with that of the latest write; merging several sources' provenance on one node (accumulating
+with that of the latest write, except `validFrom`, which says when the fact began and so is kept
+while it holds ([#93](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/93); see
+[Freshness, and reading as of an instant](#freshness-and-reading-as-of-an-instant)); merging several sources' provenance on one node (accumulating
 `sourceSystems`, keeping the highest `confidence`) is part of the connector work
 ([#22](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/22)).
 
@@ -491,6 +493,68 @@ known}`. Naming any source but `manual` also needs the `graph:write:<source>` sc
 ([AUTH](/guide/auth#source-scopes)), so a registry entry is also the name of a permission: it is
 lower-case words joined by hyphens, and the registry refuses to load a name that is not, a name
 declared twice, or a list without `manual`.
+
+### Freshness, and reading as of an instant
+
+A graph that lags reality is worse than no graph, because an agent trusts what it reads
+([#93](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/93)). So every source system has a
+**freshness window**: how long its facts stay fresh once it has stated them. It is a day unless
+configuration names another, under `freshness.windows` by the source's name in `sources.yaml`:
+
+```yaml
+freshness:
+  default-window: PT24H   # FRESHNESS_DEFAULT_WINDOW
+  windows:
+    aws: PT6H             # FRESHNESS_WINDOWS_AWS
+```
+
+A window must be positive, and a source name `sources.yaml` does not declare stops the application
+from starting rather than leaving that source on the default unnoticed. A source whose name holds a
+hyphen, such as `github-actions`, cannot be spelt as an environment variable; set it in
+`SPRING_APPLICATION_JSON` or a configuration file instead. The windows are configuration, not
+registry, so they are not in `ontology.json` or the ontology's Markdown rendering:
+`GET /api/v1/ontology` adds them to its answer as `freshness: {defaultWindow, windows}`, where `windows`
+maps every declared source, in declaration order, to its window as an ISO-8601 duration.
+
+**Stale.** Every node and edge a REST read returns carries `provenance.stale`, as does the
+`Provenance` GraphQL type. It is computed when the fact is read, never stored, since a stored flag
+would itself go stale: a fact is stale when it is current (no `validTo`, or one still to come) and
+its source last stated it (`ingestedAt`) longer ago than the source's window. A fact that has ended
+is history rather than a claim about now, so it is never stale. The web interface marks a stale node
+on its page. `stale` is not a registry property, so the generated `Provenance` types do not declare
+it; the GraphQL schema adds it by extension. The provenance cited by the impact answers does not
+carry it.
+
+**Lag.** How far behind each source is, against its window, is the `freshness` component of
+`/actuator/health` ([Observability](/guide/observability#health)) and `GET /api/v1/freshness`, which
+the web interface's list page reads to name any source that is behind.
+
+**As of an instant.** A fact holds over the half-open interval `[validFrom, validTo)`: from the
+instant it began up to, not including, the instant it ended, so of one deployment replacing another
+at the same instant exactly one holds at any time. These reads take `asOf`, an ISO-8601 instant such
+as `2026-09-30T01:30:00Z`, and answer as the graph held then:
+
+| Read | With `asOf` |
+| --- | --- |
+| `GET /api/v1/nodes/{type}/{key}`, and `by-key` | The node, or `404` unless its interval contains the instant |
+| `GET /api/v1/edges?nodeId=` | Only the edges whose interval contains it, to a node whose interval contains it too |
+| GraphQL `node(id, asOf)` | The node, or `null` |
+| GraphQL `edges(nodeId, direction, edgeType, asOf)` | As `GET /api/v1/edges` |
+
+Anything but an instant, a bare date included, is `400 {error, field: "asOf"}`, the error saying
+what was wrong (in GraphQL a `BAD_REQUEST` naming it). Without `asOf` every read is the current view,
+closed facts included, exactly as before. A later history of property versions
+([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) selects versions by the same
+interval and the same parameter.
+
+**Closing a fact.** A `PUT` on a node that carries `provenance.validTo`, an instant, beside its
+`props` says it ended then, or keeps it ended. A `validTo` before the node's `validFrom` is `400`
+naming `provenance.validTo`. A `POST` of a node or an edge may not carry one: a new fact that has
+already ended is a contradiction. Edges have no `PUT`, so closing an edge is left to the connectors.
+Closing a node does not remove it or its edges, so a closed node with edges is still refused a plain
+`DELETE`. A write that leaves `validTo` out states the fact holds now: restated while current, it
+keeps the `validFrom` it began with; restated after it was closed, it begins again, with `validFrom`
+the time of that write.
 
 ## Traversal semantics
 

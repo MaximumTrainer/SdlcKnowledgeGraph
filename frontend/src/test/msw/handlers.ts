@@ -33,5 +33,7 @@ export const handlers = [
   http.get('/api/v1/repositories/:id', ({ params }) => {
     const repo = mockRepositories.find(r => r.id === params.id)
     return repo ? HttpResponse.json(repo) : new HttpResponse(null, { status: 404 })
-  })
+  }),
+  // Every source within its window: the pages that show lag (#93) have nothing to warn about.
+  http.get('/api/v1/freshness', () => HttpResponse.json({ sources: [] }))
 ]

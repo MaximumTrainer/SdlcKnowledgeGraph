@@ -6,6 +6,7 @@ import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.port.out.GraphStore
 import org.springframework.data.neo4j.core.Neo4jClient
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -178,6 +179,32 @@ class ProviderStates(
                         "error" to "page 2 failed: the source answered 502",
                     ),
                 provenance = Provenance(sourceSystem = "sdlc-knowledge-graph", ingestedAt = startedAt, validFrom = startedAt),
+            ),
+        )
+    }
+
+    /**
+     * The one source with a sync run, a successful one of github thirty hours ago: past the default
+     * freshness window of a day, so github is reported behind it (#93, FR-3). No connector is enabled
+     * here, so no source that has never synced is listed beside it.
+     */
+    fun githubSyncedThirtyHoursAgo() {
+        emptyGraph()
+        val finishedAt = Instant.now().minus(Duration.ofHours(THIRTY_HOURS))
+        graphStore.upsertNode(
+            GraphNode(
+                key = NodeKey("SyncRun", LAGGING_SYNC_RUN_ID),
+                props =
+                    mapOf(
+                        "id" to LAGGING_SYNC_RUN_ID,
+                        "connector" to "github",
+                        "sourceSystem" to "github",
+                        "mode" to "FULL",
+                        "status" to "SUCCESS",
+                        "startedAt" to finishedAt.minusSeconds(90),
+                        "finishedAt" to finishedAt,
+                    ),
+                provenance = Provenance(sourceSystem = "sdlc-knowledge-graph", ingestedAt = finishedAt, validFrom = finishedAt),
             ),
         )
     }
@@ -394,6 +421,7 @@ class ProviderStates(
         const val PAYMENTS_HAS_GITHUB_ID = "repository github.com/acme/payments has GitHub id 123456"
         const val PAYMENTS_WAS_RENAMED =
             "repository with GitHub id 123456 was renamed from acme/payments to acme-platform/payments-service"
+        const val GITHUB_SYNCED_THIRTY_HOURS_AGO = "the github source last synced thirty hours ago"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -401,6 +429,8 @@ class ProviderStates(
         private const val SHARED_LIB_KEY = "github.com/acme/shared-lib"
         private const val CI_KEY = "servicenow:sn.example.test:a1"
         private const val SYNC_RUN_ID = "pact-run-1"
+        private const val LAGGING_SYNC_RUN_ID = "pact-run-lagging"
+        private const val THIRTY_HOURS = 30L
         private const val BUCKET_KEY = "aws:arn:aws:s3:::acme-logs"
         private const val HUB_KEY = "github.com/acme/hub"
         private const val CHANGE_SHA = "a1b2c3"
@@ -430,6 +460,7 @@ class ProviderStates(
                 NO_WORK_ITEMS_EXIST,
                 PAYMENTS_HAS_GITHUB_ID,
                 PAYMENTS_WAS_RENAMED,
+                GITHUB_SYNCED_THIRTY_HOURS_AGO,
             )
     }
 }

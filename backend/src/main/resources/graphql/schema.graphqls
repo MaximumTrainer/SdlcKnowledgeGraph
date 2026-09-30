@@ -271,3 +271,37 @@ type ChangeImpact {
     "Score descending, then hops ascending, then node id ascending."
     hits: [ImpactHit!]!
 }
+
+# Reading the graph as of an instant (#93). Without asOf, the current view.
+
+extend type Query {
+    """
+    A node by its Type:key id, or null. With asOf, an ISO-8601 instant, the node as the graph held it then: null
+    unless its [validFrom, validTo) contains the instant (#93).
+    """
+    node(id: ID!, asOf: String): GraphNode
+    """
+    Every relationship touching a node, under the name this end sees. direction is in, out or both. With asOf,
+    only the relationships whose [validFrom, validTo) contains the instant, to a node valid then too (#93).
+    """
+    edges(nodeId: ID!, direction: String = "both", edgeType: String, asOf: String): [NodeEdge!]!
+}
+
+"A relationship as one of its ends sees it (#93): its name from this end, and the node at the other."
+type NodeEdge {
+    type: String!
+    inverse: String!
+    "OUTGOING when this node is the edge's source, INCOMING when it is the target."
+    direction: String!
+    displayName: String!
+    other: GraphNode!
+    provenance: Provenance!
+}
+
+extend type Provenance {
+    """
+    True when the fact is current and its source has not stated it again within the source's freshness window,
+    which GET /api/v1/ontology publishes (#93). Computed when read; a fact that has ended is never stale.
+    """
+    stale: Boolean!
+}

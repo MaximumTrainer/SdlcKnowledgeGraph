@@ -40,6 +40,8 @@ class SyncRunRetentionJobTest {
 
         override fun findById(id: String): SyncRun? = null
 
+        override fun lastSuccessBySource(): Map<String, Instant> = emptyMap()
+
         override fun deleteFinishedBefore(
             cutoff: Instant,
             batchSize: Int,

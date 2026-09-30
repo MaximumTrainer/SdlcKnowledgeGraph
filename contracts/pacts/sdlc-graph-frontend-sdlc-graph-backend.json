@@ -115,6 +115,98 @@
       }
     },
     {
+      "description": "a request for how far behind each source is",
+      "providerStates": [
+        {
+          "name": "the github source last synced thirty hours ago"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/freshness"
+      },
+      "response": {
+        "body": {
+          "sources": [
+            {
+              "lagSeconds": 108000,
+              "lagging": true,
+              "lastSuccessAt": "2026-09-29T06:00:00Z",
+              "source": "github",
+              "window": "PT24H",
+              "windowSeconds": 86400
+            }
+          ]
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.sources": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.sources[*].lagSeconds": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.sources[*].lagging": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sources[*].lastSuccessAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.sources[*].source": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sources[*].window": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sources[*].windowSeconds": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for one sync run",
       "providerStates": [
         {
@@ -1623,6 +1715,81 @@
               ]
             },
             "$.version": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request for the platform Team",
+      "providerStates": [
+        {
+          "name": "a Team named platform exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/nodes/Team/platform"
+      },
+      "response": {
+        "body": {
+          "id": "Team:platform",
+          "key": "platform",
+          "props": {
+            "name": "platform"
+          },
+          "provenance": {
+            "sourceSystem": "manual",
+            "stale": false,
+            "validFrom": "2026-09-30T12:00:00Z"
+          },
+          "type": "Team"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.props": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.provenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.type": {
               "combine": "AND",
               "matchers": [
                 {

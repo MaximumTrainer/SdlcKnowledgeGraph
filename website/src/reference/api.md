@@ -15,8 +15,9 @@ thing interactively at `/swagger-ui.html`.
 | `POST` | `/api/v1/connectors/{name}/sync` | Ask a connector to sync now | 200 |
 | `GET` | `/api/v1/deployments/work-items` | What a deployment carries: the changes its artifacts contain and the work items they implement | 200 |
 | `DELETE` | `/api/v1/edges` | Remove a relationship, addressed by its exact triple | 200 |
-| `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees | 200 |
+| `GET` | `/api/v1/edges` | Every relationship touching a node, under the name this end sees, now or as of an instant (#93) | 200 |
 | `POST` | `/api/v1/edges` | State a relationship between two existing nodes, as manual or as a source the caller's scopes allow | 200 |
+| `GET` | `/api/v1/freshness` | Each source's last successful sync and its lag against the source's freshness window | 200 |
 | `GET` | `/api/v1/graph/cloud-resources` | Cloud resources owned by a repository | 200 |
 | `GET` | `/api/v1/graph/dependencies` | Repositories this repository depends on | 200 |
 | `GET` | `/api/v1/graph/dependents` | Repositories that depend on this repository | 200 |
@@ -43,8 +44,8 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/nodes/{type}/by-key` | Get one node by its key as a query parameter, for a key no path can carry, like a URI (#85) | 200 |
 | `PUT` | `/api/v1/nodes/{type}/by-key` | Replace the properties of a node addressed by its key as a query parameter (#85) | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/{key}` | Delete a node, refusing while it still has relationships | 200 |
-| `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id | 200 |
-| `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity | 200 |
+| `GET` | `/api/v1/nodes/{type}/{key}` | Get one node by its derived key or its full id, now or as of an instant (#93) | 200 |
+| `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity; provenance.validTo closes it (#93) | 200 |
 | `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200, 400 |
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |
 | `GET` | `/api/v1/repositories` | List all registered repositories, or find the one a git remote resolves to, before or after a rename | 200 |

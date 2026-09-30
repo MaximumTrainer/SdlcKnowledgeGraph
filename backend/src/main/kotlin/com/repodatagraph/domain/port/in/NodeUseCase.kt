@@ -3,6 +3,7 @@ package com.repodatagraph.domain.port.`in`
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.model.Provenance
+import java.time.Instant
 
 /**
  * Maintaining nodes of any registry type by hand.
@@ -28,9 +29,14 @@ interface NodeUseCase {
         sourceSystem: String = Provenance.MANUAL,
     ): GraphNode
 
+    /**
+     * The node, or null. With [asOf] (#93, FR-4), the node as the graph held it then: null unless its
+     * validity contains the instant. Without, the current view, which includes a closed node.
+     */
     fun get(
         type: String,
         key: String,
+        asOf: Instant? = null,
     ): GraphNode?
 
     fun list(
@@ -44,12 +50,17 @@ interface NodeUseCase {
      * @throws com.repodatagraph.domain.exception.ImmutableIdentityException if the properties derive to a different key
      * @throws com.repodatagraph.domain.exception.UnknownSourceSystemException if the registry does not declare the source
      * @throws com.repodatagraph.domain.exception.SourceNotPermittedException if the principal may not write as the source
+     * @throws com.repodatagraph.domain.exception.NodeValidationException if [validTo] is before the node began
+     *
+     * [validTo] (#93, FR-5) closes the node at that instant, or keeps it closed; left out, the write
+     * states the node holds now. Either way a node keeps the validFrom it began with while it holds.
      */
     fun update(
         type: String,
         key: String,
         props: Map<String, Any?>,
         sourceSystem: String = Provenance.MANUAL,
+        validTo: Instant? = null,
     ): GraphNode
 
     /**

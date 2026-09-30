@@ -44,6 +44,10 @@ bookkeeping types (`Ontology`, `SyncRun`, `ConnectorState`) are left out of it; 
 at `/nodes/<type>`. Each list shows the node's key, which links to the node's page, and the first
 three properties the registry declares for that type.
 
+Above a list, a warning names each source system that is behind its freshness window: how far
+behind it is, and the window, or that it has never synced (#93). Nothing is shown while every source
+is within its window, or when the interface cannot tell.
+
 The footer of every page says which ontology version and which build (the short commit) are
 serving, and `read-only` when the instance refuses writes. An address the interface does not know
 shows a "Page not found" page with a link back to the graph.
@@ -125,6 +129,10 @@ interface these are always `manual`, `1`, the time of the write, `no`, your acco
 adds **on behalf of team** with the team that owns it. A fact a scheduled connector run or an ingest
 endpoint wrote, or one written before writers were recorded, says `not recorded`. Nothing new is ever
 written by `anonymous`: an instance without a login accepts no writes (#118).
+
+A **stale** badge beside the heading means the node's source has not stated it again within the
+source's freshness window, so it may no longer match reality (#93). A node you wrote by hand turns
+stale a day after you last saved it; saving it again, unchanged, is how to say it still holds.
 
 ### Signing in
 
@@ -231,7 +239,9 @@ a declared one; anything else is `404 {error: "unknown node type", type}`.
 | `POST /api/v1/nodes/{type}` with `{"props": {…}}` | `201`, the node with its derived `id` and `key`, and a `Location` header |
 | `GET /api/v1/nodes/{type}?limit=&cursor=` | `200 {items, nextCursor}` in key order; `limit` is 1–500, default 50; pass `nextCursor` back as `cursor` for the next page |
 | `GET /api/v1/nodes/{type}/{key}` | `200` the node, or `404` |
+| `GET /api/v1/nodes/{type}/{key}?asOf=` an instant | `200` the node as it was then, or `404` unless it held then |
 | `PUT /api/v1/nodes/{type}/{key}` with `{"props": {…}}` | `200` the updated node, same id and key |
+| `PUT` as above with `"provenance": {"validTo": …}`, an instant | `200` the node, closed at that instant; `400` if that is before its `validFrom` |
 | `DELETE /api/v1/nodes/{type}/{key}` | `204`, or `409 {error: "node has edges", edgeCount}` while edges remain |
 | `DELETE /api/v1/nodes/{type}/{key}?cascade=true` | `204`, removing the node and its edges |
 | `GET`, `PUT`, `DELETE /api/v1/nodes/{type}/by-key?key=` | The same three, with the key as a query parameter |
@@ -259,10 +269,18 @@ A node in a response looks like this:
     "inferred": false,
     "validFrom": "2026-09-13T10:15:00Z",
     "validTo": null,
-    "syncRunId": null
+    "syncRunId": null,
+    "stale": false
   }
 }
 ```
+
+`stale` is computed on every read: true when the node is current and its source last stated it
+longer ago than the source's freshness window. `asOf` is an ISO-8601 instant such as
+`2026-09-30T01:30:00Z`; anything else is `400` naming `asOf`. Both are explained in
+[ONTOLOGY.md](ONTOLOGY.md#freshness-and-reading-as-of-an-instant). `GET /api/v1/freshness` says how
+far behind each source is, as `{sources: [{source, window, windowSeconds, lastSuccessAt,
+lagSeconds, lagging}]}`.
 
 What is refused, and how it is reported:
 
@@ -286,6 +304,7 @@ parameters rather than in the path, because a derived key can contain slashes.
 | --- | --- |
 | `POST /api/v1/edges` with `{type, fromId, toId, props?}` | `201` with `inverse` and both ends; `200` when the edge was already there |
 | `GET /api/v1/edges?nodeId=&direction=&edgeType=` | `200 {items}`; `direction` is `in`, `out` or omitted for both; `edgeType` filters to one type |
+| `GET /api/v1/edges?nodeId=&asOf=` an instant | Only the edges that held then, to nodes that held then |
 | `DELETE /api/v1/edges?type=&fromId=&toId=` | `204`, or `404` when there is no such edge |
 
 Each listed edge carries `type`, `inverse`, `direction`, `displayName` (the name from the asking
@@ -444,7 +463,10 @@ neighbours only; the generic node and edge operations are available through REST
 depth, minConfidence, direction)` and `whyDeploymentFailed(id)` answer as their REST counterparts
 do, and return the generated `<Type>Node` types from `schema.generated.graphqls`, provenance
 included, so select fields with `... on RepositoryNode { url }`. `changeImpact(input: {repositoryKey,
-paths, sha, depth, limit})` answers as `POST /api/v1/impact` does.
+paths, sha, depth, limit})` answers as `POST /api/v1/impact` does. `node(id, asOf)` and
+`edges(nodeId, direction, edgeType, asOf)` read any node and its relationships, now or as of an
+instant, as `GET /api/v1/nodes` and `GET /api/v1/edges` do, and every `Provenance` has `stale`
+(#93).
 
 ## Read-only instances
 

@@ -218,4 +218,33 @@ describe('node API contract', () => {
       expect(page.items[0].key).toBe('platform')
     })
   })
+
+  it('reads a node, saying whether its source has let it go stale (#93)', async () => {
+    provider
+      .given(TEAM_PLATFORM_EXISTS)
+      .uponReceiving('a request for the platform Team')
+      .withRequest({ method: 'GET', path: '/api/v1/nodes/Team/platform' })
+      .willRespondWith({
+        status: 200,
+        headers: JSON_HEADERS,
+        body: {
+          id: like('Team:platform'),
+          type: like('Team'),
+          key: like('platform'),
+          props: like({ name: 'platform' }),
+          provenance: like({
+            sourceSystem: 'manual',
+            validFrom: '2026-09-30T12:00:00Z',
+            stale: false
+          })
+        }
+      })
+
+    await provider.executeTest(async mockServer => {
+      const node = await against(mockServer.url, () => nodeApi.get('Team', 'platform'))
+
+      expect(node.key).toBe('platform')
+      expect(node.provenance.stale).toBe(false)
+    })
+  })
 })

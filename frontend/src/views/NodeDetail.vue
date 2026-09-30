@@ -127,7 +127,16 @@ const remove = async (cascade: boolean) => {
 
       <RelationshipPanel :type="node.type" :node-key="node.key" />
 
-      <h2>Provenance</h2>
+      <h2>
+        Provenance
+        <span
+          v-if="node.provenance.stale"
+          data-test="provenance-stale"
+          class="stale"
+          title="Its source has not stated it again within the source's freshness window"
+          >stale</span
+        >
+      </h2>
       <dl data-test="provenance">
         <dt>source</dt>
         <dd>{{ node.provenance.sourceSystem }}</dd>
@@ -153,6 +162,16 @@ const remove = async (cascade: boolean) => {
 </template>
 
 <style scoped>
+.stale {
+  margin-left: 0.5rem;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fed7d7;
+  color: #822727;
+  vertical-align: middle;
+}
 .node-detail {
   background: #fff;
   border-radius: 6px;

@@ -7,6 +7,7 @@ import com.repodatagraph.domain.model.IncidentEdge
 import com.repodatagraph.domain.model.NeighbourStep
 import com.repodatagraph.domain.model.Neighbours
 import com.repodatagraph.domain.model.NodeKey
+import java.time.Instant
 
 /**
  * The single way in and out of the graph.
@@ -37,6 +38,17 @@ interface GraphStore {
     fun upsertEdge(edge: GraphEdge): GraphEdge
 
     fun findNode(key: NodeKey): GraphNode?
+
+    /**
+     * The node at [key] as the graph held it at [asOf] (#93, FR-4): only while its validity,
+     * `[validFrom, validTo)`, contains the instant (see [com.repodatagraph.domain.model.ValidityWindow]),
+     * and otherwise null. [findNode] without an instant is the current view, which finds a closed
+     * node as it always has.
+     */
+    fun findNode(
+        key: NodeKey,
+        asOf: Instant,
+    ): GraphNode?
 
     /**
      * The node of [type] whose alias properties hold exactly [alias] (#88), such as a Repository's
@@ -120,6 +132,18 @@ interface GraphStore {
         key: NodeKey,
         direction: Direction = Direction.BOTH,
         edgeType: String? = null,
+    ): List<IncidentEdge>
+
+    /**
+     * [findEdges] as the graph held them at [asOf] (#93, FR-4): each edge whose validity contains the
+     * instant, and whose node at the other end was valid then too - a relationship to something that
+     * did not exist yet, or no longer did, is not a fact about that moment.
+     */
+    fun findEdges(
+        key: NodeKey,
+        direction: Direction,
+        edgeType: String?,
+        asOf: Instant,
     ): List<IncidentEdge>
 
     /**

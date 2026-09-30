@@ -600,7 +600,7 @@
             "type" : "object"
           },
           "provenance" : {
-            "$ref" : "#/components/schemas/Provenance"
+            "$ref" : "#/components/schemas/ProvenanceResponse"
           },
           "to" : {
             "$ref" : "#/components/schemas/NodeRefResponse"
@@ -686,7 +686,7 @@
             "type" : "object"
           },
           "provenance" : {
-            "$ref" : "#/components/schemas/Provenance"
+            "$ref" : "#/components/schemas/ProvenanceResponse"
           },
           "type" : {
             "type" : "string"
@@ -720,6 +720,21 @@
           }
         },
         "required" : [ "detail", "kind" ],
+        "type" : "object"
+      },
+      "FreshnessPolicyResponse" : {
+        "properties" : {
+          "defaultWindow" : {
+            "type" : "string"
+          },
+          "windows" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [ "defaultWindow", "windows" ],
         "type" : "object"
       },
       "FreshnessView" : {
@@ -1064,7 +1079,7 @@
             "type" : "object"
           },
           "provenance" : {
-            "$ref" : "#/components/schemas/Provenance"
+            "$ref" : "#/components/schemas/ProvenanceResponse"
           },
           "type" : {
             "type" : "string"
@@ -1129,6 +1144,13 @@
               "$ref" : "#/components/schemas/EdgeTypeResponse"
             },
             "type" : "array"
+          },
+          "freshness" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/FreshnessPolicyResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "nodeTypes" : {
             "items" : {
@@ -1357,8 +1379,71 @@
         "properties" : {
           "sourceSystem" : {
             "type" : [ "string", "null" ]
+          },
+          "validTo" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
           }
         },
+        "type" : "object"
+      },
+      "ProvenanceResponse" : {
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "current" : {
+            "type" : "boolean"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "ingestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "observedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "onBehalfOfTeam" : {
+            "type" : [ "string", "null" ]
+          },
+          "previousKeys" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "principalType" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          },
+          "stale" : {
+            "type" : "boolean"
+          },
+          "syncRunId" : {
+            "type" : [ "string", "null" ]
+          },
+          "validFrom" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "validTo" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "writtenBy" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "confidence", "current", "inferred", "ingestedAt", "previousKeys", "sourceSystem", "stale", "validFrom" ],
         "type" : "object"
       },
       "Repository" : {
@@ -1559,6 +1644,44 @@
           }
         },
         "required" : [ "name", "ownedBy", "validFrom" ],
+        "type" : "object"
+      },
+      "SourceFreshnessResponse" : {
+        "properties" : {
+          "sources" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SourceLagResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "sources" ],
+        "type" : "object"
+      },
+      "SourceLagResponse" : {
+        "properties" : {
+          "lagSeconds" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "lagging" : {
+            "type" : "boolean"
+          },
+          "lastSuccessAt" : {
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "window" : {
+            "type" : "string"
+          },
+          "windowSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "lagging", "source", "window", "windowSeconds" ],
         "type" : "object"
       },
       "SourceSystemResponse" : {
@@ -2206,6 +2329,14 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "description" : "An ISO-8601 instant: only the relationships whose [validFrom, validTo) contains it, to a node valid then too (#93). Left out, the current view.",
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -2219,7 +2350,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Every relationship touching a node, under the name this end sees",
+        "summary" : "Every relationship touching a node, under the name this end sees, now or as of an instant (#93)",
         "tags" : [ "Edges" ]
       },
       "post" : {
@@ -2248,6 +2379,25 @@
         },
         "summary" : "State a relationship between two existing nodes, as manual or as a source the caller's scopes allow",
         "tags" : [ "Edges" ]
+      }
+    },
+    "/api/v1/freshness" : {
+      "get" : {
+        "operationId" : "freshness",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceFreshnessResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Each source's last successful sync and its lag against the source's freshness window",
+        "tags" : [ "Freshness" ]
       }
     },
     "/api/v1/graph/cloud-resources" : {
@@ -3023,6 +3173,14 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "description" : "An ISO-8601 instant, such as 2026-09-30T01:30:00Z: the node as the graph held it then, found only while its [validFrom, validTo) contains the instant (#93). Left out, the current view.",
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -3132,6 +3290,14 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "description" : "An ISO-8601 instant, such as 2026-09-30T01:30:00Z: the node as the graph held it then, found only while its [validFrom, validTo) contains the instant (#93). Left out, the current view.",
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -3145,7 +3311,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Get one node by its derived key or its full id",
+        "summary" : "Get one node by its derived key or its full id, now or as of an instant (#93)",
         "tags" : [ "Nodes" ]
       },
       "put" : {
@@ -3187,7 +3353,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Replace a node's properties, keeping its identity",
+        "summary" : "Replace a node's properties, keeping its identity; provenance.validTo closes it (#93)",
         "tags" : [ "Nodes" ]
       }
     },
@@ -3835,6 +4001,9 @@
   }, {
     "description" : "Push ingestion from systems of record",
     "name" : "Webhooks"
+  }, {
+    "description" : "How current the graph is, source by source",
+    "name" : "Freshness"
   }, {
     "description" : "Traversals for nodes addressed by id",
     "name" : "Graph traversal"
