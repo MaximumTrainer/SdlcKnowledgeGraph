@@ -78,6 +78,13 @@ way out: a field whose name contains `password`, `token`, `secret`, `authorizati
 as `***`. The acceptance suite checks that a secret posted in a node or an ingest token never appears
 in any log line.
 
+The authorisation policy's events ([GOVERNANCE.md](GOVERNANCE.md)) are security events.
+`policy.denied` names the principal, its kind, the action and the rule that refused it.
+`policy.redacted` names the principal, how many nodes a read left out and which properties it took
+out, never their values. `policy.unavailable` is logged with its cause when the policy cannot be
+evaluated and the request is refused with `503`. `policy.loaded` names the revision the API compiled
+at startup.
+
 ## Metrics
 
 The API publishes its meters in Prometheus's text format at `/actuator/prometheus`. That endpoint is
@@ -105,6 +112,7 @@ both halves of that.
 | `sdlc_webhook_events_total` | `connector`, `result` | Webhooks by what became of them: `applied` (it became a run, whatever that run's status), `ignored` (the connector found nothing in it, or it was a redelivery of one already applied) or `rejected` (its signature did not check out). |
 | `sdlc_graph_nodes` | `type` | Nodes of each type the ontology declares, closed facts included, as last counted. Counted at startup and then every `observability.graph-count-interval` (`GRAPH_COUNT_INTERVAL`, default `PT5M`), never by a scrape; `NaN` until the first count. A count that fails keeps the last values and logs `graph.count.failed`. |
 | `sdlc_graph_edges` | `type` | The same for each relationship type the ontology declares. |
+| `sdlc_authz_decisions_total` | `kind`, `decision` | The authorisation policy's answers to requests ([GOVERNANCE.md](GOVERNANCE.md)). `kind` is the caller's: `user`, `service`, `agent` or `anonymous`; `decision` is `allow` or `deny`. A request with no token that is about to be refused with a 401, and the public routes, are not put to the policy and not counted. A rise in `kind="agent",decision="deny"` is an agent trying what it may not. |
 
 `type` is always a type the ontology declares, because an undeclared one is refused before anything
 is counted, so the label's cardinality is the size of the ontology. A refusal the store is designed

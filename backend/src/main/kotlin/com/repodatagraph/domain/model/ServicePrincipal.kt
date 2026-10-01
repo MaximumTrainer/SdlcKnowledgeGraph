@@ -18,6 +18,8 @@ import java.time.Instant
  * @param registeredBy the subject of the user who registered it
  * @param validFrom when it was registered
  * @param validTo when it was deregistered; null while it is current
+ * @param kind whether it is a connector or an agent (#30): the policy never lets an agent administer
+ *   the graph, and otherwise judges it by the rules a user with the same roles meets
  */
 data class ServicePrincipal(
     val name: String,
@@ -26,6 +28,7 @@ data class ServicePrincipal(
     val registeredBy: String?,
     val validFrom: Instant,
     val validTo: Instant? = null,
+    val kind: ServicePrincipalKind = ServicePrincipalKind.SERVICE,
 ) {
     /** True while the registration lets its client in. */
     val current: Boolean get() = validTo == null
@@ -42,9 +45,26 @@ data class ServicePrincipal(
     }
 }
 
-/** What a user asks to register: a client id, the Team key that owns it, and what it is for. */
+/** What a user asks to register: a client id, the Team key that owns it, what it is for, and what kind it is. */
 data class ServicePrincipalRegistration(
     val name: String,
     val ownedBy: String,
     val description: String? = null,
+    val kind: ServicePrincipalKind = ServicePrincipalKind.SERVICE,
 )
+
+/**
+ * A connector, which reports what its system of record says, or an agent, which acts on its own
+ * judgement (#30). A registration that names neither is a service, as every one was before.
+ */
+enum class ServicePrincipalKind(
+    val wireName: String,
+) {
+    SERVICE("service"),
+    AGENT("agent"),
+    ;
+
+    companion object {
+        fun fromWireName(value: String): ServicePrincipalKind? = entries.firstOrNull { it.wireName == value }
+    }
+}

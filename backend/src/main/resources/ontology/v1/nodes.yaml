@@ -29,6 +29,14 @@
 # (#98, POST /api/v1/nodes/{type}/{key}/merge): a merge where both hold one of them, or a part of the
 # `alias`, with different values is refused with the fields named. Every other value the node merged
 # into holds wins, and it takes from the other only what it lacks.
+#
+# `sensitivity` says how sensitive a type's nodes are, and a property's `sensitivity` how sensitive
+# that one property is where it is more so than its type (#30): public, internal, confidential or
+# restricted, in that order, and internal where a type says nothing. The authorisation policy hides
+# a node of a type above what the caller is cleared for and redacts a property above it from a node
+# it shows (docs/GOVERNANCE.md). An edge is as sensitive as the more sensitive of the types it joins.
+# By default every caller is cleared for everything, so the labels hide nothing until a policy uses
+# roles.
 
 nodes:
   Repository:
@@ -91,7 +99,7 @@ nodes:
       - { name: platform, email: platform@acme.example }
     properties:
       - { name: name, type: string, required: true, description: "The team's name as its organisation spells it, or host/org/slug from GitHub", examples: [platform, github.com/acme/payments-team] }
-      - { name: email, type: string, required: false, format: email, description: "An address that reaches the whole team", examples: [platform@acme.example] }
+      - { name: email, type: string, required: false, format: email, sensitivity: confidential, description: "An address that reaches the whole team", examples: [platform@acme.example] }
 
   Service:
     description: A running logical component, which may span more than one repository.
@@ -320,7 +328,8 @@ nodes:
       - { name: instance, type: string, required: true, description: "Instance of that tool the incident belongs to", examples: [acme.service-now.com] }
       - { name: sysId, type: string, required: true, description: "Identifier of the incident in the source system", examples: [1f2e3d4c5b6a79880716253443526170] }
       - { name: number, type: string, required: true, description: "The human-facing identifier, e.g. INC0001", examples: [INC0012345] }
-      - { name: shortDescription, type: string, required: false, description: "The incident's one-line summary", examples: [Card payments failing] }
+      # What failed can name a customer or the data involved, so it is confidential (#30).
+      - { name: shortDescription, type: string, required: false, sensitivity: confidential, description: "The incident's one-line summary", examples: [Card payments failing] }
       - { name: state, type: string, required: false, description: "As the tool reports it, e.g. In Progress or Resolved", examples: [In Progress] }
       - { name: priority, type: string, required: false, description: "The priority the tool gives it, as written there", examples: [1 - Critical] }
       - { name: severity, type: string, required: false, description: "The severity the tool gives it, as written there", examples: [1 - High] }
@@ -553,6 +562,8 @@ nodes:
   ServicePrincipal:
     description: A connector or agent registered as a principal of its own, owned by a team.
     meta: true
+    # Who may act on the graph, and for whom: the registry an attacker would most like to read (#30).
+    sensitivity: restricted
     identity: [name]
     displayProperty: name
     examples:
@@ -561,3 +572,7 @@ nodes:
       - { name: name, type: string, required: true, description: "The client id its tokens carry (azp, or client_id)", examples: [payments-deployer] }
       - { name: ownedBy, type: string, required: true, description: "Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam", examples: [platform] }
       - { name: description, type: string, required: false, description: "What the principal is for, in a sentence", examples: [Reports deployments of the payments service] }
+      # Whether it acts on its own judgement (#30): the policy judges an agent by the rules a user with
+      # the same roles meets, and never lets one administer the graph. A registration without it is a
+      # service, as every one was before.
+      - { name: kind, type: string, required: false, description: "Whether the principal is a connector (service) or acts on its own judgement (agent)", enum: [service, agent], examples: [agent] }

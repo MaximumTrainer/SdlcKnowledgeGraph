@@ -43,7 +43,36 @@ data class PropertyDef(
     val examples: List<Any?> = emptyList(),
     /** Set when the property is kept for old writers and data but should no longer be relied on. */
     val deprecated: Deprecation? = null,
+    /**
+     * How sensitive the property's value is (#30), where it is more sensitive than its type: a reader
+     * not cleared for it sees the node without it. Null where it is as sensitive as its type.
+     */
+    val sensitivity: Sensitivity? = null,
 )
+
+/**
+ * The sensitivity labels of the registry (#30), least sensitive first. The authorisation policy
+ * hides a node of a type, and redacts a property, labelled above what the reader is cleared for.
+ */
+enum class Sensitivity(
+    val wireName: String,
+) {
+    PUBLIC("public"),
+    INTERNAL("internal"),
+    CONFIDENTIAL("confidential"),
+    RESTRICTED("restricted"),
+    ;
+
+    companion object {
+        /** What a type that declares no label is. */
+        val DEFAULT = INTERNAL
+
+        fun fromWireName(value: String): Sensitivity = fromWire(entries, value, "sensitivity") { it.wireName }
+
+        /** The most sensitive of [levels], or [DEFAULT] for none. */
+        fun max(levels: Collection<Sensitivity>): Sensitivity = levels.maxOrNull() ?: DEFAULT
+    }
+}
 
 /** Since which ontology version a property is deprecated, and the property or edge type to use instead. */
 data class Deprecation(
@@ -124,6 +153,8 @@ data class NodeTypeDef(
      * for a type whose nodes may be merged whatever they hold.
      */
     val mergeScope: List<String> = emptyList(),
+    /** How sensitive a node of this type is (#30); [Sensitivity.DEFAULT] where the registry says nothing. */
+    val sensitivity: Sensitivity = Sensitivity.DEFAULT,
 ) {
     fun property(name: String): PropertyDef? = properties.firstOrNull { it.name == name }
 

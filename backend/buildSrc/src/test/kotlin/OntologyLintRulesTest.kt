@@ -354,6 +354,30 @@ class OntologyLintRulesTest {
         )
     }
 
+    @Test
+    fun `ONT015 a sensitivity the registry does not know (#30)`() {
+        val ontology = valid().withType("Team") { it.copy(sensitivity = "secret") }.withProperty("Repository", "topics") { it.copy(sensitivity = "pii") }
+
+        assertEquals(
+            listOf("nodes.Repository.properties.topics: unknown sensitivity 'pii' [ONT015]", "nodes.Team: unknown sensitivity 'secret' [ONT015]"),
+            lines(ontology).sorted(),
+        )
+    }
+
+    @Test
+    fun `ONT015 a property labelled no more sensitive than its type`() {
+        val ontology = valid().withType("Team") { it.copy(sensitivity = "confidential") }.withProperty("Team", "email") { it.copy(sensitivity = "internal") }
+
+        assertEquals(listOf("nodes.Team.properties.email: sensitivity 'internal' is not above its type's 'confidential' [ONT015]"), lines(ontology))
+    }
+
+    @Test
+    fun `ONT015 an edge property labelled at all, since an edge is as sensitive as what it joins`() {
+        val ontology = valid().copy(edgeTypes = valid().edgeTypes.map { edge -> edge.copy(properties = edge.properties.map { it.copy(sensitivity = "restricted") }) })
+
+        assertEquals(listOf("edges.OWNED_BY.properties.rule: an edge property carries no sensitivity of its own [ONT015]"), lines(ontology))
+    }
+
     private fun lines(ontology: GenOntology): List<String> = OntologyLint.lint(ontology).map { it.line }
 
     private fun GenOntology.withTemplateSteps(vararg steps: GenTemplateStep) =

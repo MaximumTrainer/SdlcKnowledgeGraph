@@ -56,6 +56,9 @@ dependencies {
     // The ontology registry is YAML on the classpath, read at startup.
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    // The authorisation policy (#30, #95, ADR-0020): the Rego under policy/ compiled to WebAssembly
+    // and evaluated in-process on a pure-Java runtime, so no OPA server has to run beside the API.
+    implementation("com.styra.opa:opa-java-wasm:1.1.0")
 
     // Unit-test suite only. Pact lives in the contractTest suite; Testcontainers and Cucumber in
     // the integrationTest and acceptanceTest suites (see the `testing { }` block below).
@@ -141,6 +144,9 @@ val generatedSdl = layout.projectDirectory.file("src/main/resources/graphql/sche
 val generatedTs = layout.projectDirectory.file("../frontend/src/generated/ontology.ts")
 val generatedJson = layout.projectDirectory.file("src/main/resources/ontology/v1/ontology.json")
 
+// The sensitivity labels the authorisation policy reads (#30), as data in its bundle under policy/.
+val generatedPolicyData = layout.projectDirectory.file("../policy/sdlc/ontology/data.json")
+
 val generateOntology by tasks.registering(OntologyCodegenTask::class) {
     group = "ontology"
     description = "Generates GraphQL SDL, TypeScript types and the ontology JSON fixture from the registry"
@@ -148,6 +154,7 @@ val generateOntology by tasks.registering(OntologyCodegenTask::class) {
     graphqlOutput.set(generatedSdl)
     typescriptOutput.set(generatedTs)
     jsonOutput.set(generatedJson)
+    policyDataOutput.set(generatedPolicyData)
 }
 
 val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
@@ -157,6 +164,7 @@ val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
     graphqlOutput.set(generatedSdl)
     typescriptOutput.set(generatedTs)
     jsonOutput.set(generatedJson)
+    policyDataOutput.set(generatedPolicyData)
 }
 
 tasks.named("check") { dependsOn(ontologyDriftCheck) }

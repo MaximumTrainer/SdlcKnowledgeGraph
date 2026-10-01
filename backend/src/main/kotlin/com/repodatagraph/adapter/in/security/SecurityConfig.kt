@@ -1,11 +1,18 @@
 package com.repodatagraph.adapter.`in`.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.repodatagraph.adapter.out.policy.WasmPolicyDecisionPoint
 import com.repodatagraph.config.AuthMode
 import com.repodatagraph.config.AuthProperties
+import com.repodatagraph.config.PolicyProperties
 import com.repodatagraph.config.ReadsOverPost
+import com.repodatagraph.domain.port.`in`.ResourceOwners
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
+import com.repodatagraph.domain.port.out.PolicyDecisionPoint
+import com.repodatagraph.observability.PolicyMetrics
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Condition
@@ -28,15 +35,16 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter
 
 /**
  * The API as an OAuth 2 resource server (#114, ADR-0005): every request under `/api` and `/graphql`
  * needs a bearer JWT signed by the configured issuer, and anything else is refused with a 401 the web
  * interface answers by restarting the login.
  *
- * What a principal may do is decided by the graph scopes on its token (#116): `graph:read` to read,
- * `graph:write` to change the graph, declared once per route family in [ScopePolicy] and checked by
- * [ScopeGate]. Who the caller is, which is what provenance records ([SecurityContextPrincipal]), is a
+ * What a principal may do is decided by the authorisation policy (#30, #95, ADR-0020), which
+ * [ScopeGate] asks about every request: by default the graph scopes on its token (#116), `graph:read`
+ * to read and `graph:write` to change the graph, declared once per route family in [ScopePolicy]. Who the caller is, which is what provenance records ([SecurityContextPrincipal]), is a
  * user, or a connector or agent holding a client-credentials token, which [ServicePrincipalGate] lets
  * in only once its client is a registered service principal (#115).
  *
@@ -62,12 +70,30 @@ import org.springframework.security.web.SecurityFilterChain
  */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(AuthProperties::class)
+@EnableConfigurationProperties(AuthProperties::class, PolicyProperties::class)
 class SecurityConfig(
     private val auth: AuthProperties,
     private val objectMapper: ObjectMapper,
     private val servicePrincipals: ServicePrincipalUseCase,
+    private val policyProperties: PolicyProperties,
+    private val policy: ObjectProvider<PolicyDecisionPoint>,
+    private val owners: ObjectProvider<ResourceOwners>,
+    private val meters: ObjectProvider<MeterRegistry>,
 ) {
+    /**
+     * The policy gate (#30, #95). Where the application has no policy bean - a test slice that builds
+     * only this configuration - it gets the bundle the API was built with, the same one.
+     */
+    private fun policyGate(): ScopeGate =
+        ScopeGate(
+            objectMapper = objectMapper,
+            policy = policy.getIfAvailable { WasmPolicyDecisionPoint.classpathDefault() },
+            properties = policyProperties,
+            owners = owners.getIfAvailable(),
+            metrics = meters.getIfAvailable()?.let(::PolicyMetrics),
+            mode = auth.mode,
+        )
+
     // The spread copies a handful of patterns once, when the chain is built.
     @Suppress("SpreadOperator")
     @Bean
@@ -105,9 +131,9 @@ class SecurityConfig(
             }.exceptionHandling { it.authenticationEntryPoint(refusal) }
             // A client's token is good only once its client is a registered service principal (#115).
             .addFilterAfter(ServicePrincipalGate(servicePrincipals, objectMapper), BearerTokenAuthenticationFilter::class.java)
-            // And then only for what its scopes allow (#116). After the registry gate, so an
+            // And then only for what the policy allows (#116, #30, #95). After the registry gate, so an
             // unregistered client is told that rather than which scope it lacks.
-            .addFilterAfter(ScopeGate(objectMapper), ServicePrincipalGate::class.java)
+            .addFilterAfter(policyGate(), ServicePrincipalGate::class.java)
         return http.build()
     }
 
@@ -136,6 +162,8 @@ class SecurityConfig(
                 it.requestMatchers(HttpMethod.POST, *ReadsOverPost.PATHS.toTypedArray()).permitAll()
                 it.anyRequest().denyAll()
             }.exceptionHandling { it.authenticationEntryPoint(refusal) }
+            // The anonymous reader is put to the policy too, which answers its reads (#30, #95).
+            .addFilterAfter(policyGate(), AnonymousAuthenticationFilter::class.java)
         return http.build()
     }
 

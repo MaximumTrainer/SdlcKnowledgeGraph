@@ -122,6 +122,9 @@ class GraphApiContractTest {
     @State(ProviderStates.LIFECYCLE_AT_ITS_DEFAULTS)
     fun lifecycleAtItsDefaults() = states.lifecycleAtItsDefaults()
 
+    @State(ProviderStates.POLICY_AT_ITS_DEFAULTS)
+    fun policyAtItsDefaults() = states.policyAtItsDefaults()
+
     @State(ProviderStates.GRAPH_ON_PREVIOUS_ONTOLOGY)
     fun graphOnThePreviousOntologyVersion() = states.graphOnThePreviousOntologyVersion()
 

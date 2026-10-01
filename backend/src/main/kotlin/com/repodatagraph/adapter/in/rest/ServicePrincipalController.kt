@@ -9,6 +9,7 @@ import com.repodatagraph.domain.exception.ServicePrincipalValidationException
 import com.repodatagraph.domain.exception.UnknownOwningTeamException
 import com.repodatagraph.domain.exception.UserPrincipalRequiredException
 import com.repodatagraph.domain.model.ServicePrincipal
+import com.repodatagraph.domain.model.ServicePrincipalKind
 import com.repodatagraph.domain.model.ServicePrincipalRegistration
 import com.repodatagraph.domain.port.`in`.ServicePrincipalUseCase
 import io.swagger.v3.oas.annotations.Operation
@@ -51,6 +52,7 @@ class ServicePrincipalController(
                     name = required("name", request.name),
                     ownedBy = required("ownedBy", request.ownedBy),
                     description = request.description,
+                    kind = kindOf(request.kind),
                 ),
             )
         return ResponseEntity
@@ -70,6 +72,15 @@ class ServicePrincipalController(
     fun deregister(
         @PathVariable name: String,
     ): ServicePrincipalResponse = ServicePrincipalResponse.from(useCase.deregister(name))
+
+    /** Left out, a service (#30); anything but service or agent is refused naming the field. */
+    private fun kindOf(kind: String?): ServicePrincipalKind =
+        if (kind == null) {
+            ServicePrincipalKind.SERVICE
+        } else {
+            ServicePrincipalKind.fromWireName(kind)
+                ?: throw ServicePrincipalValidationException("kind", "must be service or agent")
+        }
 
     private fun required(
         field: String,

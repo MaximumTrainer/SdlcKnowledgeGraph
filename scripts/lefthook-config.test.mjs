@@ -47,6 +47,11 @@ describe('lefthook.yml', () => {
     assert.match(hookBlock('pre-commit'), /- name: config-secrets\n\s+run: node scripts\/check-no-secrets\.mjs \{staged_files\}/)
   })
 
+  test('checks the policy is formatted and its bundle current on commit, and runs its tests on push (#30)', () => {
+    assert.match(hookBlock('pre-commit'), /- name: policy\n[^\n]*\n\s+run: node scripts\/opa\.mjs fmt && node scripts\/opa\.mjs check/)
+    assert.match(hookBlock('pre-push'), /- name: policy-test\n\s+run: node scripts\/opa\.mjs test/)
+  })
+
   /**
    * Git runs `pre-merge-commit`, not `pre-commit`, for a merge that commits automatically. Without
    * this block a merge introduces content no guard has ever seen, and everything ADR-0007 calls

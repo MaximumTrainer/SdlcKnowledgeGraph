@@ -116,6 +116,7 @@ object OntologyLint {
 
     private const val WARNING = "ONT009"
     private const val TEMPLATE = "ONT014"
+    private const val SENSITIVITY = "ONT015"
 
     /** As the runtime's TemplateStepDef: the most times a template step repeats, and what `current` narrows. */
     private const val MAX_REPEAT = 5
@@ -148,7 +149,43 @@ object OntologyLint {
                     type.properties.flatMap { propertyFindings(it, "$path.properties.${it.name}", type.name, type.properties, edgeNames) } +
                     type.examples.flatMapIndexed { index, example -> exampleFindings(example, "$path.examples[$index]", type.properties) }
             }
-        return nodes + edges + environmentFindings(ontology.environments) + ontology.templates.flatMap { templateFindings(it, ontology) }
+        return nodes + edges + environmentFindings(ontology.environments) + ontology.templates.flatMap { templateFindings(it, ontology) } +
+            sensitivityFindings(ontology)
+    }
+
+    /**
+     * ONT015: a sensitivity label (#30) is one of [Sensitivity.LEVELS]; a property's is above its
+     * type's, since a property can only be hidden from someone who may see the node it is on; and an
+     * edge's properties carry none, because an edge is as sensitive as the types it joins.
+     */
+    private fun sensitivityFindings(ontology: GenOntology): List<LintFinding> {
+        val unknown = { level: String -> level !in Sensitivity.LEVELS }
+        val types =
+            ontology.nodeTypes.flatMap { type ->
+                val path = "nodes.${type.name}"
+                val own =
+                    listOfNotNull(
+                        type.sensitivity?.takeIf(unknown)?.let { LintFinding(path, "unknown sensitivity '$it'", SENSITIVITY) },
+                    )
+                own +
+                    type.properties.mapNotNull { property ->
+                        val level = property.sensitivity ?: return@mapNotNull null
+                        val at = "$path.properties.${property.name}"
+                        when {
+                            unknown(level) -> LintFinding(at, "unknown sensitivity '$level'", SENSITIVITY)
+                            Sensitivity.LEVELS.indexOf(level) <= Sensitivity.LEVELS.indexOf(type.effectiveSensitivity) ->
+                                LintFinding(at, "sensitivity '$level' is not above its type's '${type.effectiveSensitivity}'", SENSITIVITY)
+                            else -> null
+                        }
+                    }
+            }
+        val edges =
+            ontology.edgeTypes.flatMap { type ->
+                type.properties.filter { it.sensitivity != null }.map {
+                    LintFinding("edges.${type.name}.properties.${it.name}", "an edge property carries no sensitivity of its own", SENSITIVITY)
+                }
+            }
+        return types + edges
     }
 
     /**

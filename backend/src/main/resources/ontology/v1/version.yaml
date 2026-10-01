@@ -36,4 +36,9 @@
 # link proposed below the ownership threshold, with its status, evidence and who rejected it; on
 # OWNS_RESOURCE the evidence, when it was resolved and who accepted it; and the link-engine source.
 # A minor bump: nothing was renamed or removed, and no data needs a migration.
-version: 1.9.0
+# 1.10.0 (#30, #95) added sensitivity: on node types and on properties, the label the authorisation
+# policy hides and redacts by, with ServicePrincipal restricted and Team.email and
+# Incident.shortDescription confidential; and ServicePrincipal's kind, service or agent. A minor
+# bump: nothing was renamed or removed, and no data needs a migration, since a type without a label
+# is internal and a registration without a kind is a service.
+version: 1.10.0

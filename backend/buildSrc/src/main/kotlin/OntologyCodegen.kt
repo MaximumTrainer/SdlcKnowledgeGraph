@@ -163,6 +163,7 @@ object OntologyCodegen {
                 appendLine("""      "displayProperty": ${jsonString(nodeType.displayProperty)},""")
                 appendLine("""      "alias": [${nodeType.alias.joinToString { "\"$it\"" }}],""")
                 appendLine("""      "mergeScope": [${nodeType.mergeScope.joinToString { "\"$it\"" }}],""")
+                appendLine("""      "sensitivity": "${nodeType.effectiveSensitivity}",""")
                 appendLine("""      "questions": [${nodeType.questions.joinToString { jsonString(it) }}],""")
                 appendLine("""      "examples": [${nodeType.examples.joinToString { compact(it) }}]""")
                 appendLine("    }${if (index == ontology.nodeTypes.lastIndex) "" else ","}")
@@ -182,6 +183,7 @@ object OntologyCodegen {
                 appendLine("""      "properties": [""")
                 appendProperties(edgeType.properties, indent = "        ")
                 appendLine("      ],")
+                appendLine("""      "sensitivity": "${ontology.edgeSensitivity(edgeType)}",""")
                 appendLine("""      "questions": [${edgeType.questions.joinToString { jsonString(it) }}],""")
                 appendLine("""      "examples": [${edgeType.examples.joinToString { compact(it) }}]""")
                 appendLine("    }${if (index == ontology.edgeTypes.lastIndex) "" else ","}")
@@ -220,6 +222,34 @@ object OntologyCodegen {
             appendLine("}")
         }
 
+    /**
+     * The sensitivity labels as the authorisation policy reads them (#30): `data.sdlc.ontology` in
+     * the bundle under policy/, written to policy/sdlc/ontology/data.json. Every type with its level
+     * and the properties it labels, and every edge with the level it inherits from the types it joins.
+     */
+    fun policyData(ontology: GenOntology): String =
+        buildString {
+            appendLine("{")
+            appendLine("""  "version": "${ontology.version}",""")
+            appendLine("""  "types": {""")
+            ontology.nodeTypes.forEachIndexed { index, nodeType ->
+                val comma = if (index == ontology.nodeTypes.lastIndex) "" else ","
+                val labelled = nodeType.properties.filter { it.sensitivity != null }
+                val properties = labelled.joinToString(prefix = "{", postfix = "}") { "${jsonString(it.name)}: ${jsonString(it.sensitivity)}" }
+                appendLine(
+                    """    "${nodeType.name}": { "sensitivity": "${nodeType.effectiveSensitivity}", "properties": $properties }$comma""",
+                )
+            }
+            appendLine("  },")
+            appendLine("""  "edges": {""")
+            ontology.edgeTypes.forEachIndexed { index, edgeType ->
+                val comma = if (index == ontology.edgeTypes.lastIndex) "" else ","
+                appendLine("""    "${edgeType.name}": "${ontology.edgeSensitivity(edgeType)}"$comma""")
+            }
+            appendLine("  }")
+            appendLine("}")
+        }
+
     /** A template step with every field, defaults too, in the order the ontology endpoint writes them. */
     private fun stepJson(step: GenTemplateStep): Map<String, Any?> =
         linkedMapOf(
@@ -249,10 +279,12 @@ object OntologyCodegen {
                 property.deprecated
                     ?.let { """, "deprecated": { "since": ${jsonString(it.since)}, "replacedBy": ${jsonString(it.replacedBy)} }""" }
                     .orEmpty()
+            // A property's sensitivity appears only where it declares one (#30); its type's applies otherwise.
+            val sensitivity = property.sensitivity?.let { """, "sensitivity": ${jsonString(it)}""" }.orEmpty()
             appendLine(
                 """$indent{ "name": "${property.name}", "type": "${property.type}", """ +
                     """"required": ${property.required}, "description": ${jsonString(property.description)}""" +
-                    """$enum$format$formatWhen$examples$deprecated }$comma""",
+                    """$enum$format$formatWhen$examples$deprecated$sensitivity }$comma""",
             )
         }
     }

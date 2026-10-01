@@ -3,6 +3,7 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
@@ -21,6 +22,11 @@ abstract class OntologyCodegenTask : DefaultTask() {
     @get:OutputFile
     abstract val jsonOutput: RegularFileProperty
 
+    /** The sensitivity labels for the authorisation policy's bundle (#30); not written when unset. */
+    @get:OutputFile
+    @get:Optional
+    abstract val policyDataOutput: RegularFileProperty
+
     @TaskAction
     fun generate() {
         val ontology = OntologyReader.read(ontologyDirectory.get().asFile)
@@ -28,6 +34,7 @@ abstract class OntologyCodegenTask : DefaultTask() {
         write(graphqlOutput.get().asFile, OntologyCodegen.graphqlSdl(ontology))
         write(typescriptOutput.get().asFile, OntologyCodegen.typescript(ontology))
         write(jsonOutput.get().asFile, OntologyCodegen.json(ontology))
+        policyDataOutput.orNull?.let { write(it.asFile, OntologyCodegen.policyData(ontology)) }
 
         logger.lifecycle(
             "Generated ontology views for {} node types and {} edge types",
@@ -69,15 +76,20 @@ abstract class OntologyDriftCheckTask : DefaultTask() {
     @get:InputFile
     abstract val jsonOutput: RegularFileProperty
 
+    @get:InputFile
+    @get:Optional
+    abstract val policyDataOutput: RegularFileProperty
+
     @TaskAction
     fun check() {
         val ontology = OntologyReader.read(ontologyDirectory.get().asFile)
 
         val stale =
-            listOf(
+            listOfNotNull(
                 graphqlOutput.get().asFile to OntologyCodegen.graphqlSdl(ontology),
                 typescriptOutput.get().asFile to OntologyCodegen.typescript(ontology),
                 jsonOutput.get().asFile to OntologyCodegen.json(ontology),
+                policyDataOutput.orNull?.let { it.asFile to OntologyCodegen.policyData(ontology) },
             ).filter { (file, expected) ->
                 !file.exists() || file.readText().replace("\r\n", "\n") != expected.replace("\r\n", "\n")
             }.map { (file, _) -> file.path }

@@ -89,6 +89,13 @@ class OntologyRegistry(
     /** The inverse traversal name for [edgeName], or null when the edge is unknown. */
     fun inverseOf(edgeName: String): String? = edgesByName[edgeName]?.inverse
 
+    /**
+     * How sensitive an edge of [edgeType] is (#30): as sensitive as the more sensitive of the node
+     * types it may join, so an edge never shows a reader a node they could not read.
+     */
+    fun edgeSensitivity(edgeType: EdgeTypeDef): Sensitivity =
+        Sensitivity.max((edgeType.from + edgeType.to).mapNotNull { nodesByName[it]?.sensitivity })
+
     /** Reports every problem with a type at once, rather than only the first one found. */
     private fun validateNodeType(nodeType: NodeTypeDef) {
         val problems = mutableListOf<String>()

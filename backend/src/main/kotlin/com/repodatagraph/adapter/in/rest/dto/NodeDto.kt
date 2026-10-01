@@ -1,10 +1,12 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.repodatagraph.application.freshness.FactFreshness
 import com.repodatagraph.domain.model.GraphNode
 import com.repodatagraph.domain.model.NodePage
 import com.repodatagraph.domain.model.Provenance
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 
 /**
@@ -66,6 +68,16 @@ data class NodeResponse(
     val key: String,
     val props: Map<String, Any?>,
     val provenance: ProvenanceResponse,
+    /**
+     * The properties taken out because the caller is not cleared for them (#30 FR4), so a reader can
+     * tell a redacted value from one never recorded. Omitted when nothing was taken out.
+     */
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+        description = "Properties taken out for the caller's clearance; absent when none were",
+    )
+    @field:JsonInclude(JsonInclude.Include.NON_EMPTY)
+    val redacted: List<String> = emptyList(),
 ) {
     companion object {
         fun from(

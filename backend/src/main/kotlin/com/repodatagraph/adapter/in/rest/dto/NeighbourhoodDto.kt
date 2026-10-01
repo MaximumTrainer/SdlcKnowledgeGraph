@@ -1,9 +1,11 @@
 package com.repodatagraph.adapter.`in`.rest.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.SubgraphEdgeView
 import com.repodatagraph.domain.model.SubgraphNodeView
 import com.repodatagraph.domain.model.SubgraphView
+import io.swagger.v3.oas.annotations.media.Schema
 
 /** A node as the graph view draws it (#9): its label, how far from the root, and what its drawer shows. */
 data class SubgraphNodeResponse(
@@ -54,6 +56,16 @@ data class NeighbourhoodResponse(
     val nodes: List<SubgraphNodeResponse>,
     val edges: List<SubgraphEdgeResponse>,
     val truncated: Boolean,
+    /**
+     * How many nodes the authorisation policy left out because the caller is not cleared for their
+     * type (#30 FR5), with the edges that reached them. Omitted when it left out none.
+     */
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+        description = "Nodes left out for the caller's clearance; absent when none were",
+    )
+    @field:JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    val truncatedByPolicy: Int = 0,
 ) {
     companion object {
         fun from(view: SubgraphView) =

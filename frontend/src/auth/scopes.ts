@@ -59,11 +59,31 @@ const isInsufficientScope = (data: unknown): data is InsufficientScope => {
   )
 }
 
+interface PolicyDenied {
+  error: 'policy denied'
+  policy: string
+  reason: string
+}
+
+const isPolicyDenied = (data: unknown): data is PolicyDenied => {
+  const refusal = data as Partial<PolicyDenied> | null | undefined
+  return (
+    refusal?.error === 'policy denied' &&
+    typeof refusal.policy === 'string' &&
+    typeof refusal.reason === 'string'
+  )
+}
+
 /**
- * The sentence to show when the API refused a request for want of a scope, or null for any other
- * refusal, which the page that got it explains in its own words.
+ * The sentence to show when the API refused a request for want of a scope, or because the
+ * authorisation policy refused it for another reason (#30, #95) - a role, a type above the user's
+ * clearance - naming the rule; null for any other refusal, which the page that got it explains in
+ * its own words.
  */
 export const refusalReason = (data: unknown): string | null => {
+  if (isPolicyDenied(data)) {
+    return `You do not have permission to do that: the ${data.policy} policy refused it, as ${data.reason}.`
+  }
   if (!isInsufficientScope(data)) return null
   const held = data.held.length ? data.held.join(', ') : 'no graph scope'
   return `You do not have permission to do that: it needs ${data.required.join(', ')}, and you hold ${held}.`

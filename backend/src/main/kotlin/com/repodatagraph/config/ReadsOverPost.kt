@@ -17,5 +17,9 @@ object ReadsOverPost {
             "/api/v1/impact",
             // A context pack (#96): a start node, a template, a budget and an instant.
             "/api/v1/context-pack",
+            // What the authorisation policy decides for the caller (#30), and whether it lets an
+            // agent act on the facts it cites (#95): questions about the policy, which change nothing.
+            "/api/v1/policy/explain",
+            "/api/v1/policy/evaluate",
         )
 }

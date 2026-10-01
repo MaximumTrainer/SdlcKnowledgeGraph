@@ -53,6 +53,22 @@ startup. A deployment with an identity provider may also run read-only; the
 [user guide](/guide/user-guide#read-only-instances) describes what that refuses. It narrows what has to
 be made safe; it does not make anything safe that it lets through.
 
+## The authorisation policy runs inside the API
+
+Every request is decided by the authorisation policy ([Governance](/guide/governance)), which the API
+evaluates in its own process
+([ADR-0020](/adr/0020-one-authorisation-policy-evaluated-in-process)). A deployment runs no Open
+Policy Agent server and needs no new machine, secret or setting. Three settings are optional:
+
+| Variable | Default | What it changes |
+| --- | --- | --- |
+| `SDLC_POLICY_BUNDLE` | unset: the bundle the image was built with | A path to another bundle built by `node scripts/opa.mjs build`, enforced instead. A bundle the API cannot load stops it at startup |
+| `SDLC_POLICY_ROLES_CLAIM` | `sdlc_roles` | The token claim that carries a caller's roles. A token without it is judged by its scopes alone |
+| `OIDC_GROUPS_CLAIM` | `groups` | The token claim that names the teams a caller belongs to, for [ownership](/guide/governance#owning-a-node) |
+
+When the policy cannot be evaluated, the request is refused with `503 {"error":
+"policy_unavailable"}`, read or write. `GET /api/v1/policy` names the revision in force.
+
 ## Running the suite
 
 ```bash

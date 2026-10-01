@@ -72,6 +72,11 @@ Outside the backend there are three more suites, each on `node:test` with no ext
 | website | `website/scripts/*.test.mjs` | the page generator | pre-commit drift check, CI |
 | frontend | `frontend/src/**` | components and stores, with MSW | pre-push, CI |
 
+The authorisation policy has its own suite, in Rego beside the rules it tests
+(`policy/sdlc/**/*_test.rego`). `node scripts/opa.mjs test` runs it with OPA from an image pinned by
+version and digest, on `pre-push` and in CI's Guards job, and `pre-commit` checks that the Rego is
+formatted and the committed bundle is what it compiles to ([Governance](/guide/governance#changing-the-policy)).
+
 The root suite exists because the guards are the one part of this repository whose failure is
 silent: a guard that has stopped refusing looks exactly like a guard with nothing to refuse, since
 commits keep succeeding either way. Each test drives the real script against a throwaway repository
@@ -170,9 +175,9 @@ npm run actionlint -- .github/workflows/*.yml   # GitHub workflow files, at the 
 | Hook | What runs |
 | --- | --- |
 | `commit-msg` | commitlint: conventional format, known scope, issue reference required (except for commits signed by Dependabot, which have no issue to reference) |
-| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` and `ontologyLint` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the dashboard check when `ops/grafana/` or `docs/OBSERVABILITY.md` is staged, the website drift check when a documentation source is staged, and the guards below |
+| `pre-commit` | ktlint format and restage, detekt, ESLint and Prettier on staged files, actionlint on workflows, `ontologyDriftCheck` and `ontologyLint` when the registry is staged, `logEventDriftCheck` when the event registry is staged, the SLO rule drift check and promtool when anything under `ops/` is staged, the dashboard check when `ops/grafana/` or `docs/OBSERVABILITY.md` is staged, the website drift check when a documentation source is staged, `opa fmt` and the policy bundle check when the policy, its bundle or the registry is staged, and the guards below |
 | `pre-merge-commit` | the file guards, over what the merge is about to commit. Git runs this instead of `pre-commit` for a merge that commits automatically |
-| `pre-push` | the branch guard, `./gradlew check`, the SLO rule drift check and promtool, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
+| `pre-push` | the branch guard, `./gradlew check`, the Rego tests, the SLO rule drift check and promtool, the frontend verify chain, and a check that `contracts/pacts/` matches what the consumer tests just regenerated |
 
 ### Guards
 

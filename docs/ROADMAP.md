@@ -87,7 +87,7 @@ Connectors replace hand-entered data, and code gets linked to infrastructure.
 
 | Issue | Title | Status |
 | --- | --- | --- |
-| [#30](../../issues/30) | RBAC and policy-as-code with OPA | |
+| [#30](../../issues/30) | RBAC and policy-as-code with OPA, with [#95](../../issues/95) | Done |
 | [#31](../../issues/31) | AI-agent query API and MCP server | |
 | [#32](../../issues/32) | Answer-quality evaluation harness | |
 | [#33](../../issues/33) | Data lifecycle: history, tombstones, archival, migrations | Done |

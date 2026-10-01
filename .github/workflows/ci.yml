@@ -64,6 +64,14 @@ jobs:
       # panel's query parses, checked by promtool from the same pinned image.
       - name: The dashboard reads only documented metrics
         run: node scripts/dashboard.mjs
+      # The authorisation policy (#30, #95, ADR-0020): the Rego is formatted, every Rego unit test
+      # passes, and the WebAssembly bundle the API evaluates is what that Rego compiles to. opa runs
+      # from an image pinned by version and digest (scripts/opa.mjs), the same one the hooks use.
+      - name: The authorisation policy is formatted, tested and current
+        run: |
+          node scripts/opa.mjs fmt
+          node scripts/opa.mjs test
+          node scripts/opa.mjs check
 
   root-scripts:
     # The guards decide whether a commit is allowed, and their failure mode is silent: one that has

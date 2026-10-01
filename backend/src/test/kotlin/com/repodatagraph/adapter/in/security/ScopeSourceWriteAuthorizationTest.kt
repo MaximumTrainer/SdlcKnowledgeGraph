@@ -71,6 +71,22 @@ class ScopeSourceWriteAuthorizationTest {
     }
 
     @Test
+    fun `a role is the gate's to judge with the node's owners, so it does not refuse a source here (#30)`() {
+        val jwt =
+            Jwt
+                .withTokenValue("t")
+                .header("alg", "RS256")
+                .subject("vera")
+                .claim("scope", "graph:read graph:write")
+                .claim("sdlc_roles", listOf("viewer"))
+                .build()
+        SecurityContextHolder.getContext().authentication = JwtAuthenticationToken(jwt)
+
+        assertDoesNotThrow { enabled.authorize("manual") }
+        assertThrows<SourceNotPermittedException> { enabled.authorize("github") }
+    }
+
+    @Test
     fun `a write with no token holds nothing, so even manual is refused`() {
         val refusal = assertThrows<SourceNotPermittedException> { enabled.authorize("manual") }
 

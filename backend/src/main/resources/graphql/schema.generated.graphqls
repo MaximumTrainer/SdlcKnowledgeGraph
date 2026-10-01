@@ -690,6 +690,12 @@ type OntologyMigrationNode implements GraphNode {
   provenance: Provenance!
 }
 
+"""The values ServicePrincipal.kind may take."""
+enum ServicePrincipalKind {
+  service
+  agent
+}
+
 """A connector or agent registered as a principal of its own, owned by a team."""
 type ServicePrincipalNode implements GraphNode {
   id: ID!
@@ -700,6 +706,8 @@ type ServicePrincipalNode implements GraphNode {
   ownedBy: String!
   """What the principal is for, in a sentence"""
   description: String
+  """Whether the principal is a connector (service) or acts on its own judgement (agent). One of ServicePrincipalKind."""
+  kind: String
   provenance: Provenance!
 }
 

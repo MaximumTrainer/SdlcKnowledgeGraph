@@ -44,6 +44,11 @@ and every other request is refused with `403 {"error": "this instance is read-on
 exceptions are the ingest endpoints above, which the pipeline and the seed use, each behind the
 ingest token (D6). The API logs `auth.anonymous.readonly` on every start to say so.
 
+The authorisation policy ([GOVERNANCE.md](GOVERNANCE.md), #30, #95) runs inside the backend machine,
+so the instance is still two machines and its configuration did not change
+([ADR-0020](adr/0020-one-authorisation-policy-evaluated-in-process.md)). The anonymous reader holds
+`graph:read` and no roles, so the shipped policy lets it read everything it read before.
+
 Nothing on it is archived or deleted by the data lifecycle either ([#33](../../issues/33)): the
 archive job is off unless `LIFECYCLE_ARCHIVE_ENABLED` is set, and `fly/fly.backend.toml` does not set
 it. The lifecycle's admin endpoints are writes, so the read-only posture refuses them; the Lifecycle

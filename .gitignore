@@ -19,6 +19,9 @@
 *.ear
 *.zip
 *.tar.gz
+# The compiled authorisation policy the API evaluates (docs/adr/0020): committed, and held to the
+# Rego under policy/ by `node scripts/opa.mjs check`.
+!backend/src/main/resources/policy/bundle.tar.gz
 *.rar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml

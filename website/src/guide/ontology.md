@@ -200,9 +200,36 @@ closed set says so:
 | `format` | A string's shape: `url`, `email`, `sha256`, `arn`, `semver`, `iana-tz`, `rrule` or `instant` | on write, only when there is a value: `expected url` |
 | `formatWhen` | The sibling values under which the format applies, such as `{ provider: aws }` for an ARN | with the format |
 | `deprecated` | `{ since, replacedBy }`: kept for old writers and data, and what to use instead, a property of the same type or an edge type | in generated code, as `@deprecated` |
+| `sensitivity` | How sensitive the value is, when it is more sensitive than its type ([Sensitivity](#sensitivity)) | by the authorisation policy, on read |
 
 A node type adds `examples`, whole nodes the API accepts, and `questions`, what a reader answers with
 it. An edge type may carry both too, and its properties describe themselves like a node's.
+
+### Sensitivity
+
+A node type may say how sensitive its nodes are, and a property how sensitive its value is, as
+`public`, `internal`, `confidential` or `restricted` ([#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30)).
+A type that says nothing is `internal`. A property says so only when it is more sensitive than its
+type, and an edge is as sensitive as the more sensitive type it joins, so an edge's properties carry
+no label.
+
+```yaml
+ServicePrincipal:
+  sensitivity: restricted
+Team:
+  properties:
+    - { name: email, type: string, sensitivity: confidential, ... }
+```
+
+1.10.0 labels `ServicePrincipal` as restricted, and `Team.email` and `Incident.shortDescription` as
+confidential. Everything else is internal.
+
+The labels are generated into the authorisation policy's data (`policy/sdlc/ontology/data.json`) by
+`./gradlew generateOntology`, so they cannot drift from the types. The policy hides a node of a type
+above the reader's clearance and takes out a property above it, naming it in the node's `redacted`
+([Governance](/guide/governance#sensitivity)). A token without roles is cleared for everything, so the
+shipped labels hide nothing anyone saw before. `GET /api/v1/ontology` serves each type's
+`sensitivity`, each edge type's, and a property's where it has one.
 
 ### What reads it
 
@@ -269,6 +296,7 @@ rule is a fact about the registry, not a matter of taste.
 | ONT012 | In `environments.yaml`: an alias that already names another environment, an alias that is another environment's own name, or an environment without a description |
 | ONT013 | A `mergeScope` naming a property the type does not declare |
 | ONT014 | In `templates.yaml`: a template badly named, undescribed, starting from an undeclared type or declaring no steps; or a step walking an edge that is neither an edge type nor an inverse, walking one from a type it cannot leave, filtering on a property or value the edge does not declare, repeating outside 0 to 5 times, or marking `current` a step that reaches anything but Deployment |
+| ONT015 | A `sensitivity` that is not one of `public`, `internal`, `confidential` or `restricted`; a property's no higher than its type's; or one on an edge's property |
 
 ```text
 Ontology lint: 1 errors, 0 warnings
@@ -1315,6 +1343,11 @@ same artifact to the same environment succeeded. It is a minor bump and ships no
 evidence and review: `CloudResource.tags` and `Deployment.targetResourceKeys`, the `CANDIDATE_LINK`
 edge, `evidence`, `resolvedAt`, `acceptedBy` and `acceptedAt` on `OWNS_RESOURCE`, and the
 `link-engine` source. It is a minor bump and ships no migration.
+
+1.10.0 ([#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30)) added
+[sensitivity labels](#sensitivity): `sensitivity` on node types and properties, `restricted` on
+`ServicePrincipal`, and `confidential` on `Team.email` and `Incident.shortDescription`. It is a minor
+bump and ships no migration: a label changes what a reader is shown, not what is stored.
 
 ### Migrations
 

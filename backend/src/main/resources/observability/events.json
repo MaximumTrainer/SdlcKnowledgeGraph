@@ -243,6 +243,68 @@
       "type" : "string[]"
     } ]
   }, {
+    "name" : "policy.denied",
+    "level" : "WARN",
+    "message" : "request refused by policy",
+    "description" : "The authorisation policy refused a request for a reason other than a missing scope - a role, an agent's limits, a type above the caller's clearance, a source the caller may not speak for. Names the principal, its kind, the action and the rule that refused it, never the path, which can hold a node's key.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "principal",
+      "type" : "string"
+    }, {
+      "name" : "kind",
+      "type" : "string"
+    }, {
+      "name" : "action",
+      "type" : "string"
+    }, {
+      "name" : "policy",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "policy.redacted",
+    "level" : "INFO",
+    "message" : "read filtered by policy",
+    "description" : "A read was answered with nodes the caller is not cleared for left out, or with properties above its clearance removed (#30). Names the principal, how many nodes were left out and which properties were removed, never their values.",
+    "security" : true,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "principal",
+      "type" : "string"
+    }, {
+      "name" : "hidden",
+      "type" : "int"
+    }, {
+      "name" : "redacted",
+      "type" : "string[]"
+    } ]
+  }, {
+    "name" : "policy.loaded",
+    "level" : "INFO",
+    "message" : "authorisation policy loaded",
+    "description" : "The API compiled the authorisation policy bundle and will evaluate it in its own process. Names the bundle's revision and where it came from.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "revision",
+      "type" : "string"
+    }, {
+      "name" : "source",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "policy.unavailable",
+    "level" : "ERROR",
+    "message" : "authorisation policy could not be evaluated; refusing the request",
+    "description" : "Evaluating the authorisation policy failed, so the request was refused with 503 policy_unavailable rather than answered unchecked. Reads are refused as well as writes, because a read that cannot be filtered could show what the caller may not see.",
+    "security" : true,
+    "throwable" : true,
+    "fields" : [ {
+      "name" : "entrypoint",
+      "type" : "string"
+    } ]
+  }, {
     "name" : "auth.anonymous.readonly",
     "level" : "WARN",
     "message" : "no identity provider; serving reads to anyone and refusing every write",

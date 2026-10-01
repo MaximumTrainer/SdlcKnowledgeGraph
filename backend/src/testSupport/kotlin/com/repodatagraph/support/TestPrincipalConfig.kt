@@ -1,5 +1,6 @@
 package com.repodatagraph.support
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.web.client.RestTemplateCustomizer
 import org.springframework.context.annotation.Bean
@@ -10,6 +11,7 @@ import org.springframework.security.oauth2.jwt.BadJwtException
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import java.time.Instant
+import java.util.Base64
 
 /**
  * A signed-in caller for the suites that exercise the graph rather than the login (#118).
@@ -40,19 +42,21 @@ class TestPrincipalConfig {
     @Primary
     fun testPrincipalDecoder(): JwtDecoder =
         JwtDecoder { token ->
-            val (subject, scopes) =
-                when (token) {
-                    TOKEN -> SUBJECT to SCOPES
-                    READER_TOKEN -> READER_SUBJECT to READER_SCOPES
+            val claims =
+                when {
+                    token == TOKEN -> mapOf("sub" to SUBJECT, "scope" to SCOPES)
+                    token == READER_TOKEN -> mapOf("sub" to READER_SUBJECT, "scope" to READER_SCOPES)
+                    token.startsWith(CLAIMS_PREFIX) -> claimsOf(token)
                     else -> throw BadJwtException("not the test principal's token")
                 }
+            val subject = claims["sub"].toString()
             Jwt
                 .withTokenValue(token)
                 .header("alg", "none")
+                .claims { it.putAll(claims) }
                 .subject(subject)
                 .issuer(ISSUER)
                 .claim("preferred_username", subject)
-                .claim("scope", scopes)
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(TOKEN_LIFETIME_SECONDS))
                 .build()
@@ -96,6 +100,28 @@ class TestPrincipalConfig {
         const val READER_AUTHORIZATION = "Bearer $READER_TOKEN"
 
         private const val READER_SCOPES = "graph:read"
+
+        private const val CLAIMS_PREFIX = "test-claims."
+        private val MAPPER = ObjectMapper()
+
+        /**
+         * A token the test decoder accepts carrying exactly [claims] - `sub`, `scope`, and whatever
+         * else a test needs, such as the roles and groups the authorisation policy reads (#30). The
+         * claims travel in the token itself, so a test can mint one per scenario.
+         */
+        fun tokenWith(claims: Map<String, Any?>): String =
+            CLAIMS_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(MAPPER.writeValueAsBytes(claims))
+
+        /** The header value for [tokenWith]. */
+        fun authorizationWith(claims: Map<String, Any?>): String = "Bearer ${tokenWith(claims)}"
+
+        @Suppress("UNCHECKED_CAST")
+        private fun claimsOf(token: String): Map<String, Any?> {
+            val claims =
+                runCatching { MAPPER.readValue(Base64.getUrlDecoder().decode(token.removePrefix(CLAIMS_PREFIX)), Map::class.java) }
+                    .getOrNull() as? Map<String, Any?>
+            return claims?.takeIf { it["sub"] != null } ?: throw BadJwtException("a test token's claims name no subject")
+        }
 
         /**
          * Every graph scope - reading, writing and administering the graph's lifecycle (#33) - and the

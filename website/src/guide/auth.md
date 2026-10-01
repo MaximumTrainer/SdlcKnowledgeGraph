@@ -28,6 +28,13 @@ same gate, and what either may do is decided by the [scopes](#scopes) on its tok
 administrative jobs ([#33](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/33)) and to merge nodes ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). There is no anonymous writer: every write
 through the API names the principal that made it.
 
+Scopes are the first rule of one authorisation policy, written in Rego and evaluated inside the API
+on every request ([#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30), [#95](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/95),
+[ADR-0020](/adr/0020-one-authorisation-policy-evaluated-in-process)). The policy can also narrow
+what a token's scopes allow by its roles, by the teams that own a node and by the sensitivity of
+what it reads. As shipped, it grants a token without roles exactly what its scopes grant.
+[Governance](/guide/governance) covers the policy.
+
 ## Getting a token
 
 **As a person**, sign in through the web interface: it runs the authorization code flow with PKCE
@@ -194,8 +201,9 @@ A query whose input is too structured for a query string is sent as a POST but o
 needs `graph:read`, not `graph:write`. Such routes are listed once, by exact path, in
 [`ReadsOverPost`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/main/kotlin/com/repodatagraph/config/ReadsOverPost.kt),
 which the scope policy, the read-only guard and the anonymous read-only mode all read, so the three
-cannot disagree about what a POST may do. `POST /api/v1/impact` and `POST /api/v1/context-pack` are
-the only ones. A route belongs
+cannot disagree about what a POST may do. They are `POST /api/v1/impact`,
+`POST /api/v1/context-pack`, and the policy's `POST /api/v1/policy/explain` and
+`POST /api/v1/policy/evaluate` ([Governance](/guide/governance#asking-the-policy)). A route belongs
 there only if its handler writes nothing at all.
 
 A path outside every family - an actuator endpoint other than the public ones, the GraphiQL page -
@@ -359,7 +367,11 @@ curl -X POST http://localhost:8080/api/v1/service-principals \
 | `GET /api/v1/service-principals` | `{items: [...]}`, every registration in name order, deregistered ones with their `validTo` |
 | `DELETE /api/v1/service-principals/{name}` | `200` with the registration, now with a `validTo`; `404` for a name never registered; `403` for a service |
 
-A registration is `{name, ownedBy, description, registeredBy, validFrom, validTo}`. Deregistering
+A registration is `{name, ownedBy, description, registeredBy, validFrom, validTo, kind}`. `kind` is
+`service`, the default, or `agent` for a principal that acts on its own judgement rather than
+reporting a system of record ([#30](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/30)). The policy never lets an agent administer
+the graph, whatever its scopes ([Governance](/guide/governance#agents)); a registration with any
+other kind is `400`. Deregistering
 keeps the record, because the facts the service wrote still name it; the same name can be registered
 again later, current from then. A registration is also a `ServicePrincipal` node in the graph, a meta
 type, readable through the node API and GraphQL but written only through this API.
@@ -410,13 +422,18 @@ What it writes records `writtenBy: "triage-agent"`, `principalType: "service"` a
 
 The realm the default compose stack, the browser suite and the acceptance suite import
 ([`sdlc-realm.json`](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/blob/main/backend/src/acceptanceTest/resources/keycloak/sdlc-realm.json))
-has the web interface's public client `sdlc-ui` and three users, each with their name as password:
+has the web interface's public client `sdlc-ui` and four users, each with their name as password:
 
 | User | Graph scopes | Purpose |
 | --- | --- | --- |
 | `dan` | `graph:read`, `graph:write` | The developer: reads, writes, registers service principals |
 | `reader` | `graph:read` | A read-only user, to see what the web interface hides and the API refuses |
 | `visitor` | none | A signed-in user with no graph scope: reads the ontology and nothing else |
+| `viewer` | `graph:read`, `graph:write` | A user with the `viewer` role ([Governance](/guide/governance#roles)): the role refuses the writes the scopes would allow |
+
+`sdlc-ui` defines the client roles `viewer`, `curator`, `operator` and `admin`, and maps the ones a
+user holds into the token's `sdlc_roles` claim. Only `viewer` holds one, so every other token carries
+no roles and is judged by its scopes alone.
 
 and three confidential clients with the client-credentials grant:
 
@@ -436,6 +453,6 @@ imports. None of the clients is registered when the stack starts: register them 
   become service principals now, and their writes would then name them; that is a separate change.
 - A scheduled connector run inside the application writes as no principal: nobody asked for it. It
   stamps its own source without a scope check, and so do the ingest endpoints.
-- Agents are `service` principals like connectors. An agent acting for a particular user (token
+- An agent is registered like a connector, with `kind: agent`. An agent acting for a particular user (token
   exchange, so that the agent can see no more than that user) is an open question in ADR-0005, not
   part of this.

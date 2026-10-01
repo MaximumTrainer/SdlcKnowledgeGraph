@@ -912,6 +912,9 @@
             },
             "type" : "array"
           },
+          "sensitivity" : {
+            "type" : "string"
+          },
           "to" : {
             "items" : {
               "type" : "string"
@@ -919,7 +922,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "downstream", "examples", "from", "impact", "inverse", "name", "ownership", "properties", "questions", "to" ],
+        "required" : [ "downstream", "examples", "from", "impact", "inverse", "name", "ownership", "properties", "questions", "sensitivity", "to" ],
         "type" : "object"
       },
       "EdgeViewResponse" : {
@@ -1373,6 +1376,11 @@
           },
           "truncated" : {
             "type" : "boolean"
+          },
+          "truncatedByPolicy" : {
+            "description" : "Nodes left out for the caller's clearance; absent when none were",
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "required" : [ "edges", "nodes", "root", "truncated" ],
@@ -1459,6 +1467,13 @@
           "provenance" : {
             "$ref" : "#/components/schemas/ProvenanceResponse"
           },
+          "redacted" : {
+            "description" : "Properties taken out for the caller's clearance; absent when none were",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "type" : {
             "type" : "string"
           }
@@ -1516,9 +1531,12 @@
               "type" : "string"
             },
             "type" : "array"
+          },
+          "sensitivity" : {
+            "type" : "string"
           }
         },
-        "required" : [ "alias", "examples", "identity", "mergeScope", "meta", "name", "properties", "questions" ],
+        "required" : [ "alias", "examples", "identity", "mergeScope", "meta", "name", "properties", "questions", "sensitivity" ],
         "type" : "object"
       },
       "OntologyResponse" : {
@@ -1694,6 +1712,190 @@
         "required" : [ "id" ],
         "type" : "object"
       },
+      "PolicyEvaluateRequest" : {
+        "properties" : {
+          "action" : {
+            "type" : [ "string", "null" ]
+          },
+          "facts" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "PolicyEvaluateResponse" : {
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "allow" : {
+            "type" : "boolean"
+          },
+          "facts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyFactResponse"
+            },
+            "type" : "array"
+          },
+          "policy" : {
+            "type" : "string"
+          },
+          "reasons" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "subject" : {
+            "$ref" : "#/components/schemas/PolicySubjectResponse"
+          }
+        },
+        "required" : [ "action", "allow", "facts", "policy", "reasons", "subject" ],
+        "type" : "object"
+      },
+      "PolicyExplainRequest" : {
+        "properties" : {
+          "action" : {
+            "type" : [ "string", "null" ]
+          },
+          "resource" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PolicyResourceRequest"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "type" : "object"
+      },
+      "PolicyExplainResponse" : {
+        "properties" : {
+          "allow" : {
+            "type" : "boolean"
+          },
+          "clearance" : {
+            "type" : "string"
+          },
+          "policy" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "redact" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "required" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "subject" : {
+            "$ref" : "#/components/schemas/PolicySubjectResponse"
+          }
+        },
+        "required" : [ "allow", "clearance", "policy", "reason", "redact", "required", "subject" ],
+        "type" : "object"
+      },
+      "PolicyFactResponse" : {
+        "properties" : {
+          "ageMinutes" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "confidence" : {
+            "format" : "double",
+            "type" : [ "number", "null" ]
+          },
+          "found" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inferred" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "type" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "found", "id" ],
+        "type" : "object"
+      },
+      "PolicyResourceRequest" : {
+        "properties" : {
+          "key" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "PolicyStatusResponse" : {
+        "properties" : {
+          "engine" : {
+            "type" : "string"
+          },
+          "failMode" : {
+            "type" : "string"
+          },
+          "loadedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "engine", "failMode", "loadedAt", "name", "revision", "status" ],
+        "type" : "object"
+      },
+      "PolicySubjectResponse" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "scopes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "teams" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "id", "kind", "scopes", "teams" ],
+        "type" : "object"
+      },
       "PropertyResponse" : {
         "properties" : {
           "deprecated" : {
@@ -1730,6 +1932,9 @@
           },
           "required" : {
             "type" : "boolean"
+          },
+          "sensitivity" : {
+            "type" : [ "string", "null" ]
           },
           "type" : {
             "type" : "string"
@@ -2119,6 +2324,9 @@
           "description" : {
             "type" : [ "string", "null" ]
           },
+          "kind" : {
+            "type" : [ "string", "null" ]
+          },
           "name" : {
             "type" : [ "string", "null" ]
           },
@@ -2132,6 +2340,9 @@
         "properties" : {
           "description" : {
             "type" : [ "string", "null" ]
+          },
+          "kind" : {
+            "type" : "string"
           },
           "name" : {
             "type" : "string"
@@ -2149,7 +2360,7 @@
             "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "name", "ownedBy", "validFrom" ],
+        "required" : [ "kind", "name", "ownedBy", "validFrom" ],
         "type" : "object"
       },
       "SourceFreshnessResponse" : {
@@ -4471,6 +4682,83 @@
         "tags" : [ "Ontology" ]
       }
     },
+    "/api/v1/policy" : {
+      "get" : {
+        "operationId" : "getPolicy",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyStatusResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The authorisation policy in force: its revision, engine and fail mode",
+        "tags" : [ "Policy" ]
+      }
+    },
+    "/api/v1/policy/evaluate" : {
+      "post" : {
+        "operationId" : "evaluateAgentAction",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PolicyEvaluateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyEvaluateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Whether the agent-actions policy lets the caller take an action on the graph facts it cites",
+        "tags" : [ "Policy" ]
+      }
+    },
+    "/api/v1/policy/explain" : {
+      "post" : {
+        "operationId" : "explainPolicy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PolicyExplainRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyExplainResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "What the policy decides for the caller doing an action to a node type or node, by which rule and why",
+        "tags" : [ "Policy" ]
+      }
+    },
     "/api/v1/repositories" : {
       "get" : {
         "operationId" : "listRepositories",
@@ -5068,5 +5356,8 @@
   }, {
     "description" : "Push ingestion from the delivery pipeline",
     "name" : "Ingest"
+  }, {
+    "description" : "The authorisation policy in force, and what it decides for the caller",
+    "name" : "Policy"
   } ]
 }

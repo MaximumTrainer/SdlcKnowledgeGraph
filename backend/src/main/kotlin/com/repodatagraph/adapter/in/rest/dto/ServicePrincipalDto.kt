@@ -10,6 +10,8 @@ data class ServicePrincipalRequest(
     val name: String? = null,
     val ownedBy: String? = null,
     val description: String? = null,
+    /** `service` (the default) or `agent` (#30). */
+    val kind: String? = null,
 )
 
 /**
@@ -23,6 +25,8 @@ data class ServicePrincipalResponse(
     val registeredBy: String?,
     val validFrom: String,
     val validTo: String?,
+    /** `service` or `agent` (#30). */
+    val kind: String,
 ) {
     companion object {
         fun from(principal: ServicePrincipal) =
@@ -33,6 +37,7 @@ data class ServicePrincipalResponse(
                 registeredBy = principal.registeredBy,
                 validFrom = principal.validFrom.toString(),
                 validTo = principal.validTo?.toString(),
+                kind = principal.kind.wireName,
             )
     }
 }

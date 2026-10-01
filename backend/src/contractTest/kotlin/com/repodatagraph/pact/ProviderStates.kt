@@ -458,6 +458,9 @@ class ProviderStates(
         )
     }
 
+    /** An empty graph, and the policy the API was built with (#30): nothing to own, nothing to hide. */
+    fun policyAtItsDefaults() = emptyGraph()
+
     /**
      * The graph on the build's ontology, with nothing in it (#33): the lifecycle status as a fresh
      * instance reports it, the archive off and every connector on its default rules.
@@ -549,6 +552,7 @@ class ProviderStates(
             "repository with GitHub id 123456 was renamed from acme/payments to acme-platform/payments-service"
         const val GITHUB_SYNCED_THIRTY_HOURS_AGO = "the github source last synced thirty hours ago"
         const val LIFECYCLE_AT_ITS_DEFAULTS = "the lifecycle is at its defaults"
+        const val POLICY_AT_ITS_DEFAULTS = "the policy is at its defaults"
         const val GRAPH_ON_PREVIOUS_ONTOLOGY = "the graph is on the previous ontology version"
         const val FACT_RETIRED_LONG_AGO = "a fact retired long ago"
         const val PAYMENTS_HAS_ONE_EARLIER_VERSION = "the payments repository has one earlier version"
@@ -599,6 +603,7 @@ class ProviderStates(
                 PAYMENTS_WAS_RENAMED,
                 GITHUB_SYNCED_THIRTY_HOURS_AGO,
                 LIFECYCLE_AT_ITS_DEFAULTS,
+                POLICY_AT_ITS_DEFAULTS,
                 GRAPH_ON_PREVIOUS_ONTOLOGY,
                 FACT_RETIRED_LONG_AGO,
                 PAYMENTS_HAS_ONE_EARLIER_VERSION,
