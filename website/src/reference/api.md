@@ -62,6 +62,9 @@ thing interactively at `/swagger-ui.html`.
 | `PUT` | `/api/v1/nodes/{type}/{key}` | Replace a node's properties, keeping its identity; provenance.validTo closes it (#93) | 200 |
 | `GET` | `/api/v1/ontology` | The whole ontology: node types, edge types and their inverses | 200, 400 |
 | `GET` | `/api/v1/ontology/nodes/{type}` | A single node type | 200 |
+| `GET` | `/api/v1/policy` | The authorisation policy in force: its revision, engine and fail mode | 200 |
+| `POST` | `/api/v1/policy/evaluate` | Whether the agent-actions policy lets the caller take an action on the graph facts it cites | 200 |
+| `POST` | `/api/v1/policy/explain` | What the policy decides for the caller doing an action to a node type or node, by which rule and why | 200 |
 | `GET` | `/api/v1/repositories` | List all registered repositories, or find the one a git remote resolves to, before or after a rename | 200 |
 | `POST` | `/api/v1/repositories` | Register a repository in the graph | 200 |
 | `GET` | `/api/v1/repositories/by-key` | Find a repository by its canonical key, in any remote notation | 200 |

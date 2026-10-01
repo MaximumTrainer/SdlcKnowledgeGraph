@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.9.0**. It is generated, so a type added to the registry appears here without
+**v1.10.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -684,6 +684,7 @@ Identity: `name`
 | `name` | `string` | yes | The client id its tokens carry (azp, or client_id) | `payments-deployer` |
 | `ownedBy` | `string` | yes | Key of the Team that answers for it; recorded on its writes as onBehalfOfTeam | `platform` |
 | `description` | `string` | no | What the principal is for, in a sentence | `Reports deployments of the payments service` |
+| `kind` | `string`, one of `service`, `agent` | no | Whether the principal is a connector (service) or acts on its own judgement (agent) | `agent` |
 
 Example:
 

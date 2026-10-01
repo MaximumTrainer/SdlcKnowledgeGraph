@@ -78,7 +78,9 @@ source, start `docker compose up -d neo4j keycloak` and the API with
 `AUTH_ISSUER_URI=http://localhost:8081/realms/sdlc`, or read-only with `SDLC_READ_ONLY=true` and no
 identity provider. Connectors and agents sign in as registered service principals
 ([Authentication](docs/AUTH.md)).
-`--profile governance` adds Open Policy Agent, which nothing uses yet.
+Every request is decided by one authorisation policy in Rego, which the API evaluates itself
+([Governance](docs/GOVERNANCE.md)). `--profile governance` adds an Open Policy Agent server that
+serves the same policy, to explore it; the API does not need it.
 
 ## Tests
 

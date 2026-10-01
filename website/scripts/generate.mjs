@@ -24,6 +24,7 @@ const GUIDE_PAGES = {
   'GETTING-STARTED.md': 'guide/getting-started',
   'USER-GUIDE.md': 'guide/user-guide',
   'AUTH.md': 'guide/auth',
+  'GOVERNANCE.md': 'guide/governance',
   'ONTOLOGY.md': 'guide/ontology',
   'ADAPTERS.md': 'guide/adapters',
   'TESTING.md': 'guide/testing',
@@ -43,6 +44,7 @@ const GUIDE_PAGES = {
 const PAGE_NAMES = {
   '/guide/ontology': 'Ontology',
   '/guide/auth': 'Authentication',
+  '/guide/governance': 'Governance',
   '/guide/adapters': 'Adapters',
   '/guide/testing': 'Testing',
   '/guide/deployment': 'Deployment',

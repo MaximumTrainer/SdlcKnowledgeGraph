@@ -72,8 +72,10 @@ The realm also has two example machine clients, `github-connector` and `triage-a
 tokens with the client-credentials grant; the API lets them in once `dan` has registered them as
 service principals. [Authentication and principals](AUTH.md) walks through it.
 
-`--profile governance` adds Open Policy Agent on port 8181. Nothing in the application talks to it
-yet, so leave it off.
+`--profile governance` adds Open Policy Agent on port 8181, serving the authorisation policy under
+`policy/` so you can put questions to it ([GOVERNANCE.md](GOVERNANCE.md#changing-the-policy)). The
+API evaluates the same policy in its own process and never calls it, so leave it off unless you are
+working on the policy.
 
 ## Option B: database in a container, application from source
 
