@@ -38,10 +38,10 @@ class GraphPublishedPackageIndexTest {
 
     @Test
     fun `lists every package a current repository publishes, a page at a time`() {
-        whenever(store.findNodes(eq("Repository"), eq(emptyMap()), anyOrNull(), anyOrNull())).thenAnswer { call ->
+        whenever(store.findNodes(eq("Repository"), eq(emptyMap<String, Any?>()), anyOrNull(), anyOrNull())).thenAnswer { call ->
             when (call.getArgument<String?>(2)) {
                 null -> listOf(repository("ledger", listOf("@acme/ledger-client")))
-                else -> emptyList()
+                else -> emptyList<GraphNode>()
             }
         }
 
@@ -51,14 +51,14 @@ class GraphPublishedPackageIndexTest {
 
     @Test
     fun `leaves out a fork unless asked, and a repository that has been retired`() {
-        whenever(store.findNodes(eq("Repository"), eq(emptyMap()), anyOrNull(), anyOrNull())).thenAnswer { call ->
+        whenever(store.findNodes(eq("Repository"), eq(emptyMap<String, Any?>()), anyOrNull(), anyOrNull())).thenAnswer { call ->
             when (call.getArgument<String?>(2)) {
                 null ->
                     listOf(
                         repository("ledger-fork", listOf("@acme/ledger-client"), forkOf = "github.com/upstream/ledger"),
                         repository("old", listOf("@acme/old-client"), closed = true),
                     )
-                else -> emptyList()
+                else -> emptyList<GraphNode>()
             }
         }
 

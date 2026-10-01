@@ -82,7 +82,7 @@ class GitHubClient(
         repo: String,
     ): Codeowners? {
         CODEOWNERS_PATHS.forEach { path ->
-            file(org, repo, path)?.let { return codeownersParser.parse(it) }
+            file(org, repo, path)?.let { return codeownersParser.parse(it).copy(path = path) }
         }
         return null
     }

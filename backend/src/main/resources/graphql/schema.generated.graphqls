@@ -80,6 +80,8 @@ type RepositoryNode implements GraphNode {
   visibility: String
   """Package names this repository publishes"""
   packageNames: [String!]
+  """Key of the repository this one was forked from, where it is a fork"""
+  forkOf: String
   """Who assigns providerId. Derived from url on github.com and gitlab.com. One of RepositoryProvider."""
   provider: String
   """The provider's stable id for the repository, such as GitHub's numeric repository id"""
@@ -583,6 +585,14 @@ type SyncRunNode implements GraphNode {
   edgesUpserted: Int
   """Facts this run closed because the source stopped reporting them"""
   tombstones: Int
+  """Nodes and edges the run created or changed"""
+  written: Int
+  """Nodes and edges the run stated again exactly as the graph held them"""
+  unchanged: Int
+  """Items the run could not read or write: each one its connector named, each page"""
+  failed: Int
+  """Version of the connector that ran, as its descriptor declares it"""
+  connectorVersion: String
   """Where the next incremental run should start"""
   watermark: String
   """Why the run failed or partly failed, where it did"""

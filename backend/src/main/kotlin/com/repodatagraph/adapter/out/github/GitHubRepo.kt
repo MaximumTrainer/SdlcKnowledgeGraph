@@ -27,6 +27,18 @@ data class GitHubRepo(
     /** When GitHub last saw a push. Null for a repository nobody has ever pushed to. */
     val pushedAt: Instant? = null,
     val topics: List<String> = emptyList(),
+    /** Whether GitHub says this is a fork (#86, FR-7). The org listing says so; it does not say of what. */
+    val fork: Boolean = false,
+    /** What it was forked from. Only a read of the repository itself returns it, never the listing. */
+    val parent: GitHubRepoRef? = null,
+)
+
+/** Another repository, as GitHub names it inside a repository's own description. */
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class GitHubRepoRef(
+    val fullName: String? = null,
+    val htmlUrl: String? = null,
 )
 
 /** The contents API's envelope: the file arrives base64-encoded inside JSON, not as itself. */

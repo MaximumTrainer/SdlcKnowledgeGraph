@@ -1,17 +1,17 @@
 package com.repodatagraph.adapter.out.github
 
-import com.repodatagraph.adapter.out.github.manifest.DeclaredDependency
-import com.repodatagraph.adapter.out.github.manifest.DependencyScope
 import com.repodatagraph.domain.model.NodeKey
-import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
+import com.repodatagraph.domain.port.out.connector.PartialReadException
+import com.repodatagraph.domain.port.out.connector.PublishedPackageIndex
 import com.repodatagraph.domain.port.out.connector.plus
+import org.springframework.stereotype.Component
 import java.time.Instant
 
-/** Some repositories could not be read. The run keeps what it read and records this. */
+/** Some repositories could not be read. The run keeps what it read, records this, and counts each. */
 class PartialSyncException(
-    val failures: List<String>,
-) : RuntimeException("could not read ${failures.size} repositories: ${failures.take(FEW).joinToString("; ")}") {
+    failures: List<String>,
+) : PartialReadException(failures, "could not read ${failures.size} repositories: ${failures.take(FEW).joinToString("; ")}") {
     private companion object {
         const val FEW = 5
     }
@@ -20,26 +20,29 @@ class PartialSyncException(
 /**
  * One run of the GitHub connector, and the state a run needs while it is going.
  *
- * Separate from the connector because a run is stateful and a connector is not. Which repository
- * publishes which package is only known once every repository has been read, so the run carries an
- * index as it goes and settles the dependencies that needed it at the end.
+ * Separate from the connector because a run is stateful and a connector is not. Whether a dependency
+ * is a library or another repository here is only known once every repository has said what it
+ * publishes (#86, FR-4), so the run carries an index as it goes and settles every dependency at the
+ * end, against what it read and what the graph already knew.
  */
 class GitHubSyncSession(
     private val client: GitHubClient,
     private val reader: RepositoryReader,
     private val repositoryMapper: GitHubRepositoryMapper,
-    private val contentsMapper: RepositoryContentsMapper,
+    private val resolver: DependencyResolver,
+    private val publishedPackages: PublishedPackageIndex,
     private val properties: GitHubProperties,
     private val since: Instant?,
     private val watermark: Instant,
 ) {
-    /** Package name to the repository that publishes it, built up as repositories are read. */
-    private val publishedBy = mutableMapOf<String, NodeKey>()
-    private val pending = mutableListOf<PendingInternalDependency>()
+    /** Package name and the repository that publishes it, as this run reads them. */
+    private val published = mutableListOf<Pair<String, NodeKey>>()
+    private val read = mutableSetOf<NodeKey>()
+    private val dependencies = mutableListOf<PendingDependency>()
     private val failures = mutableListOf<String>()
 
     /**
-     * One delta per repository, then one more for the dependencies that were waiting on the whole
+     * One delta per repository, then one per repository whose dependencies were waiting on the whole
      * picture.
      *
      * A delta per repository rather than per page, so that a repository nobody can read costs that
@@ -54,7 +57,7 @@ class GitHubSyncSession(
                     repositoryDelta(org, repo)?.let { yield(it) }
                 }
             }
-            yield(internalDependencies())
+            yieldAll(dependencyDeltas())
             if (failures.isNotEmpty()) throw PartialSyncException(failures.toList())
         }
 
@@ -65,69 +68,40 @@ class GitHubSyncSession(
         // An archive is never "unchanged": it is the one change that does not move pushed_at.
         if (!repo.archived && unchangedSince(repo)) return null
 
-        val read = reader.read(org, repo)
-        read.publishes.forEach { publishedBy[it.lowercase()] = repositoryMapper.keyOf(repo) }
-        pending += read.pending
-        read.failure?.let { failures += it }
+        val repository = reader.read(org, repo)
+        val key = repository.key ?: repositoryMapper.keyOf(repo)
+        read += key
+        // A fork carries its upstream's manifest, so what it "publishes" is its upstream's (#86, FR-7).
+        if (!repository.fork || properties.manifests.resolveToForks) {
+            repository.publishes.forEach { published += it to key }
+        }
+        dependencies += repository.dependencies
+        repository.failure?.let { failures += it }
 
-        return GraphDelta(watermark = watermark) + read.delta
+        return GraphDelta(watermark = watermark) + repository.delta
     }
 
     /**
-     * The dependencies that looked internal, settled now that every repository has been read.
-     *
-     * A package name matching this organisation's prefix but published by no repository here is
-     * recorded as an ordinary library after all. It is more likely to be a package we publish from
-     * somewhere this connector cannot see than a dependency that does not exist, and dropping it
-     * would lose the dependency entirely.
+     * Every dependency read, settled now that every repository has been read: to the repository that
+     * publishes it, by what this run read and otherwise by what the graph remembers, or else to the
+     * library it names. Still a delta per repository, so one that cannot be written costs only its own
+     * dependencies.
      */
-    private fun internalDependencies(): GraphDelta {
-        val resolved = pending.mapNotNull { dependency -> publishedBy[dependency.packageName.lowercase()]?.let { dependency to it } }
-        val unresolved = pending - resolved.map { it.first }.toSet()
-
-        return GraphDelta(
-            nodes =
-                unresolved.map { contentsMapper.libraryNode(it.asDeclared(), it.observedAt) },
-            edges =
-                resolved.map { (dependency, target) -> repositoryEdge(dependency, target) } +
-                    unresolved.map { contentsMapper.libraryEdge(it.from, it.manifest, it.asDeclared(), it.observedAt) },
-            watermark = watermark,
-        )
+    private fun dependencyDeltas(): Sequence<GraphDelta> {
+        // Still one page, so a run that found nothing changed still says where it got to.
+        if (dependencies.isEmpty()) return sequenceOf(GraphDelta(watermark = watermark))
+        val publishers =
+            PackagePublishers.combine(
+                run = PackagePublishers.of(published),
+                graph = PackagePublishers.fromGraph(publishedPackages.publishedPackages(properties.manifests.resolveToForks)),
+                readInRun = read,
+            )
+        return dependencies
+            .groupBy { it.from }
+            .values
+            .asSequence()
+            .map { declared -> resolver.resolve(declared, publishers).delta.copy(watermark = watermark) }
     }
-
-    /**
-     * A guess, and recorded as one.
-     *
-     * This edge rests on a package name matching a naming convention, not on anything GitHub said.
-     * Marking it inferred is what lets a reviewer tell it from a dependency read out of a manifest -
-     * and what stops a convention changing from quietly rewriting history as fact.
-     */
-    private fun repositoryEdge(
-        dependency: PendingInternalDependency,
-        target: NodeKey,
-    ) = EdgeUpsert(
-        type = "DEPENDS_ON",
-        from = dependency.from,
-        to = target,
-        props =
-            buildMap {
-                put("kind", "library")
-                put("manifest", dependency.manifest)
-                put("scope", dependency.scope)
-                dependency.version?.let { put("version", it) }
-            },
-        observedAt = dependency.observedAt,
-        confidence = INFERRED_CONFIDENCE,
-        inferred = true,
-    )
-
-    private fun PendingInternalDependency.asDeclared() =
-        DeclaredDependency(
-            ecosystem = ecosystem,
-            name = packageName,
-            version = version,
-            scope = if (scope == "dev") DependencyScope.DEV else DependencyScope.RUNTIME,
-        )
 
     /**
      * A repository GitHub says has not been touched since the watermark.
@@ -137,14 +111,20 @@ class GitHubSyncSession(
      * somebody notices it is missing.
      */
     private fun unchangedSince(repo: GitHubRepo): Boolean = since != null && repo.pushedAt != null && !repo.pushedAt.isAfter(since)
+}
 
-    private companion object {
-        const val DEFAULT_BRANCH = "main"
-
-        /**
-         * High enough to act on, low enough to tell from a fact. A naming convention is a good guess
-         * and not a statement, and the difference has to survive into the graph.
-         */
-        const val INFERRED_CONFIDENCE = 0.9
-    }
+/** Opens a [GitHubSyncSession] with the collaborators every run needs. */
+@Component
+class GitHubSyncSessions(
+    private val client: GitHubClient,
+    private val reader: RepositoryReader,
+    private val repositoryMapper: GitHubRepositoryMapper,
+    private val resolver: DependencyResolver,
+    private val publishedPackages: PublishedPackageIndex,
+    private val properties: GitHubProperties,
+) {
+    fun open(
+        since: Instant?,
+        watermark: Instant,
+    ) = GitHubSyncSession(client, reader, repositoryMapper, resolver, publishedPackages, properties, since, watermark)
 }

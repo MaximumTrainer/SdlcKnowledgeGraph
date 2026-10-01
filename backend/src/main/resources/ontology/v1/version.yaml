@@ -25,4 +25,7 @@
 # 1.6.0 (#96) added templates.yaml, the traversal templates of context packs, and let DEPENDS_ON reach
 # a CloudResource, so a repository reading a data store (kind: data) is one edge from it. A minor
 # bump: nothing was renamed or removed, and no data needs a migration.
-version: 1.6.0
+# 1.7.0 (#86) added Repository's forkOf, and on SyncRun the written, unchanged and failed counts and
+# the connectorVersion that ran. A minor bump: nothing was renamed or removed, and no data needs a
+# migration, since a run recorded before them reads them as unknown.
+version: 1.7.0

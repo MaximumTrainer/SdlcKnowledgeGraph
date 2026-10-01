@@ -36,7 +36,18 @@ class SyncRunRecorder(
         watermark: Instant?,
         error: String?,
         sourceId: String? = null,
-    ) = write(runId, registered.name, registered.descriptor.sourceSystem, mode, status, totals, watermark, error, sourceId)
+    ) = write(
+        runId,
+        registered.name,
+        registered.descriptor.sourceSystem,
+        mode,
+        status,
+        totals,
+        watermark,
+        error,
+        sourceId,
+        connectorVersion = registered.descriptor.version,
+    )
 
     /**
      * A run of the application's own - the archive (#33) - recorded as a connector's is, so every bulk
@@ -63,6 +74,7 @@ class SyncRunRecorder(
         error: String?,
         sourceId: String?,
         startedAtIfNew: Instant? = null,
+        connectorVersion: String? = null,
     ) {
         val now = Instant.now(clock)
         // Kept from the first write, so a finished run still says when it began.
@@ -83,6 +95,12 @@ class SyncRunRecorder(
                         "nodesUpserted" to totals.nodesUpserted,
                         "edgesUpserted" to totals.edgesUpserted,
                         "tombstones" to totals.tombstones,
+                        // What moved, what was only said again, and what could not be read or
+                        // written (#86, FR-6), and which version of the connector did it.
+                        "written" to totals.written,
+                        "unchanged" to totals.unchanged,
+                        "failed" to totals.failed,
+                        "connectorVersion" to connectorVersion,
                         "watermark" to watermark,
                         "error" to error,
                     ).filterValues { it != null },

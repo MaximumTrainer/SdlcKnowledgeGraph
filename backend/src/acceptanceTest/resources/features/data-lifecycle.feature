@@ -69,7 +69,7 @@ Feature: Data lifecycle
   Scenario: The lifecycle status is a read
     When I GET "/api/v1/lifecycle"
     Then the response status is 200
-    And the body field "registryVersion" is "1.6.0"
+    And the body field "registryVersion" is "1.7.0"
 
   Scenario: A pending ontology migration is listed, applied by an admin and recorded
     Given the graph is on ontology version "1.3.0"
@@ -79,7 +79,7 @@ Feature: Data lifecycle
     When an admin applies the pending migrations
     Then the response status is 200
     And the ConfigurationItem "servicenow:sn.example.test:a1" has ciName "Payments Service" and no name
-    And the graph is on ontology version "1.6.0" with "V1_4_0__rename_ci_legacy_name" applied and checksummed
+    And the graph is on ontology version "1.7.0" with "V1_4_0__rename_ci_legacy_name" applied and checksummed
 
   Scenario: An applied migration whose file has changed since is refused
     Given the graph is on ontology version "1.3.0"

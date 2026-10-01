@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.6.0'
+export const ONTOLOGY_VERSION = '1.7.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -87,6 +87,11 @@ export interface Repository {
    * @example ["@acme/payments-client"]
    */
   packageNames?: string[]
+  /**
+   * Key of the repository this one was forked from, where it is a fork
+   * @example "github.com/upstream/payments"
+   */
+  forkOf?: string
   /**
    * Who assigns providerId. Derived from url on github.com and gitlab.com
    * @example "github"
@@ -787,6 +792,26 @@ export interface SyncRun {
    * @example 0
    */
   tombstones?: number
+  /**
+   * Nodes and edges the run created or changed
+   * @example 12
+   */
+  written?: number
+  /**
+   * Nodes and edges the run stated again exactly as the graph held them
+   * @example 87
+   */
+  unchanged?: number
+  /**
+   * Items the run could not read or write: each one its connector named, each page
+   * @example 1
+   */
+  failed?: number
+  /**
+   * Version of the connector that ran, as its descriptor declares it
+   * @example "2.0.0"
+   */
+  connectorVersion?: string
   /**
    * Where the next incremental run should start
    * @example "2026-09-30T12:00:00Z"

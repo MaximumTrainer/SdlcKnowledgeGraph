@@ -13,6 +13,8 @@ import java.time.ZonedDateTime
 data class ConnectorSummary(
     val name: String,
     val sourceSystem: String,
+    /** Which version of the connector is running (#86), as its descriptor declares it. */
+    val version: String,
     val enabled: Boolean,
     val capabilities: Set<Capability>,
     /**
@@ -38,6 +40,7 @@ data class ConnectorSummary(
         ) = ConnectorSummary(
             name = registered.name,
             sourceSystem = registered.descriptor.sourceSystem,
+            version = registered.descriptor.version,
             enabled = registered.enabled,
             capabilities = registered.descriptor.capabilities,
             syncing = syncing,
@@ -98,6 +101,8 @@ data class LastRunView(
 data class ConnectorDetail(
     val name: String,
     val sourceSystem: String,
+    /** See [ConnectorSummary.version]. */
+    val version: String,
     val enabled: Boolean,
     val capabilities: Set<Capability>,
     val nodeTypes: Set<String>,
@@ -120,6 +125,7 @@ data class ConnectorDetail(
             return ConnectorDetail(
                 name = registered.name,
                 sourceSystem = descriptor.sourceSystem,
+                version = descriptor.version,
                 enabled = registered.enabled,
                 capabilities = descriptor.capabilities,
                 nodeTypes = descriptor.nodeTypes,
