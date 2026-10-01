@@ -352,6 +352,27 @@ class LifecycleControllerTest {
     }
 
     @Test
+    fun `a deployment a newer one replaced says it was superseded, and when (#90)`() {
+        val key = NodeKey("Deployment", "ghcr.io/acme/payments@sha256:aaa#production#1790000000")
+        val deployedAt = Instant.parse("2026-09-21T12:00:00Z")
+        val replacedAt = Instant.parse("2026-09-30T09:00:00Z")
+        whenever(lifecycle.history(key)).thenReturn(
+            NodeHistory(
+                key = key,
+                current = CurrentValidity(deployedAt, replacedAt, deployedAt, mapOf("status" to "SUCCESS"), RetiredReason.SUPERSEDED, null),
+                versions = emptyList(),
+            ),
+        )
+
+        mockMvc
+            .perform(get("/api/v1/lifecycle/history").param("nodeId", key.id))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.current.retired").value(true))
+            .andExpect(jsonPath("$.current.retiredReason").value("superseded"))
+            .andExpect(jsonPath("$.current.validTo").value("2026-09-30T09:00:00Z"))
+    }
+
+    @Test
     fun `the history of a node that does not exist is not found`() {
         whenever(lifecycle.history(any())).thenReturn(null)
 
