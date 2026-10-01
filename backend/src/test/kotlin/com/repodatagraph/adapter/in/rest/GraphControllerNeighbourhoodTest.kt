@@ -64,6 +64,7 @@ class GraphControllerNeighbourhoodTest {
                         to = bucket.id,
                         confidence = 0.7,
                         inferred = true,
+                        rule = "iac",
                     ),
                 ),
             truncated = false,
@@ -92,6 +93,7 @@ class GraphControllerNeighbourhoodTest {
             .andExpect(jsonPath("$.edges[0].to").value(bucket.id))
             .andExpect(jsonPath("$.edges[0].confidence").value(0.7))
             .andExpect(jsonPath("$.edges[0].inferred").value(true))
+            .andExpect(jsonPath("$.edges[0].rule").value("iac"))
     }
 
     @Test
