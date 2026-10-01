@@ -67,6 +67,7 @@ class SubgraphMapper(
             to = edge.to.id,
             confidence = edge.provenance.confidence,
             inferred = edge.provenance.inferred,
+            rule = edge.props["rule"]?.toString(),
         )
 
     companion object {

@@ -95,6 +95,9 @@ class GraphApiContractTest {
     @State(ProviderStates.PAYMENTS_HAS_A_NEIGHBOURHOOD)
     fun paymentsHasANeighbourhood() = states.paymentsHasANeighbourhood()
 
+    @State(ProviderStates.PENDING_NAMING_CANDIDATE)
+    fun pendingNamingCandidate() = states.pendingNamingCandidate()
+
     @State(ProviderStates.HUB_DEPENDS_ON_MANY)
     fun hubRepositoryDependsOnMany() = states.hubRepositoryDependsOnMany()
 

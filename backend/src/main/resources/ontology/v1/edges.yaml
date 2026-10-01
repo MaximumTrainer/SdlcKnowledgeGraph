@@ -38,6 +38,27 @@ edges:
     ownership: inherits
     properties:
       - { name: rule, type: string, required: false, description: "What the ownership rests on: stated by hand, or the link rule that proposed it", enum: [manual, tag, deployment, iac, naming], examples: [tag] }
+      - { name: evidence, type: "string[]", required: false, description: "What the rule found, as key=value entries, so the ownership can be explained", examples: [["tag=repo"]] }
+      - { name: resolvedAt, type: instant, required: false, description: "When the link engine last found the evidence for this ownership", examples: ["2026-09-30T12:00:00Z"] }
+      - { name: acceptedBy, type: string, required: false, description: "Who accepted the candidate link or stated the ownership by hand", examples: [dan] }
+      - { name: acceptedAt, type: instant, required: false, description: "When the candidate link was accepted or the ownership stated by hand", examples: ["2026-09-30T12:00:00Z"] }
+
+  CANDIDATE_LINK:
+    description: A link rule proposes a repository as the owner, too weakly to say so.
+    from: [CloudResource]
+    to: [Repository]
+    inverse: MAY_OWN
+    impact: none
+    ownership: none
+    properties:
+      - { name: candidateId, type: string, required: true, description: "Stable id of the candidate, derived from the resource and repository keys", examples: [3f9a0c1d2b4e5f60] }
+      - { name: status, type: string, required: true, description: "Where the candidate stands in review: open, decided, or replaced by another decision", enum: [pending, conflict, rejected, superseded, accepted], examples: [pending] }
+      - { name: rule, type: string, required: true, description: "The link rule whose evidence is strongest for this pair", enum: [tag, deployment, iac, naming], examples: [naming] }
+      - { name: evidence, type: "string[]", required: false, description: "What the rule found, as key=value entries, for the reviewer to weigh", examples: [["name=billing-prod"]] }
+      - { name: evidenceHash, type: string, required: true, description: "Hash of the rule and its evidence; a rejection holds until the evidence changes", examples: [0123456789abcdef] }
+      - { name: createdAt, type: instant, required: true, description: "When the link engine first proposed this candidate", examples: ["2026-09-30T12:00:00Z"] }
+      - { name: rejectedBy, type: string, required: false, description: "Who rejected the candidate, which then stays rejected", examples: [dan] }
+      - { name: rejectedAt, type: instant, required: false, description: "When the candidate was rejected by a reviewer", examples: ["2026-09-30T12:00:00Z"] }
 
   DEPENDS_ON:
     description: A dependency between repositories, services or third-party libraries, or on a data store.

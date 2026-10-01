@@ -44,6 +44,12 @@ thing interactively at `/swagger-ui.html`.
 | `GET` | `/api/v1/lifecycle/history` | A node's current validity and its earlier versions, newest first | 200 |
 | `GET` | `/api/v1/lifecycle/migrations` | Which ontology version the graph is on, and the migrations pending and applied | 200 |
 | `POST` | `/api/v1/lifecycle/migrations/apply` | Apply every pending ontology migration, in order, each in its own transaction | 200 |
+| `GET` | `/api/v1/links/candidates` | List candidate links, strongest first; the open ones unless asked | 200 |
+| `POST` | `/api/v1/links/candidates/{id}/accept` | Accept a candidate: it becomes a manual OWNS_RESOURCE | 200 |
+| `POST` | `/api/v1/links/candidates/{id}/reject` | Reject a candidate: it is not proposed again on the same evidence | 200 |
+| `DELETE` | `/api/v1/links/manual` | Close a manual link; the edge keeps its history with validTo set | 200 |
+| `POST` | `/api/v1/links/manual` | State that a repository owns a cloud resource | 200 |
+| `POST` | `/api/v1/links/resolve` | Start a link resolution, of every resource or of a scope, as a sync run of link-engine | 200 |
 | `GET` | `/api/v1/nodes/{type}` | List nodes of a type, in key order | 200 |
 | `POST` | `/api/v1/nodes/{type}` | Create a node of a declared type, with a server-derived identity, as manual or a permitted source | 200 |
 | `DELETE` | `/api/v1/nodes/{type}/by-key` | Delete a node addressed by its key as a query parameter (#85) | 200 |

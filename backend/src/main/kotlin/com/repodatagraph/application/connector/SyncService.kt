@@ -10,6 +10,7 @@ import com.repodatagraph.observability.LogEvents
 import com.repodatagraph.observability.SyncErrorKind
 import com.repodatagraph.observability.SyncMetrics
 import com.repodatagraph.observability.WebhookResult
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.Duration
@@ -64,6 +65,11 @@ class SyncService(
     private val recorder: SyncRunRecorder,
     private val metrics: SyncMetrics,
     private val clock: Clock,
+    /**
+     * Told of every finished run (#28), once it is recorded as finished; the link engine follows from
+     * it. A listener's failure is its own, and never turns a recorded run into a failed one.
+     */
+    private val events: ApplicationEventPublisher = ApplicationEventPublisher {},
 ) {
     /** Connectors with a run in flight. In-process because the scheduler is in-process. */
     private val running = ConcurrentHashMap.newKeySet<String>()
@@ -165,6 +171,7 @@ class SyncService(
             // finished must already see the watermark and the last success it moved, not race them.
             recorder.recordState(name, runId, outcome.status, outcome.watermark)
             recorder.recordRun(runId, registered, mode, outcome.status, outcome.totals, outcome.watermark, outcome.error)
+            events.publishEvent(SyncRunCompleted(name, runId, mode, outcome.status))
         } finally {
             running.remove(name)
         }
@@ -307,11 +314,13 @@ class SyncService(
                     failure.message,
                     deliveryId,
                 )
+                events.publishEvent(SyncRunCompleted(name, runId, SyncMode.WEBHOOK, RunStatus.FAILED))
                 return runId
             }
 
         report(name, runId, SyncMode.WEBHOOK, RunOutcome(RunStatus.SUCCESS, totals), startedAt)
         recorder.recordRun(runId, registered, SyncMode.WEBHOOK, RunStatus.SUCCESS, totals, delta.watermark, null, deliveryId)
+        events.publishEvent(SyncRunCompleted(name, runId, SyncMode.WEBHOOK, RunStatus.SUCCESS))
         return runId
     }
 

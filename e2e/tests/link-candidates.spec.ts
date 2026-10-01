@@ -110,9 +110,10 @@ test.describe('link candidates', () => {
     await expect(row).toHaveCount(0)
 
     await page.goto(`/nodes/Repository/${repository}`)
+    // Under OWNS_RESOURCE: the accepted candidate is still listed under MAY_OWN, closed, as history.
     const owned = page
       .getByTestId('relationship-list')
-      .getByTestId('relationship')
+      .locator('[data-test="relationship"][data-relationship="OWNS_RESOURCE"]')
       .filter({ hasText: queue })
     await expect(owned).toHaveCount(1)
     await expect(owned.getByTestId('inferred-badge')).toHaveCount(0)
@@ -151,6 +152,8 @@ test.describe('link candidates', () => {
     const row = page.getByTestId('candidate').filter({ hasText: siteName })
     await expect(row).toHaveCount(1)
     await expect(row).toContainText(rival)
+    // Only once the search has answered: the status filter's own answer lists every conflict.
+    await expect(page.getByTestId('candidate')).toHaveCount(1)
     for (const status of await page.getByTestId('candidate-status').all()) {
       await expect(status).toHaveText('conflict')
     }

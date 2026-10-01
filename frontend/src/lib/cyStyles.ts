@@ -17,6 +17,15 @@ export const edgeOpacity = (confidence: number): number => {
   return MIN_OPACITY + (1 - MIN_OPACITY) * bounded
 }
 
+/**
+ * An edge's type, and for an inferred one the rule that inferred it and how sure it is (#28), so the
+ * graph says why a guessed link is drawn: `OWNS_RESOURCE (iac 70%)`.
+ */
+const edgeLabel = (edge: Subgraph['edges'][number]): string =>
+  edge.inferred && edge.rule
+    ? `${edge.type} (${edge.rule} ${Math.round(edge.confidence * 100)}%)`
+    : edge.type
+
 export const toElements = (subgraph: Subgraph): ElementDefinition[] => [
   ...subgraph.nodes.map(node => ({
     group: 'nodes' as const,
@@ -29,10 +38,11 @@ export const toElements = (subgraph: Subgraph): ElementDefinition[] => [
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      label: edge.type,
+      label: edgeLabel(edge),
       confidence: edge.confidence,
       opacity: edge.inferred ? edgeOpacity(edge.confidence) : 1,
-      ...(edge.inferred ? { inferred: true } : {})
+      ...(edge.inferred ? { inferred: true } : {}),
+      ...(edge.rule ? { rule: edge.rule } : {})
     }
   }))
 ]

@@ -5,6 +5,7 @@ import com.repodatagraph.domain.ontology.EdgeTypeDef
 import com.repodatagraph.domain.ontology.NodeTypeDef
 import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
+import com.repodatagraph.domain.ontology.PropertyType
 
 /**
  * The ontology as prompt text (#81): what `GET /api/v1/ontology?format=markdown` serves.
@@ -14,8 +15,9 @@ import com.repodatagraph.domain.ontology.PropertyDef
  * no timestamps. And it must stay under 12,000 characters, so it leaves room for the question. To fit,
  * it carries what a query needs and leaves the rest to the JSON: meta types, deprecated properties and
  * property descriptions are left out, each property is one line of its type, allowed values, format
- * and first example, and each relationship is listed once, under Relationships, rather than again
- * beside each type it connects. docs/ONTOLOGY.md records the rule; the bound is tested, not raised.
+ * and first example - none beside allowed values, or for an instant - and each relationship is listed
+ * once, under Relationships, rather than again beside each type it connects. docs/ONTOLOGY.md records
+ * the rule; the bound is tested, not raised.
  */
 object OntologyMarkdown {
     private val json = ObjectMapper()
@@ -70,7 +72,7 @@ object OntologyMarkdown {
         type.properties.filter { it.deprecated == null }.forEach { append("  - ${line(it)}\n") }
     }
 
-    /** `name: type!` then any allowed values, `[format]` and first example, each only where declared. */
+    /** `name: type!` then any allowed values, `[format]` and first example, each only where declared and useful. */
     private fun line(property: PropertyDef): String {
         val parts = mutableListOf("${property.name}: ${property.type.wireName}${if (property.required) "!" else ""}")
         property.enum?.let { parts += it.joinToString("|") }
@@ -78,7 +80,11 @@ object OntologyMarkdown {
             val condition = property.formatWhen.entries.joinToString(", ") { (key, value) -> "$key=$value" }
             parts += if (condition.isEmpty()) "[${format.wireName}]" else "[${format.wireName} when $condition]"
         }
-        if (property.examples.isNotEmpty()) parts += "e.g. ${example(property.examples.first())}"
+        // An example adds nothing beside the allowed values, nor to an instant, whose one shape the
+        // introduction states (#28, when the link engine's edges took the rendering past its bound).
+        if (property.examples.isNotEmpty() && property.enum == null && property.type != PropertyType.INSTANT) {
+            parts += "e.g. ${example(property.examples.first())}"
+        }
         return parts.joinToString(" ")
     }
 
@@ -87,5 +93,6 @@ object OntologyMarkdown {
     private const val INTRODUCTION =
         "Node types with their properties, then the relationships between them. `!` marks a required property, " +
             "`a|b` lists the only values allowed, `[format]` names a value's shape and `e.g.` shows one. " +
+            "An instant is ISO-8601 in UTC. " +
             "Meta types and deprecated properties are left out: GET /api/v1/ontology has everything."
 }

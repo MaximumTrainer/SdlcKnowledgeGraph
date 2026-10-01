@@ -252,6 +252,63 @@ class ProviderStates(
         )
     }
 
+    /**
+     * The link review's background (#28): a queue named after the billing repository, which the
+     * naming rule proposed as its owner below the threshold, pending under a known id.
+     */
+    fun pendingNamingCandidate() {
+        emptyGraph()
+        val billing = NodeKey("Repository", BILLING_KEY)
+        graphStore.upsertNode(
+            GraphNode(
+                billing,
+                mapOf(
+                    "url" to "https://$BILLING_KEY",
+                    "host" to "github.com",
+                    "org" to "acme",
+                    "name" to "billing",
+                    "defaultBranch" to "main",
+                    "topics" to emptyList<String>(),
+                    "codeowners" to emptyList<String>(),
+                ),
+                Provenance.manual(),
+            ),
+        )
+        val queue = NodeKey("CloudResource", QUEUE_KEY)
+        graphStore.upsertNode(
+            GraphNode(
+                queue,
+                mapOf(
+                    "provider" to "aws",
+                    "resourceId" to QUEUE_KEY.removePrefix("aws:"),
+                    "resourceType" to "sqs",
+                    "name" to "billing-prod",
+                    "accountId" to "111111111111",
+                ),
+                Provenance.manual(),
+            ),
+        )
+        val now = Instant.now()
+        graphStore.upsertEdge(
+            GraphEdge(
+                type = "CANDIDATE_LINK",
+                from = queue,
+                to = billing,
+                props =
+                    mapOf(
+                        "candidateId" to CANDIDATE_ID,
+                        "status" to "pending",
+                        "rule" to "naming",
+                        "evidence" to listOf("matched=name", "name=billing-prod", "normalised=billing"),
+                        "evidenceHash" to "0123456789abcdef",
+                        "createdAt" to now,
+                    ),
+                provenance =
+                    Provenance(sourceSystem = "link-engine", ingestedAt = now, validFrom = now, confidence = 0.4, inferred = true),
+            ),
+        )
+    }
+
     /** A repository with more neighbours than the graph view's cap, so the answer is cut short. */
     fun hubRepositoryDependsOnMany() {
         emptyGraph()
@@ -495,6 +552,7 @@ class ProviderStates(
         const val GRAPH_ON_PREVIOUS_ONTOLOGY = "the graph is on the previous ontology version"
         const val FACT_RETIRED_LONG_AGO = "a fact retired long ago"
         const val PAYMENTS_HAS_ONE_EARLIER_VERSION = "the payments repository has one earlier version"
+        const val PENDING_NAMING_CANDIDATE = "a pending naming candidate links the billing queue to github.com/acme/billing"
 
         private const val REPOSITORY_KEY = "R1"
         private const val TEAM_KEY = "platform"
@@ -505,6 +563,9 @@ class ProviderStates(
         private const val LAGGING_SYNC_RUN_ID = "pact-run-lagging"
         private const val THIRTY_HOURS = 30L
         private const val BUCKET_KEY = "aws:arn:aws:s3:::acme-logs"
+        private const val BILLING_KEY = "github.com/acme/billing"
+        private const val QUEUE_KEY = "aws:arn:aws:sqs:eu-west-1:111111111111:billing-prod"
+        private const val CANDIDATE_ID = "pact-candidate-1"
         private const val HUB_KEY = "github.com/acme/hub"
         private const val CHANGE_SHA = "a1b2c3"
         private const val WORK_ITEM_URI = "chorus://task/01JABC"
@@ -541,6 +602,7 @@ class ProviderStates(
                 GRAPH_ON_PREVIOUS_ONTOLOGY,
                 FACT_RETIRED_LONG_AGO,
                 PAYMENTS_HAS_ONE_EARLIER_VERSION,
+                PENDING_NAMING_CANDIDATE,
             )
     }
 }

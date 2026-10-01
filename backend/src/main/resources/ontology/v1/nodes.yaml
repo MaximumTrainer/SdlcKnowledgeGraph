@@ -188,6 +188,7 @@ nodes:
       # class reads them.
       - { name: artifactId, type: string, required: true, description: "Key of the deployed artifact, from before artifactKey", examples: ["ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"], deprecated: { since: 1.3.0, replacedBy: artifactKey } }
       - { name: environmentId, type: string, required: true, description: "Key of the target environment, from before environmentKey", examples: [production], deprecated: { since: 1.3.0, replacedBy: environmentKey } }
+      - { name: targetResourceKeys, type: "string[]", required: false, description: "Keys of the cloud resources the deployment put the artifact on, where the pipeline reports them", examples: [["aws:arn:aws:s3:::acme-logs"]] }
       - { name: deployedBy, type: string, required: false, description: "Who or what started the deployment", examples: [octocat] }
       # Upper case because the deployment ingest and why-failed already speak it: SUCCESS and FAILED.
       - { name: status, type: string, required: true, description: "How the deployment ended, or that it has not yet", enum: [PENDING, IN_PROGRESS, SUCCESS, FAILED, ROLLED_BACK, CANCELLED], examples: [SUCCESS, FAILED] }
@@ -229,6 +230,9 @@ nodes:
       - { name: name, type: string, required: true, description: "The resource's human-facing name", examples: [acme-logs] }
       - { name: region, type: string, required: false, description: "The region it is deployed in, where it has one", examples: [eu-west-1] }
       - { name: accountId, type: string, required: false, description: "The account, subscription or project that holds it", examples: ["123456789012"] }
+      # A list of key=value rather than a map, which the registry has no type for. The tag rule reads the
+      # keys links.rules.tag.keys names (repo, repository, source-repo, git-repo by default).
+      - { name: tags, type: "string[]", required: false, description: "The resource's tags or labels as key=value, as the cloud reports them", examples: [["repo=acme/payments"]] }
       - { name: repoId, type: string, required: false, description: "Key of the owning repository, from before OWNS_RESOURCE", examples: [github.com/acme/payments], deprecated: { since: 1.3.0, replacedBy: OWNS_RESOURCE } }
 
   ConfigurationItem:

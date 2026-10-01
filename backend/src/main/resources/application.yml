@@ -75,6 +75,19 @@ freshness:
   default-window: ${FRESHNESS_DEFAULT_WINDOW:PT24H}
   windows: {}
 
+# Cloud-to-repository link resolution (#28, docs/ONTOLOGY.md). Each rule proposes owners at its
+# confidence - manual 1.0, tag 0.95, deployment 0.9, iac 0.7, naming 0.4 - and the strongest at or
+# above the threshold becomes an inferred OWNS_RESOURCE; below it, a CANDIDATE_LINK for review. A
+# resolution runs nightly ("-" never), and after any run of a connector named in triggers, scoped to
+# what that run wrote. Neither runs on a read-only instance.
+links:
+  threshold: ${LINKS_THRESHOLD:0.5}
+  schedule: ${LINKS_SCHEDULE:0 0 3 * * *}
+  triggers: ${LINKS_TRIGGERS:github,github-actions,aws,azure,gcp}
+  rules:
+    tag:
+      keys: ${LINKS_TAG_KEYS:repo,repository,source-repo,git-repo}
+
 # The data lifecycle (#33, docs/adr/0014-data-lifecycle.md). A node's changed values are kept as
 # versions, at most max-versions per node, so a read as of an instant sees the values of that moment.
 #

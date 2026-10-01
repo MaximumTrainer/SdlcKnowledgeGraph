@@ -16,6 +16,7 @@ Feature: the source systems a write may name
       | github-actions       |
       | servicenow           |
       | aws                  |
+      | link-engine          |
       | dogfood-seed         |
       | sdlc-knowledge-graph |
 
