@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.8.0**. It is generated, so a type added to the registry appears here without
+**v1.9.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -194,6 +194,7 @@ Answers:
 | `deployedAt` | `instant` | yes | When the deployment happened, in UTC | `2026-09-30T12:00:00Z` |
 | `artifactId` | `string` | yes | **Deprecated** since 1.3.0, use `artifactKey`. Key of the deployed artifact, from before artifactKey | `ghcr.io/acme/payments@sha256:7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730` |
 | `environmentId` | `string` | yes | **Deprecated** since 1.3.0, use `environmentKey`. Key of the target environment, from before environmentKey | `production` |
+| `targetResourceKeys` | `string[]` | no | Keys of the cloud resources the deployment put the artifact on, where the pipeline reports them | `["aws:arn:aws:s3:::acme-logs"]` |
 | `deployedBy` | `string` | no | Who or what started the deployment | `octocat` |
 | `status` | `string`, one of `PENDING`, `IN_PROGRESS`, `SUCCESS`, `FAILED`, `ROLLED_BACK`, `CANCELLED` | yes | How the deployment ended, or that it has not yet | `SUCCESS` |
 
@@ -257,6 +258,7 @@ Answers:
 | `name` | `string` | yes | The resource's human-facing name | `acme-logs` |
 | `region` | `string` | no | The region it is deployed in, where it has one | `eu-west-1` |
 | `accountId` | `string` | no | The account, subscription or project that holds it | `123456789012` |
+| `tags` | `string[]` | no | The resource's tags or labels as key=value, as the cloud reports them | `["repo=acme/payments"]` |
 | `repoId` | `string` | no | **Deprecated** since 1.3.0, use `OWNS_RESOURCE`. Key of the owning repository, from before OWNS_RESOURCE | `github.com/acme/payments` |
 
 Example:
@@ -702,6 +704,7 @@ second relationship.
 | --- | --- | --- | --- | --- |
 | `OWNED_BY` | Repository, Service, CloudResource | Team | `OWNS` | Ownership of a repository, service or cloud resource by a team. |
 | `OWNS_RESOURCE` | Repository, Service | CloudResource | `OWNED_BY_REPO` | A repository or service is responsible for a piece of infrastructure. |
+| `CANDIDATE_LINK` | CloudResource | Repository | `MAY_OWN` | A link rule proposes a repository as the owner, too weakly to say so. |
 | `DEPENDS_ON` | Repository, Service, ConfigurationItem | Repository, Service, Library, ConfigurationItem, CloudResource | `DEPENDED_ON_BY` | A dependency between repositories, services or third-party libraries, or on a data store. |
 | `CONTAINS_IAC` | Repository | IacFile | `IAC_IN` | A repository holds an infrastructure-as-code file. |
 | `HAS_PIPELINE` | Repository | Pipeline | `PIPELINE_OF` | A repository defines a CI/CD pipeline. |
@@ -725,6 +728,18 @@ second relationship.
 | --- | --- | --- | --- | --- | --- |
 | `OWNED_BY` | `pathPatterns` | `string[]` | no | CODEOWNERS patterns the owner was named against, where ownership came from a file | `["*","/docs/"]` |
 | `OWNS_RESOURCE` | `rule` | `string`, one of `manual`, `tag`, `deployment`, `iac`, `naming` | no | What the ownership rests on: stated by hand, or the link rule that proposed it | `tag` |
+| `OWNS_RESOURCE` | `evidence` | `string[]` | no | What the rule found, as key=value entries, so the ownership can be explained | `["tag=repo"]` |
+| `OWNS_RESOURCE` | `resolvedAt` | `instant` | no | When the link engine last found the evidence for this ownership | `2026-09-30T12:00:00Z` |
+| `OWNS_RESOURCE` | `acceptedBy` | `string` | no | Who accepted the candidate link or stated the ownership by hand | `dan` |
+| `OWNS_RESOURCE` | `acceptedAt` | `instant` | no | When the candidate link was accepted or the ownership stated by hand | `2026-09-30T12:00:00Z` |
+| `CANDIDATE_LINK` | `candidateId` | `string` | yes | Stable id of the candidate, derived from the resource and repository keys | `3f9a0c1d2b4e5f60` |
+| `CANDIDATE_LINK` | `status` | `string`, one of `pending`, `conflict`, `rejected`, `superseded`, `accepted` | yes | Where the candidate stands in review: open, decided, or replaced by another decision | `pending` |
+| `CANDIDATE_LINK` | `rule` | `string`, one of `tag`, `deployment`, `iac`, `naming` | yes | The link rule whose evidence is strongest for this pair | `naming` |
+| `CANDIDATE_LINK` | `evidence` | `string[]` | no | What the rule found, as key=value entries, for the reviewer to weigh | `["name=billing-prod"]` |
+| `CANDIDATE_LINK` | `evidenceHash` | `string` | yes | Hash of the rule and its evidence; a rejection holds until the evidence changes | `0123456789abcdef` |
+| `CANDIDATE_LINK` | `createdAt` | `instant` | yes | When the link engine first proposed this candidate | `2026-09-30T12:00:00Z` |
+| `CANDIDATE_LINK` | `rejectedBy` | `string` | no | Who rejected the candidate, which then stays rejected | `dan` |
+| `CANDIDATE_LINK` | `rejectedAt` | `instant` | no | When the candidate was rejected by a reviewer | `2026-09-30T12:00:00Z` |
 | `DEPENDS_ON` | `kind` | `string`, one of `library`, `api`, `event`, `data`, `cmdb` | yes | What sort of dependency this is | `library` |
 | `DEPENDS_ON` | `manifest` | `string` | no | File the dependency was read from, with its path from the repository root in a monorepo | `frontend/package.json` |
 | `DEPENDS_ON` | `version` | `string` | no | The version the manifest asks for, as written | `^3.5.0` |
@@ -745,6 +760,7 @@ What `provenance.sourceSystem` may name. A write through the API naming any sour
 | `github-actions` | `graph:write:github-actions` | Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) and read from their runs, packages and deployments by the github-actions connector |
 | `servicenow` | `graph:write:servicenow` | Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector |
 | `aws` | `graph:write:aws` | Cloud resources read from AWS. Declared for the AWS connector; none ships yet |
+| `link-engine` | `graph:write:link-engine` | Ownership and candidate links the link resolution engine infers from the evidence other sources wrote (#28) |
 | `dogfood-seed` | `graph:write:dogfood-seed` | What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed) |
 | `sdlc-knowledge-graph` | `graph:write:sdlc-knowledge-graph` | The graph's record of itself: the sync runs and connector states it keeps |
 

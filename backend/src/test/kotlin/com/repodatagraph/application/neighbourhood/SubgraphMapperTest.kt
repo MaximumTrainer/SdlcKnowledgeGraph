@@ -123,6 +123,24 @@ class SubgraphMapperTest {
     }
 
     @Test
+    fun `an edge says which link rule inferred it, so the graph can say why it is drawn (#28)`() {
+        val inferredOwner =
+            edge("OWNS_RESOURCE", payments, bucket, confidence = 0.7, inferred = true)
+                .copy(props = mapOf("rule" to "iac"))
+        val view =
+            mapper.map(
+                root = payments,
+                reached = listOf(ReachedNode(payments, 0), ReachedNode(bucket, 1), ReachedNode(platform, 1)),
+                edges = listOf(inferredOwner, edge("OWNED_BY", payments, platform)),
+                limit = 500,
+                truncated = false,
+            )
+
+        assertEquals("iac", view.edges.single { it.type == "OWNS_RESOURCE" }.rule)
+        assertEquals(null, view.edges.single { it.type == "OWNED_BY" }.rule)
+    }
+
+    @Test
     fun `nodes keep the order they were reached in, nearest first, each once`() {
         val view =
             mapper.map(

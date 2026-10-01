@@ -282,6 +282,8 @@ export interface SubgraphEdge {
   to: string
   confidence: number
   inferred: boolean
+  /** The link rule an inferred ownership rests on (#28), such as `iac`; absent for an edge with none. */
+  rule?: string | null
 }
 
 /** A bounded neighbourhood (#9): at most 500 nodes, nearest first; `truncated` says there were more. */

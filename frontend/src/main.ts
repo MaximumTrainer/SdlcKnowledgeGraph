@@ -7,6 +7,7 @@ import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
 import SyncRunsView from './views/SyncRunsView.vue'
 import LifecycleView from './views/LifecycleView.vue'
+import CandidateLinksView from './views/CandidateLinksView.vue'
 import NotFound from './views/NotFound.vue'
 import AuthCallback from './views/AuthCallback.vue'
 import { apiClient } from './services/api'
@@ -55,6 +56,8 @@ const router = createRouter({
     },
     { path: '/connectors', component: ConnectorsView },
     { path: '/sync-runs', component: SyncRunsView },
+    // The review of the link engine's candidate owners for cloud resources (#28).
+    { path: '/links/candidates', component: CandidateLinksView },
     // The data lifecycle's administration (#33): migrations, the archive, each connector's rules.
     { path: '/admin/lifecycle', component: LifecycleView },
     { path: CALLBACK_PATH, component: AuthCallback },

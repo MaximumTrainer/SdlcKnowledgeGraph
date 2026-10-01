@@ -215,6 +215,64 @@ events:
     fields:
       - { name: mode, type: string }
 
+  # Link resolution (#28)
+  - name: links.scheduled
+    level: INFO
+    message: link resolution scheduled
+    description: The link engine will resolve every cloud resource on a schedule, as a FULL run of link-engine.
+    fields:
+      - { name: cron, type: string }
+  - name: links.resolution.triggered
+    level: INFO
+    message: link resolution triggered by a sync run
+    description: A connector's run touched resources or repositories, so a resolution scoped to them was started. Names both runs.
+    fields:
+      - { name: connector, type: string }
+      - { name: runId, type: string }
+      - { name: linkRunId, type: string }
+  - name: links.rule.failed
+    level: WARN
+    message: link rule failed; the resource is left as it was
+    description: A link rule could not read a resource's evidence, so that resource was not resolved in this run, which is partial.
+    throwable: true
+    fields:
+      - { name: runId, type: string }
+      - { name: resourceKey, type: string }
+  - name: links.candidate.accepted
+    level: INFO
+    message: candidate link accepted
+    description: A person accepted a candidate link, which became a manual OWNS_RESOURCE. Names the candidate, both ends and who accepted it.
+    fields:
+      - { name: candidateId, type: string }
+      - { name: resourceKey, type: string }
+      - { name: repoKey, type: string }
+      - { name: by, type: string }
+  - name: links.candidate.rejected
+    level: INFO
+    message: candidate link rejected
+    description: A person rejected a candidate link; it is not proposed again while its evidence is the same. Names the candidate, both ends and who rejected it.
+    fields:
+      - { name: candidateId, type: string }
+      - { name: resourceKey, type: string }
+      - { name: repoKey, type: string }
+      - { name: by, type: string }
+  - name: links.manual.stated
+    level: INFO
+    message: manual link stated
+    description: A person stated that a repository owns a cloud resource. Names both ends and who stated it.
+    fields:
+      - { name: resourceKey, type: string }
+      - { name: repoKey, type: string }
+      - { name: by, type: string }
+  - name: links.manual.closed
+    level: INFO
+    message: manual link closed
+    description: A person closed a manual link; the edge keeps its history with validTo set. Names both ends and who closed it.
+    fields:
+      - { name: resourceKey, type: string }
+      - { name: repoKey, type: string }
+      - { name: by, type: string }
+
   # Connectors
   - name: connector.scheduled
     level: INFO

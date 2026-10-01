@@ -7,7 +7,7 @@ Feature: Ontology registry
     Given the application is running
     When I GET "/api/v1/ontology"
     Then the response status is 200
-    And the ontology version is "1.8.0"
+    And the ontology version is "1.9.0"
     And the ontology declares the node types:
       | Repository        |
       | Team              |
@@ -65,4 +65,4 @@ Feature: Ontology registry
   Scenario: The graph records which ontology version built it
     Given the application is running
     When I count the Ontology nodes in the graph
-    Then there is exactly one Ontology node with version "1.8.0"
+    Then there is exactly one Ontology node with version "1.9.0"

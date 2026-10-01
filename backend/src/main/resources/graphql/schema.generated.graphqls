@@ -232,6 +232,8 @@ type DeploymentNode implements GraphNode {
   artifactId: String! @deprecated(reason: "since 1.3.0, replaced by artifactKey")
   """Key of the target environment, from before environmentKey"""
   environmentId: String! @deprecated(reason: "since 1.3.0, replaced by environmentKey")
+  """Keys of the cloud resources the deployment put the artifact on, where the pipeline reports them"""
+  targetResourceKeys: [String!]
   """Who or what started the deployment"""
   deployedBy: String
   """How the deployment ended, or that it has not yet. One of DeploymentStatus."""
@@ -293,6 +295,8 @@ type CloudResourceNode implements GraphNode {
   region: String
   """The account, subscription or project that holds it"""
   accountId: String
+  """The resource's tags or labels as key=value, as the cloud reports them"""
+  tags: [String!]
   """Key of the owning repository, from before OWNS_RESOURCE"""
   repoId: String @deprecated(reason: "since 1.3.0, replaced by OWNS_RESOURCE")
   provenance: Provenance!
@@ -702,6 +706,7 @@ type ServicePrincipalNode implements GraphNode {
 enum EdgeType {
   OWNED_BY
   OWNS_RESOURCE
+  CANDIDATE_LINK
   DEPENDS_ON
   CONTAINS_IAC
   HAS_PIPELINE

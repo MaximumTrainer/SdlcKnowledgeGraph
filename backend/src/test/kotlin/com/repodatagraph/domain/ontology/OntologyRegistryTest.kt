@@ -149,8 +149,39 @@ class OntologyRegistryTest {
     private val shipped by lazy { YamlOntologyLoader(DefaultResourceLoader()).load() }
 
     @Test
-    fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88, #33)`() {
-        assertEquals("1.8.0", shipped.version)
+    fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88, #33, #28)`() {
+        assertEquals("1.9.0", shipped.version)
+    }
+
+    @Test
+    fun `the link engine's evidence, its candidates and its explanations are declared (#28)`() {
+        assertEquals(PropertyType.STRING_ARRAY, shipped.nodeType("CloudResource")?.property("tags")?.type)
+        assertEquals(PropertyType.STRING_ARRAY, shipped.nodeType("Deployment")?.property("targetResourceKeys")?.type)
+
+        val candidate = shipped.edgeType("CANDIDATE_LINK") ?: error("no CANDIDATE_LINK")
+        assertEquals(listOf("CloudResource"), candidate.from)
+        assertEquals(listOf("Repository"), candidate.to)
+        assertEquals("MAY_OWN", candidate.inverse)
+        assertEquals(EdgeImpact.NONE, candidate.impact)
+        assertEquals(EdgeOwnership.NONE, candidate.ownership)
+        assertEquals(
+            listOf("pending", "conflict", "rejected", "superseded", "accepted"),
+            candidate.properties
+                .firstOrNull {
+                    it.name ==
+                        "status"
+                }?.enum,
+        )
+        assertEquals(listOf("tag", "deployment", "iac", "naming"), candidate.properties.firstOrNull { it.name == "rule" }?.enum)
+        listOf("candidateId", "evidence", "evidenceHash", "createdAt", "rejectedBy", "rejectedAt").forEach {
+            assertTrue(candidate.properties.any { property -> property.name == it }, it)
+        }
+
+        val owner = shipped.edgeType("OWNS_RESOURCE") ?: error("no OWNS_RESOURCE")
+        listOf("rule", "evidence", "resolvedAt", "acceptedBy", "acceptedAt").forEach {
+            assertTrue(owner.properties.any { property -> property.name == it }, it)
+        }
+        assertTrue(shipped.sources.any { it.name == "link-engine" })
     }
 
     @Test

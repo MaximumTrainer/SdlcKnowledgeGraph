@@ -132,6 +132,8 @@ const submit = async () => {
   }
 }
 
+const percent = (confidence: number) => `${Math.round(confidence * 100)}%`
+
 const remove = async (edge: EdgeView) => {
   error.value = ''
   const outgoing = edge.direction === 'out'
@@ -216,10 +218,24 @@ const remove = async (edge: EdgeView) => {
       <div v-for="[displayName, group] in grouped" :key="displayName" class="group">
         <h3>{{ displayName }}</h3>
         <ul>
-          <li v-for="edge in group" :key="`${edge.type}-${edge.other.id}`">
+          <li
+            v-for="edge in group"
+            :key="`${edge.type}-${edge.other.id}`"
+            data-test="relationship"
+            :data-relationship="displayName"
+          >
             <router-link :to="nodeRoute(edge.other.type, edge.other.key)">
               {{ edge.other.key }}
             </router-link>
+            <!-- A link a rule inferred, never one a person or a system stated (#28). -->
+            <span
+              v-if="edge.provenance.inferred"
+              class="inferred"
+              data-test="inferred-badge"
+              :title="`Inferred by the link engine with ${percent(edge.provenance.confidence)} confidence`"
+            >
+              inferred · {{ edge.props.rule ?? 'rule' }} {{ percent(edge.provenance.confidence) }}
+            </span>
             <span v-if="Object.keys(edge.props).length" class="props">
               {{
                 Object.entries(edge.props)
@@ -274,6 +290,13 @@ li {
   gap: 0.75rem;
   padding: 0.3rem 0;
   font-size: 0.9rem;
+}
+.inferred {
+  font-size: 0.7rem;
+  border: 1px dashed #d69e2e;
+  color: #975a16;
+  border-radius: 999px;
+  padding: 0 0.45rem;
 }
 .props {
   color: #718096;

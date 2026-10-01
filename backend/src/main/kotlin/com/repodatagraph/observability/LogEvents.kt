@@ -200,6 +200,62 @@ object LogEvents {
     ) =
         EventLog.emit("lifecycle.archive.failed", Level.WARN, "archive run failed", mapOf("mode" to mode), cause = cause)
 
+    /** The link engine will resolve every cloud resource on a schedule, as a FULL run of link-engine. */
+    fun linksScheduled(
+        cron: String,
+    ) =
+        EventLog.emit("links.scheduled", Level.INFO, "link resolution scheduled", mapOf("cron" to cron))
+
+    /** A connector's run touched resources or repositories, so a resolution scoped to them was started. Names both runs. */
+    fun linksResolutionTriggered(
+        connector: String,
+        runId: String,
+        linkRunId: String,
+    ) =
+        EventLog.emit("links.resolution.triggered", Level.INFO, "link resolution triggered by a sync run", mapOf("connector" to connector, "runId" to runId, "linkRunId" to linkRunId))
+
+    /** A link rule could not read a resource's evidence, so that resource was not resolved in this run, which is partial. */
+    fun linksRuleFailed(
+        runId: String,
+        resourceKey: String,
+        cause: Throwable,
+    ) =
+        EventLog.emit("links.rule.failed", Level.WARN, "link rule failed; the resource is left as it was", mapOf("runId" to runId, "resourceKey" to resourceKey), cause = cause)
+
+    /** A person accepted a candidate link, which became a manual OWNS_RESOURCE. Names the candidate, both ends and who accepted it. */
+    fun linksCandidateAccepted(
+        candidateId: String,
+        resourceKey: String,
+        repoKey: String,
+        by: String,
+    ) =
+        EventLog.emit("links.candidate.accepted", Level.INFO, "candidate link accepted", mapOf("candidateId" to candidateId, "resourceKey" to resourceKey, "repoKey" to repoKey, "by" to by))
+
+    /** A person rejected a candidate link; it is not proposed again while its evidence is the same. Names the candidate, both ends and who rejected it. */
+    fun linksCandidateRejected(
+        candidateId: String,
+        resourceKey: String,
+        repoKey: String,
+        by: String,
+    ) =
+        EventLog.emit("links.candidate.rejected", Level.INFO, "candidate link rejected", mapOf("candidateId" to candidateId, "resourceKey" to resourceKey, "repoKey" to repoKey, "by" to by))
+
+    /** A person stated that a repository owns a cloud resource. Names both ends and who stated it. */
+    fun linksManualStated(
+        resourceKey: String,
+        repoKey: String,
+        by: String,
+    ) =
+        EventLog.emit("links.manual.stated", Level.INFO, "manual link stated", mapOf("resourceKey" to resourceKey, "repoKey" to repoKey, "by" to by))
+
+    /** A person closed a manual link; the edge keeps its history with validTo set. Names both ends and who closed it. */
+    fun linksManualClosed(
+        resourceKey: String,
+        repoKey: String,
+        by: String,
+    ) =
+        EventLog.emit("links.manual.closed", Level.INFO, "manual link closed", mapOf("resourceKey" to resourceKey, "repoKey" to repoKey, "by" to by))
+
     /** A connector will sync on a schedule. */
     fun connectorScheduled(
         connector: String,

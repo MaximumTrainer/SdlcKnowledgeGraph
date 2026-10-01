@@ -26,3 +26,4 @@ record, not an edit to the old one.
 | [0016](./0016-context-pack-templates-are-registry-data) | Context pack templates are registry data, walked within a budget | Accepted |
 | [0017](./0017-github-connector-resolves-by-what-repositories-publish) | The GitHub connector resolves by what repositories publish, and counts what it changed | Accepted |
 | [0018](./0018-ci-deployments-read-from-github-actions) | CI deployments are read from GitHub Actions by the connector the pipeline reports to | Accepted |
+| [0019](./0019-link-resolution-writes-only-what-it-can-explain) | Link resolution writes only what it can explain, and keeps to a person's decision | Accepted |

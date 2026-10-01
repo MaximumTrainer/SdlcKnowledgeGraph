@@ -58,6 +58,7 @@ onMounted(() => {
           <router-link to="/graph" class="header-link">Graph</router-link>
           <router-link to="/connectors" class="header-link">Connectors</router-link>
           <router-link to="/sync-runs" class="header-link">Sync runs</router-link>
+          <router-link to="/links/candidates" class="header-link">Links</router-link>
           <router-link to="/admin/lifecycle" class="header-link">Lifecycle</router-link>
           <template v-if="username">
             <span class="header-user" data-test="signed-in-user">{{ username }}</span>

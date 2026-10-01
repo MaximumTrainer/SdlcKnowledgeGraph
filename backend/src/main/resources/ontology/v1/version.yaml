@@ -31,4 +31,9 @@
 # 1.8.0 (#90) added superseded among NodeVersion's retired reasons: a deployment a newer deployment of
 # the same artifact family to the same environment replaced. A minor bump: nothing was renamed or
 # removed, and no data needs a migration.
-version: 1.8.0
+# 1.9.0 (#28) added the link engine's evidence and its review: CloudResource's tags and Deployment's
+# targetResourceKeys, the evidence the tag and deployment rules read; the CANDIDATE_LINK edge, a
+# link proposed below the ownership threshold, with its status, evidence and who rejected it; on
+# OWNS_RESOURCE the evidence, when it was resolved and who accepted it; and the link-engine source.
+# A minor bump: nothing was renamed or removed, and no data needs a migration.
+version: 1.9.0

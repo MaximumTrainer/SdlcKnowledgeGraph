@@ -18,8 +18,9 @@ import java.time.Instant
  * nothing can be written. So a suite that writes needs a principal, and this gives it one without an
  * identity provider and without a switch in the application. The real security chain runs unchanged -
  * the gate, the registry check, the scope checks - and only the decoder is replaced, by one that
- * accepts exactly [TOKEN] as a user, [SUBJECT], holding every graph scope. Any other token is refused
- * as a forged one would be.
+ * accepts exactly [TOKEN] as a user, [SUBJECT], holding every graph scope, and [READER_TOKEN] as a
+ * user, [READER_SUBJECT], who may only read (#28: a refusal is only proved by someone refused). Any
+ * other token is refused as a forged one would be.
  *
  * A `TestRestTemplate` in a context that imports this sends [TOKEN] on every request that does not
  * carry an Authorization header of its own, except to the ingest endpoints, whose bearer token is a
@@ -39,14 +40,19 @@ class TestPrincipalConfig {
     @Primary
     fun testPrincipalDecoder(): JwtDecoder =
         JwtDecoder { token ->
-            if (token != TOKEN) throw BadJwtException("not the test principal's token")
+            val (subject, scopes) =
+                when (token) {
+                    TOKEN -> SUBJECT to SCOPES
+                    READER_TOKEN -> READER_SUBJECT to READER_SCOPES
+                    else -> throw BadJwtException("not the test principal's token")
+                }
             Jwt
                 .withTokenValue(token)
                 .header("alg", "none")
-                .subject(SUBJECT)
+                .subject(subject)
                 .issuer(ISSUER)
-                .claim("preferred_username", SUBJECT)
-                .claim("scope", SCOPES)
+                .claim("preferred_username", subject)
+                .claim("scope", scopes)
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(TOKEN_LIFETIME_SECONDS))
                 .build()
@@ -79,6 +85,17 @@ class TestPrincipalConfig {
 
         /** The header value for a client that is not a `TestRestTemplate`. */
         const val AUTHORIZATION = "Bearer $TOKEN"
+
+        /** A second user's token, holding graph:read alone. */
+        const val READER_TOKEN = "test-reader"
+
+        /** Who [READER_TOKEN] is. */
+        const val READER_SUBJECT = "test-reader"
+
+        /** The header value that reads as [READER_SUBJECT]. */
+        const val READER_AUTHORIZATION = "Bearer $READER_TOKEN"
+
+        private const val READER_SCOPES = "graph:read"
 
         /**
          * Every graph scope - reading, writing and administering the graph's lifecycle (#33) - and the

@@ -79,7 +79,7 @@ class ShippedOntologyDescriptionTest {
             registry
                 .edgeType("OWNS_RESOURCE")
                 ?.properties
-                ?.single()
+                ?.firstOrNull { it.name == "rule" }
                 ?.enum,
         ).containsExactly("manual", "tag", "deployment", "iac", "naming")
     }

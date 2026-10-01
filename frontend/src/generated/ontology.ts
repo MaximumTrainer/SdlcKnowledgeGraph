@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.8.0'
+export const ONTOLOGY_VERSION = '1.9.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -274,6 +274,11 @@ export interface Deployment {
    */
   environmentId: string
   /**
+   * Keys of the cloud resources the deployment put the artifact on, where the pipeline reports them
+   * @example ["aws:arn:aws:s3:::acme-logs"]
+   */
+  targetResourceKeys?: string[]
+  /**
    * Who or what started the deployment
    * @example "octocat"
    */
@@ -345,6 +350,11 @@ export interface CloudResource {
    * @example "123456789012"
    */
   accountId?: string
+  /**
+   * The resource's tags or labels as key=value, as the cloud reports them
+   * @example ["repo=acme/payments"]
+   */
+  tags?: string[]
   /**
    * Key of the owning repository, from before OWNS_RESOURCE
    * @example "github.com/acme/payments"
@@ -1013,6 +1023,7 @@ export const NODE_TYPES: readonly NodeType[] = [
 export type EdgeTypeName =
   | 'OWNED_BY'
   | 'OWNS_RESOURCE'
+  | 'CANDIDATE_LINK'
   | 'DEPENDS_ON'
   | 'CONTAINS_IAC'
   | 'HAS_PIPELINE'
@@ -1033,6 +1044,7 @@ export type EdgeTypeName =
 export const EDGE_TYPES: readonly EdgeTypeName[] = [
   'OWNED_BY',
   'OWNS_RESOURCE',
+  'CANDIDATE_LINK',
   'DEPENDS_ON',
   'CONTAINS_IAC',
   'HAS_PIPELINE',

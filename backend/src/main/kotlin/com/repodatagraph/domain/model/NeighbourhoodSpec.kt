@@ -125,6 +125,8 @@ data class SubgraphEdgeView(
     val to: String,
     val confidence: Double,
     val inferred: Boolean,
+    /** The link rule an OWNS_RESOURCE rests on (#28), or null for an edge with none. */
+    val rule: String? = null,
 )
 
 /**

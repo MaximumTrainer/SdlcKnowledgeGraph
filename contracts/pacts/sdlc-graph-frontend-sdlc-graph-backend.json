@@ -2202,6 +2202,205 @@
       }
     },
     {
+      "description": "a request for the pending link candidates",
+      "providerStates": [
+        {
+          "name": "a pending naming candidate links the billing queue to github.com/acme/billing"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/links/candidates",
+        "query": {
+          "page": [
+            "0"
+          ],
+          "size": [
+            "50"
+          ],
+          "status": [
+            "pending"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "items": [
+            {
+              "confidence": 0.4,
+              "createdAt": "2026-09-30T12:00:00Z",
+              "evidence": {
+                "name": "billing-prod"
+              },
+              "id": "pact-candidate-1",
+              "repository": {
+                "key": "github.com/acme/billing",
+                "name": "billing"
+              },
+              "resource": {
+                "accountId": "111111111111",
+                "key": "aws:arn:aws:sqs:eu-west-1:111111111111:billing-prod",
+                "name": "billing-prod",
+                "provider": "aws"
+              },
+              "rule": "naming",
+              "status": "pending"
+            }
+          ],
+          "page": 0,
+          "size": 50,
+          "totalElements": 1,
+          "totalPages": 1
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.items[*].confidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            },
+            "$.items[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.items[*].evidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].repository.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].repository.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].resource.accountId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].resource.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].resource.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].resource.provider": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].rule": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.page": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.size": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalElements": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalPages": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the platform Team",
       "providerStates": [
         {
@@ -2512,6 +2711,128 @@
               ]
             },
             "$.workItems[*].uri": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to accept a pending link candidate",
+      "providerStates": [
+        {
+          "name": "a pending naming candidate links the billing queue to github.com/acme/billing"
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/links/candidates/pact-candidate-1/accept"
+      },
+      "response": {
+        "body": {
+          "acceptedBy": "test-principal",
+          "confidence": 1,
+          "evidence": {
+            "name": "billing-prod"
+          },
+          "inferred": false,
+          "repository": {
+            "key": "github.com/acme/billing",
+            "name": "billing"
+          },
+          "resource": {
+            "accountId": "111111111111",
+            "key": "aws:arn:aws:sqs:eu-west-1:111111111111:billing-prod",
+            "name": "billing-prod",
+            "provider": "aws"
+          },
+          "rule": "manual",
+          "sourceSystem": "manual"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.acceptedBy": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.confidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            },
+            "$.evidence": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.inferred": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.repository.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.repository.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.accountId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.provider": {
               "combine": "AND",
               "matchers": [
                 {
@@ -3111,6 +3432,118 @@
       }
     },
     {
+      "description": "a request to reject a pending link candidate",
+      "providerStates": [
+        {
+          "name": "a pending naming candidate links the billing queue to github.com/acme/billing"
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/links/candidates/pact-candidate-1/reject"
+      },
+      "response": {
+        "body": {
+          "id": "pact-candidate-1",
+          "rejectedAt": "2026-10-01T09:00:00Z",
+          "rejectedBy": "test-principal",
+          "repository": {
+            "key": "github.com/acme/billing",
+            "name": "billing"
+          },
+          "resource": {
+            "accountId": "111111111111",
+            "key": "aws:arn:aws:sqs:eu-west-1:111111111111:billing-prod",
+            "name": "billing-prod",
+            "provider": "aws"
+          },
+          "rule": "naming",
+          "status": "rejected"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.rejectedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.rejectedBy": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.repository.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.repository.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.accountId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.resource.provider": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.rule": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request to remove the DEPENDS_ON edge",
       "providerStates": [
         {
@@ -3134,6 +3567,44 @@
       },
       "response": {
         "status": 204
+      }
+    },
+    {
+      "description": "a request to resolve every link",
+      "providerStates": [
+        {
+          "name": "no repositories exist"
+        }
+      ],
+      "request": {
+        "body": {},
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/links/resolve"
+      },
+      "response": {
+        "body": {
+          "mode": "FULL",
+          "syncRunId": "0b9f4d1e-6c1a-4b8e-9f2a-3c5d7e9f1a2b"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.syncRunId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 202
       }
     },
     {

@@ -39,10 +39,12 @@ data class SubgraphEdgeResponse(
     val to: String,
     val confidence: Double,
     val inferred: Boolean,
+    /** The link rule an inferred ownership rests on (#28), such as iac; absent for an edge with none. */
+    val rule: String? = null,
 ) {
     companion object {
         fun from(view: SubgraphEdgeView) =
-            SubgraphEdgeResponse(view.id, view.type, view.inverse, view.from, view.to, view.confidence, view.inferred)
+            SubgraphEdgeResponse(view.id, view.type, view.inverse, view.from, view.to, view.confidence, view.inferred, view.rule)
     }
 }
 

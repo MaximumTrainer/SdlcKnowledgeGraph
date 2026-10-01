@@ -237,6 +237,9 @@ shipped registry to that. To fit, it carries what a query needs and leaves the r
   allowed values `a|b`, its `[format]` and `e.g.` its first example;
 - each relationship is listed once, under Relationships, with its ends and inverse, not again beside
   each type it connects.
+- an example is left out beside a property's allowed values, which already show what it holds, and
+  for an instant, which the introduction says once is ISO-8601 in UTC (1.9.0, when `CANDIDATE_LINK`
+  took the rendering past the bound).
 
 When the registry grows past the bound, the rule is to trim what the rendering carries, in that
 spirit, and record it here, not to raise the bound.
@@ -294,6 +297,8 @@ list and the code disagreed the code won or both changed together:
 | `sourceSystem` of ConfigurationItem, ChangeRequest, Incident | `servicenow`, `jsm` | |
 | `Service.tier` | `platinum`, `gold`, `silver`, `bronze` | No writer sets it yet |
 | `OWNS_RESOURCE.rule` | `manual`, `tag`, `deployment`, `iac`, `naming` | |
+| `CANDIDATE_LINK.status` | `pending`, `conflict`, `rejected`, `superseded`, `accepted` | |
+| `CANDIDATE_LINK.rule` | `tag`, `deployment`, `iac`, `naming` | |
 
 The enums the registry already had (`visibility`, `Repository.provider`, `Environment.tier`,
 `changeType`, `ecosystem`, `IacFile.format`, `PullRequest.state`, `ExternalWorkItem.system`,
@@ -394,6 +399,7 @@ traversal concept, not a second stored edge.
 | --- | --- | --- | --- | --- | --- |
 | OWNED_BY | Repository, Service, CloudResource | Team | OWNS | none | owner |
 | OWNS_RESOURCE | Repository, Service | CloudResource | OWNED_BY_REPO | propagates (forward) | inherits |
+| CANDIDATE_LINK | CloudResource | Repository | MAY_OWN | none | none |
 | DEPENDS_ON | Repository, Service | Repository, Service, CloudResource | DEPENDED_ON_BY | propagates (inverse) | none |
 | HAS_PIPELINE | Repository | Pipeline | PIPELINE_OF | propagates (forward) | inherits |
 | RELATES_TO_CI | Repository, Service | ConfigurationItem | CI_OF | none | none |
@@ -429,9 +435,48 @@ repository it was forked from in `forkOf`, is never the far end of one
 ([#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86),
 [ADR-0017](adr/0017-github-connector-resolves-by-what-repositories-publish.md)).
 
-A `CANDIDATE_LINK` relationship, for connections the planned link resolution engine is not confident
-enough to assert, is described in [ADAPTERS.md](ADAPTERS.md) and will be added to the registry with
-that engine ([#28](../../issues/28)).
+`OWNS_RESOURCE` and `CANDIDATE_LINK` are written by the link resolution engine (1.9.0,
+[#28](../../issues/28)); see [Linking code to infrastructure](#linking-code-to-infrastructure).
+
+## Linking code to infrastructure
+
+A cloud resource rarely says which repository owns it. The link resolution engine
+([#28](../../issues/28), [ADR-0019](adr/0019-link-resolution-writes-only-what-it-can-explain.md))
+reads the evidence that other sources wrote and proposes owners. Each rule has a confidence:
+
+| Rule | Evidence it reads | Confidence |
+| --- | --- | --- |
+| `manual` | A current `OWNS_RESOURCE` that a person stated or accepted | 1.0 |
+| `tag` | `CloudResource.tags` holds `repo=`, `repository=`, `source-repo=` or `git-repo=` (`links.rules.tag.keys`). Any remote form works, and it must name a repository in the graph | 0.95 |
+| `deployment` | A current `Deployment` whose `targetResourceKeys` names the resource, of an `Artifact` `BUILT_FROM` the repository | 0.9 |
+| `iac` | A current `IacFile` of the repository whose `resourceRefs` names the resource's id, its name, or a Terraform address whose local name is its name | 0.7 |
+| `naming` | The resource's name, without leading or trailing environment words (environments.yaml), account or region, is the repository's name or the name of a package it publishes | 0.4 |
+
+For each resource, the strongest proposal per repository stands, and these rules apply:
+
+- At or above `links.threshold` (0.5), the strongest proposal becomes an `OWNS_RESOURCE` with:
+  - provenance source `link-engine`, `inferred: true`, and the rule's confidence;
+  - `rule`, `evidence` (`key=value` entries) and `resolvedAt`.
+- Every other proposal at or above the threshold becomes a `CANDIDATE_LINK` with status
+  `conflict`. Every proposal below the threshold becomes one with status `pending`.
+- A tie at the top owns nothing, and every tied proposal is a conflict.
+- A manual owner always stands. The engine never closes it.
+- An owner stated by another source is left alone.
+- What nothing proposes any more is closed with `validTo`, not deleted.
+- A rejected or superseded candidate is not proposed again while its `evidenceHash` (a hash of its
+  rule and evidence) is unchanged.
+
+A run over the same evidence writes nothing but each owner's `resolvedAt`.
+
+### Adding a rule
+
+1. Write a class implementing `LinkRule` in `application/links/rules`. It needs a `name`, which
+   becomes the edges' `rule`, and an `evaluate(resource, ctx)` that returns `LinkProposal`s.
+   `LinkContext` gives the rule the graph, the repositories, the IaC files, the deployments that
+   target the resource, and the environment aliases.
+2. Add the rule to `LinksConfig.linkRules`, with a confidence under `links.rules.<name>`.
+3. Add its name to the `rule` enums of `OWNS_RESOURCE` and `CANDIDATE_LINK` in `edges.yaml`, as a
+   minor version.
 
 ## Provenance
 
@@ -1263,6 +1308,11 @@ recorded before it reads the four as unknown, not as zero.
 1.8.0 ([#90](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/90)) added `superseded` among
 the retired reasons, for a Deployment the github-actions connector closed because a newer one of the
 same artifact to the same environment succeeded. It is a minor bump and ships no migration.
+
+1.9.0 ([#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28)) added the link engine's
+evidence and review: `CloudResource.tags` and `Deployment.targetResourceKeys`, the `CANDIDATE_LINK`
+edge, `evidence`, `resolvedAt`, `acceptedBy` and `acceptedAt` on `OWNS_RESOURCE`, and the
+`link-engine` source. It is a minor bump and ships no migration.
 
 ### Migrations
 

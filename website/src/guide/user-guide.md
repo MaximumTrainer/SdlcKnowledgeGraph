@@ -101,7 +101,8 @@ A node's page lists its relationships under **Relationships**, grouped by the na
 has *from that node's point of view*. One edge has two names: a repository sees `OWNED_BY` where
 the team at the other end sees `OWNS`. Each entry links to the node at the other end, shows the
 edge's own properties, and has a `×` to remove it. Removing it from either end removes the one
-stored edge.
+stored edge. A relationship that a rule inferred, rather than one a person or a system stated, has
+an **inferred** badge naming the rule and its confidence, for example `inferred · iac 70%`.
 
 **Add relationship** opens a form offering only the relationship types the ontology allows from
 this node's type. Choose one, then type in the **Target** box to search for the node at the other
@@ -205,6 +206,31 @@ inferred is dashed and fainter the less confident it is. The legend under the ca
   `Showing 500 of more nodes; narrow the filters`.
 
 It works signed in and on an instance without a login alike: it only reads.
+
+### The links page
+
+**Links** in the header (`/links/candidates`) lists the repositories that the link engine proposes
+as owners of cloud resources ([#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28),
+[Ontology](/guide/ontology#linking-code-to-infrastructure)). By default it shows the open candidates,
+strongest first. A candidate is open when it is:
+
+- **pending**, meaning its evidence was below the ownership threshold; or
+- **conflict**, meaning its evidence was strong but another repository's was stronger, or equally
+  strong.
+
+Each row shows the resource and its cloud, the repository, the rule, a confidence bar, and the
+status. **Evidence** shows what the rule found. You can filter by status (including `rejected` and
+`superseded`), provider, minimum confidence and search text.
+
+Someone holding `graph:write` sees three more controls:
+
+- **Accept** makes the repository the resource's manual owner. It closes the resource's other
+  owners and supersedes its other candidates.
+- **Reject** records who rejected the candidate and when. The engine does not propose it again while
+  its evidence is the same.
+- **Run resolution** starts a resolution, waits for its sync run, and lists what it found.
+
+Without a login, or with only `graph:read`, the page is read-only.
 
 ### The lifecycle page
 
@@ -360,7 +386,8 @@ node's side, already resolved), `other` (the node at the far end), `props` and `
 | Edge property missing, wrong type, undeclared, or outside its enum | `400 {errors: [{field, message}]}` |
 
 `DEPENDS_ON` requires `kind`, one of `library`, `api`, `event` or `data`, and accepts `manifest`.
-`OWNS_RESOURCE` accepts `rule` and `BUILT_FROM` accepts `commitSha`; both are optional.
+`OWNS_RESOURCE` accepts `rule` and `BUILT_FROM` accepts `commitSha`; both are optional. Prefer
+`/api/v1/links/manual` for stating an owner, so the link engine knows a person said it.
 
 ### Traversals
 
@@ -510,6 +537,21 @@ The last two also find a repository under a remote it had before a rename. Each 
 `provider`, `providerId`, `previousKeys` and the derived `orgRepo`.
 [ADR-0013](/adr/0013-provider-id-is-an-alias-not-the-key) explains why the provider id sits beside
 the key rather than replacing it.
+
+### Links
+
+`/api/v1/links` resolves which repository owns each cloud resource and reviews what it proposed
+(#28, [ADR-0019](/adr/0019-link-resolution-writes-only-what-it-can-explain)). Listing candidates
+needs `graph:read`. Every other request needs `graph:write` and is refused on a read-only instance.
+
+| Request | Result |
+| --- | --- |
+| `POST /api/v1/links/resolve` | `202 {syncRunId, mode}`. Starts a resolution of every resource (`FULL`), or of `{scope: {provider, accountId, repoKey}}` (`INCREMENTAL`). Follow it at `/api/v1/sync-runs/{syncRunId}` |
+| `GET /api/v1/links/candidates?status=&provider=&minConfidence=&q=&page=&size=` | A page of candidates, strongest first: `{items: [{id, resource, repository, confidence, rule, evidence, status, createdAt, rejectedBy, rejectedAt}], page, size, totalElements, totalPages}`. `status` is comma-separated and defaults to `pending,conflict`. `q` searches the resource's key and name and the repository's key |
+| `POST /api/v1/links/candidates/{id}/accept` | The manual owner it became: `{resource, repository, rule: "manual", confidence: 1.0, inferred: false, evidence, acceptedBy, sourceSystem}`. `404` for an unknown id, `409 {status}` for a decided candidate |
+| `POST /api/v1/links/candidates/{id}/reject` | The candidate, now `rejected`, with `rejectedBy` and `rejectedAt`. `404` and `409` as above |
+| `POST /api/v1/links/manual` `{resourceKey, repoKey}` | `201` with the manual owner. `404` if either end is missing, `409` if that manual link already stands |
+| `DELETE /api/v1/links/manual?resourceKey=&repoKey=` | `204`. The link is closed with `validTo`, not deleted. `404` if no manual link stands |
 
 ### Lifecycle
 

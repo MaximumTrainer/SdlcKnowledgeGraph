@@ -15,5 +15,6 @@ sources:
   - { name: github-actions, description: "Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) and read from their runs, packages and deployments by the github-actions connector" }
   - { name: servicenow, description: "Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector" }
   - { name: aws, description: "Cloud resources read from AWS. Declared for the AWS connector; none ships yet" }
+  - { name: link-engine, description: "Ownership and candidate links the link resolution engine infers from the evidence other sources wrote (#28)" }
   - { name: dogfood-seed, description: "What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed)" }
   - { name: sdlc-knowledge-graph, description: "The graph's record of itself: the sync runs and connector states it keeps" }

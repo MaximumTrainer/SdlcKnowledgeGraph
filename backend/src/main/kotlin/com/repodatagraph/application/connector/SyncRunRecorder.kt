@@ -62,6 +62,21 @@ class SyncRunRecorder(
         error: String?,
     ) = write(runId, name, SELF, SyncMode.FULL, status, totals, null, error, null, startedAt)
 
+    /**
+     * A run of the application's own that writes facts of a source of its own, in a mode of its own:
+     * the link engine's resolutions (#28), FULL or scoped, whose edges name `link-engine`.
+     */
+    @Suppress("LongParameterList")
+    fun recordSourceRun(
+        runId: String,
+        sourceSystem: String,
+        mode: SyncMode,
+        status: RunStatus,
+        totals: DeltaResult,
+        startedAt: Instant,
+        error: String?,
+    ) = write(runId, sourceSystem, sourceSystem, mode, status, totals, null, error, null, startedAt)
+
     @Suppress("LongParameterList")
     private fun write(
         runId: String,

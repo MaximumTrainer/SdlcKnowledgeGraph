@@ -52,4 +52,35 @@ describe('RelationshipPanel', () => {
     expect(list.text()).toContain('OWNS')
     expect(list.text()).toContain('after-owned')
   })
+
+  it('marks a relationship a rule inferred, with the rule and its confidence, and no other', async () => {
+    const inferred = {
+      ...edge('OWNS_RESOURCE', 'billing-queue'),
+      props: { rule: 'iac' },
+      provenance: { sourceSystem: 'link-engine', confidence: 0.7, inferred: true }
+    }
+    server.use(
+      http.get('/api/v1/ontology', () => HttpResponse.json(ontologyFixture)),
+      http.get('/api/v1/edges', () =>
+        HttpResponse.json({ items: [inferred, edge('OWNS', 'stated-owned')] })
+      )
+    )
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:any(.*)*', component: { template: '<div />' } }]
+    })
+    const wrapper = mount(RelationshipPanel, {
+      global: { plugins: [router] },
+      props: { type: 'Repository', nodeKey: 'github.com/acme/billing' }
+    })
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="relationship"]')
+    const guessed = rows.find(row => row.text().includes('billing-queue'))!
+    const stated = rows.find(row => row.text().includes('stated-owned'))!
+    const badge = guessed.find('[data-test="inferred-badge"]')
+    expect(badge.text()).toContain('iac')
+    expect(badge.text()).toContain('70%')
+    expect(stated.find('[data-test="inferred-badge"]').exists()).toBe(false)
+  })
 })

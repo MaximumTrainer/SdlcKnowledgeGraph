@@ -58,6 +58,79 @@
         "required" : [ "details", "eventType", "id", "timestamp" ],
         "type" : "object"
       },
+      "CandidatePageResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CandidateResponse"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalElements" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalElements", "totalPages" ],
+        "type" : "object"
+      },
+      "CandidateResponse" : {
+        "description" : "A link a rule proposed below the ownership threshold, or that conflicts with the owner",
+        "properties" : {
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "evidence" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "rejectedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "rejectedBy" : {
+            "type" : [ "string", "null" ]
+          },
+          "repository" : {
+            "$ref" : "#/components/schemas/LinkedRepositoryResponse"
+          },
+          "resource" : {
+            "$ref" : "#/components/schemas/LinkedResourceResponse"
+          },
+          "rule" : {
+            "description" : "The rule whose evidence is strongest: tag, deployment, iac or naming",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "pending, conflict, rejected, superseded or accepted",
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "evidence", "id", "repository", "resource", "rule", "status" ],
+        "type" : "object"
+      },
       "CarriedChangeResponse" : {
         "properties" : {
           "artifact" : {
@@ -1142,6 +1215,36 @@
         },
         "type" : "object"
       },
+      "LinkedRepositoryResponse" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
+      "LinkedResourceResponse" : {
+        "properties" : {
+          "accountId" : {
+            "type" : [ "string", "null" ]
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "provider" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
       "LiveDeploymentResponse" : {
         "properties" : {
           "artifacts" : {
@@ -1174,6 +1277,17 @@
           }
         },
         "required" : [ "artifacts", "changes", "id" ],
+        "type" : "object"
+      },
+      "ManualLinkRequest" : {
+        "properties" : {
+          "repoKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "resourceKey" : {
+            "type" : [ "string", "null" ]
+          }
+        },
         "type" : "object"
       },
       "MergeRequest" : {
@@ -1454,6 +1568,41 @@
           }
         },
         "required" : [ "edgeTypes", "environments", "nodeTypes", "provenance", "sources", "templates", "version" ],
+        "type" : "object"
+      },
+      "OwnerLinkResponse" : {
+        "description" : "An OWNS_RESOURCE: who owns the resource, on which rule, and who said so",
+        "properties" : {
+          "acceptedBy" : {
+            "type" : [ "string", "null" ]
+          },
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "evidence" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "inferred" : {
+            "type" : "boolean"
+          },
+          "repository" : {
+            "$ref" : "#/components/schemas/LinkedRepositoryResponse"
+          },
+          "resource" : {
+            "$ref" : "#/components/schemas/LinkedResourceResponse"
+          },
+          "rule" : {
+            "type" : "string"
+          },
+          "sourceSystem" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "confidence", "evidence", "inferred", "repository", "resource", "rule", "sourceSystem" ],
         "type" : "object"
       },
       "OwnerResponse" : {
@@ -1858,6 +2007,59 @@
         "required" : [ "codeowners", "defaultBranch", "id", "key", "orgRepo", "previousKeys", "topics", "url" ],
         "type" : "object"
       },
+      "ResolutionResponse" : {
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "syncRunId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "mode", "syncRunId" ],
+        "type" : "object"
+      },
+      "ResolveRequest" : {
+        "properties" : {
+          "scope" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ResolveScope"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "type" : "object"
+      },
+      "ResolveScope" : {
+        "description" : "Which resources to resolve; every field narrows, and none is a FULL run",
+        "properties" : {
+          "accountId" : {
+            "type" : [ "string", "null" ]
+          },
+          "provider" : {
+            "type" : [ "string", "null" ]
+          },
+          "repoKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "repoKeys" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ],
+            "uniqueItems" : true
+          },
+          "resourceKeys" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ],
+            "uniqueItems" : true
+          }
+        },
+        "type" : "object"
+      },
       "ScoringResponse" : {
         "properties" : {
           "formula" : {
@@ -2017,6 +2219,9 @@
           },
           "inverse" : {
             "type" : "string"
+          },
+          "rule" : {
+            "type" : [ "string", "null" ]
           },
           "to" : {
             "type" : "string"
@@ -3587,6 +3792,215 @@
         "tags" : [ "Lifecycle" ]
       }
     },
+    "/api/v1/links/candidates" : {
+      "get" : {
+        "operationId" : "listLinkCandidates",
+        "parameters" : [ {
+          "description" : "Comma-separated: pending, conflict, rejected, superseded, accepted. Default pending,conflict",
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only resources in this cloud: aws, azure or gcp",
+          "in" : "query",
+          "name" : "provider",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only candidates at least this confident, 0 to 1",
+          "in" : "query",
+          "name" : "minConfidence",
+          "required" : false,
+          "schema" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        }, {
+          "description" : "Text in the resource's key or name, or the repository's key, in any case",
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page number, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Candidates per page, 1 to 200",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidatePageResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List candidate links, strongest first; the open ones unless asked",
+        "tags" : [ "Links" ]
+      }
+    },
+    "/api/v1/links/candidates/{id}/accept" : {
+      "post" : {
+        "operationId" : "acceptLinkCandidate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLinkResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Accept a candidate: it becomes a manual OWNS_RESOURCE",
+        "tags" : [ "Links" ]
+      }
+    },
+    "/api/v1/links/candidates/{id}/reject" : {
+      "post" : {
+        "operationId" : "rejectLinkCandidate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Reject a candidate: it is not proposed again on the same evidence",
+        "tags" : [ "Links" ]
+      }
+    },
+    "/api/v1/links/manual" : {
+      "delete" : {
+        "operationId" : "closeManualLink",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "resourceKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "repoKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Close a manual link; the edge keeps its history with validTo set",
+        "tags" : [ "Links" ]
+      },
+      "post" : {
+        "operationId" : "createManualLink",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualLinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLinkResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "State that a repository owns a cloud resource",
+        "tags" : [ "Links" ]
+      }
+    },
+    "/api/v1/links/resolve" : {
+      "post" : {
+        "operationId" : "resolveLinks",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResolveRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResolutionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Start a link resolution, of every resource or of a scope, as a sync run of link-engine",
+        "tags" : [ "Links" ]
+      }
+    },
     "/api/v1/nodes/{type}" : {
       "get" : {
         "operationId" : "list",
@@ -4636,6 +5050,9 @@
   }, {
     "description" : "Traversals for nodes addressed by id",
     "name" : "Graph traversal"
+  }, {
+    "description" : "Which repository owns each cloud resource, inferred by rules and reviewed by people",
+    "name" : "Links"
   }, {
     "description" : "Ingestion from systems of record",
     "name" : "Connectors"
