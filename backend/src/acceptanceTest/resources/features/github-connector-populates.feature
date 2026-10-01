@@ -94,3 +94,12 @@ Feature: GitHub connector populates the graph
     Then the SyncRun reports 1 failed
     And the SyncRun reports more than 0 written
     And the SyncRun records the version the connector reports
+
+  Scenario: an owner that is a user account rather than an organisation is read too
+    # GitHub lists a user's repositories under /users rather than /orgs, and answers 404 for the
+    # user asked about as an organisation. Pointing the connector at a person's account, as the
+    # project's own dogfood instance does, has to work all the same.
+    Given "acme" is a user account rather than an organisation, with repositories "payments" and "ledger"
+    When the GitHub connector runs
+    Then a Repository "github.com/acme/payments" exists with sourceSystem "github"
+    And a Repository "github.com/acme/ledger" exists with sourceSystem "github"

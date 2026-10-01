@@ -46,6 +46,18 @@ class GitHubPopulationSteps(
         stub(listOf(FakeRepo(name = first), FakeRepo(name = second)))
     }
 
+    @Given("{string} is a user account rather than an organisation, with repositories {string} and {string}")
+    fun aUserAccountWithRepositories(
+        owner: String,
+        first: String,
+        second: String,
+    ) {
+        assertEquals(ORG, owner) { "the test profile points the connector at org $ORG" }
+        repos = listOf(FakeRepo(name = first), FakeRepo(name = second))
+        github.hasRepositories(ORG, repos, userAccount = true)
+        repos.forEach { github.files.hasCodeowners(ORG, it.name, content = null) }
+    }
+
     @Given("a fork {string} of {string}")
     fun aFork(
         name: String,

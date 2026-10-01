@@ -56,8 +56,12 @@ class FakeGitHub {
     fun hasRepositories(
         org: String,
         vararg pages: List<FakeRepo>,
+        userAccount: Boolean = false,
     ) {
-        val path = "/orgs/$org/repos"
+        // A user account's repositories are listed under `/users` rather than `/orgs`. Nothing is then
+        // stubbed under `/orgs/{user}`, so asking for the user as an organisation is answered 404,
+        // exactly as GitHub answers it.
+        val path = if (userAccount) "/users/$org/repos" else "/orgs/$org/repos"
         // Also on its own, because a webhook reads one repository back rather than listing the org.
         pages.flatMap { it }.forEach { repo ->
             server.stubFor(
