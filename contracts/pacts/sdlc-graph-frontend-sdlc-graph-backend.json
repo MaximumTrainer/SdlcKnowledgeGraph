@@ -2476,6 +2476,77 @@
       }
     },
     {
+      "description": "a request for the policy in force",
+      "providerStates": [
+        {
+          "name": "the policy is at its defaults"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/policy"
+      },
+      "response": {
+        "body": {
+          "engine": "embedded-wasm",
+          "failMode": "closed",
+          "loadedAt": "2026-10-01T12:00:00Z",
+          "name": "sdlc-authz",
+          "revision": "sdlc-authz-1.0.0",
+          "status": "UP"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.engine": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.loadedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.revision": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request for the repository at its old url",
       "providerStates": [
         {
@@ -3305,6 +3376,138 @@
       },
       "response": {
         "status": 204
+      }
+    },
+    {
+      "description": "a request to explain updating a repository",
+      "providerStates": [
+        {
+          "name": "the policy is at its defaults"
+        }
+      ],
+      "request": {
+        "body": {
+          "action": "update",
+          "resource": {
+            "type": "Repository"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/policy/explain"
+      },
+      "response": {
+        "body": {
+          "allow": true,
+          "clearance": "restricted",
+          "policy": "allow",
+          "reason": "the token holds graph:write",
+          "redact": [],
+          "required": [
+            "graph:write"
+          ],
+          "subject": {
+            "id": "test-principal",
+            "kind": "user",
+            "roles": null,
+            "scopes": [
+              "graph:write"
+            ],
+            "teams": []
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.allow": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.clearance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.policy": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.reason": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.redact": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.required": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.subject.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.subject.kind": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.subject.scopes": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.subject.teams": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
       }
     },
     {
