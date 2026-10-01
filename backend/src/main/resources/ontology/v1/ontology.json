@@ -1,5 +1,5 @@
 {
-  "version": "1.7.0",
+  "version": "1.8.0",
   "nodeTypes": [
     {
       "name": "Repository",
@@ -397,7 +397,7 @@
         { "name": "since", "type": "instant", "required": true, "description": "When the node began to hold these values", "examples": ["2026-01-01T00:00:00Z"] },
         { "name": "until", "type": "instant", "required": true, "description": "When a write replaced them, or the node was retired", "examples": ["2026-02-01T00:00:00Z"] },
         { "name": "retired", "type": "boolean", "required": false, "description": "True when the values ended because the node was retired rather than changed", "examples": [false] },
-        { "name": "retiredReason", "type": "string", "required": false, "description": "Why the node was retired, where it was", "enum": ["source-deleted", "source-retired", "missing-from-sync", "manual", "merged"], "examples": ["missing-from-sync"] }
+        { "name": "retiredReason", "type": "string", "required": false, "description": "Why the node was retired, where it was", "enum": ["source-deleted", "source-retired", "missing-from-sync", "manual", "merged", "superseded"], "examples": ["missing-from-sync"] }
       ],
       "meta": true,
       "displayProperty": "versionOf",
@@ -725,7 +725,7 @@
   "sources": [
     { "name": "manual", "description": "Stated through the API by the principal that made the write. Needs graph:write only" },
     { "name": "github", "description": "Repositories, teams, manifests and ownership read from GitHub by the GitHub connector" },
-    { "name": "github-actions", "description": "Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment)" },
+    { "name": "github-actions", "description": "Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) and read from their runs, packages and deployments by the github-actions connector" },
     { "name": "servicenow", "description": "Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector" },
     { "name": "aws", "description": "Cloud resources read from AWS. Declared for the AWS connector; none ships yet" },
     { "name": "dogfood-seed", "description": "What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed)" },

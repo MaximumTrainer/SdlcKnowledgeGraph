@@ -38,7 +38,7 @@ class GitHubClient(
                     ?: http.get(URI.create("${properties.baseUrl}/users/$org/repos?$LISTING&type=owner"), REPO_LIST)
             while (true) {
                 yieldAll(response.body.orEmpty())
-                val next = nextLink(response.headers.getFirst(HttpHeaders.LINK)) ?: break
+                val next = nextPage(response.headers) ?: break
                 response = http.get(next, REPO_LIST)
             }
         }
@@ -97,16 +97,6 @@ class GitHubClient(
     /** Whether GitHub answers at all, for the connector's health check. */
     fun isReachable(): Boolean = http.isReachable()
 
-    /** `<https://api.github.com/...?page=2>; rel="next", <...>; rel="last"` */
-    private fun nextLink(header: String?): URI? =
-        header
-            ?.split(",")
-            ?.firstOrNull { it.contains(NEXT_REL) }
-            ?.substringAfter("<")
-            ?.substringBefore(">")
-            ?.trim()
-            ?.let(URI::create)
-
     companion object {
         /** Everywhere GitHub looks for CODEOWNERS, in the order it looks. */
         val CODEOWNERS_PATHS = listOf("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
@@ -114,9 +104,22 @@ class GitHubClient(
         /** GitHub's maximum. Anything smaller multiplies requests against a shared rate limit. */
         private const val PAGE_SIZE = 100
         private const val LISTING = "per_page=$PAGE_SIZE&sort=full_name"
-        private const val NEXT_REL = "rel=\"next\""
         private const val BLOB = "blob"
 
         private val REPO_LIST = object : ParameterizedTypeReference<List<GitHubRepo>>() {}
     }
 }
+
+/**
+ * The next page GitHub's `Link` header points at, or null on the last: `<https://...?page=2>;
+ * rel="next", <...>; rel="last"`. Every listing pages this way, so every reader follows it here.
+ */
+internal fun nextPage(headers: HttpHeaders): URI? =
+    headers
+        .getFirst(HttpHeaders.LINK)
+        ?.split(",")
+        ?.firstOrNull { it.contains("rel=\"next\"") }
+        ?.substringAfter("<")
+        ?.substringBefore(">")
+        ?.trim()
+        ?.let(URI::create)

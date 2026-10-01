@@ -678,6 +678,48 @@
       "type" : "int"
     } ]
   }, {
+    "name" : "actions.deployment.unattributed",
+    "level" : "INFO",
+    "message" : "deployment not recorded; no artifact it deployed is known",
+    "description" : "A GitHub deployment was read whose run published no package version the connector could attribute to it, so there is no artifact to record it against.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "repository",
+      "type" : "string"
+    }, {
+      "name" : "deploymentId",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "actions.package.ambiguous",
+    "level" : "INFO",
+    "message" : "package version not attributed; more than one run could have published it",
+    "description" : "A package version was published while two or more runs of its repository were running, so it is credited to none of them rather than to a guess.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "repository",
+      "type" : "string"
+    }, {
+      "name" : "artifact",
+      "type" : "string"
+    } ]
+  }, {
+    "name" : "actions.webhook.ignored",
+    "level" : "DEBUG",
+    "message" : "GitHub Actions webhook ignored",
+    "description" : "A verified GitHub event the github-actions connector does not record, or one about an owner it was not configured to read.",
+    "security" : false,
+    "throwable" : false,
+    "fields" : [ {
+      "name" : "eventType",
+      "type" : "string"
+    }, {
+      "name" : "reason",
+      "type" : "string"
+    } ]
+  }, {
     "name" : "servicenow.unreachable",
     "level" : "WARN",
     "message" : "ServiceNow is not reachable",

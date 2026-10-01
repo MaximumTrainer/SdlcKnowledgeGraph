@@ -18,26 +18,32 @@ class GitHubWebhookVerifier(
     private val signatures: WebhookSignatureVerifier,
     private val connectors: ConnectorsProperties,
 ) {
-    /** `X-Hub-Signature-256: sha256=<hex>`, compared in constant time. */
+    /**
+     * `X-Hub-Signature-256: sha256=<hex>`, compared in constant time against the webhook secret of
+     * [connector]: each connector GitHub delivers to has a secret of its own (#90), so one connector's
+     * secret signs nothing for another.
+     */
     fun verify(
         headers: Map<String, String>,
         body: ByteArray,
+        connector: String = CONNECTOR,
     ): Boolean =
         headers
             .header(SIGNATURE_HEADER)
             // A signature sent under a scheme this code does not implement must fail, not be read as
             // though it were the one it does.
             ?.takeIf { it.startsWith(SIGNATURE_PREFIX) }
-            ?.let { signatures.verify(body, secret(), it.removePrefix(SIGNATURE_PREFIX)) }
+            ?.let { signatures.verify(body, connectors.settingsFor(connector).webhookSecret, it.removePrefix(SIGNATURE_PREFIX)) }
             ?: false
+
+    /** Whether the request carries GitHub's signature at all, whatever it turns out to say. */
+    fun isSigned(headers: Map<String, String>): Boolean = headers.header(SIGNATURE_HEADER) != null
 
     /** GitHub's own id for the delivery, which is what makes a redelivery recognisable. */
     fun deliveryId(event: WebhookEvent): String? = event.headers.header(DELIVERY_HEADER)
 
     /** Which kind of event this is, as GitHub names it. */
     fun eventType(event: WebhookEvent): String? = event.headers.header(EVENT_HEADER)
-
-    private fun secret() = connectors.settingsFor(CONNECTOR).webhookSecret
 
     private companion object {
         const val CONNECTOR = "github"

@@ -523,7 +523,7 @@ nodes:
       - { name: since, type: instant, required: true, description: "When the node began to hold these values", examples: ["2026-01-01T00:00:00Z"] }
       - { name: until, type: instant, required: true, description: "When a write replaced them, or the node was retired", examples: ["2026-02-01T00:00:00Z"] }
       - { name: retired, type: boolean, required: false, description: "True when the values ended because the node was retired rather than changed", examples: [false] }
-      - { name: retiredReason, type: string, required: false, description: "Why the node was retired, where it was", enum: [source-deleted, source-retired, missing-from-sync, manual, merged], examples: [missing-from-sync] }
+      - { name: retiredReason, type: string, required: false, description: "Why the node was retired, where it was", enum: [source-deleted, source-retired, missing-from-sync, manual, merged, superseded], examples: [missing-from-sync] }
 
   # One ontology migration the graph has had (#33): run, or recorded as a baseline because the graph
   # began on its version or a newer one. Its checksum is what says whether the shipped file is still

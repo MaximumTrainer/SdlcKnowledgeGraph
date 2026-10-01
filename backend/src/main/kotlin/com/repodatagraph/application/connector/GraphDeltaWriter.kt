@@ -13,6 +13,7 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.port.out.FactLifecycle
 import com.repodatagraph.domain.port.out.GraphStore
 import com.repodatagraph.domain.port.out.connector.ConnectorDescriptor
+import com.repodatagraph.domain.port.out.connector.EdgeUpsert
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
@@ -91,6 +92,7 @@ class GraphDeltaWriter(
                                 sourceId = upsert.sourceId,
                                 confidence = upsert.confidence,
                                 inferred = upsert.inferred,
+                                began = upsert.validFrom,
                             ),
                     )
                 // Asked before the write, which is still made: the source stating a fact again is
@@ -103,37 +105,13 @@ class GraphDeltaWriter(
                 unchanged
             }
 
-        val edgesUnchanged =
-            delta.edges.count { upsert ->
-                val edge =
-                    GraphEdge(
-                        type = upsert.type,
-                        from = upsert.from,
-                        to = upsert.to,
-                        props = upsert.props,
-                        provenance =
-                            provenance(
-                                descriptor = descriptor,
-                                syncRunId = syncRunId,
-                                now = now,
-                                observedAt = upsert.observedAt,
-                                sourceId = upsert.sourceId,
-                                confidence = upsert.confidence,
-                                inferred = upsert.inferred,
-                            ),
-                    )
-                val unchanged = unchangedEdge(edge)
-                graphStore.upsertEdge(edge)
-                unchanged
-            }
-
-        val closed = delta.tombstones.count { close(it, now) }
+        val edgesUnchanged = writeEdges(delta.edges, descriptor, syncRunId, now)
         val unchanged = nodesUnchanged + edgesUnchanged
 
         return DeltaResult(
             nodesUpserted = delta.nodes.size,
             edgesUpserted = delta.edges.size,
-            tombstones = closed,
+            tombstones = closeAll(delta, now),
             written = delta.nodes.size + delta.edges.size - unchanged,
             unchanged = unchanged,
         )
@@ -213,6 +191,51 @@ class GraphDeltaWriter(
         now: Instant,
     ): Boolean = factLifecycle.retire(key, now, RetiredReason.SOURCE_DELETED)
 
+    /** Writes each edge, and counts those the graph already held as they are (#86, FR-6). */
+    private fun writeEdges(
+        edges: List<EdgeUpsert>,
+        descriptor: ConnectorDescriptor,
+        syncRunId: String,
+        now: Instant,
+    ): Int =
+        edges.count { upsert ->
+            val edge =
+                GraphEdge(
+                    type = upsert.type,
+                    from = upsert.from,
+                    to = upsert.to,
+                    props = upsert.props,
+                    provenance =
+                        provenance(
+                            descriptor = descriptor,
+                            syncRunId = syncRunId,
+                            now = now,
+                            observedAt = upsert.observedAt,
+                            sourceId = upsert.sourceId,
+                            confidence = upsert.confidence,
+                            inferred = upsert.inferred,
+                            began = upsert.validFrom,
+                        ),
+                )
+            val unchanged = unchangedEdge(edge)
+            graphStore.upsertEdge(edge)
+            unchanged
+        }
+
+    /**
+     * What [delta] ends: what its source deleted, and what a newer fact replaced (#90). Called after
+     * every upsert, so nothing a delta closes is reopened by the same delta. A replaced fact ends at the
+     * instant it was replaced rather than now - the deployment before ran until the next one began,
+     * however late the graph heard of it - and its current relationships end with it, as any
+     * retirement's do; one already retired keeps its own ending.
+     */
+    private fun closeAll(
+        delta: GraphDelta,
+        now: Instant,
+    ): Int =
+        delta.tombstones.count { close(it, now) } +
+            delta.supersessions.count { factLifecycle.retire(it.key, it.at, RetiredReason.SUPERSEDED) }
+
     private fun linkToRun(
         syncRunId: String,
         key: NodeKey,
@@ -237,6 +260,7 @@ class GraphDeltaWriter(
         sourceId: String?,
         confidence: Double,
         inferred: Boolean,
+        began: Instant? = null,
     ) = Provenance(
         sourceSystem = descriptor.sourceSystem,
         sourceId = sourceId,
@@ -244,7 +268,9 @@ class GraphDeltaWriter(
         observedAt = observedAt ?: now,
         confidence = confidence,
         inferred = inferred,
-        validFrom = now,
+        // When the source says the fact began (#90), never later than now: a fact cannot have begun
+        // after the graph was told of it.
+        validFrom = began?.takeIf { it.isBefore(now) } ?: now,
         syncRunId = syncRunId,
     )
 

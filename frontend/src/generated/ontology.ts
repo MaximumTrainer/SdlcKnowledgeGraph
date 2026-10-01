@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.7.0'
+export const ONTOLOGY_VERSION = '1.8.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -874,7 +874,7 @@ export interface ConnectorState {
 }
 
 export type NodeVersionRetiredReason =
-  'source-deleted' | 'source-retired' | 'missing-from-sync' | 'manual' | 'merged'
+  'source-deleted' | 'source-retired' | 'missing-from-sync' | 'manual' | 'merged' | 'superseded'
 
 /** The values a node held for an interval before they were replaced. */
 export interface NodeVersion {
