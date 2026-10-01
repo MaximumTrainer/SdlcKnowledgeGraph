@@ -141,6 +141,9 @@ val generatedSdl = layout.projectDirectory.file("src/main/resources/graphql/sche
 val generatedTs = layout.projectDirectory.file("../frontend/src/generated/ontology.ts")
 val generatedJson = layout.projectDirectory.file("src/main/resources/ontology/v1/ontology.json")
 
+// The sensitivity labels the authorisation policy reads (#30), as data in its bundle under policy/.
+val generatedPolicyData = layout.projectDirectory.file("../policy/sdlc/ontology/data.json")
+
 val generateOntology by tasks.registering(OntologyCodegenTask::class) {
     group = "ontology"
     description = "Generates GraphQL SDL, TypeScript types and the ontology JSON fixture from the registry"
@@ -148,6 +151,7 @@ val generateOntology by tasks.registering(OntologyCodegenTask::class) {
     graphqlOutput.set(generatedSdl)
     typescriptOutput.set(generatedTs)
     jsonOutput.set(generatedJson)
+    policyDataOutput.set(generatedPolicyData)
 }
 
 val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
@@ -157,6 +161,7 @@ val ontologyDriftCheck by tasks.registering(OntologyDriftCheckTask::class) {
     graphqlOutput.set(generatedSdl)
     typescriptOutput.set(generatedTs)
     jsonOutput.set(generatedJson)
+    policyDataOutput.set(generatedPolicyData)
 }
 
 tasks.named("check") { dependsOn(ontologyDriftCheck) }

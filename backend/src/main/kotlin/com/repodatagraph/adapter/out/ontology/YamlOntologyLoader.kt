@@ -15,6 +15,7 @@ import com.repodatagraph.domain.ontology.OntologyRegistry
 import com.repodatagraph.domain.ontology.PropertyDef
 import com.repodatagraph.domain.ontology.PropertyFormat
 import com.repodatagraph.domain.ontology.PropertyType
+import com.repodatagraph.domain.ontology.Sensitivity
 import com.repodatagraph.domain.ontology.SourceSystemDef
 import com.repodatagraph.domain.ontology.TemplateDef
 import com.repodatagraph.domain.ontology.TemplateStepDef
@@ -149,6 +150,7 @@ class YamlOntologyLoader(
                 examples = readExamples(definition),
                 questions = definition.path("questions").map { it.asText() },
                 mergeScope = definition.path("mergeScope").map { it.asText() },
+                sensitivity = readSensitivity(definition, "node type '$name'") ?: Sensitivity.DEFAULT,
             )
         }
     }
@@ -199,8 +201,21 @@ class YamlOntologyLoader(
                         .associate { (key, value) -> key to value.asText() },
                 examples = property.path("examples").map { it.plain() },
                 deprecated = readDeprecation(property.path("deprecated"), "$owner property '$name'"),
+                sensitivity = readSensitivity(property, "$owner property '$name'"),
             )
         }
+
+    /** The label [definition] declares (#30), naming [owner] when it is not one the registry knows. */
+    private fun readSensitivity(
+        definition: JsonNode,
+        owner: String,
+    ): Sensitivity? {
+        val label = definition.path("sensitivity").asTextOrNull() ?: return null
+        return Sensitivity.entries.firstOrNull { it.wireName == label }
+            ?: throw InvalidOntologyException(
+                "$owner has an unknown sensitivity '$label', expected one of ${Sensitivity.entries.map { it.wireName }}",
+            )
+    }
 
     private fun readDeprecation(
         node: JsonNode,
@@ -232,11 +247,22 @@ class YamlOntologyLoader(
         const val DEFAULT_BASE_PATH = "ontology/v1"
 
         private val NODE_KEYS =
-            setOf("description", "identity", "alias", "mergeScope", "displayProperty", "meta", "properties", "examples", "questions")
+            setOf(
+                "description",
+                "identity",
+                "alias",
+                "mergeScope",
+                "displayProperty",
+                "meta",
+                "properties",
+                "examples",
+                "questions",
+                "sensitivity",
+            )
         private val EDGE_KEYS =
             setOf("description", "from", "to", "inverse", "impact", "downstream", "ownership", "properties", "examples", "questions")
         private val PROPERTY_KEYS =
-            setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
+            setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated", "sensitivity")
         private val DEPRECATED_KEYS = setOf("since", "replacedBy")
         private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
         private val TEMPLATE_KEYS = setOf("description", "start", "owners", "steps")

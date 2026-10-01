@@ -1,7 +1,7 @@
 // GENERATED FROM ontology/v1 - DO NOT EDIT
 // Run ./gradlew generateOntology after changing the registry.
 
-export const ONTOLOGY_VERSION = '1.9.0'
+export const ONTOLOGY_VERSION = '1.10.0'
 
 export interface Provenance {
   sourceSystem: string
@@ -951,6 +951,8 @@ export interface OntologyMigration {
   baseline?: boolean
 }
 
+export type ServicePrincipalKind = 'service' | 'agent'
+
 /** A connector or agent registered as a principal of its own, owned by a team. */
 export interface ServicePrincipal {
   id: string
@@ -969,6 +971,11 @@ export interface ServicePrincipal {
    * @example "Reports deployments of the payments service"
    */
   description?: string
+  /**
+   * Whether the principal is a connector (service) or acts on its own judgement (agent)
+   * @example "agent"
+   */
+  kind?: ServicePrincipalKind
 }
 
 export type NodeType =

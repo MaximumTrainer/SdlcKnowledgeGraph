@@ -25,7 +25,25 @@ data class GenProperty(
     val examples: List<Any?> = emptyList(),
     /** Set when the property is kept for old writers but should no longer be read or written. */
     val deprecated: GenDeprecation? = null,
+    /**
+     * How sensitive this property is, where it is more so than its type (#30): one of
+     * [Sensitivity.LEVELS]. Null where the registry says nothing, which leaves it at its type's level.
+     */
+    val sensitivity: String? = null,
 )
+
+/**
+ * The sensitivity labels of the registry (#30), least sensitive first. A type that declares none is
+ * [DEFAULT]; an edge is as sensitive as the more sensitive of the types it joins.
+ */
+object Sensitivity {
+    val LEVELS = listOf("public", "internal", "confidential", "restricted")
+    const val DEFAULT = "internal"
+
+    /** The more sensitive of [levels], or [DEFAULT] for none; an unknown level counts as the most sensitive. */
+    fun max(levels: Collection<String>): String =
+        levels.maxByOrNull { LEVELS.indexOf(it).takeIf { index -> index >= 0 } ?: LEVELS.size } ?: DEFAULT
+}
 
 /** Since which ontology version a property is deprecated, and the property or edge type that replaces it. */
 data class GenDeprecation(
@@ -49,7 +67,12 @@ data class GenNodeType(
     val questions: List<String> = emptyList(),
     /** Properties two nodes of this type must not disagree on to be merged (#98). */
     val mergeScope: List<String> = emptyList(),
-)
+    /** How sensitive the type's nodes are, as declared (#30); null where the registry says nothing. */
+    val sensitivity: String? = null,
+) {
+    /** The type's sensitivity, [Sensitivity.DEFAULT] where it declares none. */
+    val effectiveSensitivity: String get() = sensitivity ?: Sensitivity.DEFAULT
+}
 
 data class GenEdgeType(
     val name: String,
@@ -116,7 +139,13 @@ data class GenOntology(
     val environments: List<GenEnvironment> = emptyList(),
     /** The traversal templates of context packs (templates.yaml, #96), in declaration order. */
     val templates: List<GenTemplate> = emptyList(),
-)
+) {
+    /** How sensitive an edge of [edge] is (#30): as the more sensitive of the types it joins. */
+    fun edgeSensitivity(edge: GenEdgeType): String {
+        val byName = nodeTypes.associateBy { it.name }
+        return Sensitivity.max((edge.from + edge.to).mapNotNull { byName[it]?.effectiveSensitivity })
+    }
+}
 
 object OntologyReader {
     private val yaml = YAMLMapper()
@@ -124,7 +153,18 @@ object OntologyReader {
     // A key outside these is a typo or a feature that does not exist; either way it must fail the
     // build rather than be dropped, or the registry says something nothing reads (#81).
     private val NODE_KEYS =
-        setOf("description", "identity", "alias", "mergeScope", "displayProperty", "meta", "properties", "examples", "questions")
+        setOf(
+            "description",
+            "identity",
+            "alias",
+            "mergeScope",
+            "displayProperty",
+            "meta",
+            "properties",
+            "examples",
+            "questions",
+            "sensitivity",
+        )
     private val EDGE_KEYS =
         setOf(
             "description",
@@ -139,7 +179,7 @@ object OntologyReader {
             "questions",
         )
     private val PROPERTY_KEYS =
-        setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated")
+        setOf("name", "type", "required", "description", "enum", "format", "formatWhen", "examples", "deprecated", "sensitivity")
     private val DEPRECATED_KEYS = setOf("since", "replacedBy")
     private val ENVIRONMENT_KEYS = setOf("name", "description", "aliases")
     private val TEMPLATE_KEYS = setOf("description", "start", "owners", "steps")
@@ -172,6 +212,7 @@ object OntologyReader {
                         examples = definition.readExamples(),
                         questions = definition.path("questions").map { it.asText() },
                         mergeScope = definition.path("mergeScope").map { it.asText() },
+                        sensitivity = definition.text("sensitivity"),
                     )
                 }.toList()
 
@@ -281,6 +322,7 @@ object OntologyReader {
                         .associate { (key, value) -> key to value.asText() },
                 examples = property.path("examples").map { plain(it) },
                 deprecated = deprecated,
+                sensitivity = property.text("sensitivity"),
             )
         }
 

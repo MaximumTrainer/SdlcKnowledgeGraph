@@ -50,7 +50,7 @@ data class OntologyResponse(
             OntologyResponse(
                 version = registry.version,
                 nodeTypes = registry.allNodeTypes().map(NodeTypeResponse::from),
-                edgeTypes = registry.allEdgeTypes().map(EdgeTypeResponse::from),
+                edgeTypes = registry.allEdgeTypes().map { EdgeTypeResponse.from(it, registry.edgeSensitivity(it).wireName) },
                 provenance = ProvenanceEnvelopeResponse(registry.provenance.map(PropertyResponse::from)),
                 sources = registry.sources.map(SourceSystemResponse::from),
                 environments = registry.environments.map(EnvironmentResponse::from),
@@ -77,6 +77,8 @@ data class NodeTypeResponse(
     val questions: List<String>,
     /** Whole example nodes, each one the API accepts (#81). */
     val examples: List<Map<String, Any?>>,
+    /** How sensitive a node of this type is (#30): public, internal, confidential or restricted. */
+    val sensitivity: String = "internal",
 ) {
     companion object {
         fun from(nodeType: NodeTypeDef): NodeTypeResponse =
@@ -91,6 +93,7 @@ data class NodeTypeResponse(
                 mergeScope = nodeType.mergeScope,
                 questions = nodeType.questions,
                 examples = nodeType.examples,
+                sensitivity = nodeType.sensitivity.wireName,
             )
     }
 }
@@ -111,9 +114,14 @@ data class EdgeTypeResponse(
     val questions: List<String>,
     /** Example property sets for an edge of this type (#81). */
     val examples: List<Map<String, Any?>>,
+    /** How sensitive an edge of this type is (#30): that of the more sensitive type it joins. */
+    val sensitivity: String = "internal",
 ) {
     companion object {
-        fun from(edgeType: EdgeTypeDef): EdgeTypeResponse =
+        fun from(
+            edgeType: EdgeTypeDef,
+            sensitivity: String = "internal",
+        ): EdgeTypeResponse =
             EdgeTypeResponse(
                 name = edgeType.name,
                 description = edgeType.description,
@@ -126,6 +134,7 @@ data class EdgeTypeResponse(
                 properties = edgeType.properties.map(PropertyResponse::from),
                 questions = edgeType.questions,
                 examples = edgeType.examples,
+                sensitivity = sensitivity,
             )
     }
 }
@@ -209,6 +218,9 @@ data class PropertyResponse(
     /** Since when the property is deprecated and what replaces it; omitted for a current property. */
     @field:JsonInclude(JsonInclude.Include.NON_NULL)
     val deprecated: DeprecationResponse? = null,
+    /** How sensitive the value is (#30), where more so than its type; omitted where it is as sensitive. */
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val sensitivity: String? = null,
 ) {
     companion object {
         fun from(property: PropertyDef): PropertyResponse =
@@ -222,6 +234,7 @@ data class PropertyResponse(
                 formatWhen = property.formatWhen.takeIf { it.isNotEmpty() },
                 examples = property.examples,
                 deprecated = property.deprecated?.let(DeprecationResponse::from),
+                sensitivity = property.sensitivity?.wireName,
             )
     }
 }
