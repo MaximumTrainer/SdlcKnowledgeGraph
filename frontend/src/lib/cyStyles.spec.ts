@@ -46,7 +46,8 @@ const subgraph: Subgraph = {
       from: PAYMENTS,
       to: BUCKET,
       confidence: 0.7,
-      inferred: true
+      inferred: true,
+      rule: 'iac'
     },
     {
       id: `OWNED_BY:${PAYMENTS}>Team:platform`,
@@ -93,15 +94,23 @@ describe('toElements', () => {
   })
 
   it('draws an edge between its ends, labelled with its type', () => {
-    expect(byId(`OWNS_RESOURCE:${PAYMENTS}>${BUCKET}`)).toMatchObject({
+    expect(byId(`OWNED_BY:${PAYMENTS}>Team:platform`)).toMatchObject({
       group: 'edges',
-      data: { source: PAYMENTS, target: BUCKET, label: 'OWNS_RESOURCE' }
+      data: { source: PAYMENTS, target: 'Team:platform', label: 'OWNED_BY' }
     })
   })
 
   it('marks only an inferred edge as inferred, so [inferred] selects exactly those', () => {
     expect(byId(`OWNS_RESOURCE:${PAYMENTS}>${BUCKET}`)?.data.inferred).toBe(true)
     expect(byId(`OWNED_BY:${PAYMENTS}>Team:platform`)?.data).not.toHaveProperty('inferred')
+  })
+
+  it('names the rule that inferred an edge beside its type, and only for an inferred one (#28)', () => {
+    expect(byId(`OWNS_RESOURCE:${PAYMENTS}>${BUCKET}`)?.data).toMatchObject({
+      rule: 'iac',
+      label: 'OWNS_RESOURCE (iac 70%)'
+    })
+    expect(byId(`OWNED_BY:${PAYMENTS}>Team:platform`)?.data.label).toBe('OWNED_BY')
   })
 
   it('fades an edge by its confidence', () => {
