@@ -25,3 +25,4 @@ record, not an edit to the old one.
 | [0015](./0015-merging-nodes-retires-with-a-pointer) | Merging two nodes retires one with a pointer to the other | Accepted |
 | [0016](./0016-context-pack-templates-are-registry-data) | Context pack templates are registry data, walked within a budget | Accepted |
 | [0017](./0017-github-connector-resolves-by-what-repositories-publish) | The GitHub connector resolves by what repositories publish, and counts what it changed | Accepted |
+| [0018](./0018-ci-deployments-read-from-github-actions) | CI deployments are read from GitHub Actions by the connector the pipeline reports to | Accepted |

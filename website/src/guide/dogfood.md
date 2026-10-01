@@ -22,6 +22,12 @@ now reads everything the seed does and is off here until it is given an owner an
 `sourceSystem=github`. The seed and the deploy report need the `INGEST_TOKEN` secret on the `dogfood`
 environment; without it, neither writes and both say so.
 
+The github-actions connector ([#90](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/90)), which reads deployments from GitHub rather than
+from the deploy's report, is off here as well. Turned on, it would find each deploy's GitHub
+deployment to `dogfood` but no artifact for it, since the images go to fly.io's registry rather than
+GitHub Packages, so the deploy report stays this instance's record of its deploys
+([Adapters](/guide/adapters#running-the-github-actions-connector-on-the-dogfood-instance)).
+
 ## It watches itself
 
 A private monitoring machine runs Prometheus and Alertmanager with the rules in `ops/alerts`, built
