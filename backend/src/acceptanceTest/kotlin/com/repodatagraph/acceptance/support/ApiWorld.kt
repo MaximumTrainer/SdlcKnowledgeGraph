@@ -91,6 +91,24 @@ class ApiWorld(
             .also { response = it }
     }
 
+    /**
+     * A request sent with [authorization] as its Authorization header rather than the suite's
+     * principal's, for a caller with other scopes, roles or teams (#30).
+     */
+    fun exchangeAs(
+        authorization: String,
+        method: HttpMethod,
+        path: String,
+        body: Any? = null,
+    ): ResponseEntity<String> {
+        val httpHeaders = HttpHeaders()
+        httpHeaders.set(HttpHeaders.AUTHORIZATION, authorization)
+        if (body != null) httpHeaders.contentType = MediaType.APPLICATION_JSON
+        return restTemplate
+            .exchange(path, method, HttpEntity(body, httpHeaders), String::class.java)
+            .also { response = it }
+    }
+
     fun lastResponse(): ResponseEntity<String> = checkNotNull(response) { "No request has been made yet" }
 
     fun lastStatus(): Int = lastResponse().statusCode.value()

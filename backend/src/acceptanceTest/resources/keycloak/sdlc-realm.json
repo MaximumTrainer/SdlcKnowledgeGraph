@@ -20,7 +20,27 @@
         "name": "graph-admin",
         "description": "May be issued the graph:admin scope: apply ontology migrations and run the archive (#33)."
       }
-    ]
+    ],
+    "client": {
+      "sdlc-ui": [
+        {
+          "name": "viewer",
+          "description": "The authorisation policy's viewer role (#30): reads the graph, changes nothing, cleared for internal data. Issued in the sdlc_roles claim."
+        },
+        {
+          "name": "curator",
+          "description": "The policy's curator role (#30): reads, creates, updates and links, cleared for internal data."
+        },
+        {
+          "name": "operator",
+          "description": "The policy's operator role (#30): a curator who may also run connectors, cleared for confidential data."
+        },
+        {
+          "name": "admin",
+          "description": "The policy's admin role (#30): everything the scopes allow, cleared for restricted data."
+        }
+      ]
+    }
   },
   "clientScopes": [
     {
@@ -763,6 +783,24 @@
         "phone",
         "microprofile-jwt",
         "organization"
+      ],
+      "protocolMappers": [
+        {
+          "name": "sdlc roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "sdlc-ui",
+            "claim.name": "sdlc_roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
       ]
     },
     {
@@ -905,6 +943,31 @@
         }
       ],
       "realmRoles": []
+    },
+    {
+      "id": "viewer",
+      "username": "viewer",
+      "enabled": true,
+      "email": "viewer@example.test",
+      "emailVerified": true,
+      "firstName": "Vera",
+      "lastName": "Viewer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "graph-reader",
+        "graph-writer"
+      ],
+      "clientRoles": {
+        "sdlc-ui": [
+          "viewer"
+        ]
+      }
     },
     {
       "username": "service-account-github-connector",
