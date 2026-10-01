@@ -1,9 +1,11 @@
 package com.repodatagraph.domain.ontology
 
 import com.repodatagraph.adapter.out.ontology.YamlOntologyLoader
+import com.repodatagraph.domain.lifecycle.RetiredReason
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.core.io.DefaultResourceLoader
@@ -148,7 +150,20 @@ class OntologyRegistryTest {
 
     @Test
     fun `the shipped registry is a minor version on from 1_1_0, since it only adds (#85, #88, #33)`() {
-        assertEquals("1.7.0", shipped.version)
+        assertEquals("1.8.0", shipped.version)
+    }
+
+    @Test
+    fun `a version can be retired as superseded, and every reason the code records is one the registry allows (#90)`() {
+        val reasons =
+            shipped
+                .nodeType("NodeVersion")
+                ?.property("retiredReason")
+                ?.enum
+                .orEmpty()
+
+        assertTrue("superseded" in reasons)
+        assertTrue(reasons.containsAll(RetiredReason.entries.map { it.wireName }))
     }
 
     @Test

@@ -64,13 +64,17 @@ class FakeGitHubActions(
 
     /**
      * A package the owner publishes from [FakePackage.repository], with its versions. Listed under
-     * `/orgs/{org}/packages` for its type only; every other type answers an empty list, as GitHub does
-     * for an organisation that publishes nothing of that kind.
+     * `/orgs/{org}/packages`, or `/users/{org}/packages` for a [userAccount], for its type only; every
+     * other type answers an empty list, as GitHub does for an owner that publishes nothing of that kind.
      */
     fun hasPackage(
         org: String,
         pkg: FakePackage,
+        userAccount: Boolean = false,
     ) {
+        // A user account's packages are listed under `/users`; nothing is stubbed under `/orgs/{user}`,
+        // so asking for the user as an organisation is answered 404, as GitHub answers it.
+        val owner = if (userAccount) "users" else "orgs"
         // A second call for a package already declared adds its versions, as publishing again does.
         val all = packages.getOrPut(org) { mutableListOf() }
         val existing = all.firstOrNull { it.name == pkg.name && it.type == pkg.type }
@@ -78,20 +82,20 @@ class FakeGitHubActions(
         all.remove(existing)
         all.add(merged)
         server.stubFor(
-            get(urlPathEqualTo("/orgs/$org/packages"))
+            get(urlPathEqualTo("/$owner/$org/packages"))
                 .atPriority(LOW)
                 .willReturn(json("[]")),
         )
         all.groupBy { it.type }.forEach { (type, ofType) ->
             server.stubFor(
-                get(urlPathEqualTo("/orgs/$org/packages"))
+                get(urlPathEqualTo("/$owner/$org/packages"))
                     .withQueryParam("package_type", EqualToPattern(type))
                     .atPriority(HIGH)
                     .willReturn(json(ofType.joinToString(",", "[", "]") { it.json(org) })),
             )
         }
         server.stubFor(
-            get(urlPathEqualTo("/orgs/$org/packages/${pkg.type}/${pkg.name}/versions"))
+            get(urlPathEqualTo("/$owner/$org/packages/${pkg.type}/${pkg.name}/versions"))
                 .willReturn(json(merged.versions.sortedByDescending { it.createdAt }.joinToString(",", "[", "]") { it.json(pkg.type) })),
         )
     }
