@@ -89,6 +89,26 @@ class GitHubHttp(
         }
 
     /**
+     * A GET with its headers where 404 is an answer rather than a failure, as it is when an owner asked
+     * about as an organisation is a user account instead.
+     */
+    fun <T> getPageOrNull(
+        uri: URI,
+        type: ParameterizedTypeReference<T>,
+    ): GitHubResponse<T>? =
+        withRetries {
+            client.get().uri(uri).exchange { _, response ->
+                refuseIfRateLimited(response.headers, response.statusCode.value())
+                if (response.statusCode.value() == NOT_FOUND) {
+                    null
+                } else {
+                    failUnlessOk(response.statusCode.value(), uri.path)
+                    GitHubResponse(response.bodyTo(type), response.headers)
+                }
+            }
+        }
+
+    /**
      * A GET where absence is an answer.
      *
      * 404 is what GitHub says about a file a repository does not have, which is most files in most

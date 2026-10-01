@@ -25,14 +25,21 @@ class GitHubClient(
      *
      * A sequence rather than a list: an org with ten thousand repositories is ten thousand objects
      * held at once otherwise, and the caller writes each page as it arrives anyway.
+     *
+     * An owner GitHub does not know as an organisation is read as a user account, whose repositories
+     * are listed under `/users` instead: the same shape, paged the same way. Only the repositories the
+     * user owns are listed, not those they merely contribute to, and GitHub lists only a user's public
+     * ones there. An owner that is neither is refused as before.
      */
     fun repositories(org: String): Sequence<GitHubRepo> =
         sequence {
-            var next: URI? = URI.create("${properties.baseUrl}/orgs/$org/repos?per_page=$PAGE_SIZE&sort=full_name")
-            while (next != null) {
-                val response = http.get(next, REPO_LIST)
+            var response =
+                http.getPageOrNull(URI.create("${properties.baseUrl}/orgs/$org/repos?$LISTING"), REPO_LIST)
+                    ?: http.get(URI.create("${properties.baseUrl}/users/$org/repos?$LISTING&type=owner"), REPO_LIST)
+            while (true) {
                 yieldAll(response.body.orEmpty())
-                next = nextLink(response.headers.getFirst(HttpHeaders.LINK))
+                val next = nextLink(response.headers.getFirst(HttpHeaders.LINK)) ?: break
+                response = http.get(next, REPO_LIST)
             }
         }
 
@@ -106,6 +113,7 @@ class GitHubClient(
 
         /** GitHub's maximum. Anything smaller multiplies requests against a shared rate limit. */
         private const val PAGE_SIZE = 100
+        private const val LISTING = "per_page=$PAGE_SIZE&sort=full_name"
         private const val NEXT_REL = "rel=\"next\""
         private const val BLOB = "blob"
 
