@@ -15,8 +15,9 @@ graph stops being a hand-maintained diagram and starts reflecting reality.
 > fact, and runs that count what they wrote, left unchanged and could not read. [#24](../../issues/24) added ServiceNow: configuration items,
 > CMDB relationships, changes and incidents (see [below](#the-servicenow-connector)), and with it the
 > `ItsmConnector` shape that Jira Service Management ([#35](../../issues/35)) will reuse. The clouds
-> are still to come - AWS [#25](../../issues/25) - as is link resolution
-> [#28](../../issues/28), so anything outside GitHub and the CMDB is still entered by hand (see the
+> are still to come - AWS [#25](../../issues/25) - so anything outside GitHub and the CMDB is still
+> entered by hand, though link resolution [#28](../../issues/28) now proposes which repository owns
+> each cloud resource (see the
 > [user guide](USER-GUIDE.md)).
 
 ## The contract
@@ -163,24 +164,37 @@ excluded from CI.
 
 ## Linking code to infrastructure
 
-A cloud resource rarely says which repository produced it, so the link resolution engine
-([#28](../../issues/28)) proposes links from evidence and scores its confidence.
+A cloud resource rarely says which repository produced it. The link resolution engine
+([#28](../../issues/28)) proposes owners from the evidence that connectors write, and scores each
+proposal:
 
-| Rule | Evidence | Confidence | Inferred |
-| --- | --- | --- | --- |
-| Manual link | A person asserted it | 1.0 | no |
-| Tag match | `repo=`, `repository=` or `source-repo=` resolves to a known repository | 0.95 | yes |
-| Deployment record | A pipeline deployed an artifact built from the repository into this environment | 0.9 | yes |
-| Infrastructure as code | A Terraform, CDK or Bicep file in the repository names the resource | 0.7 | yes |
-| Naming convention | The resource name matches a configured service pattern | 0.4 | yes |
+| Rule | Evidence | Confidence |
+| --- | --- | --- |
+| Manual link | A person stated or accepted it | 1.0 |
+| Tag | `CloudResource.tags` has `repo=`, `repository=`, `source-repo=` or `git-repo=` naming a known repository | 0.95 |
+| Deployment record | A `Deployment` whose `targetResourceKeys` names the resource, of an artifact built from the repository | 0.9 |
+| Infrastructure as code | An `IacFile` of the repository whose `resourceRefs` names the resource | 0.7 |
+| Naming convention | The resource's name, without environment, account and region, is the repository's or a package's name | 0.4 |
 
-The highest-confidence rule wins. At 0.5 and above the engine writes `OWNS_RESOURCE` marked
-inferred, with the rule's name in the edge's `rule` property (the registry already declares it).
-Below that it writes `CANDIDATE_LINK`, a relationship to be added to the registry with the engine,
-which surfaces in a review screen where a person accepts it, promoting it to a manual link, or
-rejects it, recording a tombstone with a reason so the rule does not keep re-proposing it.
+The highest-confidence proposal wins. At 0.5 and above the engine writes an inferred
+`OWNS_RESOURCE` under the source `link-engine`, with the rule and its evidence. Below that, it
+writes a `CANDIDATE_LINK`, which a person reviews on the Links page. Accepting a candidate makes a
+manual owner. Rejecting one leaves a tombstone, which the engine keeps to until the evidence
+changes. Re-running the engine is idempotent.
 
-Re-running the engine is idempotent.
+A resolution is a sync run of `link-engine`. It starts in three ways:
+
+- on request, through `POST /api/v1/links/resolve`;
+- nightly;
+- after a run of any connector in `links.triggers`, scoped to what that run wrote.
+
+What this means for a connector:
+
+- A cloud connector should write its tags as `CloudResource.tags`, a list of `key=value` entries.
+- A CI connector that knows where it deployed should write `Deployment.targetResourceKeys`.
+
+Neither connector writes ownership itself. [ONTOLOGY.md](ONTOLOGY.md#linking-code-to-infrastructure)
+has the rules in full.
 
 ## The ServiceNow connector
 
