@@ -7,6 +7,7 @@ import NodeEditor from './views/NodeEditor.vue'
 import ConnectorsView from './views/ConnectorsView.vue'
 import SyncRunsView from './views/SyncRunsView.vue'
 import LifecycleView from './views/LifecycleView.vue'
+import PolicyView from './views/PolicyView.vue'
 import CandidateLinksView from './views/CandidateLinksView.vue'
 import NotFound from './views/NotFound.vue'
 import AuthCallback from './views/AuthCallback.vue'
@@ -15,6 +16,7 @@ import { loadAuthConfig } from './auth/config'
 import { AUTH_SESSION, CALLBACK_PATH, createAuthSession } from './auth/session'
 import { attachAuth } from './auth/http'
 import { guardRoutes } from './auth/guard'
+import { watchPolicyDenials } from './services/policyApi'
 
 /**
  * One set of routes for every node type, keyed by registry type, so a type added to the ontology is
@@ -60,6 +62,7 @@ const router = createRouter({
     { path: '/links/candidates', component: CandidateLinksView },
     // The data lifecycle's administration (#33): migrations, the archive, each connector's rules.
     { path: '/admin/lifecycle', component: LifecycleView },
+    { path: '/admin/policy', component: PolicyView },
     { path: CALLBACK_PATH, component: AuthCallback },
     { path: '/repositories', redirect: '/nodes/Repository' },
     { path: '/repositories/new', redirect: '/nodes/Repository/new' },
@@ -77,6 +80,7 @@ const router = createRouter({
  * a login and offers no way to change it.
  */
 loadAuthConfig().then(config => {
+  watchPolicyDenials(apiClient)
   const session = config ? createAuthSession(config) : null
   if (session) {
     attachAuth(apiClient, session)

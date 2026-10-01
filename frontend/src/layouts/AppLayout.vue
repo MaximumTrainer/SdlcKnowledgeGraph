@@ -2,6 +2,7 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import { infoApi, ontologyApi, type DeploymentInfo, type OntologyNodeType } from '@/services/api'
 import { AUTH_SESSION } from '@/auth/session'
+import AccessDeniedBanner from '@/components/AccessDeniedBanner.vue'
 
 /**
  * The frame around every page: a header whose node-type navigation comes from the ontology, so a
@@ -60,6 +61,7 @@ onMounted(() => {
           <router-link to="/sync-runs" class="header-link">Sync runs</router-link>
           <router-link to="/links/candidates" class="header-link">Links</router-link>
           <router-link to="/admin/lifecycle" class="header-link">Lifecycle</router-link>
+          <router-link to="/admin/policy" class="header-link">Policy</router-link>
           <template v-if="username">
             <span class="header-user" data-test="signed-in-user">{{ username }}</span>
             <button
@@ -88,6 +90,7 @@ onMounted(() => {
       </nav>
     </header>
     <main class="app-main">
+      <AccessDeniedBanner />
       <slot />
     </main>
     <footer class="app-footer">

@@ -470,7 +470,12 @@ export interface OntologyProperty {
   formatWhen?: Record<string, string>
   /** Set when the property is kept for old writers but should no longer be relied on. */
   deprecated?: { since: string; replacedBy: string | null }
+  /** How sensitive the value is (#30), where more so than its type; absent where it is as sensitive. */
+  sensitivity?: Sensitivity
 }
+
+/** The registry's sensitivity labels (#30), least sensitive first. */
+export type Sensitivity = 'public' | 'internal' | 'confidential' | 'restricted'
 
 export interface OntologyNodeType {
   name: string
@@ -487,6 +492,8 @@ export interface OntologyNodeType {
   questions?: string[]
   /** Whole example nodes, each one the API accepts (#81). */
   examples?: Record<string, unknown>[]
+  /** How sensitive a node of this type is (#30); a reader not cleared for it does not see it. */
+  sensitivity?: Sensitivity
 }
 
 export interface OntologyEdgeType {
