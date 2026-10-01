@@ -156,6 +156,16 @@ sdlc:
   auth:
     issuer-uri: ${AUTH_ISSUER_URI:}
     jwk-set-uri: ${AUTH_JWK_SET_URI:}
+  # The authorisation policy (#30, #95, docs/GOVERNANCE.md, docs/adr/0020). The API evaluates the
+  # Rego bundle under policy/ in its own process, compiled to WebAssembly, on every request: no
+  # policy server to run. SDLC_POLICY_BUNDLE names a bundle of your own (opa build --target wasm, with
+  # the entrypoints scripts/opa.mjs uses) to enforce instead of the one the API was built with. The
+  # claims are where a token carries the caller's roles and teams; a token without the roles claim is
+  # judged by its scopes alone, which is every token the development realm issues but one.
+  policy:
+    bundle: ${SDLC_POLICY_BUNDLE:}
+    roles-claim: ${SDLC_POLICY_ROLES_CLAIM:sdlc_roles}
+    groups-claim: ${OIDC_GROUPS_CLAIM:groups}
   # Reported on /actuator/info. The image build stamps the commit it was built from (backend/Dockerfile),
   # so a pipeline can ask the running instance whether it is serving the commit it meant to deploy.
   deployment:

@@ -5,6 +5,7 @@ import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.model.PrincipalType
 import com.repodatagraph.domain.model.Provenance
 import com.repodatagraph.domain.model.ServicePrincipal
+import com.repodatagraph.domain.model.ServicePrincipalKind
 import com.repodatagraph.domain.port.out.ServicePrincipalStore
 import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.stereotype.Repository
@@ -50,6 +51,7 @@ class Neo4jServicePrincipalStore(
                 "name" to principal.name,
                 "ownedBy" to principal.ownedBy,
                 "description" to principal.description,
+                "kind" to principal.kind.wireName,
             ) + ProvenanceMapper.toProperties(provenanceOf(principal))
         // SET n += with a null value removes the property, which is what clears an old validTo.
         neo4jClient
@@ -81,6 +83,8 @@ class Neo4jServicePrincipalStore(
             registeredBy = node.provenance.writtenBy,
             validFrom = node.provenance.validFrom,
             validTo = node.provenance.validTo,
+            // A registration stored before kinds existed (#30) is a service.
+            kind = node.props["kind"]?.toString()?.let(ServicePrincipalKind::fromWireName) ?: ServicePrincipalKind.SERVICE,
         )
 
     private companion object {

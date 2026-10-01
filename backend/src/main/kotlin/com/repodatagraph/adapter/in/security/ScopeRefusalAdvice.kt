@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  * security event, from [InsufficientScope]. A caller handles one kind of refusal, whichever scope
  * it lacked.
  *
+ * The body also names the policy rule that refused it (#95 FR-3): `provenance.confidence` when the
+ * write claims a system of record's confidence without that source's scope.
+ *
  * The source check runs in the application, after the request is let in, because the source is in
  * the body; the refusal still comes before anything is written.
  */
@@ -30,6 +33,6 @@ class ScopeRefusalAdvice {
         return ResponseEntity
             .status(HttpStatus.FORBIDDEN)
             .header(InsufficientScope.CHALLENGE_HEADER, InsufficientScope.challenge(exception.required))
-            .body(InsufficientScope.body(exception.required, exception.held))
+            .body(InsufficientScope.body(exception.required, exception.held) + ("policy" to exception.policy))
     }
 }

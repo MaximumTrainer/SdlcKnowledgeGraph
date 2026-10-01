@@ -131,6 +131,37 @@ object LogEvents {
     ) =
         EventLog.emit("scope.refused", Level.WARN, "request refused for insufficient scope", mapOf("principal" to principal, "method" to method, "required" to required, "held" to held), security = true)
 
+    /** The authorisation policy refused a request for a reason other than a missing scope - a role, an agent's limits, a type above the caller's clearance, a source the caller may not speak for. Names the principal, its kind, the action and the rule that refused it, never the path, which can hold a node's key. */
+    fun policyDenied(
+        principal: String,
+        kind: String,
+        action: String,
+        policy: String,
+    ) =
+        EventLog.emit("policy.denied", Level.WARN, "request refused by policy", mapOf("principal" to principal, "kind" to kind, "action" to action, "policy" to policy), security = true)
+
+    /** A read was answered with nodes the caller is not cleared for left out, or with properties above its clearance removed (#30). Names the principal, how many nodes were left out and which properties were removed, never their values. */
+    fun policyRedacted(
+        principal: String,
+        hidden: Int,
+        redacted: List<String>,
+    ) =
+        EventLog.emit("policy.redacted", Level.INFO, "read filtered by policy", mapOf("principal" to principal, "hidden" to hidden, "redacted" to redacted), security = true)
+
+    /** The API compiled the authorisation policy bundle and will evaluate it in its own process. Names the bundle's revision and where it came from. */
+    fun policyLoaded(
+        revision: String,
+        source: String,
+    ) =
+        EventLog.emit("policy.loaded", Level.INFO, "authorisation policy loaded", mapOf("revision" to revision, "source" to source))
+
+    /** Evaluating the authorisation policy failed, so the request was refused with 503 policy_unavailable rather than answered unchecked. Reads are refused as well as writes, because a read that cannot be filtered could show what the caller may not see. */
+    fun policyUnavailable(
+        entrypoint: String,
+        cause: Throwable,
+    ) =
+        EventLog.emit("policy.unavailable", Level.ERROR, "authorisation policy could not be evaluated; refusing the request", mapOf("entrypoint" to entrypoint), security = true, cause = cause)
+
     /** The API started with no AUTH_ISSUER_URI, the anonymous read-only mode (#118). Reads need no token and every write is refused as read-only, so nothing is written by nobody; AuthGuard lets this start only with SDLC_READ_ONLY=true. Logged on every start. */
     fun authAnonymousReadonly() =
         EventLog.emit("auth.anonymous.readonly", Level.WARN, "no identity provider; serving reads to anyone and refusing every write", mapOf(), security = true)

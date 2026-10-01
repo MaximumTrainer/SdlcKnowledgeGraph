@@ -56,6 +56,9 @@ dependencies {
     // The ontology registry is YAML on the classpath, read at startup.
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    // The authorisation policy (#30, #95, ADR-0020): the Rego under policy/ compiled to WebAssembly
+    // and evaluated in-process on a pure-Java runtime, so no OPA server has to run beside the API.
+    implementation("com.styra.opa:opa-java-wasm:1.1.0")
 
     // Unit-test suite only. Pact lives in the contractTest suite; Testcontainers and Cucumber in
     // the integrationTest and acceptanceTest suites (see the `testing { }` block below).

@@ -11,10 +11,17 @@ class UnknownSourceSystemException(
 
 /**
  * The principal may not state facts as [sourceSystem] (#117, FR-2): its token lacks a scope in
- * [required]. [held] is every graph scope it does carry, so the refusal can say what to ask for.
+ * [required]. [held] is every graph scope it does carry, so the refusal can say what to ask for, and
+ * [policy] the rule that refused it (#95 FR-3): `provenance.confidence` for a source scope it lacks,
+ * `scopes` for graph:write itself.
  */
 class SourceNotPermittedException(
     val sourceSystem: String,
     val required: List<String>,
     val held: List<String>,
-) : RuntimeException("may not write as source system '$sourceSystem'")
+    val policy: String = PROVENANCE_POLICY,
+) : RuntimeException("may not write as source system '$sourceSystem'") {
+    companion object {
+        const val PROVENANCE_POLICY = "provenance.confidence"
+    }
+}

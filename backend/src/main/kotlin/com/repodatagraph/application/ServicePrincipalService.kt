@@ -54,6 +54,7 @@ class ServicePrincipalService(
                     description = registration.description?.takeIf { it.isNotBlank() },
                     registeredBy = user,
                     validFrom = Instant.now(clock),
+                    kind = registration.kind,
                 ),
             ).also { LogEvents.principalRegistered(it.name, it.ownedBy, user) }
     }
