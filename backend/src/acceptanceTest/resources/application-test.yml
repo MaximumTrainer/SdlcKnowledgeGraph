@@ -38,6 +38,11 @@ connectors:
     servicenow:
       enabled: true
       schedule: "0 0 5 31 2 ?"
+    # GitHub Actions and the Deployments API (#90): not scheduled, so the scenarios run it when they
+    # ask; the secret signs the workflow_run and deployment_status events they deliver.
+    github-actions:
+      schedule: "0 0 5 31 2 ?"
+      webhook-secret: github-actions-secret
     # A second scripted connector with lifecycle rules of its own (#33): what a full sync stops
     # reporting is retired only once it has gone unreported for seven days, as an ITSM connector's is.
     fake-itsm:
