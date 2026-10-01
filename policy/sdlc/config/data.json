@@ -1,0 +1,31 @@
+{
+  "levels": ["public", "internal", "confidential", "restricted"],
+  "action_scopes": {
+    "read": ["graph:read"],
+    "query": ["graph:read"],
+    "create": ["graph:write"],
+    "update": ["graph:write"],
+    "delete": ["graph:write"],
+    "link": ["graph:write"],
+    "sync": ["graph:write"],
+    "admin": ["graph:admin", "graph:write"]
+  },
+  "roles": {
+    "viewer": { "actions": ["read", "query"], "clearance": "internal" },
+    "curator": { "actions": ["read", "query", "create", "update", "link"], "clearance": "internal" },
+    "operator": { "actions": ["read", "query", "create", "update", "link", "sync"], "clearance": "confidential" },
+    "admin": {
+      "actions": ["read", "query", "create", "update", "delete", "link", "sync", "admin"],
+      "clearance": "restricted"
+    },
+    "agent-reader": { "actions": ["read", "query"], "clearance": "internal" },
+    "agent-curator": { "actions": ["read", "query", "link"], "clearance": "internal" }
+  },
+  "ownership_role": "curator",
+  "unroled_clearance": "restricted",
+  "anonymous_clearance": "restricted",
+  "service_may_delete": true,
+  "agent_actions": {
+    "rollback": { "max_age_minutes": 60 }
+  }
+}

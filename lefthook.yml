@@ -76,6 +76,12 @@ pre-commit:
     - name: dashboard
       glob: "{ops/grafana/**,docs/OBSERVABILITY.md,scripts/dashboard.mjs,scripts/promtool.mjs}"
       run: node scripts/dashboard.mjs
+    # The authorisation policy (#30): its Rego formatted as opa fmt writes it, and the compiled
+    # bundle the API evaluates is what that Rego builds to. The ontology is in the glob because the
+    # sensitivity labels are part of the bundle's data.
+    - name: policy
+      glob: "{policy/**,backend/src/main/resources/policy/**,backend/src/main/resources/ontology/**,scripts/opa.mjs}"
+      run: node scripts/opa.mjs fmt && node scripts/opa.mjs check
     - name: website-drift
       glob: "{README.md,docs/**,website/src/**,website/scripts/**,backend/src/main/resources/ontology/**}"
       run: npm --prefix website run drift
@@ -122,6 +128,9 @@ pre-push:
       run: node scripts/gradle.mjs check --quiet
     - name: alert-rules
       run: node scripts/slo-rules.mjs --check && node scripts/promtool.mjs
+    # Every Rego unit test of the authorisation policy passes (#30, #95).
+    - name: policy-test
+      run: node scripts/opa.mjs test
     # Piped so the pact check reads what `verify` has just regenerated; the group still runs in
     # parallel with the backend check.
     - name: frontend
