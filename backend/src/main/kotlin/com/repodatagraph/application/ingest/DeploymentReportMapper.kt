@@ -31,16 +31,8 @@ class DeploymentReportMapper(
     private val gitRemoteParser: GitRemoteParser,
     registry: OntologyRegistry,
 ) {
-    // The environment types the registry allows (#81). An environment reported as `prod` is typed
-    // production; one named for something the enum does not know, such as `dogfood`, is `other`
-    // rather than a value the API would refuse from any other writer.
-    private val environmentTypes: Set<String> =
-        registry
-            .nodeType(ENVIRONMENT)
-            ?.property("type")
-            ?.enum
-            .orEmpty()
-            .toSet()
+    // An environment reported as `prod` is typed production; one the enum does not know is `other`.
+    private val environmentTypes = EnvironmentTypes(registry)
 
     fun map(report: DeploymentReport): MappedReport {
         val remote = gitRemoteParser.parse(report.repository)
@@ -59,8 +51,7 @@ class DeploymentReportMapper(
         val pipeline = identityResolver.keyFor(PIPELINE, pipelineProps)
 
         val environment = identityResolver.keyFor(ENVIRONMENT, mapOf("name" to report.environment))
-        val environmentType = if (environment.key in environmentTypes) environment.key else OTHER_ENVIRONMENT
-        val environmentProps = mapOf("name" to environment.key, "type" to environmentType)
+        val environmentProps = mapOf("name" to environment.key, "type" to environmentTypes.typeOf(environment.key))
 
         val nodes = mutableListOf(node(REPOSITORY, repositoryProps, report), node(PIPELINE, pipelineProps, report))
         nodes += node(ENVIRONMENT, environmentProps, report)
@@ -132,7 +123,6 @@ class DeploymentReportMapper(
         const val DEPLOYMENT = "Deployment"
         const val ENVIRONMENT = "Environment"
         const val CONTAINER_IMAGE = "container-image"
-        const val OTHER_ENVIRONMENT = "other"
         const val UNKNOWN_RUN = "unknown"
 
         // A report says SUCCESS or FAILED, which the Deployment keeps: why-failed reads those words. A

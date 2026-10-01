@@ -603,6 +603,7 @@ History panel on a node's page.
 | `missing-from-sync` | Reconciliation: a complete full sync stopped reporting it |
 | `manual` | A `PUT` that carried `provenance.validTo` |
 | `merged` | A merge into another node ([Merging two nodes](#merging-two-nodes)); its history names that node and who merged it |
+| `superseded` | A newer successful Deployment of the same artifact to the same environment replaced it, and it was closed at the moment that one was deployed ([ADAPTERS.md](ADAPTERS.md#the-github-actions-connector-runs-packages-and-deployments-from-github)) |
 
 Retiring a node through a tombstone or reconciliation also closes its current edges at the same
 instant (an edge that began later is closed at the instant it began, never before). A `PUT` that closes a node leaves its edges as
@@ -1258,6 +1259,10 @@ the traversal templates of [context packs](#context-packs-the-subgraph-a-task-ne
 `unchanged` and `failed` and the `connectorVersion` that ran
 ([ADAPTERS.md](ADAPTERS.md#what-a-run-records)). It is a minor bump and ships no migration: a run
 recorded before it reads the four as unknown, not as zero.
+
+1.8.0 ([#90](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/90)) added `superseded` among
+the retired reasons, for a Deployment the github-actions connector closed because a newer one of the
+same artifact to the same environment succeeded. It is a minor bump and ships no migration.
 
 ### Migrations
 

@@ -24,6 +24,9 @@ class FakeGitHub {
     /** What is inside the repositories: the tree listing, and the contents API. */
     val files = FakeGitHubFiles(server)
 
+    /** What its workflow runs, deployments and packages say (#90). */
+    val actions = FakeGitHubActions(server)
+
     val baseUrl: String get() = server.baseUrl()
 
     fun start() {
@@ -37,6 +40,7 @@ class FakeGitHub {
     fun reset() {
         server.resetAll()
         files.forget()
+        actions.forget()
         stubRateLimit(remaining = RATE_LIMIT_PLENTY)
     }
 

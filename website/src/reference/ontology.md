@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.7.0**. It is generated, so a type added to the registry appears here without
+**v1.8.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -630,7 +630,7 @@ Identity: `versionOf, since`
 | `since` | `instant` | yes | When the node began to hold these values | `2026-01-01T00:00:00Z` |
 | `until` | `instant` | yes | When a write replaced them, or the node was retired | `2026-02-01T00:00:00Z` |
 | `retired` | `boolean` | no | True when the values ended because the node was retired rather than changed | `false` |
-| `retiredReason` | `string`, one of `source-deleted`, `source-retired`, `missing-from-sync`, `manual`, `merged` | no | Why the node was retired, where it was | `missing-from-sync` |
+| `retiredReason` | `string`, one of `source-deleted`, `source-retired`, `missing-from-sync`, `manual`, `merged`, `superseded` | no | Why the node was retired, where it was | `missing-from-sync` |
 
 Example:
 
@@ -742,7 +742,7 @@ What `provenance.sourceSystem` may name. A write through the API naming any sour
 | --- | --- | --- |
 | `manual` | `graph:write` | Stated through the API by the principal that made the write. Needs graph:write only |
 | `github` | `graph:write:github` | Repositories, teams, manifests and ownership read from GitHub by the GitHub connector |
-| `github-actions` | `graph:write:github-actions` | Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) |
+| `github-actions` | `graph:write:github-actions` | Pipelines, artifacts and deployments reported by GitHub Actions workflows (POST /api/v1/ingest/deployment) and read from their runs, packages and deployments by the github-actions connector |
 | `servicenow` | `graph:write:servicenow` | Configuration items, change requests and incidents read from ServiceNow by the ServiceNow connector |
 | `aws` | `graph:write:aws` | Cloud resources read from AWS. Declared for the AWS connector; none ships yet |
 | `dogfood-seed` | `graph:write:dogfood-seed` | What the dogfood seed job reads from this repository (POST /api/v1/ingest/seed) |

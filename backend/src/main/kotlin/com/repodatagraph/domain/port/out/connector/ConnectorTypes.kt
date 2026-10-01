@@ -1,5 +1,8 @@
 package com.repodatagraph.domain.port.out.connector
 
+import com.repodatagraph.domain.lifecycle.ArtifactFamily
+import com.repodatagraph.domain.lifecycle.DeploymentRecord
+import com.repodatagraph.domain.lifecycle.Supersession
 import com.repodatagraph.domain.model.NodeKey
 import java.time.Instant
 
@@ -86,6 +89,9 @@ data class SyncRequest(
  * claim a source system that is not its own.
  *
  * @param observedAt when the source says this was true, which can be earlier than when we read it
+ * @param validFrom when the source says the fact began to hold (#90), such as a deployment that began
+ *   when it was deployed rather than when it was read; null for when it is written. A beginning
+ *   after the write is read as the write.
  */
 data class NodeUpsert(
     val type: String,
@@ -94,6 +100,7 @@ data class NodeUpsert(
     val sourceId: String? = null,
     val confidence: Double = FULL_CONFIDENCE,
     val inferred: Boolean = false,
+    val validFrom: Instant? = null,
 )
 
 /**
@@ -104,6 +111,7 @@ data class NodeUpsert(
  *
  * @param sourceId where in the source system the edge was stated, such as the file a dependency was
  *   read from (#86, FR-5), so a reviewer can go and look
+ * @param validFrom when the source says the edge began to hold (#90), as for [NodeUpsert.validFrom]
  */
 data class EdgeUpsert(
     val type: String,
@@ -114,6 +122,7 @@ data class EdgeUpsert(
     val confidence: Double = FULL_CONFIDENCE,
     val inferred: Boolean = false,
     val sourceId: String? = null,
+    val validFrom: Instant? = null,
 )
 
 /**
@@ -161,6 +170,10 @@ fun interface PublishedPackageIndex {
  * deleting it, because "this used to be true" is itself worth keeping - and because a connector
  * having a bad day should not be able to erase history.
  *
+ * [supersessions] are facts a newer one in the source replaced (#90), such as the deployment a later
+ * deployment of the same artifact family to the same environment ended. Each is retired at the instant
+ * it was replaced, after the page's own nodes and edges are written, and kept like any retired fact.
+ *
  * [watermark] is where the next incremental run should start. Null means the connector cannot say,
  * and the next run will be full.
  */
@@ -169,6 +182,7 @@ data class GraphDelta(
     val edges: List<EdgeUpsert> = emptyList(),
     val tombstones: List<NodeKey> = emptyList(),
     val watermark: Instant? = null,
+    val supersessions: List<Supersession> = emptyList(),
 )
 
 /**
@@ -184,7 +198,20 @@ operator fun GraphDelta.plus(other: GraphDelta) =
         edges = edges + other.edges,
         tombstones = tombstones + other.tombstones,
         watermark = watermark ?: other.watermark,
+        supersessions = supersessions + other.supersessions,
     )
+
+/**
+ * Which deployments the graph holds as current (#90, FR-4), for a connector deciding whether the one it
+ * read replaces any: a deployment of an artifact of [family] that is current, still deployed and still
+ * to the environment keyed [environmentKey].
+ */
+fun interface DeploymentHistory {
+    fun currentDeployments(
+        family: ArtifactFamily,
+        environmentKey: String,
+    ): List<DeploymentRecord>
+}
 
 /** A raw webhook, before anyone has decided whether to believe it. */
 class WebhookEvent(

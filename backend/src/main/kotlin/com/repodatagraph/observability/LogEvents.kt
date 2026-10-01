@@ -352,6 +352,27 @@ object LogEvents {
     ) =
         EventLog.emit("github.file.skipped", Level.INFO, "file skipped as too large", mapOf("path" to path, "repository" to repository, "bytes" to bytes))
 
+    /** A GitHub deployment was read whose run published no package version the connector could attribute to it, so there is no artifact to record it against. */
+    fun actionsDeploymentUnattributed(
+        repository: String,
+        deploymentId: String,
+    ) =
+        EventLog.emit("actions.deployment.unattributed", Level.INFO, "deployment not recorded; no artifact it deployed is known", mapOf("repository" to repository, "deploymentId" to deploymentId))
+
+    /** A package version was published while two or more runs of its repository were running, so it is credited to none of them rather than to a guess. */
+    fun actionsPackageAmbiguous(
+        repository: String,
+        artifact: String,
+    ) =
+        EventLog.emit("actions.package.ambiguous", Level.INFO, "package version not attributed; more than one run could have published it", mapOf("repository" to repository, "artifact" to artifact))
+
+    /** A verified GitHub event the github-actions connector does not record, or one about an owner it was not configured to read. */
+    fun actionsWebhookIgnored(
+        eventType: String,
+        reason: String,
+    ) =
+        EventLog.emit("actions.webhook.ignored", Level.DEBUG, "GitHub Actions webhook ignored", mapOf("eventType" to eventType, "reason" to reason))
+
     /** The ServiceNow health check could not reach ServiceNow. */
     fun servicenowUnreachable(
         reason: String,

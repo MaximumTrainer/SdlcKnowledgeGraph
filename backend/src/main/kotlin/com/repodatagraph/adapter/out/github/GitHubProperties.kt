@@ -2,6 +2,7 @@ package com.repodatagraph.adapter.out.github
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue
+import java.time.Duration
 
 /**
  * Where the GitHub connector looks, and with whose credentials.
@@ -17,6 +18,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue
  * @param manifests what to read out of each repository's dependency manifests, if anything
  * @param iac whether to index infrastructure-as-code files
  * @param pipelines whether to record a Pipeline per GitHub Actions workflow file (#86, FR-3)
+ * @param deployments how the github-actions connector reads workflow runs, packages and deployments
+ *   from the same organisations with the same token (#90)
  */
 @ConfigurationProperties("connectors.github")
 data class GitHubProperties(
@@ -27,6 +30,7 @@ data class GitHubProperties(
     @DefaultValue val manifests: ManifestSettings = ManifestSettings(),
     @DefaultValue val iac: IacSettings = IacSettings(),
     @DefaultValue val pipelines: PipelineSettings = PipelineSettings(),
+    @DefaultValue val deployments: DeploymentSettings = DeploymentSettings(),
 ) {
     /**
      * Configured enough to be worth asking. A connector with no org has nothing to read, and one with
@@ -80,6 +84,45 @@ data class IacSettings(
 data class PipelineSettings(
     @DefaultValue("true") val enabled: Boolean = true,
 )
+
+/**
+ * How the github-actions connector reads what GitHub Actions did (#90): which runs a poll looks at, and
+ * which packages it looks in for what they published.
+ *
+ * @param lookback how far back a poll with no cursor reads - the first one, or a full one. A week, so a
+ *   first sync shows the deployments that matter to an incident without paging through a year of runs.
+ * @param maxRunDuration how long a run can take. A poll from a cursor reads runs created this long
+ *   before it, because GitHub filters runs by when they were created and a run that started before
+ *   the cursor may have completed after it.
+ * @param packageTypes the GitHub Packages kinds a run may publish to, as GitHub names them
+ * @param registries the registry host each kind's packages are addressed by, which is part of an
+ *   artifact's key. GitHub Enterprise Server serves them under its own hosts.
+ */
+data class DeploymentSettings(
+    @DefaultValue("P7D") val lookback: Duration = Duration.ofDays(DEFAULT_LOOKBACK_DAYS),
+    @DefaultValue("PT6H") val maxRunDuration: Duration = Duration.ofHours(DEFAULT_MAX_RUN_HOURS),
+    @DefaultValue("container", "npm", "maven") val packageTypes: List<String> = listOf("container", "npm", "maven"),
+    val registries: Map<String, String> = DEFAULT_REGISTRIES,
+) {
+    /** The registry for [type], configured or GitHub's own. */
+    fun registryFor(type: String): String? = registries[type] ?: DEFAULT_REGISTRIES[type]
+
+    companion object {
+        private const val DEFAULT_LOOKBACK_DAYS = 7L
+        private const val DEFAULT_MAX_RUN_HOURS = 6L
+
+        /** Where github.com serves each kind of package. */
+        val DEFAULT_REGISTRIES =
+            mapOf(
+                "container" to "ghcr.io",
+                "docker" to "docker.pkg.github.com",
+                "npm" to "npm.pkg.github.com",
+                "maven" to "maven.pkg.github.com",
+                "rubygems" to "rubygems.pkg.github.com",
+                "nuget" to "nuget.pkg.github.com",
+            )
+    }
+}
 
 /** A megabyte. Nothing legitimate in these formats comes close. */
 private const val DEFAULT_MAX_FILE_BYTES = 1_048_576L

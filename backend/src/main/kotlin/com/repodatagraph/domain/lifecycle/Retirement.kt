@@ -27,6 +27,12 @@ enum class RetiredReason(
      * there and its key resolves there. The node records which one.
      */
     MERGED("merged"),
+
+    /**
+     * A newer fact of the same kind replaced it (#90): a deployment of the same artifact family to the
+     * same environment. It ended when the newer one began, not when the graph heard about it.
+     */
+    SUPERSEDED("superseded"),
     ;
 
     companion object {

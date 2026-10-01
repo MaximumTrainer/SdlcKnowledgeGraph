@@ -647,6 +647,7 @@ enum NodeVersionRetiredReason {
   missing_from_sync
   manual
   merged
+  superseded
 }
 
 """The values a node held for an interval before they were replaced."""

@@ -142,7 +142,7 @@ facts and nobody else's ([AUTH](AUTH.md#source-scopes)):
 | --- | --- | --- |
 | `manual` | a person or a service principal, for itself | `graph:write` |
 | `github` | [the GitHub connector](#the-github-connector) | `graph:write:github` |
-| `github-actions` | [deployment reports](#self-ingestion-deployments-from-the-pipeline), through `INGEST_TOKEN` today | `graph:write:github-actions` |
+| `github-actions` | [deployment reports](#self-ingestion-deployments-from-the-pipeline), through `INGEST_TOKEN`, and [the github-actions connector](#the-github-actions-connector-runs-packages-and-deployments-from-github) | `graph:write:github-actions` |
 | `servicenow` | [the ServiceNow connector](#the-servicenow-connector) | `graph:write:servicenow` |
 | `aws` | the AWS connector, still to come ([#25](../../issues/25)) | `graph:write:aws` |
 | `dogfood-seed` | [the seed job](#seeding-this-repository-on-the-dogfood-instance), through `INGEST_TOKEN` | `graph:write:dogfood-seed` |
@@ -723,6 +723,83 @@ This is one of the two writes a read-only instance still accepts ([Deployment co
 D6), because it has its own token. The same connector answers `POST /api/v1/webhooks/github-actions`
 with the same payload and token, which is the generic webhook route that #22 set up.
 
+## The github-actions connector: runs, packages and deployments from GitHub
+
+A pipeline that does not report its deploys leaves nothing behind, and most never will be changed to.
+So the `github-actions` connector also reads what GitHub Actions did from GitHub itself
+([#90](../../issues/90)): the workflow runs of the GitHub connector's owners, the package versions
+each run published to GitHub Packages, and the deployments each made through the Deployments API.
+It writes the same facts, under the same keys and `sourceSystem=github-actions`, as a deployment
+report does, so the Artifact, Environment and Pipeline a report and the connector both see are one
+node each. [ADR-0018](adr/0018-ci-deployments-read-from-github-actions.md) has the reasoning.
+
+| Fact | From |
+| --- | --- |
+| `Artifact`, with `commitSha` and the version | a package version created while a run of its repository was running: a container image as `ghcr.io/<owner>/<package>@<digest>` with its first tag but `latest` as `version`; an npm or Maven package as `<name>:<version>` at confidence 0.8, folded into its digest's node once one is known ([#98](../../issues/98)) |
+| `BUILT_FROM {commitSha}` to the `Repository`, and `HAS_PIPELINE` to the run's workflow | the run |
+| `Deployment` per artifact, with `status`, `deployedBy` and `deployedAt` | a deployment and its newest status that is not `inactive`: `success` is `SUCCESS`, `failure` and `error` are `FAILED`, `in_progress` is `IN_PROGRESS`, anything else `PENDING` |
+| `Environment`, with `prod`, `stg` and the other aliases resolved | the deployment's environment |
+| `DEPLOYED_TO`, `TO_ENVIRONMENT` | between the above, beginning when the deployment was created |
+
+Every fact's `sourceId` is the run's id and its `observedAt` the run's completion. A deployment is
+credited to the run its statuses' log URL names, or else to the newest run of its commit that
+published something; one that deployed nothing the connector can name is logged as
+`actions.deployment.unattributed` and not recorded. A package version two runs of the repository
+could have published is credited to neither (`actions.package.ambiguous`).
+
+A successful deployment closes the previous successful deployment of the same image (registry and
+name) to the same environment: that Deployment and its edges get `validTo` set to the newer one's
+`deployedAt` and the retirement reason `superseded`, and drop out of what is current while staying in
+its history. A failed deployment replaces nothing. GitHub's own `inactive` status on the older
+deployment is not read as how it went.
+
+A run reads, per repository, the runs that completed after the watermark and the deployments whose
+newest status is after it; a first or full run looks back `lookback`. It is not a complete statement
+of the source, so it retires nothing it did not see. A repository GitHub refuses to show is counted
+as unreadable and the run goes on, partial.
+
+### Its webhook
+
+In the organisation's or repository's webhook settings, point a webhook at
+`/api/v1/webhooks/github-actions`, content type `application/json`, with the secret set to
+`connectors.settings.github-actions.webhook-secret`, and choose the **Workflow runs** and
+**Deployment statuses** events. A `workflow_run` event with action `completed` reads that run back,
+with what it published and the deployments of its commit it made; a `deployment_status` event reads
+that deployment back. The payload is only a hint, as for the GitHub connector, and an event about an
+owner not in `connectors.github.orgs` is ignored (`actions.webhook.ignored`).
+
+The route is the one deployment reports also use. A request carrying `X-Hub-Signature-256` is judged
+by that signature alone, and refused (`401`) when it does not match, whatever else it carries; a
+request without one is a deployment report and needs the ingest token. GitHub's `X-GitHub-Delivery`
+names a delivery, so a redelivered event is applied once.
+
+### Configuring it
+
+It reads with the GitHub connector's owners and token, and runs only when switched on:
+
+```yaml
+connectors:
+  settings:
+    github-actions:
+      enabled: true              # off by default; deployment reports work either way
+      schedule: "0 */15 * * * *" # a Spring cron; every 15 minutes if unset
+      webhook-secret: ${GITHUB_ACTIONS_WEBHOOK_SECRET:}
+  github:
+    orgs: ${GITHUB_ORGS:}
+    token: ${GITHUB_TOKEN:}
+    deployments:
+      lookback: P7D              # how far back a first or full run reads
+      max-run-duration: PT6H     # how long a run can take; runs created this much earlier are listed
+      package-types: [container, npm, maven]
+      registries:                # where each kind of package is served; GitHub's own by default
+        container: ghcr.io
+```
+
+The token needs, beyond what the GitHub connector needs, read access to **Actions** and
+**Deployments** on the repositories and `read:packages` for the owner's packages. Without `connectors.github.orgs` and a token, a run fails saying so
+and the health check reports the connector down unless it is accepting deployment reports. The token
+is never logged.
+
 ## Seeding: this repository on the dogfood instance
 
 Until the GitHub connector (#23) can read a repository for itself, the dogfood instance learns about
@@ -802,3 +879,25 @@ repository, its `CODEOWNERS` teams, its workflows and its dependencies carry `so
 beside the seed's `dogfood-seed`. The seed can then be retired by disabling
 `.github/workflows/dogfood-seed.yml`; what only the seed wrote, such as a pipeline's `lastRunStatus`,
 stays as the seed last wrote it.
+
+### Running the github-actions connector on the dogfood instance
+
+It is off there too, and turning on the GitHub connector does not turn it on. With the GitHub
+connector's `GITHUB_ORGS` and `GITHUB_TOKEN` in place, it needs:
+
+| Setting | Where | Value for this repository |
+| --- | --- | --- |
+| `CONNECTORS_SETTINGS_GITHUB_ACTIONS_ENABLED` | `[env]` in `fly/fly.backend.toml` | `"true"` |
+| `CONNECTORS_SETTINGS_GITHUB_ACTIONS_SCHEDULE` | `[env]`, optional | a Spring cron; every 15 minutes if unset |
+| `GITHUB_TOKEN`'s permissions | the token itself | **Actions** and **Deployments** read on the repository, and `read:packages` |
+
+No webhook secret: the instance is read-only, so it takes no webhooks and the connector runs on its
+schedule only. Deployment reports keep arriving through `POST /api/v1/ingest/deployment` beside it.
+
+What it will find is limited, and the reason is the deploy, not the connector. The `deploy` job runs
+in the `dogfood` environment, so GitHub records a deployment for every deploy, but the images go to
+`registry.fly.io`, not GitHub Packages, so no run of this repository publishes a package the connector
+can see. Each of those deployments is then logged as `actions.deployment.unattributed` and not
+recorded, and the deployment reports stay the instance's record of its own deploys. Pushing the images
+to `ghcr.io` as well, or reading a registry other than GitHub Packages, would change that; neither is
+part of [#90](../../issues/90).
