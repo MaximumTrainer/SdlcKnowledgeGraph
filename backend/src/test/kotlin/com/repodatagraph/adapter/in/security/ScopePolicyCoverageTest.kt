@@ -116,6 +116,32 @@ class ScopePolicyCoverageTest {
     }
 
     @Test
+    fun `the link engine's candidates are a read, and every decision about them a write (#28)`() {
+        val reads = listOf(Route("GET", "/api/v1/links/candidates"))
+        val writes =
+            listOf(
+                Route("POST", "/api/v1/links/resolve"),
+                Route("POST", "/api/v1/links/candidates/{id}/accept"),
+                Route("POST", "/api/v1/links/candidates/{id}/reject"),
+                Route("POST", "/api/v1/links/manual"),
+                Route("DELETE", "/api/v1/links/manual"),
+            )
+        (reads + writes).forEach { assertTrue(it in routes, "$it is mapped: $routes") }
+        reads.forEach {
+            assertEquals(
+                RouteRequirement.Scopes(setOf(GraphScope.READ)),
+                ScopePolicy.requirementFor(it.method, it.samplePath),
+            )
+        }
+        writes.forEach {
+            assertEquals(
+                RouteRequirement.Scopes(setOf(GraphScope.WRITE)),
+                ScopePolicy.requirementFor(it.method, it.samplePath),
+            )
+        }
+    }
+
+    @Test
     fun `the GraphQL reads as of an instant are query fields, so reads (#93)`() {
         val queries =
             controllers

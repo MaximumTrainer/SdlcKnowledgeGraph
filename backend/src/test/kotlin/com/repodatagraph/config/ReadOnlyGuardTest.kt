@@ -95,6 +95,16 @@ class ReadOnlyGuardTest {
     }
 
     @Test
+    fun `the link engine's candidates are read on a read-only instance, and never decided there (#28)`() {
+        assert(guard().handle(MockHttpServletRequest("GET", "/api/v1/links/candidates")).passed)
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/links/resolve")))
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/links/candidates/c1/accept")))
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/links/candidates/c1/reject")))
+        assertRefused(guard().handle(MockHttpServletRequest("POST", "/api/v1/links/manual")))
+        assertRefused(guard().handle(MockHttpServletRequest("DELETE", "/api/v1/links/manual")))
+    }
+
+    @Test
     fun `a websocket upgrade is refused, because a GraphQL mutation can travel over one`() {
         val upgrade = MockHttpServletRequest("GET", "/graphql").apply { addHeader("Upgrade", "websocket") }
 
