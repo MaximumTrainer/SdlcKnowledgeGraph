@@ -54,7 +54,8 @@ enum class RunStatus {
  *
  * Every run is reported to [SyncMetrics] and logged as `sync.started` and `sync.finished` (#29), and
  * both happen before the run's final status is written: whoever sees a run finished in the graph can
- * already see it in the meters, rather than racing them.
+ * already see it in the meters, rather than racing them. The connector's state is written before that
+ * status too, and the connector counts as running until both are down, for the same reason.
  */
 @Service
 class SyncService(
@@ -136,30 +137,37 @@ class SyncService(
         val startedAt = Instant.now(clock)
         LogEvents.syncStarted(name, runId, mode.name)
 
-        val outcome =
-            try {
-                collectPages(registered, runId, mode)
-            } catch (
-                // A connector is somebody else's code reaching somebody else's API, so anything can
-                // come out of it. The run has to record that rather than let it escape, or a failure
-                // leaves a node saying RUNNING for ever with nothing to say why.
-                @Suppress("TooGenericExceptionCaught") failure: Exception,
-            ) {
-                LogEvents.connectorRunFailed(name, runId, failure)
-                metrics.error(name, SyncErrorKind.RUN)
-                RunOutcome(RunStatus.FAILED, totals = DeltaResult(failed = 1), error = failure.message)
-            } finally {
-                running.remove(name)
-            }
+        // The connector stays running until everything the run has to say is written down. Releasing
+        // it first would let a caller see "not syncing" while the state still described the run
+        // before, and let the next run start while this one was still writing its bookkeeping.
+        try {
+            val outcome =
+                try {
+                    collectPages(registered, runId, mode)
+                } catch (
+                    // A connector is somebody else's code reaching somebody else's API, so anything
+                    // can come out of it. The run has to record that rather than let it escape, or a
+                    // failure leaves a node saying RUNNING for ever with nothing to say why.
+                    @Suppress("TooGenericExceptionCaught") failure: Exception,
+                ) {
+                    LogEvents.connectorRunFailed(name, runId, failure)
+                    metrics.error(name, SyncErrorKind.RUN)
+                    RunOutcome(RunStatus.FAILED, totals = DeltaResult(failed = 1), error = failure.message)
+                }
 
-        report(name, runId, mode, outcome, startedAt)
-        // Freshness counts from here, as ConnectorState does; a webhook run does not reset it,
-        // because one event says nothing about whether the rest of the estate is current.
-        if (outcome.status == RunStatus.SUCCESS) metrics.succeeded(name, Instant.now(clock))
-        recorder.recordRun(runId, registered, mode, outcome.status, outcome.totals, outcome.watermark, outcome.error)
-        // Whatever the status, so the state can count failures since the last success; the
-        // recorder only moves the watermark and the last success on a success (#29, FR3).
-        recorder.recordState(name, runId, outcome.status, outcome.watermark)
+            report(name, runId, mode, outcome, startedAt)
+            // Freshness counts from here, as ConnectorState does; a webhook run does not reset it,
+            // because one event says nothing about whether the rest of the estate is current.
+            if (outcome.status == RunStatus.SUCCESS) metrics.succeeded(name, Instant.now(clock))
+            // Whatever the status, so the state can count failures since the last success; the
+            // recorder only moves the watermark and the last success on a success (#29, FR3).
+            // Before the run's final status, which is what a caller waits on: whoever sees the run
+            // finished must already see the watermark and the last success it moved, not race them.
+            recorder.recordState(name, runId, outcome.status, outcome.watermark)
+            recorder.recordRun(runId, registered, mode, outcome.status, outcome.totals, outcome.watermark, outcome.error)
+        } finally {
+            running.remove(name)
+        }
     }
 
     /**
