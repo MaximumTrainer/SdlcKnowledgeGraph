@@ -266,6 +266,41 @@ class OntologyCodegenTest {
     }
 
     @Test
+    fun `the JSON snapshot gives every type and edge its sensitivity, and a property only where it declares one (#30)`() {
+        val labelled =
+            ontology.copy(
+                nodeTypes = ontology.nodeTypes.map { type -> type.copy(properties = type.properties.map { if (it.name == "language") it.copy(sensitivity = "confidential") else it }) },
+            )
+        val rendered = OntologyCodegen.json(labelled)
+
+        assertTrue(rendered.contains("\"sensitivity\": \"internal\""), rendered)
+        assertTrue(rendered.contains("\"name\": \"language\", \"type\": \"string\", \"required\": false, \"description\": null, \"examples\": [], \"sensitivity\": \"confidential\""), rendered)
+        assertFalse(rendered.contains("\"name\": \"stars\", \"type\": \"int\", \"required\": false, \"description\": null, \"examples\": [], \"sensitivity\""), rendered)
+    }
+
+    @Test
+    fun `an edge is as sensitive as the more sensitive type it joins (#30)`() {
+        val restricted = ontology.copy(nodeTypes = ontology.nodeTypes + GenNodeType("Artifact", null, listOf("name"), emptyList(), sensitivity = "restricted"))
+
+        assertEquals("restricted", restricted.edgeSensitivity(restricted.edgeTypes.single()))
+        assertEquals("internal", ontology.edgeSensitivity(ontology.edgeTypes.single()))
+    }
+
+    @Test
+    fun `the policy's data lists each type's sensitivity and only the properties labelled above it (#30)`() {
+        val labelled =
+            ontology.copy(
+                nodeTypes = ontology.nodeTypes.map { type -> type.copy(properties = type.properties.map { if (it.name == "language") it.copy(sensitivity = "confidential") else it }) },
+            )
+
+        val data = OntologyCodegen.policyData(labelled)
+
+        assertTrue(data.contains("\"Repository\": { \"sensitivity\": \"internal\", \"properties\": {\"language\": \"confidential\"} }"), data)
+        assertTrue(data.contains("\"BUILT_FROM\": \"internal\""), data)
+        assertTrue(data.contains("\"version\": \"1.2.3\""), data)
+    }
+
+    @Test
     fun `generating twice produces identical bytes`() {
         assertEquals(sdl, OntologyCodegen.graphqlSdl(ontology))
         assertEquals(typescript, OntologyCodegen.typescript(ontology))
