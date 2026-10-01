@@ -73,6 +73,9 @@ nodes:
       # What this repository publishes, so a dependency naming one of them resolves to it rather than
       # to a third-party Library with the same name.
       - { name: packageNames, type: "string[]", required: false, description: "Package names this repository publishes", examples: [["@acme/payments-client"]] }
+      # A fork carries its upstream's manifest, so it claims its upstream's package names; the GitHub
+      # connector (#86) records what it was forked from and keeps it out of dependency resolution.
+      - { name: forkOf, type: string, required: false, description: "Key of the repository this one was forked from, where it is a fork", examples: [github.com/upstream/payments] }
       # Derived from the host when absent and the host is github.com or gitlab.com.
       - { name: provider, type: string, required: false, description: "Who assigns providerId. Derived from url on github.com and gitlab.com", enum: [github, gitlab, other], examples: [github] }
       - { name: providerId, type: string, required: false, description: "The provider's stable id for the repository, such as GitHub's numeric repository id", examples: ["123456789"] }
@@ -466,6 +469,12 @@ nodes:
       - { name: nodesUpserted, type: int, required: false, description: "Nodes the run created or updated", examples: [42] }
       - { name: edgesUpserted, type: int, required: false, description: "Edges the run created or updated", examples: [57] }
       - { name: tombstones, type: int, required: false, description: "Facts this run closed because the source stopped reporting them", examples: [0] }
+      # nodesUpserted and edgesUpserted count every fact a run asserted; these split them by whether the
+      # graph moved (#86), so a run over an estate that did not change says it wrote nothing new.
+      - { name: written, type: int, required: false, description: "Nodes and edges the run created or changed", examples: [12] }
+      - { name: unchanged, type: int, required: false, description: "Nodes and edges the run stated again exactly as the graph held them", examples: [87] }
+      - { name: failed, type: int, required: false, description: "Items the run could not read or write: each one its connector named, each page", examples: [1] }
+      - { name: connectorVersion, type: string, required: false, description: "Version of the connector that ran, as its descriptor declares it", examples: [2.0.0] }
       - { name: watermark, type: instant, required: false, description: "Where the next incremental run should start", examples: ["2026-09-30T12:00:00Z"] }
       - { name: error, type: string, required: false, description: "Why the run failed or partly failed, where it did", examples: [GitHub returned 502 for acme/payments] }
 

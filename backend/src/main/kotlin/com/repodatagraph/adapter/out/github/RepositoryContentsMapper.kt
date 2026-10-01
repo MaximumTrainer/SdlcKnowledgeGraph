@@ -1,7 +1,6 @@
 package com.repodatagraph.adapter.out.github
 
 import com.repodatagraph.adapter.out.github.iac.IacIndexer
-import com.repodatagraph.adapter.out.github.manifest.DeclaredDependency
 import com.repodatagraph.adapter.out.github.manifest.ManifestParser
 import com.repodatagraph.domain.model.NodeKey
 import com.repodatagraph.domain.ontology.IdentityResolver
@@ -12,38 +11,47 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 /**
- * A dependency that looks like something this organisation publishes, held back until it is known
- * which repository publishes it.
+ * A dependency a manifest declares, held back until it is known whether a repository publishes it.
  *
  * Repositories are read one at a time, so at the moment `payments` says it depends on
- * `@acme/billing`, the repository that publishes `@acme/billing` may not have been read yet.
+ * `ledger-client`, the repository that publishes `ledger-client` may not have been read yet - and
+ * whether the dependency is a library or a repository in this organisation turns on exactly that
+ * (#86, FR-4).
+ *
+ * @param source the repository as GitHub names it, `org/name`, for the evidence the edge names
+ * @param internal whether the name matches a prefix this organisation publishes under: a hint for a
+ *   webhook, which has read one repository and so holds such a dependency back rather than record it
+ *   as a library, never a condition for resolving one
  */
-data class PendingInternalDependency(
+data class PendingDependency(
     val from: NodeKey,
+    val source: String,
     val packageName: String,
     val ecosystem: String,
     val manifest: String,
     val version: String?,
     val scope: String,
     val observedAt: Instant?,
+    val internal: Boolean = false,
 )
 
 /** What reading the files inside one repository produced. */
 data class RepositoryContents(
+    /** The infrastructure-as-code evidence, which needs nothing else to be written. */
     val delta: GraphDelta = GraphDelta(),
     /** Names this repository publishes, for resolving other repositories' dependencies onto it. */
     val publishes: List<String> = emptyList(),
-    val pending: List<PendingInternalDependency> = emptyList(),
+    /** Every dependency its manifests declare, for [DependencyResolver] once the picture is whole. */
+    val dependencies: List<PendingDependency> = emptyList(),
 )
 
 /**
  * Turns the files inside a repository into dependencies and infrastructure evidence.
  *
- * Two kinds of claim come out of here and they are not the same kind. A library read from a manifest
- * is reported: the file says it, at full confidence, and the edge names the file so anyone can go and
- * check. A dependency on another repository in this organisation is inferred: it rests on a package
- * name matching a naming convention, and it is recorded as a guess so that a reviewer can tell it
- * from a fact - and so that a convention changing does not quietly rewrite history as truth.
+ * A dependency comes out of here as a declaration and nothing more: whether it is a library or a
+ * repository in this organisation is [DependencyResolver]'s question, answered once every repository
+ * has said what it publishes. What is written straight away is the infrastructure-as-code evidence,
+ * which depends on nothing else.
  */
 @Component
 class RepositoryContentsMapper(
@@ -59,72 +67,39 @@ class RepositoryContentsMapper(
      * @param files the interesting files' contents, by path
      * @throws com.repodatagraph.adapter.out.github.manifest.UnreadableManifestException if a manifest
      *   is there but malformed - a fact about that repository, which the run records as partial
+     * @param source the repository as GitHub names it, `org/name`, for the evidence each fact names;
+     *   the repository's key where no name is to hand
      */
     fun map(
         repositoryKey: NodeKey,
         files: Map<String, String>,
         observedAt: Instant?,
+        source: String = repositoryKey.key,
     ): RepositoryContents {
         val manifests = files.mapNotNull { (path, content) -> parserFor(path)?.parse(path, content) }
-        val iacFiles = files.mapNotNull { (path, content) -> iacFile(repositoryKey, path, content, observedAt) }
-
-        val declared = manifests.flatMap { manifest -> manifest.dependencies.map { manifest.path to it } }
-        val internal = declared.filter { (_, dependency) -> isInternal(dependency.name) }
-        val external = declared - internal.toSet()
+        val iacFiles = files.mapNotNull { (path, content) -> iacFile(repositoryKey, source, path, content, observedAt) }
 
         return RepositoryContents(
-            delta =
-                GraphDelta(
-                    nodes = external.map { (_, dependency) -> libraryNode(dependency, observedAt) } + iacFiles.map { it.node },
-                    edges =
-                        external.map { (path, dependency) -> libraryEdge(repositoryKey, path, dependency, observedAt) } +
-                            iacFiles.map { it.edge },
-                ),
+            delta = GraphDelta(nodes = iacFiles.map { it.node }, edges = iacFiles.map { it.edge }),
             publishes = manifests.flatMap { it.publishes },
-            pending =
-                internal.map { (path, dependency) ->
-                    PendingInternalDependency(
-                        from = repositoryKey,
-                        packageName = dependency.name,
-                        ecosystem = dependency.ecosystem,
-                        manifest = path,
-                        version = dependency.version,
-                        scope = dependency.scope.declared(),
-                        observedAt = observedAt,
-                    )
+            dependencies =
+                manifests.flatMap { manifest ->
+                    manifest.dependencies.map { dependency ->
+                        PendingDependency(
+                            from = repositoryKey,
+                            source = source,
+                            packageName = dependency.name,
+                            ecosystem = dependency.ecosystem,
+                            manifest = manifest.path,
+                            version = dependency.version,
+                            scope = dependency.scope.declared(),
+                            observedAt = observedAt,
+                            internal = isInternal(dependency.name),
+                        )
+                    }
                 },
         )
     }
-
-    fun libraryNode(
-        dependency: DeclaredDependency,
-        observedAt: Instant?,
-    ): NodeUpsert =
-        NodeUpsert(
-            type = LIBRARY,
-            props = mapOf("ecosystem" to dependency.ecosystem, "name" to dependency.name),
-            observedAt = observedAt,
-        )
-
-    fun libraryEdge(
-        from: NodeKey,
-        manifestPath: String,
-        dependency: DeclaredDependency,
-        observedAt: Instant?,
-    ): EdgeUpsert =
-        EdgeUpsert(
-            type = DEPENDS_ON,
-            from = from,
-            to = identityResolver.keyFor(LIBRARY, mapOf("ecosystem" to dependency.ecosystem, "name" to dependency.name)),
-            props =
-                buildMap {
-                    put("kind", "library")
-                    put("manifest", manifestPath)
-                    put("scope", dependency.scope.declared())
-                    dependency.version?.let { put("version", it) }
-                },
-            observedAt = observedAt,
-        )
 
     private fun isInternal(packageName: String): Boolean =
         properties.manifests.internalPackagePrefixes.any { prefix ->
@@ -140,6 +115,7 @@ class RepositoryContentsMapper(
 
     private fun iacFile(
         repositoryKey: NodeKey,
+        source: String,
         path: String,
         content: String,
         observedAt: Instant?,
@@ -153,13 +129,14 @@ class RepositoryContentsMapper(
                 "resourceRefs" to iacIndexer.referencesIn(format, content),
             )
         return IacNodeAndEdge(
-            node = NodeUpsert(type = IAC_FILE, props = props, observedAt = observedAt),
+            node = NodeUpsert(type = IAC_FILE, props = props, observedAt = observedAt, sourceId = "$source:$path"),
             edge =
                 EdgeUpsert(
                     type = CONTAINS_IAC,
                     from = repositoryKey,
                     to = identityResolver.keyFor(IAC_FILE, props),
                     observedAt = observedAt,
+                    sourceId = "$source:$path",
                 ),
         )
     }
@@ -170,9 +147,7 @@ class RepositoryContentsMapper(
     )
 
     private companion object {
-        const val LIBRARY = "Library"
         const val IAC_FILE = "IacFile"
-        const val DEPENDS_ON = "DEPENDS_ON"
         const val CONTAINS_IAC = "CONTAINS_IAC"
     }
 }

@@ -13,6 +13,11 @@ import java.time.Instant
  *   to the qualified "SyncRun:<id>"
  * @property details what the connector reported about the run beyond its counts, such as a summary
  *   per account or region. No connector records any yet, so it is empty until one does.
+ * @property written the facts the run created or changed (#86, FR-6); null for a run recorded before
+ *   this was counted, which is not the same as a run that wrote nothing
+ * @property unchanged the facts the run stated again exactly as the graph held them
+ * @property failed what the run could not read or write: each item its connector named, each page
+ * @property connectorVersion the version of the connector that ran, as its descriptor declares it
  */
 data class SyncRun(
     val id: String,
@@ -29,6 +34,10 @@ data class SyncRun(
     val sourceId: String?,
     val error: String?,
     val details: Map<String, Any?> = emptyMap(),
+    val written: Int? = null,
+    val unchanged: Int? = null,
+    val failed: Int? = null,
+    val connectorVersion: String? = null,
 ) {
     /** How long the run took; null while it is still going, or if it never recorded a start. */
     val duration: Duration?

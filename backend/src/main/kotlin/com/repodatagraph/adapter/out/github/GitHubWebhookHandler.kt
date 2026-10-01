@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.repodatagraph.domain.port.out.connector.GraphDelta
 import com.repodatagraph.domain.port.out.connector.NodeUpsert
+import com.repodatagraph.domain.port.out.connector.PublishedPackageIndex
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
+import com.repodatagraph.domain.port.out.connector.plus
 import com.repodatagraph.observability.LogEvents
 import org.springframework.stereotype.Component
 
@@ -26,6 +28,9 @@ class GitHubWebhookHandler(
     private val reader: RepositoryReader,
     private val verifier: GitHubWebhookVerifier,
     private val contentsMapper: RepositoryContentsMapper,
+    private val pipelines: WorkflowPipelines,
+    private val resolver: DependencyResolver,
+    private val publishedPackages: PublishedPackageIndex,
     private val properties: GitHubProperties,
 ) {
     /** Null when the event says nothing this graph records. */
@@ -75,11 +80,29 @@ class GitHubWebhookHandler(
             ?.let { client.repository(org, it) }
             ?.let { repo ->
                 val read = reader.read(org, repo)
-                // A dependency on one of our own packages needs every repository read to resolve,
-                // which a webhook has not done. It is left to the next scheduled run.
-                if (read.pending.isNotEmpty()) LogEvents.githubDependenciesDeferred(read.pending.size)
-                read.delta
+                read.delta + dependencies(read)
             }
+
+    /**
+     * The dependencies of the one repository a webhook read, resolved against what the graph already
+     * knows repositories publish (#86, FR-4). One named like something this organisation publishes
+     * that nothing is known to publish yet is left to the next scheduled run, which reads them all,
+     * rather than recorded as a third-party library.
+     */
+    private fun dependencies(read: RepositoryRead): GraphDelta {
+        val key = read.key
+        if (read.dependencies.isEmpty() || key == null) return GraphDelta()
+        val own = if (!read.fork || properties.manifests.resolveToForks) read.publishes.map { it to key } else emptyList()
+        val publishers =
+            PackagePublishers.combine(
+                run = PackagePublishers.of(own),
+                graph = PackagePublishers.fromGraph(publishedPackages.publishedPackages(properties.manifests.resolveToForks)),
+                readInRun = setOf(key),
+            )
+        val resolution = resolver.resolve(read.dependencies, publishers, deferUnresolvedInternal = true)
+        if (resolution.deferred > 0) LogEvents.githubDependenciesDeferred(resolution.deferred)
+        return resolution.delta
+    }
 
     /**
      * Whether a push changed a file the graph reads.
@@ -98,7 +121,9 @@ class GitHubWebhookHandler(
             .asSequence()
             .flatMap { commit -> CHANGE_FIELDS.asSequence().flatMap { commit.path(it).asSequence() } }
             .map { it.asText() }
-            .any { path -> contentsMapper.isInteresting(path) || path.substringAfterLast('/') == CODEOWNERS }
+            .any { path ->
+                contentsMapper.isInteresting(path) || pipelines.isWorkflow(path) || path.substringAfterLast('/') == CODEOWNERS
+            }
     }
 
     /**

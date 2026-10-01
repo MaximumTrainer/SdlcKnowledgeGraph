@@ -24,6 +24,10 @@ Feature: A read-only deployment refuses every write
       | POST   | /api/v1/lifecycle/archive          |
       | POST   | /api/v1/lifecycle/migrations/apply |
       | POST   | /api/v1/nodes/Team/platform/merge  |
+      # #86. A connector's run is started by the scheduler, never by a request, on an instance nobody
+      # may write to through its API: asking for one, or pushing a webhook at one, is a write.
+      | POST   | /api/v1/connectors/github/sync     |
+      | POST   | /api/v1/webhooks/github            |
 
   Scenario: A refused write leaves nothing behind
     When I send a POST to "/api/v1/nodes/Team"

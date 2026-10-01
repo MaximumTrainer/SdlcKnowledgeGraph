@@ -26,18 +26,35 @@ class GitHubRepositoryMapper(
     /** The key this repository will be stored under, for an edge that has to name it. */
     fun keyOf(repo: GitHubRepo): NodeKey = identityResolver.keyFor(REPOSITORY, mapOf("url" to repo.htmlUrl))
 
+    /** The key of a repository GitHub names by its web address, such as a fork's upstream. */
+    fun keyOfUrl(htmlUrl: String): NodeKey = identityResolver.keyFor(REPOSITORY, mapOf("url" to htmlUrl))
+
+    /**
+     * @param forkOf the repository this one was forked from (#86, FR-7), when it is a fork and GitHub
+     *   said of what
+     */
     fun map(
         repo: GitHubRepo,
         codeowners: Codeowners,
         publishes: List<String> = emptyList(),
+        forkOf: NodeKey? = null,
     ): GraphDelta {
-        val props = repositoryProps(repo, codeowners, publishes)
+        val props = repositoryProps(repo, codeowners, publishes, forkOf)
         val repositoryKey = identityResolver.keyFor(REPOSITORY, props)
         val host = hostOf(repo.htmlUrl)
+        // Where the ownership was stated: the CODEOWNERS file, in the repository GitHub named.
+        val codeownersSource = "${repo.fullName}:${codeowners.path ?: CODEOWNERS}"
 
         val teams =
             codeowners.teams.map { owner ->
-                owner to NodeUpsert(type = TEAM, props = mapOf("name" to "$host/${owner.slug}"), observedAt = repo.pushedAt)
+                owner to
+                    NodeUpsert(
+                        type = TEAM,
+                        props = mapOf("name" to "$host/${owner.slug}"),
+                        observedAt = repo.pushedAt,
+                        // GitHub's own name for the team, org/slug, which is how its API addresses it.
+                        sourceId = owner.slug,
+                    )
             }
 
         return GraphDelta(
@@ -62,6 +79,7 @@ class GitHubRepositoryMapper(
                         // the claim rests on rather than only that somebody made it.
                         props = mapOf("pathPatterns" to owner.patterns),
                         observedAt = repo.pushedAt,
+                        sourceId = codeownersSource,
                     )
                 },
             // Archived is GitHub saying "this is over" without deleting it, which is exactly what a
@@ -81,6 +99,7 @@ class GitHubRepositoryMapper(
         repo: GitHubRepo,
         codeowners: Codeowners,
         publishes: List<String>,
+        forkOf: NodeKey?,
     ): Map<String, Any?> =
         buildMap {
             put("url", repo.htmlUrl)
@@ -93,6 +112,8 @@ class GitHubRepositoryMapper(
             // Only when something actually said so. An empty list would claim this repository
             // publishes nothing, which is a different statement from not having looked.
             if (publishes.isNotEmpty()) put("packageNames", publishes.distinct())
+            // Left out rather than null for a repository that is not a fork, for the same reason.
+            forkOf?.let { put("forkOf", it.key) }
         }
 
     /**
@@ -109,5 +130,6 @@ class GitHubRepositoryMapper(
         const val OWNED_BY = "OWNED_BY"
         const val DEFAULT_BRANCH = "main"
         const val DEFAULT_HOST = "github.com"
+        const val CODEOWNERS = "CODEOWNERS"
     }
 }

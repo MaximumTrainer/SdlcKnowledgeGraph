@@ -65,6 +65,26 @@ class GitHubClientIT {
     }
 
     @Test
+    fun `reads a user account's repositories when the owner is not an organisation`() {
+        val all = (1..PAGED_TOTAL).map { FakeRepo(name = "repo-$it") }
+        github.hasRepositories(ORG, all.take(PAGE_SIZE), all.drop(PAGE_SIZE), userAccount = true)
+
+        val read = client.repositories(ORG).toList()
+
+        // GitHub answers 404 for a user asked about as an organisation; the user's own listing is the
+        // same shape and pages the same way.
+        assertThat(read).hasSize(PAGED_TOTAL)
+        assertThat(read.map { it.fullName }).contains("acme/repo-1", "acme/repo-$PAGED_TOTAL")
+    }
+
+    @Test
+    fun `an owner that is neither an organisation nor a user is still a refusal`() {
+        assertThatThrownBy { client.repositories(ORG).toList() }
+            .isInstanceOf(GitHubRefusedException::class.java)
+            .hasMessageContaining("/users/$ORG/repos")
+    }
+
+    @Test
     fun `reads the fields the mapper needs`() {
         github.hasRepositories(
             ORG,

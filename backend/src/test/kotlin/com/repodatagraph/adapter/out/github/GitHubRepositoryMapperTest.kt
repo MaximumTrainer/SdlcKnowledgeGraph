@@ -137,4 +137,43 @@ class GitHubRepositoryMapperTest {
         assertThat(node.props).containsEntry("topics", emptyList<String>())
         assertThat(node.observedAt).isNull()
     }
+
+    @Test
+    fun `records what a fork was forked from (#86, FR-7)`() {
+        val fork = payments.copy(fork = true)
+
+        val node = mapper.map(fork, Codeowners.NONE, forkOf = NodeKey("Repository", "github.com/upstream/payments")).nodes.single()
+
+        assertThat(node.props).containsEntry("forkOf", "github.com/upstream/payments")
+    }
+
+    @Test
+    fun `claims nothing about forking for a repository that is not a fork`() {
+        assertThat(
+            mapper
+                .map(payments, Codeowners.NONE)
+                .nodes
+                .single()
+                .props,
+        ).doesNotContainKey("forkOf")
+    }
+
+    @Test
+    fun `names where each team and ownership came from in GitHub (#86, FR-5)`() {
+        val delta =
+            mapper.map(
+                payments,
+                Codeowners(
+                    handles = listOf("@acme/platform-team"),
+                    teams = listOf(TeamOwnership("acme/platform-team", listOf("*"))),
+                    path = ".github/CODEOWNERS",
+                ),
+            )
+
+        assertThat(delta.nodes.single { it.type == "Team" }.sourceId).isEqualTo("acme/platform-team")
+        assertThat(delta.nodes.single { it.type == "Team" }.observedAt).isEqualTo(Instant.parse("2026-09-01T10:00:00Z"))
+        val edge = delta.edges.single()
+        assertThat(edge.sourceId).isEqualTo("acme/Payments:.github/CODEOWNERS")
+        assertThat(edge.observedAt).isEqualTo(Instant.parse("2026-09-01T10:00:00Z"))
+    }
 }

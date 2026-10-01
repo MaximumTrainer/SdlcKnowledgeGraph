@@ -21,10 +21,12 @@ data class TeamOwnership(
  *
  * @param handles every owner, as the file spells them: `@person`, `@org/team` or an email address
  * @param teams the subset that are teams, each with the paths it was named against
+ * @param path where in the repository the file was read from, for the evidence an edge names (#86)
  */
 data class Codeowners(
     val handles: List<String> = emptyList(),
     val teams: List<TeamOwnership> = emptyList(),
+    val path: String? = null,
 ) {
     companion object {
         /** No CODEOWNERS, or one that assigns nothing. Not the same as "nobody owns this". */

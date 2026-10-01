@@ -326,9 +326,12 @@
           },
           "syncing" : {
             "type" : "boolean"
+          },
+          "version" : {
+            "type" : "string"
           }
         },
-        "required" : [ "capabilities", "edgeTypes", "enabled", "freshness", "health", "name", "nodeTypes", "sourceSystem", "state", "syncing" ],
+        "required" : [ "capabilities", "edgeTypes", "enabled", "freshness", "health", "name", "nodeTypes", "sourceSystem", "state", "syncing", "version" ],
         "type" : "object"
       },
       "ConnectorStateView" : {
@@ -393,9 +396,12 @@
           },
           "syncing" : {
             "type" : "boolean"
+          },
+          "version" : {
+            "type" : "string"
           }
         },
-        "required" : [ "capabilities", "enabled", "freshness", "health", "name", "sourceSystem", "syncing" ],
+        "required" : [ "capabilities", "enabled", "freshness", "health", "name", "sourceSystem", "syncing", "version" ],
         "type" : "object"
       },
       "ContextPackEdgeResponse" : {
@@ -2065,6 +2071,9 @@
           "connector" : {
             "type" : "string"
           },
+          "connectorVersion" : {
+            "type" : [ "string", "null" ]
+          },
           "details" : {
             "additionalProperties" : { },
             "type" : "object"
@@ -2079,6 +2088,10 @@
           },
           "error" : {
             "type" : [ "string", "null" ]
+          },
+          "failed" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
           },
           "finishedAt" : {
             "type" : [ "string", "null" ]
@@ -2109,8 +2122,16 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "unchanged" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
           "watermark" : {
             "type" : [ "string", "null" ]
+          },
+          "written" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
           }
         },
         "required" : [ "connector", "details", "edgesUpserted", "id", "nodesUpserted", "tombstones" ],
@@ -2149,6 +2170,9 @@
           "connector" : {
             "type" : "string"
           },
+          "connectorVersion" : {
+            "type" : [ "string", "null" ]
+          },
           "durationMs" : {
             "format" : "int64",
             "type" : [ "integer", "null" ]
@@ -2159,6 +2183,10 @@
           },
           "error" : {
             "type" : [ "string", "null" ]
+          },
+          "failed" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
           },
           "finishedAt" : {
             "type" : [ "string", "null" ]
@@ -2185,6 +2213,14 @@
           "tombstones" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "unchanged" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "written" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
           }
         },
         "required" : [ "connector", "edgesUpserted", "id", "nodesUpserted", "tombstones" ],

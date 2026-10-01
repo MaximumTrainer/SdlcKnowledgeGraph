@@ -16,8 +16,11 @@ is set up and operated is [fly/README.md](https://github.com/MaximumTrainer/Sdlc
 | This repository, a team per `CODEOWNERS` owner, a pipeline per workflow with its last run, and the repositories it depends on by git remote | The daily seed, `scripts/dogfood-seed.mjs` ([Adapters](/guide/adapters#seeding-this-repository-on-the-dogfood-instance)) | `dogfood-seed` |
 | Each deployment of the instance itself: which images, from which commit, and whether it worked | The deploy, `scripts/deployment-report.mjs` ([Adapters](/guide/adapters#self-ingestion-deployments-from-the-pipeline)) | `github-actions` |
 
-The seed stands in for the GitHub connector ([#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23)), which replaces it. Both need the
-`INGEST_TOKEN` secret on the `dogfood` environment; without it, neither writes and both say so.
+The seed stands in for the GitHub connector ([#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23), [#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86)), which
+now reads everything the seed does and is off here until it is given an owner and a token
+([Adapters](/guide/adapters#running-the-github-connector-on-the-dogfood-instance)); its facts carry
+`sourceSystem=github`. The seed and the deploy report need the `INGEST_TOKEN` secret on the `dogfood`
+environment; without it, neither writes and both say so.
 
 ## It watches itself
 

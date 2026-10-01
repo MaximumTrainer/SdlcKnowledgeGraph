@@ -2,6 +2,7 @@ package com.repodatagraph.application.connector
 
 import com.repodatagraph.domain.port.out.connector.Capability
 import com.repodatagraph.domain.port.out.connector.GraphDelta
+import com.repodatagraph.domain.port.out.connector.PartialReadException
 import com.repodatagraph.domain.port.out.connector.SyncMode
 import com.repodatagraph.domain.port.out.connector.SyncRequest
 import com.repodatagraph.domain.port.out.connector.WebhookEvent
@@ -120,6 +121,8 @@ class SyncService(
 
         data class Failed(
             val message: String?,
+            /** Each item the connector named as unreadable, or 1 when it named none. */
+            val items: Int = 1,
         ) : PageStep
     }
 
@@ -144,7 +147,7 @@ class SyncService(
             ) {
                 LogEvents.connectorRunFailed(name, runId, failure)
                 metrics.error(name, SyncErrorKind.RUN)
-                RunOutcome(RunStatus.FAILED, error = failure.message)
+                RunOutcome(RunStatus.FAILED, totals = DeltaResult(failed = 1), error = failure.message)
             } finally {
                 running.remove(name)
             }
@@ -189,6 +192,7 @@ class SyncService(
                 is PageStep.Failed -> {
                     partial = true
                     error = step.message
+                    totals += DeltaResult(failed = step.items)
                     finished = true
                 }
                 is PageStep.Next -> {
@@ -197,6 +201,7 @@ class SyncService(
                     pageIndex++
                     if (applied == null) {
                         partial = true
+                        totals += DeltaResult(failed = 1)
                     } else {
                         LogEvents.syncPage(registered.name, runId, pageIndex, applied.nodesUpserted, applied.edgesUpserted)
                         totals += applied
@@ -235,7 +240,7 @@ class SyncService(
         ) {
             LogEvents.connectorPageFailed(name, runId, failure)
             metrics.error(name, SyncErrorKind.PAGE)
-            PageStep.Failed(failure.message)
+            PageStep.Failed(failure.message, (failure as? PartialReadException)?.failures?.size?.coerceAtLeast(1) ?: 1)
         }
 
     /**
@@ -289,7 +294,7 @@ class SyncService(
                     registered,
                     SyncMode.WEBHOOK,
                     RunStatus.FAILED,
-                    DeltaResult(),
+                    DeltaResult(failed = 1),
                     null,
                     failure.message,
                     deliveryId,

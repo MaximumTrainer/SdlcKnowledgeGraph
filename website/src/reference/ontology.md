@@ -4,7 +4,7 @@
 # Ontology reference
 
 Every type the graph may contain, as declared by the registry. This page describes ontology
-**v1.6.0**. It is generated, so a type added to the registry appears here without
+**v1.7.0**. It is generated, so a type added to the registry appears here without
 anyone writing a page for it.
 
 ## Node types
@@ -35,6 +35,7 @@ Answers:
 | `description` | `string` | no | The one-line description the forge shows for it | `Card payments and refunds` |
 | `visibility` | `string`, one of `public`, `private`, `internal` | no | Who may read it, as the forge reports it | `private` |
 | `packageNames` | `string[]` | no | Package names this repository publishes | `["@acme/payments-client"]` |
+| `forkOf` | `string` | no | Key of the repository this one was forked from, where it is a fork | `github.com/upstream/payments` |
 | `provider` | `string`, one of `github`, `gitlab`, `other` | no | Who assigns providerId. Derived from url on github.com and gitlab.com | `github` |
 | `providerId` | `string` | no | The provider's stable id for the repository, such as GitHub's numeric repository id | `123456789` |
 
@@ -561,6 +562,10 @@ Identity: `id`
 | `nodesUpserted` | `int` | no | Nodes the run created or updated | `42` |
 | `edgesUpserted` | `int` | no | Edges the run created or updated | `57` |
 | `tombstones` | `int` | no | Facts this run closed because the source stopped reporting them | `0` |
+| `written` | `int` | no | Nodes and edges the run created or changed | `12` |
+| `unchanged` | `int` | no | Nodes and edges the run stated again exactly as the graph held them | `87` |
+| `failed` | `int` | no | Items the run could not read or write: each one its connector named, each page | `1` |
+| `connectorVersion` | `string` | no | Version of the connector that ran, as its descriptor declares it | `2.0.0` |
 | `watermark` | `instant` | no | Where the next incremental run should start | `2026-09-30T12:00:00Z` |
 | `error` | `string` | no | Why the run failed or partly failed, where it did | `GitHub returned 502 for acme/payments` |
 

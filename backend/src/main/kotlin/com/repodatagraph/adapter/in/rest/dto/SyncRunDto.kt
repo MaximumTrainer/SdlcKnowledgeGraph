@@ -26,6 +26,14 @@ data class SyncRunSummary(
     val edgesUpserted: Int,
     val tombstones: Int,
     val error: String?,
+    /** What the run created or changed (#86); null for a run recorded before this was counted. */
+    val written: Int?,
+    /** What the run stated again exactly as the graph held it. */
+    val unchanged: Int?,
+    /** What the run could not read or write. */
+    val failed: Int?,
+    /** The version of the connector that ran. */
+    val connectorVersion: String?,
 ) {
     companion object {
         const val ERROR_SNIPPET = 200
@@ -44,6 +52,10 @@ data class SyncRunSummary(
                 edgesUpserted = run.edgesUpserted,
                 tombstones = run.tombstones,
                 error = run.error?.let(::snippet),
+                written = run.written,
+                unchanged = run.unchanged,
+                failed = run.failed,
+                connectorVersion = run.connectorVersion,
             )
 
         private fun snippet(error: String): String = if (error.length <= ERROR_SNIPPET) error else error.take(ERROR_SNIPPET - 1) + "…"
@@ -100,6 +112,10 @@ data class SyncRunDetail(
     val sourceId: String?,
     val error: String?,
     val details: Map<String, Any?>,
+    val written: Int?,
+    val unchanged: Int?,
+    val failed: Int?,
+    val connectorVersion: String?,
 ) {
     companion object {
         fun from(run: SyncRun) =
@@ -119,6 +135,10 @@ data class SyncRunDetail(
                 sourceId = run.sourceId,
                 error = run.error,
                 details = run.details,
+                written = run.written,
+                unchanged = run.unchanged,
+                failed = run.failed,
+                connectorVersion = run.connectorVersion,
             )
     }
 }

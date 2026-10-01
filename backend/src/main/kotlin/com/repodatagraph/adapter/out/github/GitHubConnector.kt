@@ -25,9 +25,7 @@ import java.time.Instant
 class GitHubConnector(
     private val properties: GitHubProperties,
     private val client: GitHubClient,
-    private val mapper: GitHubRepositoryMapper,
-    private val contentsMapper: RepositoryContentsMapper,
-    private val reader: RepositoryReader,
+    private val sessions: GitHubSyncSessions,
     private val webhooks: GitHubWebhookHandler,
     private val webhookVerifier: GitHubWebhookVerifier,
     private val clock: Clock,
@@ -36,10 +34,11 @@ class GitHubConnector(
         ConnectorDescriptor(
             name = NAME,
             sourceSystem = NAME,
-            nodeTypes = setOf("Repository", "Team", "Library", "IacFile"),
-            edgeTypes = setOf("OWNED_BY", "DEPENDS_ON", "CONTAINS_IAC"),
+            nodeTypes = setOf("Repository", "Team", "Library", "IacFile", "Pipeline"),
+            edgeTypes = setOf("OWNED_BY", "DEPENDS_ON", "CONTAINS_IAC", "HAS_PIPELINE"),
             capabilities =
                 setOf(Capability.FULL, Capability.INCREMENTAL, Capability.WEBHOOK, Capability.DISCOVERY),
+            version = VERSION,
         )
 
     override fun healthCheck(): HealthStatus =
@@ -64,15 +63,7 @@ class GitHubConnector(
      */
     override fun sync(request: SyncRequest): Sequence<GraphDelta> {
         require(properties.isConfigured()) { UNCONFIGURED }
-        return GitHubSyncSession(
-            client = client,
-            reader = reader,
-            repositoryMapper = mapper,
-            contentsMapper = contentsMapper,
-            properties = properties,
-            since = request.since,
-            watermark = Instant.now(clock),
-        ).deltas()
+        return sessions.open(since = request.since, watermark = Instant.now(clock)).deltas()
     }
 
     override fun verifyWebhook(
@@ -84,8 +75,14 @@ class GitHubConnector(
 
     override fun deliveryId(event: WebhookEvent): String? = webhookVerifier.deliveryId(event)
 
-    private companion object {
-        const val NAME = "github"
-        const val UNCONFIGURED = "connectors.github needs at least one org and a token before it can read anything"
+    companion object {
+        /**
+         * The version of what this connector writes for a given estate, recorded on every run (#86,
+         * FR-6). 2.0.0 added pipelines, forks, sourceIds on every fact and resolution by what a
+         * repository publishes rather than by a configured prefix.
+         */
+        const val VERSION = "2.0.0"
+        private const val NAME = "github"
+        private const val UNCONFIGURED = "connectors.github needs at least one org and a token before it can read anything"
     }
 }

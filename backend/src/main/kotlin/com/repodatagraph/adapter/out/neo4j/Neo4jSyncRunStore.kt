@@ -156,6 +156,10 @@ class Neo4jSyncRunStore(
             watermark = ProvenanceMapper.instant(props["watermark"]),
             sourceId = props["sourceId"]?.toString(),
             error = props["error"]?.toString(),
+            written = (props["written"] as? Number)?.toInt(),
+            unchanged = (props["unchanged"] as? Number)?.toInt(),
+            failed = (props["failed"] as? Number)?.toInt(),
+            connectorVersion = props["connectorVersion"]?.toString(),
         )
     }
 

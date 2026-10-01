@@ -65,6 +65,7 @@ class ConnectorControllerTest {
                 nodeTypes = emptySet(),
                 edgeTypes = emptySet(),
                 capabilities = setOf(Capability.FULL),
+                version = "2.1.0",
             ),
         )
         whenever(connector.healthCheck()).thenReturn(HealthStatus.up("scripted"))
@@ -141,5 +142,22 @@ class ConnectorControllerTest {
             .andExpect(jsonPath("$.state.lastSuccessAt").value("2026-09-29T09:00:00Z"))
             .andExpect(jsonPath("$.state.consecutiveFailures").value(2))
             .andExpect(jsonPath("$.freshness.stale").value(false))
+    }
+
+    @Test
+    fun `each connector says which version of itself is running (#86)`() {
+        val registered = registered()
+        whenever(freshness.of(registered)).thenReturn(
+            ConnectorFreshness(lastSuccessAt = null, age = null, threshold = Duration.ofHours(2), stale = false),
+        )
+
+        mockMvc
+            .perform(get("/api/v1/connectors"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].version").value("2.1.0"))
+        mockMvc
+            .perform(get("/api/v1/connectors/fake"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.version").value("2.1.0"))
     }
 }

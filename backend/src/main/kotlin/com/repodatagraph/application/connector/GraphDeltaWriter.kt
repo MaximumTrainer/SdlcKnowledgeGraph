@@ -19,17 +19,30 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Instant
 
-/** What one page of a delta changed. */
+/**
+ * What one page of a delta changed, or a whole run once its pages are added up.
+ *
+ * [nodesUpserted] and [edgesUpserted] count every fact asserted, as they always have. [written] and
+ * [unchanged] split the same facts by whether the graph moved (#86, FR-6): a fact stated again exactly
+ * as it is held is still asserted, and is unchanged. [failed] counts what could not be read or
+ * written, which a writer never sets; the run adds it.
+ */
 data class DeltaResult(
     val nodesUpserted: Int = 0,
     val edgesUpserted: Int = 0,
     val tombstones: Int = 0,
+    val written: Int = 0,
+    val unchanged: Int = 0,
+    val failed: Int = 0,
 ) {
     operator fun plus(other: DeltaResult) =
         DeltaResult(
             nodesUpserted + other.nodesUpserted,
             edgesUpserted + other.edgesUpserted,
             tombstones + other.tombstones,
+            written + other.written,
+            unchanged + other.unchanged,
+            failed + other.failed,
         )
 }
 
@@ -61,11 +74,11 @@ class GraphDeltaWriter(
     ): DeltaResult {
         val now = Instant.now(clock)
 
-        val nodes =
-            delta.nodes.map { upsert ->
+        val nodesUnchanged =
+            delta.nodes.count { upsert ->
                 val props = derivedProperties.expand(upsert.type, upsert.props)
                 val key = identityResolver.keyFor(upsert.type, props)
-                write(
+                val node =
                     GraphNode(
                         key = key,
                         props = props,
@@ -79,38 +92,64 @@ class GraphDeltaWriter(
                                 confidence = upsert.confidence,
                                 inferred = upsert.inferred,
                             ),
-                    ),
-                )
+                    )
+                // Asked before the write, which is still made: the source stating a fact again is
+                // what keeps it fresh (#93) and out of reconciliation's way (#150).
+                val unchanged = unchangedNode(node)
+                write(node)
                 // The run that asserted a fact, as an edge as well as a property: "show me everything
                 // that run wrote" is then one traversal rather than a scan over every node.
                 linkToRun(syncRunId, key, descriptor, now)
-                key
+                unchanged
             }
 
-        delta.edges.forEach { upsert ->
-            graphStore.upsertEdge(
-                GraphEdge(
-                    type = upsert.type,
-                    from = upsert.from,
-                    to = upsert.to,
-                    props = upsert.props,
-                    provenance =
-                        provenance(
-                            descriptor = descriptor,
-                            syncRunId = syncRunId,
-                            now = now,
-                            observedAt = upsert.observedAt,
-                            sourceId = null,
-                            confidence = upsert.confidence,
-                            inferred = upsert.inferred,
-                        ),
-                ),
-            )
-        }
+        val edgesUnchanged =
+            delta.edges.count { upsert ->
+                val edge =
+                    GraphEdge(
+                        type = upsert.type,
+                        from = upsert.from,
+                        to = upsert.to,
+                        props = upsert.props,
+                        provenance =
+                            provenance(
+                                descriptor = descriptor,
+                                syncRunId = syncRunId,
+                                now = now,
+                                observedAt = upsert.observedAt,
+                                sourceId = upsert.sourceId,
+                                confidence = upsert.confidence,
+                                inferred = upsert.inferred,
+                            ),
+                    )
+                val unchanged = unchangedEdge(edge)
+                graphStore.upsertEdge(edge)
+                unchanged
+            }
 
         val closed = delta.tombstones.count { close(it, now) }
+        val unchanged = nodesUnchanged + edgesUnchanged
 
-        return DeltaResult(nodes.size, delta.edges.size, closed)
+        return DeltaResult(
+            nodesUpserted = delta.nodes.size,
+            edgesUpserted = delta.edges.size,
+            tombstones = closed,
+            written = delta.nodes.size + delta.edges.size - unchanged,
+            unchanged = unchanged,
+        )
+    }
+
+    /** Whether the graph already holds [node] as it is about to be written (#86, FR-6). */
+    private fun unchangedNode(node: GraphNode): Boolean {
+        val declared = registry.nodeType(node.type)?.properties?.map { it.name }
+        val held = declared?.let { graphStore.findNode(node.key) }
+        return held != null && sameFact(held.props, held.provenance, node.props, node.provenance, declared)
+    }
+
+    private fun unchangedEdge(edge: GraphEdge): Boolean {
+        val declared = registry.edgeType(edge.type)?.properties?.map { it.name }
+        val held = declared?.let { graphStore.findEdge(edge.type, edge.from, edge.to) }
+        return held != null && sameFact(held.props, held.provenance, edge.props, edge.provenance, declared)
     }
 
     /**
