@@ -56,6 +56,18 @@ describe('refusalReason', () => {
     )
   })
 
+  it('names the rule that refused a request for a reason other than a scope (#30, #95)', () => {
+    expect(
+      refusalReason({
+        error: 'policy denied',
+        policy: 'roles',
+        reason: 'the role viewer may not update Repository'
+      })
+    ).toBe(
+      'You do not have permission to do that: the roles policy refused it, as the role viewer may not update Repository.'
+    )
+  })
+
   it('leaves every other refusal to the page that got it', () => {
     expect(refusalReason({ error: 'node exists' })).toBeNull()
     expect(refusalReason(undefined)).toBeNull()
