@@ -171,6 +171,19 @@ the connector's `details` as JSON. **Re-run** there asks that connector for anot
 the run was a full one and incrementally otherwise, and the new run appears at the top of the list.
 On a [read-only instance](#read-only-instances) the button is disabled and says why.
 
+The web interface does not show them yet, but every run also records what it **wrote** (created
+or changed), what it left **unchanged** (stated again exactly as the graph held it), what **failed**
+(could not be read or written) and the **connector version** that ran. `GET /api/v1/sync-runs` and
+`GET /api/v1/sync-runs/{id}` return them as `written`, `unchanged`, `failed` and `connectorVersion`,
+so a scheduled run over an estate that did not move can be seen to have written nothing
+([Adapters](/guide/adapters#what-a-run-records)).
+
+The GitHub connector fills in repositories, the teams their CODEOWNERS name, a pipeline per
+workflow file and the dependencies their manifests declare. A dependency on a package another
+repository publishes points at that repository and is drawn dashed, as an inference; one on a
+third-party package points at a library. A fork shows what it was forked from as `forkOf`
+([Adapters](/guide/adapters#the-github-connector)).
+
 ### The graph view
 
 **Graph** in the header, or **View in graph** on any node's page, draws a node's neighbourhood

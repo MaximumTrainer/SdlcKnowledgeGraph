@@ -422,6 +422,13 @@ provide several services, each from a directory of its own
 ([#98](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/98)). `OWNS_RESOURCE` accepts `rule`, which link rule
 proposed it, and `BUILT_FROM` accepts `commitSha`.
 
+The GitHub connector writes a dependency on a package another repository in the graph publishes
+(`Repository.packageNames`) as `DEPENDS_ON {kind: library}` to that repository, marked
+`inferred: true` at confidence 0.9, with the `manifest` it was read from; a fork, which records the
+repository it was forked from in `forkOf`, is never the far end of one
+([#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86),
+[ADR-0017](adr/0017-github-connector-resolves-by-what-repositories-publish.md)).
+
 A `CANDIDATE_LINK` relationship, for connections the planned link resolution engine is not confident
 enough to assert, is described in [ADAPTERS.md](ADAPTERS.md) and will be added to the registry with
 that engine ([#28](../../issues/28)).
@@ -1245,6 +1252,12 @@ version-only node by its key, not by that property.
 1.6.0 ([#96](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/96)) added `templates.yaml`,
 the traversal templates of [context packs](#context-packs-the-subgraph-a-task-needs), and let
 `DEPENDS_ON` end at a CloudResource. It is a minor bump and ships no migration.
+
+1.7.0 ([#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86)) added Repository's
+`forkOf`, the key of the repository a fork was forked from, and on `SyncRun` the counts `written`,
+`unchanged` and `failed` and the `connectorVersion` that ran
+([ADAPTERS.md](ADAPTERS.md#what-a-run-records)). It is a minor bump and ships no migration: a run
+recorded before it reads the four as unknown, not as zero.
 
 ### Migrations
 

@@ -12,7 +12,9 @@ graph stops being a hand-maintained diagram and starts reflecting reality.
 > [#23](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/23) added the GitHub connector: repositories, their topics, team ownership read
 > from CODEOWNERS, the dependencies declared in seven manifest formats, and an index of
 > infrastructure-as-code files, and webhooks for near-real-time change (see
-> [below](#the-github-connector)). [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) added ServiceNow: configuration items,
+> [below](#the-github-connector)). [#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86) completed it: a pipeline per workflow,
+> dependencies resolved to whichever repository publishes the package, forks, a `sourceId` on every
+> fact, and runs that count what they wrote, left unchanged and could not read. [#24](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/24) added ServiceNow: configuration items,
 > CMDB relationships, changes and incidents (see [below](#the-servicenow-connector)), and with it the
 > `ItsmConnector` shape that Jira Service Management ([#35](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/35)) will reuse. The clouds
 > are still to come - AWS [#25](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/25) - as is link resolution
@@ -112,7 +114,7 @@ Operational endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/connectors` | List connectors, capabilities, health, last run and [freshness](#freshness) |
+| `GET /api/v1/connectors` | List connectors, their `version`, capabilities, health, last run and [freshness](#freshness) |
 | `GET /api/v1/connectors/{name}` | One connector, with what `ConnectorState` remembers and its freshness |
 | `POST /api/v1/connectors/{name}/sync?mode=full\|incremental` | Trigger a run |
 | `GET /api/v1/connectors/{name}/runs` | Recent `SyncRun` history of one connector |
@@ -367,7 +369,16 @@ The first connector on the SPI, and the one the others are modelled on.
 | `GET /orgs/{org}/repos`, every page | a `Repository` per repository, keyed on its remote |
 | each repository's `topics` | `topics` on that node |
 | `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` | a `Team` per owning team, and an `OWNED_BY` edge carrying the patterns it was named against |
+| each file directly under `.github/workflows/` ending `.yml` or `.yaml`, from the branch listing | a `Pipeline` keyed `github-actions:<repoKey>:<workflowPath>`, and a `HAS_PIPELINE` edge ([#86](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/86)) |
+| the manifests (`package.json`, `build.gradle(.kts)`, `pom.xml`, `go.mod`, `requirements.txt`, `pyproject.toml`, and lockfiles when asked) | `DEPENDS_ON {kind: library, manifest}` to the `Repository` that publishes the package, inferred at 0.9, or else to a `Library` |
+| `fork`, and a fork's own `parent` | `forkOf` on the repository: the key of what it was forked from |
 | `archived` | a tombstone, closing the repository's validity |
+
+Every node and edge it writes has `sourceSystem: github`, a `sourceId` saying where in GitHub it
+was stated - the repository's node id, a team's `org/slug`, `org/repo:path` for a file, a
+manifest or a workflow, `ecosystem:name` for a library - and `observedAt` from GitHub's `pushed_at`.
+What GitHub reports is recorded at confidence 1.0; a dependency resolved to a repository is
+`inferred: true` at 0.9.
 
 Several decisions in it are worth knowing about.
 
@@ -405,12 +416,18 @@ the one question it answers better.
 "somebody's test uses it" answers "what is affected by this CVE" with a list twice as long as the
 truth, which is the same as answering nothing.
 
-**A dependency on our own package is marked as the guess it is.** `@acme/billing` resolves to the
-repository that publishes `@acme/billing` — matched by package name, held back until every repository
-in the run has been read, and recorded at confidence 0.9 with `inferred: true`. It rests on a naming
-convention, not on anything GitHub said, and a reviewer has to be able to tell it from a dependency
-read straight out of a file. A name that matches the prefix but nothing in the org becomes an
-ordinary `Library` after all, rather than being dropped.
+**A dependency on a package a repository publishes is marked as the guess it is.** Every dependency
+is held back until every repository in the run has been read, then resolved to the repository that
+publishes that package name (`Repository.packageNames`, from its own manifest) - by what this run
+read and, for repositories it did not read, by what the graph already holds - and recorded at
+confidence 0.9 with `inferred: true`, its `manifest` naming the file (#86). It rests on a name
+matching, not on anything GitHub said, and a reviewer has to be able to tell it from a dependency
+read straight out of a file. No prefix is needed for this; a name nothing publishes becomes an
+ordinary `Library`, and a name two repositories publish resolves to neither. A fork carries its
+upstream's manifest, so it is never what a dependency resolves to unless
+`manifests.resolve-to-forks` says so. Nothing is inferred beyond what a manifest states outright:
+that is the link engine's ([#28](https://github.com/MaximumTrainer/SdlcKnowledgeGraph/issues/28)).
+[ADR-0017](/adr/0017-github-connector-resolves-by-what-repositories-publish) has the reasoning.
 
 **An IaC file is evidence, not infrastructure.** The graph records that a repository contains a file
 claiming a bucket called `acme-payments-receipts` should exist. Whether one does, and whether it is
@@ -438,7 +455,7 @@ same secret as `connectors.settings.github.webhook-secret`, and subscribe to **R
 | Event | What happens |
 | --- | --- |
 | `repository` | the repository is read back from the API and re-recorded; an archived one is closed |
-| `push` to the default branch | only if it touched CODEOWNERS, a manifest or an IaC path — otherwise nothing |
+| `push` to the default branch | only if it touched CODEOWNERS, a manifest, a workflow or an IaC path — otherwise nothing |
 | `team` | the team's name is upserted; membership is not ownership, which comes from CODEOWNERS |
 | anything else | `204`, because the event was genuine and refusing it would have GitHub retrying for ever |
 
@@ -477,12 +494,20 @@ connectors:
     wait-for-reset-seconds: 60          # how long a run will wait out a rate limit before giving up
     manifests:
       enabled: true
-      internal-package-prefixes: ["@acme/", "com.acme"]  # what this organisation publishes under
+      internal-package-prefixes: ["@acme/", "com.acme"]  # a webhook's hint; see below
       include-lockfiles: false          # the transitive closure; see above before turning this on
       max-file-bytes: 1048576           # anything larger is skipped and logged
+      resolve-to-forks: false           # a fork carries its upstream's package names
     iac:
       enabled: true
+    pipelines:
+      enabled: true                     # a Pipeline per .github/workflows file (#86)
 ```
+
+`internal-package-prefixes` no longer decides what resolves to a repository: a scheduled run
+resolves any name a repository publishes. A webhook has read one repository, so a dependency named
+under one of these prefixes that nothing is known to publish yet is left to the next scheduled run
+(`github.dependencies.deferred`) rather than recorded as a library.
 
 The token needs read access to repository metadata and contents, and nothing else — contents only so
 that CODEOWNERS can be read. A connector with no org or no token reports itself `DOWN` with the
@@ -549,7 +574,15 @@ connector's rules, and the web interface's Lifecycle page shows them.
 ### What a run records
 
 `SyncRun` holds the connector, the mode (`FULL`, `INCREMENTAL`, `WEBHOOK`), the counts, the
-watermark and the error if there was one. `ConnectorState` is written after every scheduled or
+watermark and the error if there was one. `nodesUpserted` and `edgesUpserted` count every fact the
+run asserted; `written` and `unchanged` split the same facts by whether the graph moved, so a run
+over an estate that did not change reports `written: 0` (#86). A fact stated again is still written,
+because freshness and reconciliation count from when its source last stated it; only the count says
+nothing moved. `failed` counts what the run could not read or write - each item a connector names,
+such as a repository whose manifest does not parse, each page that could not be written, and a run
+that failed outright as one - and `connectorVersion` is the version the connector's descriptor
+declares (GitHub's is 2.0.0), so a run can be read against the code that produced it. A run
+recorded before these existed reads them as `null`. `ConnectorState` is written after every scheduled or
 manual run, whatever its status: `lastRunId`, `lastRunStatus` (and `lastStatus`, the same value
 under its older name) and `lastFinishedAt` describe that run; `watermark` and `lastSuccessAt` move
 only on a `SUCCESS`; `consecutiveFailures` counts the `PARTIAL` and `FAILED` runs since then and
@@ -576,6 +609,7 @@ FR5). Every filter is optional:
       "id": "0b8f…", "connector": "github", "sourceSystem": "github", "mode": "FULL",
       "status": "PARTIAL", "startedAt": "2026-09-29T09:00:00Z", "finishedAt": "2026-09-29T09:01:30Z",
       "durationMs": 90000, "nodesUpserted": 3, "edgesUpserted": 2, "tombstones": 0,
+      "written": 1, "unchanged": 4, "failed": 1, "connectorVersion": "2.0.0",
       "error": "page 2 failed: …"
     }
   ],
@@ -729,6 +763,12 @@ so seeding again changes properties such as a pipeline's `lastRunStatus` and nev
 same batch twice is one delivery. Every fact has provenance `sourceSystem=dogfood-seed`, so it can be
 told from what the GitHub connector writes once it replaces the seed.
 
+The GitHub connector now reads everything the seed does and more, and its facts carry
+`sourceSystem=github`, so the two can run side by side and the seed can be retired once the
+connector has run;
+[Running the GitHub connector on the dogfood instance](#running-the-github-connector-on-the-dogfood-instance)
+says how.
+
 The writer is `scripts/dogfood-seed.mjs`, run daily and on demand by `.github/workflows/dogfood-seed.yml`.
 It reads the repository, `CODEOWNERS`, each workflow file's latest run on the default branch (its
 conclusion, or its status while it has none, folded onto `success`, `failure`, `cancelled`,
@@ -737,3 +777,30 @@ dependencies in `frontend/package.json` and `backend/build.gradle.kts` that name
 versions and local paths are not repositories, so they are left out. It fails when the instance cannot
 be reached, and when the instance holds more nodes than `SEED_NODE_CEILING` (1000), the cheap sign
 that something else is writing to it.
+
+### Running the GitHub connector on the dogfood instance
+
+The dogfood instance does not run the GitHub connector until someone gives it the three settings
+below; with none of them it runs exactly as before. It is read-only, so it cannot be asked to sync
+and takes no webhooks: the connector runs on its schedule only, as a write the operator configured,
+through the same `GraphDeltaWriter` and provenance as any run
+([ADR-0017](/adr/0017-github-connector-resolves-by-what-repositories-publish#running-it-and-read-only-instances)).
+
+| Setting | Where | Value for this repository |
+| --- | --- | --- |
+| `CONNECTORS_SETTINGS_GITHUB_ENABLED` | `[env]` in `fly/fly.backend.toml` | `"true"` |
+| `GITHUB_ORGS` | `[env]` in `fly/fly.backend.toml` | `"MaximumTrainer"` |
+| `GITHUB_TOKEN` | a fly secret, never a file: `fly secrets set GITHUB_TOKEN=... --app sdlc-graph-backend` | a fine-grained personal access token with read-only **Metadata** and **Contents** on the repositories to read |
+| `CONNECTORS_SETTINGS_GITHUB_SCHEDULE` | `[env]`, optional | a Spring cron; every 15 minutes if unset. `"0 0 */6 * * *"` reads four times a day |
+| `CONNECTORS_SETTINGS_GITHUB_FRESHNESS_THRESHOLD` | `[env]`, optional | an ISO-8601 duration longer than the schedule's gap, such as `"PT12H"` |
+
+`MaximumTrainer` is a user account, not an organisation. GitHub answers 404 for a user asked about
+as an organisation, so the connector then lists the account's own repositories under `/users`
+instead, and GitHub lists only a user's public repositories there. The `config-secrets` guard refuses
+a token in `fly/` or any other deployment configuration, and the connector never logs it.
+
+Once a run has succeeded, `GET /api/v1/sync-runs?connector=github` shows what it wrote, and the
+repository, its `CODEOWNERS` teams, its workflows and its dependencies carry `sourceSystem=github`
+beside the seed's `dogfood-seed`. The seed can then be retired by disabling
+`.github/workflows/dogfood-seed.yml`; what only the seed wrote, such as a pipeline's `lastRunStatus`,
+stays as the seed last wrote it.
