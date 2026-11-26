@@ -46,7 +46,7 @@ dependencies {
     // /actuator/prometheus (#44, FR7). Only the endpoint needs it; the application meters through Micrometer.
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     // One JSON object per log line under the docker profile (#44), so a platform can aggregate the logs.
-    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("org.springframework.boot:spring-boot-starter-data-neo4j")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
     // The API as an OAuth 2 resource server: bearer JWTs from a configured issuer (#114, ADR-0005).
