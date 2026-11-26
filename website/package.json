@@ -19,7 +19,7 @@
     "vitepress": "^1.6.0"
   },
   "overrides": {
-    "vite": "^7.3.6",
+    "vite": "^7.3.8",
     "esbuild": "^0.25.0"
   }
 }
